@@ -54,7 +54,7 @@ static Action action = ACTION_RUN;
 
 void ShowHelp()
 {
-	printf("DAAD Database Utility " VERSION_STR " \n\n");
+	printf("ADP DAAD Database Utility " VERSION_STR " \n\n");
 	printf("Dumps, inspects or runs a game from a DDB file.\n\n");
 	printf("Usage: ddb [action] [options] <input.ddb>\n\n");
 	printf("Actions:\n\n");

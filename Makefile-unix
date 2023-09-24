@@ -1,14 +1,15 @@
 CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION="ALPHA `date +%Y%m%d`"
+CPPFLAGS += -g -DVERSION="BETA 0.1 `date +%Y%m%d`"
+CPPFLAGS += -O2
 
 CPPFLAGS += `libpng-config --cflags`
 CPPFLAGS += `sdl2-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 LDFLAGS += `sdl2-config --libs`
 
-DIRS = src-common/ src-unix/
-VPATH = $(DIRS) src-tools/ src-sdl/
+DIRS = src-common/ 
+VPATH = $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 TOOL_MAIN_SRCS = $(wildcard src-tools/tool_*.cpp)
@@ -16,9 +17,13 @@ TOOL_MAIN_OBJS = $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN
 OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 TOOL_OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(addsuffix .cpp,$(TOOL_SRCS))))
 
+OBJS += obj/unix/files.o
+OBJS += obj/unix/error.o
+UNIX_OBJS = obj/unix/player.o
+
 -include $(OBJS:.o=.d)
 
-all: out/dmg out/chr out/ddb out/dsk
+all: out/dmg out/chr out/ddb out/dsk out/player
 
 out/dmg: $(OBJS) $(TOOL_OBJS) obj/unix/tool_dmg.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
@@ -28,11 +33,13 @@ out/ddb: $(OBJS) obj/unix/tool_ddb.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 out/dsk: $(OBJS) $(TOOL_OBJS) obj/unix/tool_dsk.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
+out/player: $(OBJS) obj/unix/player.o
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f obj/unix/*.o
 
-$(OBJS) : obj/unix/%.o : %.cpp
+$(OBJS) $(UNIX_OBJS) : obj/unix/%.o : %.cpp
 	$(info Compiling $<)
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
 

@@ -57,7 +57,7 @@ bool File_FindNext(FindFileResults *results)
 			break;
 
 		FillFindFileResults(results);
-		printf("File found: %s\n", results->fileName);
+		//printf("File found: %s\n", results->fileName);
 		return true;
 	}
 	closedir(i->dirp);
