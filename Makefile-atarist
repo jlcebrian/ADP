@@ -25,7 +25,6 @@ VPATH = $(DIRS)
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS)))
 
 CPPFILES := 		\
-	ddb_char.cpp 	\
 	ddb_data.cpp	\
 	ddb_inp.cpp		\
 	ddb_pal.cpp		\
@@ -34,9 +33,12 @@ CPPFILES := 		\
 	ddb_vid.cpp		\
 	ddb.cpp			\
 	dmg_cach.cpp	\
+	dmg_cga.cpp	\
+	dmg_ega.cpp	\
 	dmg_imgp.cpp	\
 	dmg_rlec.cpp	\
 	dmg.cpp			\
+	os_char.cpp 	\
 	os_lib.cpp		\
 	os_mem.cpp		\
 	scrfile.cpp		\

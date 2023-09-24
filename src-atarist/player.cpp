@@ -67,7 +67,7 @@ int main (int argc, char *argv[])
 
 	init();
 
-	DMG_GetTemporaryBuffer();
+	DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 
 	if (argc < 2)
 	{
@@ -99,6 +99,10 @@ int main (int argc, char *argv[])
 	
 	quit();
 	return 1;
+}
+
+void OSSyncFS()
+{
 }
 
 #endif

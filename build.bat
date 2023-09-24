@@ -33,7 +33,7 @@ SET EXTENSION=extensions\bartmanabyss.amiga-debug-1.7.4
 SET OPTS=
 IF "%2"=="clean" SET OPTS=clean
 SET PATH=%VSCODE%\%EXTENSION%\bin\win32;%VSCODE%\%EXTENSION%\bin\win32\opt\bin;%PATH%
-gnumake %OPTS%
+gnumake -f Makefile-amiga %OPTS%
 GOTO :EOF
 
 REM -----------------------------------------------------------------
@@ -54,7 +54,7 @@ IF %ERRORLEVEL% NEQ 0 call devenv.bat
 
 SETLOCAL
 
-SET VERSION=/DVERSION="Alpha %DATE%"
+SET VERSION=/DVERSION="Beta 0.1 %DATE%"
 SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
 SET TOOLOPTS=/Iinclude-tools /Ilib-win64/libpng

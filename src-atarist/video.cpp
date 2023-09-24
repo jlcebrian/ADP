@@ -30,6 +30,7 @@ static bool     quit;
 static uint8_t  palette[16][3];
 static uint16_t colors[16];
 
+bool exitGame = false;
 bool supportsOpenFileDialog = false;
 
 #ifndef MAX_PATH
