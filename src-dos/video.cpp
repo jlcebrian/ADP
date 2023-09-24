@@ -23,6 +23,7 @@ static int        bufferedEntryIndex;
 static bool       initialized = false;
 static bool       quit;
 
+bool exitGame = false;
 bool supportsOpenFileDialog = false;
 
 // ----------------------------------------------------------------------------
@@ -1047,7 +1048,10 @@ void VID_SetOpBuffer (SCR_Operation op, bool front)
 
 void VID_ClearBuffer (bool front)
 {
-	// TODO
+	uint8_t* top = (uint8_t*)0xA0000 + pageSize*(front ? 1 : 0);
+
+	outpw(0x3C4, 0xF02);
+	memset32(top, 0, 4000);
 }
 
 void VID_SwapScreen ()

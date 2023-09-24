@@ -50,4 +50,8 @@ bool File_FindNext(FindFileResults *results)
 	return false;
 }
 
+void OSSyncFS()
+{
+}
+
 #endif

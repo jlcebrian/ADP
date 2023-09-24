@@ -414,6 +414,9 @@ bool DDB_RunPlayer()
 	if (ddbCount > 1 || scrCount > 0)
 		FadeOut();
 
+	VID_ClearBuffer(true);
+	VID_ClearBuffer(false);
+
 	DDB_Run(interpreter);
 	DDB_CloseInterpreter(interpreter);
 	DDB_Close(ddb);

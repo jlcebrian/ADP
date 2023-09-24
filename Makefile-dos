@@ -5,7 +5,6 @@ OPTIM=-otexan -zc -d0 -3r
 #OPTIM=-onatx -oh -ei -zp8 -3
 
 OBJS = 		     &
-	ddb_char.obj &
 	ddb_data.obj &
 	ddb_inp.obj  &
 	ddb_run.obj  &
@@ -15,12 +14,15 @@ OBJS = 		     &
 	ddb_pal.obj  &
 	ddb_play.obj &
 	dmg.obj      &
+	dmg_cga.obj  &
+	dmg_ega.obj  &
 	dmg_cach.obj &
 	dmg_imgc.obj &
 	dmg_imgp.obj &
 	dmg_rlec.obj &
 	dmg_univ.obj &
 	ddb_scr.obj  &
+	os_char.obj  &
 	os_lib.obj   &
 	os_mem.obj   &
 	scrfile.obj  &
@@ -34,7 +36,7 @@ OBJS = 		     &
 
 Debug : all .SYMBOLIC
 Release : all .SYMBOLIC
-all : out\ad.exe .SYMBOLIC
+all : out\adp.exe .SYMBOLIC
 
 clean
 	@if exist *.obj             @del *.obj
@@ -43,10 +45,10 @@ clean
 	@if exist *.err             @del *.err
 	@if exist src-common\*.err  @del src-common\*.err
 	@if exist src\dos\*.err     @del src\dos\*.err
-	@if exist ad.exe            @del ad.exe
+	@if exist adp.exe           @del adp.exe
 	@if exist objs.lnk          @del objs.lnk
 
-out\ad.exe: $OBJS 
+out\adp.exe: $OBJS 
 	@echo OPTION ELIMINATE > objs.lnk
 	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
 	wcl386 $(OPTS) $(OPTIM) -l=CAUSEWAY -fe=$*.exe @objs.lnk
