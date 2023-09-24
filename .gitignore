@@ -1,0 +1,13 @@
+obj
+out
+build
+
+*.obj
+*.o
+*.exe
+*.dll
+*.pdb
+*.lnk
+
+*.sce
+*.ddb

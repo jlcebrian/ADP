@@ -1,0 +1,282 @@
+───────────────────────────────────────────────────────────────────────────────
+  .DAT      DAAD Image Database File Format Spec						  
+───────────────────────────────────────────────────────────────────────────────
+
+	The .DAT file contains 256 entries with a game's pictures and sounds.
+    It is usually present alongside a .DDB file with the same name.
+
+    Since DAAD version 2, a single DAT file contains the same pictures used
+    by Atari ST, Amiga, and PC interpreters. All pictures are limited to
+    16 colors. In order to display CGA and EGA pictures, the DAT file
+    contains mappings to translate every one of a given picture's colors
+    to the closer CGA or EGA color index.
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		1			High Version number (0)
+    0x0001		1			Low Version number  (4)
+    0x0002		2			Output screen mode  (0: 320x200)
+    0x0004		2			Number of images in database
+
+    0x0006		256 * 44	44 byte entry headers
+    0x2C06		...			Data area
+
+    ──────────────
+     Entry Header
+    ──────────────
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Offset of entry in file, 0 if empty
+    0x0004		2			Flags?
+
+                Bit 0		1: Floating	0: Fixed
+                Bit 1		1: Buffer   0: NoBuffer
+
+    0x0006		2			X offset
+    0x0008		2			Y offset
+    0x000A		1			First color (usually 0)
+    0x000B		1			Last color (usually 15)
+
+    0x000C		32			Color Palette
+
+    Every color in the palette is stored as a 16 bit word with 4 bits
+    per component, but values range from 0 to 7 only. The high nibble
+    of each word is unused.
+
+    ───────────────────
+     Image data header
+    ───────────────────
+
+    0x0000		2			
+
+                Bit 15		1: Compressed image
+                            0: Uncompressed image
+                Bit 0-14	Width of the image
+
+    0x0002		2			Height of the image
+    0x0004		2			Size of the image data (compressed or as present in file)
+    0x0006		...			Image data
+
+    ───────────────────────
+     Compressed image data
+    ───────────────────────
+
+    Image compression follows a simple RLE algorithm. The first two bytes
+    in the image data are a 16 bit mask. For every color from 0 to 15, if 
+    the corresponding bit is set, the color requires a repeat value 0-15
+    which will follow the color in the image data. If the bit is not set, 
+    the color is stored in the image as is, and no repeat value is present.
+
+    After those two bytes, the image data follows, organized as a string
+    of nibbles (values from 0-15). The values are stored in groups of 8
+    using the following bit pattern:
+
+    Bit			31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 
+    Color		 0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
+    ColorBit	 0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1
+
+    Bit         15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+    Color		 0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
+    ColorBit 	 2  2  2  2  2  2  2  2  3  3  3  3  3  3  3  3
+    
+    So, in order to extract the first nibble, you should read
+    bits 31, 23, 15 and 7, and shift them into position:
+
+        Color := ((N & 0x8000) shr 31) or 
+                 ((N & 0x0800) shr 22) or
+                 ((N & 0x0080) shr 13) or
+                 ((N & 0x0008) shr  4)
+
+    You can then shift the value N one bit to the left and repeat
+    the process to extract the next 7 nibbles.
+
+    This wierd bit pattern resembles the Atari ST display memory
+    layout and was simplified in later versions of the file.
+
+    ─────────────────────────
+     Uncompressed image data
+    ─────────────────────────
+
+    Uncompressed images are stored in using a planar memory layout.
+	Every 4 bytes in the file corresponds to 8 pixel data, with the
+	first byte including the bitmap data for the first plane (least
+	significant color bit), the second byte data for the second plane,
+	and so on.
+
+
+───────────────────────────────────────────────────────────────────────────────
+  .DAT      Earlier format used in version 1 games
+───────────────────────────────────────────────────────────────────────────────
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		1			High Version number (3)
+    0x0001		1			Low Version number  (0)
+    0x0002		2			Output screen mode  (0: 320x200)
+    0x0004		2			Number of images in database
+    0x0006		4			Total file size
+
+    0x000A		256 * 48	48 byte image headers
+    0x2C0A		...			Data area
+
+    ──────────────
+     Image Header
+    ──────────────
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Offset of image in file
+    0x0004		2			Flags
+
+                Bit 0		1: Floating	0: Fixed
+                Bit 1		1: Buffer   0: NoBuffer
+                Bit 2		1: CGARed   0: CGABlue
+                Bit 3       ?
+                Bit 4       1: Sound    0: Image
+
+    0x0006		2			X offset / Sound frequency
+    0x0008		2			Y offset
+    0x000A		1			First color (usually 0)
+    0x000B		1			Last color (usually 15)
+
+    0x000C		32			Color Palette
+    0x002C      4			CGA Palette (2 bits per color)
+
+                            Special palette 0xDAADDAAD is used by img2daad
+                            to mark 4 bit palettes (Amiga format)
+
+    Every color in the palette is stored as a 16 bit word with 4 bits
+    per component. Components are shifted right by 1 bit, following
+    the format of the Atari ST extended palette (bits 0-2 form a valid
+    0-7 color value, bit 3 adds additional precision). The high nibble
+    of each word contains the EGA palette equivalente of the color.
+
+    Supported sound frequencies are:
+
+            X		Frequency
+           ──────────────────────
+            0		5   Khz
+            1		7   Khz
+            2		9.5 Khz
+            3		15  Khz
+            4		20  Khz
+            5		30  Khz
+
+    ───────────────────
+     Image data header
+    ───────────────────
+
+    0x0000		2			
+
+                Bit 15		1: Compressed image
+                            0: Uncompressed image
+                Bit 0-14	Width of the image
+
+    0x0002		2			
+    
+                Bit 15		1: Sound data
+                            0: Image data
+                Bit 0-14	Height of the image
+
+    0x0004		2			Size of the data (compressed, as stored in file)
+    0x0006		...			Data
+
+    ───────────────────────
+     Compressed image data
+    ───────────────────────
+
+    The compression algorithm is similar to the previous version,
+    but it has been simplified for speed.
+
+    The first two bytes are still a 16 bit mask. For every corresponding
+    bit set, the color requires a repeat value 0-15 which will follow the
+    color in the image data. If the bit is not set, the color is stored
+    in the image as is, and no repeat value is present.
+
+    After that, the image data follows, organized as a string of nibbles.
+    Nibbles are stored in packs of 8. For every 4 bytes in the image data,
+    the corresponding nibbles must be processed in reverse order (i.e.
+    the first nibble is stored in the lower 4 bits of the last byte).
+
+    Uncompressed images are stored in the same way as in the previous
+    version of the file (using the Atari ST screen memory layout).
+
+
+    ─────────────────
+     IBM PC Versions
+    ─────────────────
+
+    Once the file is versioned for the IBM PC, the format differs in
+    the following ways:
+
+        *	Both version numbers are replaced by 0xFF in the header
+        *	All size values are swapped to little─endian,
+            including the file size (which may be wrong!)
+        *	Uncompressed images are stored as a raw series
+            of packed colors (2 color per byte), with no swizzling
+        *	In compressed images, the mask word is also
+            swapped for endiannes (the rest of the data is unchanged)
+        *	Sounds are not supported, and removed from the file
+
+
+
+───────────────────────────────────────────────────────────────────────────────
+  .CGA/EGA      Early DOS graphic files used in version 1 games
+───────────────────────────────────────────────────────────────────────────────
+
+	OFFSET		SIZE		DESCRIPTION
+
+    0x0000		2			Version number (0)
+    0x0002		2			Screen Mode				$0D = EGA, $04 = CGA
+    0x0004		2			Number of images
+
+    0x0006		256 * 10	10 byte entries
+
+    ────────
+     Entry 					(little endian!)
+    ────────
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Offset of entry in file, 0 if empty
+    0x0004		2			Flags?
+
+                Bit 0		1: Floating	0: Fixed
+                Bit 1		1: Buffer   0: NoBuffer
+
+    0x0006		2			X offset
+    0x0008		2			Y offset
+
+    ────────
+     Image 
+    ────────
+
+    0x0000		2			
+
+                Bit 15		1: Compressed image
+                            0: Uncompressed image
+                Bit 0-14	Width of the image
+
+    0x0002		2			Height of the image
+    0x0004		2			Size of the image data
+    0x0006		...			Image data
+
+	If image is compressed, an extra 5 byte header follows
+	(note: the 'size' includes those 5 bytes):
+
+    0x0006		1			Number of special byte codes
+	0x0007		4			Up to 4 special byte codes
+
+	Image data then follows. If the image is compressed,
+	then any value which is present in the special byte
+	code table is followed by an extra byte meaning the
+	repetitions (1 to 255).
+
+	In addition, in compressed images only, even rows
+	are stored mirrored (right to left order). This
+	improves the (simple) RLE compression somewhat.
+
+	EGA images are stored as 4 separate bitplanes
+	(i.e. as 4 1-bit images of the specified width
+	and height). CGA images use the expected 2bpp format.

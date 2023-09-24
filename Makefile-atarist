@@ -1,0 +1,81 @@
+PREFIX   = m68k-atari-mint-
+CXX      = $(PREFIX)g++
+CC       = $(PREFIX)gcc
+STRIP    = $(PREFIX)strip
+OBJDUMP  = $(PREFIX)objdump
+NM       = $(PREFIX)nm
+VASM     = vasmm68k_mot
+LIBCMINI ?= /opt/atarist/libcmini
+
+CPPFLAGS += -Iinclude -DVERSION="`date +%Y%m%d`" -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE
+CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
+CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
+CPPFLAGS += -Os -fomit-frame-pointer -fno-rtti -fno-exceptions
+CPPFLAGS += -I$(LIBCMINI)/include -nostdlib 
+CPPFLAGS += -Wall -Wno-unused-value
+LDFLAGS += -nostdlib $(LIBCMINI)/lib/crt0.o
+LIBS += -lgcc -lstdc++ -L$(LIBCMINI)/lib -lcmini -lgcc -lgem
+
+VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -quiet -x 
+
+all: out/ad.prg
+
+DIRS = src-common/ src-atarist/
+VPATH = $(DIRS)
+SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS)))
+
+CPPFILES := 		\
+	ddb_char.cpp 	\
+	ddb_data.cpp	\
+	ddb_inp.cpp		\
+	ddb_pal.cpp		\
+	ddb_play.cpp	\
+	ddb_run.cpp		\
+	ddb_vid.cpp		\
+	ddb.cpp			\
+	dmg_cach.cpp	\
+	dmg_imgp.cpp	\
+	dmg_rlec.cpp	\
+	dmg.cpp			\
+	os_lib.cpp		\
+	os_mem.cpp		\
+	scrfile.cpp		\
+	files.cpp		\
+	player.cpp		\
+	video.cpp
+ASMFILES :=			\
+	decrle.asm
+
+CPPOBJS := $(patsubst %.cpp,obj/atarist/%.o,$(CPPFILES))
+ASMOBJS := $(patsubst %.asm,obj/atarist/%.o,$(ASMFILES))
+
+out/ad.prg: $(CPPOBJS) $(ASMOBJS)
+	$(CXX) $(LDFLAGS) $(CPPFLAGS) -o $@ $^ $(LIBS)
+	$(OBJDUMP) -S $@ > out/player.dump
+	echo >> out/player.dump
+	echo ------------------------------------------------ >> out/player.dump
+	echo >> out/player.dump
+	$(STRIP) -x $@
+	$(NM) --numeric-sort --print-size $@ >> out/player.dump
+	echo >> out/player.dump
+	echo ------------------------------------------------ >> out/player.dump
+	echo >> out/player.dump
+	$(NM) --print-size --size-sort --radix=d $@ >> out/player.dump
+	$(STRIP) $@
+	upx -q $@ >/dev/null
+	@cd out && dsk /mnt/f/templos.st add ad.prg
+	@cd out && dsk /mnt/f/cozumel.st add ad.prg
+	@cd out && dsk /mnt/f/original.st add ad.prg
+	@cd out && dsk /mnt/f/chichen.st add ad.prg
+
+clean:
+	rm -f obj/atarist/*.o out/ad.prg
+
+-include $(CPPOBJS:.o=.d)
+
+$(CPPOBJS) : obj/atarist/%.o : %.cpp
+	$(info Compiling $<)
+	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+$(ASMOBJS) : obj/atarist/%.o : %.asm
+	$(info Compiling $<)
+	$(VASM) $(VASMFLAGS) -o $@ $(CURDIR)/$<

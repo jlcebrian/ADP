@@ -1,0 +1,93 @@
+#pragma once
+
+#include <os_types.h>
+
+static inline uint16_t read16LE(uint8_t* ptr)
+{
+	return ptr[0] | (ptr[1] << 8);
+}
+
+static inline uint32_t read32LE(uint8_t* ptr)
+{
+	return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+}
+
+static inline uint16_t read16BE(uint8_t* ptr)
+{
+	return ptr[1] | (ptr[0] << 8);
+}
+
+static inline uint32_t read32BE(uint8_t* ptr)
+{
+	return ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24);
+}
+
+static inline void write16(uint8_t* ptr, uint16_t n, bool littleEndian)
+{
+	if (littleEndian)
+	{
+		ptr[0] = n & 0xFF;
+		ptr[1] = (n >> 8) & 0xFF;
+	}
+	else
+	{
+		ptr[1] = n & 0xFF;
+		ptr[0] = (n >> 8) & 0xFF;
+	}
+}
+
+static inline void write32(uint8_t* ptr, uint32_t n, bool littleEndian)
+{
+	if (littleEndian)
+	{
+		ptr[0] = n & 0xFF;
+		ptr[1] = (n >> 8) & 0xFF;
+		ptr[2] = (n >> 16) & 0xFF;
+		ptr[3] = (n >> 24) & 0xFF;
+	}
+	else
+	{
+		ptr[3] = n & 0xFF;
+		ptr[2] = (n >> 8) & 0xFF;
+		ptr[1] = (n >> 16) & 0xFF;
+		ptr[0] = (n >> 24) & 0xFF;
+	}
+}
+
+static inline uint16_t read16(const uint8_t* ptr, bool littleEndian)
+{
+	if (littleEndian)
+		return ptr[0] | (ptr[1] << 8);
+	else
+		return ptr[1] | (ptr[0] << 8);
+}
+
+static inline uint32_t read32(const uint8_t* ptr, bool littleEndian)
+{
+	if (littleEndian)
+		return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+	else
+		return ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24);
+}
+
+static inline uint32_t fix32(uint32_t value, bool littleEndian)
+{
+	union
+	{
+		uint32_t as32;
+		uint8_t  as8[4];
+	}
+	v;
+
+	v.as32 = value;
+	return read32(v.as8, littleEndian);
+}
+
+static inline uint32_t fix32(uint32_t value)
+{
+#ifdef _BIG_ENDIAN
+	return value;
+#else
+	return fix32(value, false);
+#endif
+}

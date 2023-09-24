@@ -1,0 +1,86 @@
+───────────────────────────────────────────────────────────────────────────────
+  DAAD Version 1 main loop
+───────────────────────────────────────────────────────────────────────────────
+
+    DAAD Version 2 has a straightforward main loop where the game just
+    runs PRO 0 continuously until it finishes.
+
+    In comparison, Version 1 has a complex main loop which resembles PAWS.
+    Here is a description of its flow:
+
+
+    INITIALIZATION
+
+    *   Resets all windows to its default configuration
+
+    *   Sets all flags from 0 to 248 to zero, with a few exceptions:
+        - Flags 46 and 47 (noun/adjectives for 'IT') are set to 255
+        - Flag 37 (maximum number of carried objects) is set to 4
+        - Flag 52 (strength: maximum carried weight) is set to 10
+        - Flag 39 (graphics mode) is set to a suitable value (0 for graphics mode, 128+ for text only)
+        - Flag 29 (graphics flag) is set to 128 in graphics mode
+
+    *   Objects are moved to their initial location
+        - Flag 1 (number of carried objects) is updated with the correct value
+
+    *   DESC is immediately executed
+
+
+    DESC
+
+    *   Sets the current window to 0 (WINDOW 0)
+    *   Decrement flag 2 if it is > 0
+    *   Checks the value of flag 0 ('darkness'):
+
+        -   If flag 0 is nonzero (it is dark):
+
+            *   Decrements flag 3 if > 0
+            *   Checks the location of object 0
+
+            -   If object 0 is not here, carried, or worn:
+
+                *   Sets the current window to 1
+                *   Clears the window if bit 6 of flag 29 (graphics flag) is zero
+                *   Prints the system message 0 ('I can't see!')
+                *   Decrements flag 4 if > 0
+
+        - Otherwise, if flag 0 is zero, or object 0 is present:
+
+            *   Draws the picture whose number corresponds to the current location, if any
+            *   Sets the current window to 1
+            *   Clears the window if bit 6 of flag 29 (graphics flag) is zero
+            *   Prints the description of the current location
+
+    *   Performs a call to PRO 1
+    *   Continues with the 'after turn' sequence
+
+
+    AFTER TURN
+
+    *   Performs a call to PRO 2
+    
+    *   Decrements a series of flags:
+        -   Flags 5, 6, 7, and 8 are decremented if > 0
+        -   Flag 9 is decremented if > 0 and flag 0 (darkness) is nonzero
+        -   Flag 10 is decremented if > 0, flag 0 (darkness) is nonzero, and object 0 is not present
+
+    *   The next phrase of player input is parsed
+        -   If there are no phrases in buffer, a new input line is acquired from the player
+
+    *   If the parse routine didn't return a valid phrase:
+        -   If TIMEOUT was set instead, print the system message 35 ('time passes')
+        -   Otherwise, print the system message 6 ('I don't undersand')
+        -   In any case, restarts the AFTER TURN routine
+
+    *   Increments the dword turn counter stored in flags 31 and 32
+
+    *   Performs a call to PRO 0 (response table)
+
+    *   If the DONE flag is set (a meaningful action was run), jumps back to AFTER TURN
+        -   Note: this flag is inteded to be set by any action that is not a condition!
+
+    *   If the current verb is a movement one:
+        -   If a suitable connection exists, moves the current location and jumps to DESC
+        -   Otherwise, prints the system message 7 ('You can't go that way') and jumps to AFTER TURN
+
+    *   Otherwise, prints system message 8 ('You can't do that') and jumps to AFTER TURN

@@ -1,0 +1,58 @@
+
+OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=0.1 -D_STDCLIB
+#OPTIM=-od -d3 -hw
+OPTIM=-otexan -zc -d0 -3r
+#OPTIM=-onatx -oh -ei -zp8 -3
+
+OBJS = 		     &
+	ddb_char.obj &
+	ddb_data.obj &
+	ddb_inp.obj  &
+	ddb_run.obj  &
+	ddb_scr.obj  &
+	ddb_vid.obj  &
+	ddb.obj      &
+	ddb_pal.obj  &
+	ddb_play.obj &
+	dmg.obj      &
+	dmg_cach.obj &
+	dmg_imgc.obj &
+	dmg_imgp.obj &
+	dmg_rlec.obj &
+	dmg_univ.obj &
+	ddb_scr.obj  &
+	os_lib.obj   &
+	os_mem.obj   &
+	scrfile.obj  &
+	dma.obj      &
+	files.obj    &
+	mixer.obj    &
+	video.obj    &
+	sb.obj       &
+	timer.obj    &
+	player.obj
+
+Debug : all .SYMBOLIC
+Release : all .SYMBOLIC
+all : out\ad.exe .SYMBOLIC
+
+clean
+	@if exist *.obj             @del *.obj
+	@if exist src-common\*.obj  @del src-common\*.obj
+	@if exist src\dos\*.obj     @del src\dos\*.obj
+	@if exist *.err             @del *.err
+	@if exist src-common\*.err  @del src-common\*.err
+	@if exist src\dos\*.err     @del src\dos\*.err
+	@if exist ad.exe            @del ad.exe
+	@if exist objs.lnk          @del objs.lnk
+
+out\ad.exe: $OBJS 
+	@echo OPTION ELIMINATE > objs.lnk
+	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
+	wcl386 $(OPTS) $(OPTIM) -l=CAUSEWAY -fe=$*.exe @objs.lnk
+	upx $*.exe >NUL
+
+.obj: obj\dos
+.cpp: src-common;src-dos
+.cpp.obj: .AUTODEPEND
+	wpp386 $(OPTIM) $(OPTS) -fo=$@ $<

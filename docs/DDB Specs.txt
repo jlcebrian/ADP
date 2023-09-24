@@ -1,0 +1,389 @@
+───────────────────────────────────────────────────────────────────────────────
+  .DDB			DAAD Database File Format
+───────────────────────────────────────────────────────────────────────────────
+
+	DDB files contain a game's database
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		1			DAAD version number (1 for Aventura Original and Jabato, 1989, 2 for the rest)
+    0x0001		1			High nibble: target machine; low nibble: target language 
+    0x0002		1			Special token character (usually '_', 0x5F) which replaces current object in messages
+    0x0003		1			Number of objects
+    0x0004		1			Number of locations
+    0x0005		1			Number of user messages
+    0x0006		1			Number of system messages
+    0x0007		1			Number of processes
+    0x0008		2			Tokens table address
+    0x000A		2			Process list address
+    0x000C		2			Object names table address
+    0x000E		2			Location descriptions table address
+    0x0010		2			User messages table address
+    0x0012		2			System messages table address
+    0x0014		2			Connections table address
+    0x0016		2			Vocabulary table address
+    0x0018		2			Objects startup location table address
+    0x001A		2			Object words table address
+    0x001C		2			Object attributes table address
+    0x001E		2			Extra object attributes address
+    0x0020		2			File length
+
+	0x0028					Extern data offset?
+
+	File may be little-endian or big-endian depending on the target
+	platform (big endian for ST/Amiga, little endian for PC).
+
+    Addresses are encoded to be used directly by the interpreter, so
+    they may be memory addresses or file offsets, depending on the
+    target machine.
+
+    Old files (version 1) do not have the "Extra object attributes" field.
+    In those files, file length is at offset 0x001E.
+
+    Target machine and language (field 1) are listed in the following tables.
+
+
+         Code		Machine				Base Offset
+        ─────────────────────────────────────────────
+           0		IBM PC
+           1		ZX Spectrum			0x8400
+           2		Commodore 64		0x3880
+           3		Amstrad CPC			0x2880
+           4		MSX					0x0100
+           5		Atari ST
+           6		Amiga
+           7		Amstrad PCW
+          14		Commodore Plus/4	0x7080
+          15		MSX2
+
+
+         Code		Language
+        ─────────────────────────────────
+           0		English
+           1		Spanish
+
+    
+    Sections inside the database are stored in the following order:
+
+        - Vocabulary
+        - Tokens table (for text compression)
+        - System messages
+        - User messages
+        - Object names
+        - Location descriptions
+        - Connections
+        - Object tables (words, attributes, extras, location)
+        - Processes
+
+    However, the pointers in the header do not necessarily point
+    to the beginning of each section. For example, the connections
+    pointer points to a list of addresses, one for each location.
+    The list of addresses is stored after the data itself.
+
+    In order to modify the database without breaking the pointers,
+    here is a list of all the addresses in the database:
+
+        - Header pointers (12 pointers)
+        - Messages (1 per message, in each of 4 tables)
+        - Processes (1 per process)
+        - Process entries (1 per entry, per process)
+        - Connections (1 per location)
+
+    ───────────────
+     Text Encoding
+    ───────────────
+
+    Text is stored with each byte xor'ed with 0xFF. Characters
+    from 32 to 127 are ASCII, while characters from 16 to 31 are
+    used to display some Spanish characters.
+
+            0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+        ┌───────────────────────────────────────────────────
+     0  │                                           
+     1  │	ª  ¡  ¿  «  »  á  é  í  ó  ú  ñ  Ñ  ç  Ç  ü  Ü
+     2  │	   !  "  #  $  %  &  '  (  )  *  +  ,  -  .  /
+     3  │	0  1  2  3  4  5  6  7  8  9  :  ;  <  =  >  ?
+     4  │	@  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+     5  │	P  Q  R  S  T  U  V  W  X  Y  Z  [  \  ]  ^  _
+     6  │	`  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o
+     7  │	p  q  r  s  t  u  v  w  x  y  z  {  |  }  ~   
+        │
+        └───────────────────────────────────────────────────
+
+    Characters from 128 up are tokens.
+
+    The tokens are stored in the marked section of the database
+    using a simple encoding: first, an empty token marked by the
+	value 0xFF, then the tokens themselves. The last character of
+    every token has the highest bit set to 1 to mark the end of
+    the token. Bigger tokens are usually stored before smaller
+    ones, but the interpreter doesn't require any particular order.
+
+    If the database does not support compression, the token
+    table address will be 0.
+
+
+    ──────────
+     Messages
+    ──────────
+    
+    Each one of the four message tables is stored as a list of 16-bit
+    addresses to the start of each message, using the same rules
+    as the addresses in the header regarding endianness and base offset.
+
+    Messages end with a line feed, character 0x0A (xor 255: 0xF5).
+
+    The following characters have a special meaning:
+
+        CODE		SCE		DESCRIPTION
+
+        0x0A				End of message
+        0x0B		\b		Clears the screen
+        0x0C		\k		Wait for a keypress
+        0x0D        \n      New line
+        0x0E		\g		Switch to graphic character set
+        0x0F		\t		Switch to text character set
+        0x7F		\f		Non-breakable space
+
+    In addition, characters from 15 to 31 are used to display
+    international characters in Spanish (see table above).
+
+    The provided character set (in a .CHR file) supports 256
+    characters, but only the first 128 are printable, as codes
+    from 128 to 255 are used as tokens. Using \g and \t, the
+    character set can be switched to the upper half and back.
+
+    Interpreters which do not support graphics will still print
+    spaces and characters A-Z in graphics mode.
+
+
+    ───────────
+     Processes
+    ───────────
+
+    The process list is a list of 16-bit addresses to the start
+    of each process, using the same rules as the addresses in
+    the header regarding endianness and base offset.
+
+    Every process contains a list of 4 byte entries:
+
+        OFFSET		SIZE		DESCRIPTION
+
+        0x00		1			Verb (255 for any, 0 to mark end of list)
+        0x01		1			Noun (255 for any)
+        0x02		2			Address of the condacts in this entry
+
+    Every condact is stored as a single byte, optionally followed
+    by up to two bytes of parameters. The high bit of the condact
+    code is set to 1 if the first parameter is an indirection.
+
+    The condact list ends with the byte 255 (0xFF), which is not
+    a valid condact because RESET has no parameters. However,
+	individual entries are stored consecutively and they end
+	with condacts like DONE.
+
+
+          NUMBER			CONDACT		PARAMETERS
+       ────────────────────────────────────────────
+    
+           0	0x00		AT     		1	
+           1	0x01		NOTAT  		1
+           2	0x02		ATGT     	1
+           3	0x03		ATLT   		1
+           4	0x04		PRESENT		1
+           5	0x05		ABSENT 		1
+           6	0x06		WORN   		1
+           7	0x07		NOTWORN		1
+           8	0x08		CARRIED		1
+           9	0x09		NOTCARR		1
+          10	0x0A		CHANCE 		1
+          11	0x0B		ZERO   		1
+          12	0x0C		NOTZERO		1
+          13	0x0D		EQ     		2
+          14	0x0E		GT     		2
+          15	0x0F		LT     		2
+          16	0x10		ADJECT1		1
+          17	0x11		ADVERB 		1
+          18	0x12		SFX    		2
+          19	0x13		DESC   		1		0 parameters in old games
+          20	0x14		QUIT   		0
+          21	0x15		END    		0
+          22	0x16		DONE   		0
+          23	0x17		OK     		0
+          24	0x18		ANYKEY 		0
+          25	0x19		SAVE   		1
+          26	0x1A		LOAD   		1
+          27	0x1B		DPRINT   	1		TURNS in old games
+          28	0x1C		DISPLAY  	1
+          29	0x1D		CLS    		0
+          30	0x1E		DROPALL		0
+          31	0x1F		AUTOG  		0
+          32	0x20		AUTOD  		0
+          33	0x21		AUTOW  		0
+          34	0x22		AUTOR  		0
+          35	0x23		PAUSE  		1
+          36	0x24		SYNONYM  	2		TIMEOUT in old games
+          37	0x25		GOTO   		1
+          38	0x26		MESSAGE		1
+          39	0x27		REMOVE 		1
+          40	0x28		GET    		1
+          41	0x29		DROP   		1
+          42	0x2A		WEAR   		1
+          43	0x2B		DESTROY		1
+          44	0x2C		CREATE 		1
+          45	0x2D		SWAP   		2
+          46	0x2E		PLACE  		2
+          47	0x2F		SET    		1
+          48	0x30		CLEAR  		1
+          49	0x31		PLUS   		2
+          50	0x32		MINUS  		2
+          51	0x33		LET    		2
+          52	0x34		NEWLINE		0
+          53	0x35		PRINT  		1
+          54	0x36		SYSMESS		1
+          55	0x37		ISAT   		2
+          56	0x38		SETCO  		1 		COPYOF in old games 
+          57	0x39		SPACE  		0 		COPYOO in old games
+          58	0x3A		HASAT  		1 		COPYFO in old games
+          59	0x3B		HASNAT 		1 		COPYFF in old games
+          60	0x3C		LISTOBJ		0
+          61	0x3D		EXTERN 		2
+          62	0x3E		RAMSAVE		0
+          63	0x3F		RAMLOAD		1
+          64	0x40		BEEP   		2
+          65	0x41		PAPER  		1
+          66	0x42		INK    		1
+          67	0x43		BORDER 		1
+          68	0x44		PREP   		1
+          69	0x45		NOUN2  		1
+          70	0x46		ADJECT2		1
+          71	0x47		ADD    		2
+          72	0x48		SUB    		2
+          73	0x49		PARSE  		1		0 parameters in old games
+          74	0x4A		LISTAT 		1
+          75	0x4B		PROCESS		1
+          76	0x4C		SAME   		2
+          77	0x4D		MES    		1
+          78	0x4E		WINDOW 		1
+          79	0x4F		NOTEQ  		2
+          80	0x50		NOTSAME		2
+          81	0x51		MODE   		1
+          82	0x52		WINAT  		2
+          83	0x53		TIME   		2
+          84	0x54		PICTURE		1
+          85	0x55		DOALL  		1
+          86	0x56		MOUSE  		1		PROMPT in old games
+          87	0x57		GFX    		2		GRAPHIC in old games
+          88	0x58		ISNOTAT		2
+          89	0x59		WEIGH  		2
+          90	0x5A		PUTIN  		2
+          91	0x5B		TAKEOUT		2
+          92	0x5C		NEWTEXT		0
+          93	0x5D		ABILITY		2
+          94	0x5E		WEIGHT 		1
+          95	0x5F		RANDOM 		1
+          96	0x60		INPUT  		2
+          97	0x61		SAVEAT 		0
+          98	0x62		BACKAT 		0
+          99	0x63		PRINTAT		2
+         100	0x64		WHATO  		0
+         101	0x65		CALL   		1
+         102	0x66		PUTO   		1
+         103	0x67		NOTDONE		0
+         104	0x68		AUTOP  		1
+         105	0x69		AUTOT  		1
+         106	0x6A		MOVE   		1
+         107	0x6B		WINSIZE		2
+         108	0x6C		REDO   		0
+
+				(The following commands are not present in version 1)
+
+         109	0x6D		CENTRE 		0
+         110	0x6E		EXIT   		1
+         111	0x6F		INKEY  		0
+         112	0x70		BIGGER 		2
+         113	0x71		SMALLER		2
+         114	0x72		ISDONE 		0
+         115	0x73		ISNDONE		0
+         116	0x74		SKIP   		1
+         117	0x75		RESTART		0
+         118	0x76		TAB    		1
+         119	0x77		COPYOF 		2
+         120	0x78		----   		0			Equivalent to CALL
+         121	0x79		COPYOO 		2 
+         122	0x7A		----   		0
+         123	0x7B		COPYFO 		2
+         124	0x7C		----   		0
+         125	0x7D		COPYFF 		2
+         126	0x7E		COPYBF 		2
+         127	0x7F		RESET   	0
+
+    Version 1 files support a different list of condacts.
+    Condacts 56 to 59 are replaced with the following ones:
+
+          56	0x38		COPYOF  	2
+          57	0x39		COPYOO  	2
+          58	0x3A		COPYFO  	2
+          59	0x3B		COPYFF 		2
+
+          
+    ──────────────
+     Other tables
+    ──────────────
+
+    CONNECTIONS
+
+        2 bytes for each location with the address of a list
+        of connections for the location. Each connection is
+        formed by 2 bytes: 1 for the verb, and 1 for the
+        destination. The list ends with a 0xFF byte.
+
+    VOCABULARY
+
+        7 bytes for each word, ending with a 0. Tokens and control
+        characters can't be part of a word. Words are stores sorted 
+        by name. If a word is shorter than 5 characters, it is
+        stored with spaces at the end (stored as 0xDF due to the xor).
+
+        OFFSET	SIZE	DESCRIPTION
+       ────────────────────────────────────────────────────────────────
+        0x00	5		Word characters, xor 0xFF
+        0x05	1		Word number
+        0x06	1		Word type
+
+                        0: Verb
+                        1: Adverb
+                        2: Noun
+                        3: Adjective
+                        4: Preposition
+                        5: Conjunction
+                        6: Pronoun
+
+    OBJECTS STARTUP LOCATION
+
+        A single byte for each object, containing the location
+        number. Special location values (other than 255) apply:
+
+            252: Does not exist (not created yet)
+            253: Worn by the player
+            254: Carried by the player
+
+		255 marks the end of the list.
+
+    OBJECT WORDS
+
+        Two bytes for each object, containing a noun
+        and an adjective (255 if not defined).
+
+    OBJECT ATTRIBUTES
+
+        A single byte for each object
+
+            Bit 0-5		Weight
+            Bit 6		1 if the object is a container
+            Bit 7		1 If the object is wearable
+
+    EXTRA OBJECT ATTRIBUTES
+
+        Two bytes for each object, containing a
+        16 bit mask of user-defined 1/0 attributes.
