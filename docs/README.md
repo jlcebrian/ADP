@@ -241,6 +241,13 @@ SDL2 programs (this should be installed automatically during the
 compilation process, but if you are using your Linux distribution's
 provided emscripten, your mileage may vary).
 
+Currently, the compiled web port embeds the game files, which means
+a build must be made for every game you want to port to the web.
+To create your web players, add a folder for every game to the
+'web-games' directory and put all the game's files (.DDB, .DAT, .CHR)
+inside. The Makefile will produce a web page for every game inside 
+the out/web directory.
+
 This port currently uses [KioskBoard](https://github.com/furcan/KioskBoard)
 for virtual keyboard support on mobile.
 

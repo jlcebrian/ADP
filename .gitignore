@@ -11,3 +11,6 @@ build
 
 *.sce
 *.ddb
+*.10x
+
+web-games/*

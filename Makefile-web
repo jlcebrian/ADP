@@ -1,3 +1,5 @@
+
+
 CC = emcc
 CXX = em++
 CPPFLAGS += -flto=full -Os -sUSE_SDL=2 \
@@ -9,17 +11,16 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	
 CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION="ALPHA `date +%Y%m%d`"
+CPPFLAGS += -g -DVERSION='"BETA 0.1 `date +%Y%m%d`"'
 
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 
-DIRS = src-common/ src-unix/ src-sdl/
+DIRS = src-common/ src-sdl/ src-unix/
 VPATH = $(DIRS) src-tools/
 
 SRCS := \
 	player.cpp \
 	ddb.cpp \
-	ddb_char.cpp \
 	ddb_data.cpp \
 	ddb_dump.cpp \
 	ddb_inp.cpp \
@@ -29,6 +30,8 @@ SRCS := \
 	ddb_scr.cpp \
 	ddb_vid.cpp \
 	dmg.cpp \
+	dmg_cga.cpp \
+	dmg_ega.cpp \
 	dmg_cach.cpp \
 	dmg_imgc.cpp \
 	dmg_imgp.cpp \
@@ -36,6 +39,7 @@ SRCS := \
 	dmg_univ.cpp \
 	os_lib.cpp \
 	os_mem.cpp \
+	os_char.cpp \
 	scrfile.cpp \
 	video.cpp \
 	error.cpp \
@@ -45,32 +49,23 @@ OBJS := $(addprefix obj/web/,$(patsubst %.cpp,%.o,$(SRCS)))
 
 -include $(OBJS:.o=.d)
 
-GAMES = original chichen templos espacial jabato cozumel
+GAMES = $(notdir $(wildcard web-games/*))
 
-all: \
-	out/web/original/index.html \
-	out/web/jabato/index.html \
-	out/web/espacial/index.html \
-	out/web/templos/index.html \
-	out/web/cozumel/index.html \
-	out/web/chichen/index.html 
+all: $(patsubst %,out/web/%/index.html,$(GAMES))
 
-out/web/original/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/original@/data/ 
-out/web/jabato/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/jabato@/data/ 
-out/web/cozumel/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/cozumel@/data/ 
-out/web/espacial/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/espacial@/data/ 
-out/web/templos/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/templos@/data/ 
-out/web/chichen/index.html: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) --embed-file out/chichen@/data/ 
+out/web/%/index.html: $(OBJS) shell.html
+	$(info Building $*)
+ifeq ($(OS), Windows_NT)
+	@IF NOT EXIST "out\web\$*" mkdir out\web\$*
+else
+	@mkdir -o out/web/$*
+endif
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --embed-file web-games/$*@/data/ 
 
 clean:
 	rm -f out/web/*/index.* obj/web/*.o
 
 $(OBJS) : obj/web/%.o : %.cpp
 	$(info Compiling $<)
+	echo @$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<

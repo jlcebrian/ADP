@@ -119,7 +119,7 @@ void FreeSystem()
 
 int main ()
 {
-	const char* msg = "\nUniversal DAAD Interpreter " VERSION_STR "\n";
+	const char* msg = "\ADP " VERSION_STR "\n";
 	const size_t msgLen = StrLen(msg);
 
 	SysBase       = *((struct ExecBase**)4UL);

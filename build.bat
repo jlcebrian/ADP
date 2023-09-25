@@ -17,10 +17,10 @@ REM  Emscripten web player
 REM -----------------------------------------------------------------
 :WEB
 SETLOCAL
-CALL EMSDK_ENV.BAT
+CALL EMSDK_ENV.BAT >NUL 2>&1
 SET OPTS=
 IF "%2"=="clean" SET OPTS=clean
-emmake gnumake -f Makefile-web -n %OPTS%
+emmake gnumake -f Makefile-web %OPTS%
 GOTO :EOF
 
 REM -----------------------------------------------------------------

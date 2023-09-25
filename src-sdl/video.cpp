@@ -947,19 +947,16 @@ bool VID_Initialize ()
 	if (DM.h >= 1440) scale = 4;
 	if (DM.h >= 2000) scale = 6;
 #if _WEB
-	window = SDL_CreateWindow("DAAD Interpreter " VERSION_STR, 
-		SDL_WINDOWPOS_UNDEFINED, 
-		SDL_WINDOWPOS_UNDEFINED, 
-		360*scale, 224*scale, 
-		SDL_WINDOW_SHOWN);
+	int options = SDL_WINDOW_SHOWN;
 #else
-	window = SDL_CreateWindow("DAAD Interpreter " VERSION_STR, 
+	int options = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
+	window = SDL_CreateWindow("ADP " VERSION_STR, 
 		SDL_WINDOWPOS_UNDEFINED, 
 		SDL_WINDOWPOS_UNDEFINED, 
 		360*scale, 224*scale, 
-		SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-#endif
-if (window == NULL)
+		options);
+	if (window == NULL)
 	{
 		DDB_SetError(DDB_ERROR_SDL);
 		return false;
