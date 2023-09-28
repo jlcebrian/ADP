@@ -11,7 +11,7 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	
 CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION='"BETA 0.1 `date +%Y%m%d`"'
+CPPFLAGS += -g -DVERSION=BETA0.1
 
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 
@@ -67,5 +67,4 @@ clean:
 
 $(OBJS) : obj/web/%.o : %.cpp
 	$(info Compiling $<)
-	echo @$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
