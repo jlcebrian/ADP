@@ -4,7 +4,7 @@
     <img src="/docs/Logo.png" width="414.5" height="95.5" />
 </p>
 <p align="center">
-https://github.com/jlcebrian/ADP
+https://www.adventure-player.com
 </p>
 
 (Note: there is a [Spanish version](LEEME.md) of this file!)

@@ -4,8 +4,10 @@
     <img src="/docs/Logo.png" width="414.5" height="95.5" />
 </p>
 <p align="center">
-https://github.com/jlcebrian/ADP
+https://www.adventure-player.com
 </p>
+
+(Note: there is an [English version](README.md) of this file!)
 
 El **DAAD** es un sistema de autoría de juegos diseñado para escribir
 aventuras de texto portables a una amplia variedad de ordenadores
