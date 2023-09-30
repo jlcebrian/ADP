@@ -776,7 +776,7 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 		{
 			i->flags[Flag_ListFlags] |= ~0x80;
 			DDB_GetMessage(i->ddb, DDB_OBJNAME, n, (char *)objNameBuffer, sizeof(objNameBuffer));
-			if (i->flags[Flag_ListFlags] & 0x60)		// Continuous listing
+			if (i->flags[Flag_ListFlags] & 0x40)		// Continuous listing
 			{
 				objNameBuffer[0] = ToLower(objNameBuffer[0]);
 				for (const char* ptr = (const char*)objNameBuffer; *ptr != 0 && *ptr != '.'; ptr++)
