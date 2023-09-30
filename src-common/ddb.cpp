@@ -666,9 +666,9 @@ DDB* DDB_Load(const char* filename)
 		{
 			uint16_t offsetBE = read16(buffer + n, false);
 			uint16_t offsetLE = read16(buffer + n, true);
-			if (offsetBE < ddb->baseOffset || offsetBE - ddb->baseOffset >= fileSize)
+			if (offsetBE < ddb->baseOffset || (uint64_t)(offsetBE - ddb->baseOffset) >= fileSize)
 				bigEndianValid = false;
-			if (offsetLE < ddb->baseOffset || offsetLE - ddb->baseOffset >= fileSize)
+			if (offsetLE < ddb->baseOffset || (uint64_t)(offsetLE - ddb->baseOffset) >= fileSize)
 				littleEndianValid = false;
 		}
 		if (bigEndianValid && !littleEndianValid)

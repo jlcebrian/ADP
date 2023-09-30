@@ -35,10 +35,11 @@ else
 	SDKDIR = $(abspath $(dir $(shell which $(CC)))../m68k-amiga-elf/sys-include)
 endif
 
-CCFLAGS += -DVERSION=$(VERSION)
+CCFLAGS += -DVERSION=$(VERSION) -Os
+#CCFLAGS += -D_DEBUGPRINT -O0
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
-CCFLAGS += -g -MP -MMD -m68000 -nostdlib -Os
+CCFLAGS += -g -MP -MMD -m68000 -nostdlib
 CCFLAGS += -Wextra -Wno-unused-function -Wno-volatile-register-var 
 CCFLAGS += -fno-tree-loop-distribution -fno-exceptions -fomit-frame-pointer 
 CCFLAGS += -Iinclude -Isupport -D_AMIGA

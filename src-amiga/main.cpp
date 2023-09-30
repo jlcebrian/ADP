@@ -119,7 +119,7 @@ void FreeSystem()
 
 int main ()
 {
-	const char* msg = "\ADP " VERSION_STR "\n";
+	const char* msg = "ADP " VERSION_STR "\n";
 	const size_t msgLen = StrLen(msg);
 
 	SysBase       = *((struct ExecBase**)4UL);
@@ -143,6 +143,7 @@ int main ()
 		Write(Output(), (APTR)"\n", 1);
 	}
 
+	CloseLibrary((struct Library*)IntuitionBase);
 	CloseLibrary((struct Library*)DOSBase);
 	CloseLibrary((struct Library*)GfxBase);
 	return 0;

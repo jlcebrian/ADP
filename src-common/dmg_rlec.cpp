@@ -8,7 +8,7 @@
 bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
 {
 	uint32_t nibbles = 0;
-	uint8_t color;
+	uint8_t color = 0;
 	uint8_t repetitions;
 	const uint32_t* data = (const uint32_t*) d;
 	const uint32_t* start = data;
