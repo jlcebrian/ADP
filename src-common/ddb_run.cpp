@@ -1822,6 +1822,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				return;
 
 			case CONDACT_ANYKEY:
+				DDB_OutputMessage(i, DDB_SYSMSG, 16);
 				DDB_Flush(i);
 				i->state = DDB_WAITING_FOR_KEY;
 				UpdatePos(i, process, entry, offset + params + 1);
