@@ -363,6 +363,7 @@ bool DDB_RunPlayer()
 		if (!VID_DisplaySCRFile(GetFile(".cgs", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
 	}
+
 	if (ddbCount > 1)
 	{
 		DebugPrintf("Showing part selector\n");
@@ -389,6 +390,8 @@ bool DDB_RunPlayer()
 	
 	DebugPrintf("Loading %s\n", ddbFileName);
 
+	VID_SaveScreen();
+
 	VID_ShowProgressBar(0);
 	DDB* ddb = DDB_Load(ddbFileName);
 	if (!ddb)
@@ -410,8 +413,16 @@ bool DDB_RunPlayer()
 		return false;
 	}
 	VID_ShowProgressBar(255);
-
-	if (ddbCount > 1 || scrCount > 0)
+	
+	if (ddbCount == 1 && scrCount > 0)
+	{
+		uint8_t key, ext;
+		VID_RestoreScreen();
+		VID_WaitForKey();
+		VID_GetKey(&key, &ext, 0);
+		DebugPrintf("Starting interpreter\n");
+	}
+	if (scrCount > 0)
 		FadeOut();
 
 	VID_ClearBuffer(true);
