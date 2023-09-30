@@ -39,7 +39,7 @@ CCFLAGS += -DVERSION=$(VERSION) -Os
 #CCFLAGS += -D_DEBUGPRINT -O0
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
-CCFLAGS += -g -MP -MMD -m68000 -nostdlib
+CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
 CCFLAGS += -Wextra -Wno-unused-function -Wno-volatile-register-var 
 CCFLAGS += -fno-tree-loop-distribution -fno-exceptions -fomit-frame-pointer 
 CCFLAGS += -Iinclude -Isupport -D_AMIGA
@@ -62,9 +62,9 @@ $(OUT).elf: $(objects)
 clean:
 	$(info Cleaning...)
 ifdef WINDOWS
-	@del /q obj\amiga\* out\*
+	@del /q obj\amiga\*.o out\amiga\*
 else
-	@$(RM) obj/amiga/* out/*
+	@$(RM) obj/amiga/*.o out/amiga/*
 endif
 
 -include $(objects:.o=.d)

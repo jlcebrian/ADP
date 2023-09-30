@@ -250,8 +250,6 @@ void OpenKeyboard()
 			Exit(0);
 		}
 
-		Enable();
-
 		handler.is_Code = Handler;
 		handler.is_Data = (APTR)KeyFound;
 		handler.is_Node.ln_Type = NT_USER;
@@ -259,6 +257,8 @@ void OpenKeyboard()
 		req.io_Data = (APTR)&handler;
 		req.io_Command = IND_ADDHANDLER;
 		SendIO ((IORequest *)&req);
+		if (CheckIO((IORequest *)&req) != 0)
+			WaitIO((IORequest *)&req);
 
 		kbOpen = true;
 	}
@@ -271,6 +271,9 @@ void CloseKeyboard()
 		req.io_Data = (APTR)&handler;
 		req.io_Command = IND_REMHANDLER;
 		SendIO ((IORequest *)&req);
+		if (CheckIO((IORequest *)&req) != 0)
+			WaitIO((IORequest *)&req);
+		CloseDevice((IORequest *)&req);
 	}
 }
 

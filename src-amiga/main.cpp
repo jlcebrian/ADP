@@ -8,6 +8,7 @@
 #include <os_types.h>
 
 #include "video.h"
+#include "keyboard.h"
 
 #include <graphics/gfxbase.h>
 #include <proto/intuition.h>
@@ -27,10 +28,6 @@ volatile Custom      *custom;
 struct GfxBase       *GfxBase;
 struct IntuitionBase *IntuitionBase;
 
-UWORD SystemInts;
-UWORD SystemDMA;
-UWORD SystemADKCON;
-
 static APTR  VBR = 0;
 static APTR  SystemIrq;
 struct View *ActiView;
@@ -39,10 +36,7 @@ static uint16_t savedColors[32];
 
 void TakeSystem() 
 {
-	SystemADKCON = custom->adkconr;
-	SystemInts = custom->intenar;
-	SystemDMA = custom->dmaconr;
-
+	DebugPrintf("TakeSystem\n");
 	ActiView = GfxBase->ActiView;
 
 	LoadView(0);
@@ -53,8 +47,7 @@ void TakeSystem()
 	VID_VSync();
 
 	OwnBlitter();
-	WaitBlit();	
-	Disable();
+	WaitBlit();
 
 	for(int a = 0; a < 32 ; a++)
 	{
@@ -74,7 +67,6 @@ void CallingDOS()
 	{
 		WaitBlit();
 		DisownBlitter();
-		Enable();
 	}
 }
 
@@ -91,21 +83,11 @@ void FreeSystem()
 	VID_VSync();
 	WaitBlit();
 
-	custom->intena = 0x7fff; // Disable all interrupts
-	custom->intreq = 0x7fff; // Clear any interrupts that were pending
-	custom->dmacon = 0x7fff; // Clear all DMA channels
-
 	custom->cop1lc = (ULONG)GfxBase->copinit;
 	custom->cop2lc = (ULONG)GfxBase->LOFlist;
 	custom->copjmp1 = 0x7fff; // Start coppper
 
-	// Restore all interrupts and DMA settings
-	custom->intena = SystemInts | 0x8000;
-	custom->dmacon = SystemDMA | 0x8000;
-	custom->adkcon = SystemADKCON | 0x8000;
-
 	DisownBlitter();
-	Enable();
 	
 	LoadView(ActiView);
 	WaitTOF();
@@ -134,7 +116,10 @@ int main ()
 		Exit(0);
 	}
 
+	WORD savedDMACON = custom->dmacon;
+
 	Write(Output(), (APTR)msg, msgLen);
+	OpenKeyboard();
 
 	if (!DDB_RunPlayer())
 	{
@@ -142,6 +127,10 @@ int main ()
 		Write(Output(), (APTR)errorString, StrLen(errorString));
 		Write(Output(), (APTR)"\n", 1);
 	}
+
+	custom->dmacon = savedDMACON;
+
+	CloseKeyboard();
 
 	CloseLibrary((struct Library*)IntuitionBase);
 	CloseLibrary((struct Library*)DOSBase);

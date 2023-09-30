@@ -771,6 +771,8 @@ bool VID_Initialize()
 		return true;
 	initialized = true;
 
+	OpenTimer();
+
 	if (SysBase->VBlankFrequency == 50)
 		isPAL = true;
 	else
@@ -811,9 +813,6 @@ bool VID_Initialize()
 	copPtr = SetVisiblePlanes(frontPlane, copPtr);
 	RunCopperProgram(copper1, copPtr);
 
-	OpenKeyboard();
-	OpenTimer();
-
 	return true;
 }
 
@@ -822,11 +821,10 @@ void VID_Finish ()
 	if (!initialized)
 		return;
 	initialized = false;
-	
-	CloseKeyboard();
-	CloseTimer();
 
 	FreeSystem();
+	
+	CloseTimer();
 
 	FreeMem(copper1, 1024);
 	FreeMem(backBuffer, SCR_ALLOCATE);
