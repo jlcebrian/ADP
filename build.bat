@@ -30,7 +30,7 @@ REM  Amiga player
 REM -----------------------------------------------------------------
 :AMIGA
 SETLOCAL
-set VSCODE=c:\Users\%USERNAME%\.vscode
+SET VSCODE=c:\Users\%USERNAME%\.vscode
 SET EXTENSION=extensions\bartmanabyss.amiga-debug-1.7.4
 SET OPTS=
 IF "%2"=="clean" SET OPTS=clean

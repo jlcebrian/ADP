@@ -362,8 +362,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			VID_SetPalette(pictureEntry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
 			break;
 	}
-
-	DebugPrintf("Displaying picture %d at %d,%d (%dx%d)\n", pictureIndex, x, y, w, h);
 	
 	uint16_t* srcPtr = pictureData;
 	uint32_t off = y*SCR_STRIDEB + (x >> 3);
@@ -388,6 +386,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		// Unaligned writes
 		do
 		{
+			uint8_t* n = s + pictureStride*2;
 			for (int32_t b = w-1; b > 0; b--)
 			{
 				p0[0] = *s++; p0[1] = *s++; p0 += 2; 
@@ -410,6 +409,8 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 				p2[0] = *s++; p2[1] = *s++; p2 += pinc;
 				p3[0] = *s++; p3[1] = *s++; p3 += pinc;
 			}
+
+			s = n;
 		}
 		while (a--);
 	}
@@ -427,6 +428,8 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 		do
 		{
+			uint16_t* n = srcPtr + pictureStride;
+
 			for (int32_t b = w-1; b > 0; b--)
 			{
 				*p0++ = *srcPtr++;
@@ -453,6 +456,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			p1     += pinc;
 			p2     += pinc;
 			p3     += pinc;
+			srcPtr  = n;
 		}
 		while (a--);
 	}

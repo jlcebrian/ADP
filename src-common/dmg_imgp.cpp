@@ -191,7 +191,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			if (dmg->version != DMG_Version2)
 			{
 				success = DMG_DecompressOldRLE(fileData+2, mask, 
-					entry->length-2, buffer, requiredSize, dmg->littleEndian);
+					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 			}
 			else if (!dmg->littleEndian)
 			{

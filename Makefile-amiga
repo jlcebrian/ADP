@@ -24,7 +24,8 @@ objects := $(cpp_objects) $(c_objects) $(s_objects) $(vasm_objects)
 # https://stackoverflow.com/questions/4036191/sources-from-subdirectories-in-makefile/4038459
 # http://www.microhowto.info/howto/automatically_generate_makefile_dependencies.html
 
-program = out/amiga/adp
+exename = adp
+program = out/amiga/$(exename)
 OUT = $(program)
 CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
@@ -62,9 +63,9 @@ $(OUT).elf: $(objects)
 clean:
 	$(info Cleaning...)
 ifdef WINDOWS
-	@del /q obj\amiga\*.o out\amiga\*
+	@del /q obj\amiga\*.o out\amiga\$(exename).*
 else
-	@$(RM) obj/amiga/*.o out/amiga/*
+	@$(RM) obj/amiga/*.o out/amiga/$(exename).*
 endif
 
 -include $(objects:.o=.d)
