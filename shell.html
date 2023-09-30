@@ -119,14 +119,14 @@
 
 		window.onload = () => {
 			requestAnimationFrame(updateCanvasSize);
-			document.getElementById('input').addEventListener('keydown', function(event) {
-				if (event.keyCode == 13) {
-					event.preventDefault();
-					Module.ccall('KeyPressed', 'void', ['number'], [event.keyCode]);
-				}
-			});
 			if (isTouchScreen)
 			{
+				document.getElementById('input').addEventListener('keydown', function(event) {
+					if (event.keyCode == 13) {
+						event.preventDefault();
+						Module.ccall('KeyPressed', 'void', ['number'], [event.keyCode]);
+					}
+				});
 				KioskBoard.init({
 					theme: 'dark',
 					keysEnterCanClose: false,
