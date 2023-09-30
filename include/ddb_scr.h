@@ -85,7 +85,6 @@ typedef void (*MainLoopCallback)(int elapsed);
 #define SCR_SetPaletteColor  VID_SetPaletteColor
 #define SCR_SetTextInputMode VID_SetTextInputMode
 #define SCR_SwapScreen       VID_SwapScreen
-#define SCR_WaitForKey       VID_WaitForKey
 
 static inline bool SCR_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
@@ -100,6 +99,13 @@ static inline void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t pap
 
 static inline bool SCR_Synchronized()  { return true; }
 static inline void SCR_ConsumeBuffer() {}
+
+static inline void SCR_WaitForKey()
+{
+	uint8_t key, ext;
+	VID_WaitForKey();
+	VID_GetKey(&key, &ext, 0);
+}
 
 #else
 
