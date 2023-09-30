@@ -1,3 +1,5 @@
+
+VERSION ?= BETA0.1
 PREFIX   = m68k-atari-mint-
 CXX      = $(PREFIX)g++
 CC       = $(PREFIX)gcc
@@ -7,7 +9,7 @@ NM       = $(PREFIX)nm
 VASM     = vasmm68k_mot
 LIBCMINI ?= /opt/atarist/libcmini
 
-CPPFLAGS += -Iinclude -DVERSION="`date +%Y%m%d`" -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE
+CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -Os -fomit-frame-pointer -fno-rtti -fno-exceptions
@@ -33,8 +35,8 @@ CPPFILES := 		\
 	ddb_vid.cpp		\
 	ddb.cpp			\
 	dmg_cach.cpp	\
-	dmg_cga.cpp	\
-	dmg_ega.cpp	\
+	dmg_cga.cpp		\
+	dmg_ega.cpp		\
 	dmg_imgp.cpp	\
 	dmg_rlec.cpp	\
 	dmg.cpp			\

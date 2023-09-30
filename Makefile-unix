@@ -1,6 +1,8 @@
+VERSION ?= BETA0.1
+
 CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION="BETA 0.1 `date +%Y%m%d`"
+CPPFLAGS += -g -DVERSION=$(VERSION)
 CPPFLAGS += -O2
 
 CPPFLAGS += `libpng-config --cflags`

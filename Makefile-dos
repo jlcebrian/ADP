@@ -1,5 +1,5 @@
 
-OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=0.1 -D_STDCLIB
+OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB
 #OPTIM=-od -d3 -hw
 OPTIM=-otexan -zc -d0 -3r
 #OPTIM=-onatx -oh -ei -zp8 -3

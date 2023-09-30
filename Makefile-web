@@ -1,4 +1,4 @@
-
+VERSION ?= BETA0.1
 
 CC = emcc
 CXX = em++
@@ -11,7 +11,7 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	
 CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION=BETA0.1
+CPPFLAGS += -g -DVERSION=$(VERSION)
 
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 
@@ -50,6 +50,7 @@ OBJS := $(addprefix obj/web/,$(patsubst %.cpp,%.o,$(SRCS)))
 -include $(OBJS:.o=.d)
 
 GAMES = $(notdir $(wildcard web-games/*))
+GAMEDIRS = $(patsubst %,out\web\\%,$(GAMES))
 
 all: $(patsubst %,out/web/%/index.html,$(GAMES))
 
@@ -63,7 +64,12 @@ endif
 	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --embed-file web-games/$*@/data/ 
 
 clean:
+ifeq ($(OS), Windows_NT)
+	-rd /S /Q $(GAMEDIRS)
+	-del obj\web\*.o
+else
 	rm -f out/web/*/index.* obj/web/*.o
+endif
 
 $(OBJS) : obj/web/%.o : %.cpp
 	$(info Compiling $<)
