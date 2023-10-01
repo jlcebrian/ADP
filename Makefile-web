@@ -10,6 +10,7 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	-sEXPORTED_FUNCTIONS=_main,_KeyPressed
 	
 CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 

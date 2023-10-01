@@ -47,5 +47,8 @@ extern void   VID_InnerLoop           ();
 extern bool   VID_HasClipboardText    (uint32_t* size);
 extern void   VID_GetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
 extern void   VID_SetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
+#endif
 
+#ifdef HAS_FULLSCREEN
+extern void   VID_ToggleFullscreen    ();
 #endif

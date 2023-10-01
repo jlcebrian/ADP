@@ -524,13 +524,27 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 {
 	if (inputBufferHead != inputBufferTail)
 	{
+		int modState = SDL_GetModState();
+		int keyCode = inputBuffer[inputBufferTail] & 0xFF;
+		int extCode = inputBuffer[inputBufferTail] >> 8;
+
+#if HAS_FULLSCREEN
+		if (keyCode == SDLK_F11)
+		{
+			VID_ToggleFullscreen();
+			return;
+		}
+		if (keyCode == 13 && (modState & KMOD_ALT))
+		
+			VID_ToggleFullscreen();
+#endif
+
 		if (key != NULL)
-			*key = inputBuffer[inputBufferTail] & 0xFF;
+			*key = keyCode;
 		if (ext != NULL)
-			*ext = inputBuffer[inputBufferTail] >> 8;
+			*ext = extCode;
 		if (mod != NULL)
 		{
-			int modState = SDL_GetModState();
 			*mod = 0;
 			if (modState & KMOD_SHIFT)
 				*mod |= SCR_KEYMOD_SHIFT;
@@ -621,12 +635,20 @@ void VID_InnerLoop()
 					if (++interpreter->keyClick == 3)
 						interpreter->keyClick = 0;
 				}
-#if _WEB
+
+				#if HAS_FULLSCREEN
 				if (event.key.keysym.sym == SDLK_F11)
 				{
-					RequestFullScreen();
+					VID_ToggleFullscreen();
+					break;
 				}
-#endif
+				if (event.key.keysym.sym == SDLK_RETURN && (event.key.keysym.mod & KMOD_ALT))
+				{
+					VID_ToggleFullscreen();
+					break;
+				}
+				#endif
+				
 				for (int n = 0; keyMapping[n].key != 0; n++)
 				{
 					if (keyMapping[n].key == event.key.keysym.sym)
@@ -1110,4 +1132,10 @@ void VID_SetClipboardText(uint8_t *buffer, uint32_t bufferSize)
 	ConvertToUTF8(buffer, bufferSize, text, size);
 	SDL_SetClipboardText((char *)text);
 	Free(text);
+}
+
+void VID_ToggleFullscreen()
+{
+	uint32_t flags = SDL_GetWindowFlags(window);
+	SDL_SetWindowFullscreen(window, flags & SDL_WINDOW_FULLSCREEN_DESKTOP ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 }
