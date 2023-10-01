@@ -49,11 +49,15 @@
 	<script>
 		var kbHeight = 0;
 		var kbVisible = false;
-		var isTouchScreen = false;
+		var isTouchScreen = ('ontouchstart' in document.documentElement);
 
 		var Module = {
 			print: n => {
 				console.log(n);
+			},
+			locateFile: (path, prefix) => {
+				console.log("locateFile", path, prefix);
+				return prefix + path;
 			},
 			canvas: (() => {
 				var canvas = document.getElementById('canvas');
@@ -62,10 +66,6 @@
 				return canvas;
 			})(),
 		};
-			
-		if ('ontouchstart' in document.documentElement) {
-			isTouchScreen = true;
-		}
 
 		function updateCanvasSize() {
 			var canvas = document.getElementById("canvas");

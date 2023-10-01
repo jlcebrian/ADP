@@ -1005,11 +1005,13 @@ static uint32_t ConvertUTF8 (char* text)
 		uint32_t c = *src++;
 		if ((c & 0xE0) == 0xC0)
 			c = ((c & 0x1F) << 6) | (*src++ & 0x7F);
-		else if ((c & 0xF0) == 0xE0)
-			c = ((c & 0x0F) << 12) | ((*src++ & 0x7F) << 6) | (*src++ & 0x7F);
-		else if ((c & 0xF8) == 0xF0)
-			c = ((c & 0x07) << 18) | ((*src++ & 0x7F) << 12) | ((*src++ & 0x7F) << 6) | (*src++ & 0x7F);
-		
+		else if ((c & 0xF0) == 0xE0) {
+			c = ((c & 0x0F) << 12) | ((src[0] & 0x7F) << 6) | (src[1] & 0x7F);
+			src += 2;
+		} else if ((c & 0xF8) == 0xF0) {
+			c = ((c & 0x07) << 18) | ((src[0] & 0x7F) << 12) | ((src[1] & 0x7F) << 6) | (src[2] & 0x7F);
+			src += 3;
+		}
 		if (c >= 32 && c <= 255)
 			*dst++ = DDB_ISO2Char[c];
 	}

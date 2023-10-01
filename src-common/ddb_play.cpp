@@ -159,7 +159,6 @@ static void FadeOutStep(int elapsed)
 	
 	if (frame >= 16)
 	{
-		DebugPrintf("Fading out finished\n");
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
 		for (int i = 0; i < 16; i++)
@@ -170,7 +169,6 @@ static void FadeOutStep(int elapsed)
 
 static void FadeOut()
 {
-	DebugPrintf("Fading out started\n");
 	for (int i = 0; i < 16; i++)
 		VID_GetPaletteColor(i, &r[i], &g[i], &b[i]);
 	frame = 0;
@@ -183,6 +181,21 @@ static void WaitForKeyUpdate(int elapsed)
 {
 	if (VID_AnyKey())
 		VID_Quit();
+}
+
+static const char* PlayerStateToString(PlayerState state)
+{
+	switch (state)
+	{
+		case Player_Starting: return "Starting";
+		case Player_SelectingPart: return "SelectingPart";
+		case Player_ShowingScreen: return "ShowingScreen";
+		case Player_FadingOut: return "FadingOut";
+		case Player_InGame: return "InGame";
+		case Player_Finished: return "Finished";
+		case Player_Error: return "Error";
+	}
+	return "Unknown";
 }
 
 PlayerState DDB_RunPlayerAsync(const char* location)
@@ -220,6 +233,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		EnumFiles(path);
 		ddbCount = CountFiles(".ddb");
 		scrCount = CountFiles(".scr");
+		DebugPrintf("Found %d DDBs and %d screens\n", ddbCount, scrCount);
 		if (ddbCount == 0)
 		{
 			CloseEnum();

@@ -52,7 +52,16 @@ OBJS := $(addprefix obj/web/,$(patsubst %.cpp,%.o,$(SRCS)))
 GAMES = $(notdir $(wildcard web-games/*))
 GAMEDIRS = $(patsubst %,out\web\\%,$(GAMES))
 
-all: $(patsubst %,out/web/%/index.html,$(GAMES))
+all: out/web/adp/index.html $(patsubst %,out/web/%/index.html,$(GAMES)) 
+
+out/web/adp/index.html: $(OBJS) shell.html
+	$(info Building adp)
+ifeq ($(OS), Windows_NT)
+	@IF NOT EXIST "out\web\adp" mkdir out\web\adp
+else
+	@mkdir -o out/web/adp
+endif
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) 
 
 out/web/%/index.html: $(OBJS) shell.html
 	$(info Building $*)
@@ -61,7 +70,7 @@ ifeq ($(OS), Windows_NT)
 else
 	@mkdir -o out/web/$*
 endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --embed-file web-games/$*@/data/ 
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --preload-file web-games/$*@/data/ 
 
 clean:
 ifeq ($(OS), Windows_NT)
