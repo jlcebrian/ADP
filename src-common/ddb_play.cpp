@@ -1,6 +1,7 @@
 
 #include <ddb.h>
 #include <ddb_vid.h>
+#include <ddb_pal.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -138,6 +139,12 @@ static void LoaderScreenUpdate(int elapsed)
 	}
 }
 
+static void WaitForKeyUpdate(int elapsed)
+{
+	if (VID_AnyKey())
+		VID_Quit();
+}
+
 #if _WEB
 
 static int frame;
@@ -175,12 +182,6 @@ static void FadeOut()
 	FadeOutStep(0);
 
 	VID_MainLoopAsync(0, FadeOutStep);
-}
-
-static void WaitForKeyUpdate(int elapsed)
-{
-	if (VID_AnyKey())
-		VID_Quit();
 }
 
 static const char* PlayerStateToString(PlayerState state)
@@ -330,12 +331,9 @@ static void FadeOut()
 			VID_SetPaletteColor(i, r2, g2, b2);
 		}
 		VID_VSync();
-		VID_ClearBuffer(true);
-		VID_ClearBuffer(false);
-		VID_VSync();
-		for (int i = 0; i < 16; i++)
-			VID_SetPaletteColor(i, r[i], g[i], b[i]);
 	}
+	for (int i = 0; i < 16; i++)
+		VID_SetPaletteColor(i, r[i], g[i], b[i]);
 }
 
 bool DDB_RunPlayer()
@@ -431,11 +429,12 @@ bool DDB_RunPlayer()
 	
 	if (ddbCount == 1 && scrCount > 0)
 	{
+		DDB_Interpreter* i = interpreter;
 		uint8_t key, ext;
 		VID_RestoreScreen();
-		VID_WaitForKey();
+		VID_MainLoop(0, WaitForKeyUpdate);
 		VID_GetKey(&key, &ext, 0);
-		DebugPrintf("Starting interpreter\n");
+		interpreter = i;
 	}
 	if (scrCount > 0)
 		FadeOut();
@@ -443,6 +442,15 @@ bool DDB_RunPlayer()
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
 
+	for (int n = 0; n < 16; n++)
+	{
+		VID_SetPaletteColor(n,
+		                    EGAPalette[n] >> 16,
+		                    EGAPalette[n] >> 8,
+		                    EGAPalette[n]);
+	}
+
+	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);
 	DDB_CloseInterpreter(interpreter);
 	DDB_Close(ddb);
