@@ -30,6 +30,7 @@ extern void VID_SetColor (uint8_t n, uint16_t pal);
 extern void VID_VSync    ();
 extern void VID_ActivatePalette();
 
+extern bool isPAL;
 extern bool systemTaken;
 extern bool interruptsTaken;
 

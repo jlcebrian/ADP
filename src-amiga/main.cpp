@@ -4,9 +4,11 @@
 
 #include <ddb.h>
 #include <ddb_pal.h>
+#include <ddb_data.h>
 #include <os_lib.h>
 #include <os_types.h>
 
+#include "audio.h"
 #include "video.h"
 #include "keyboard.h"
 
@@ -15,6 +17,7 @@
 #include <exec/ports.h>
 #include <exec/execbase.h>
 #include <hardware/intbits.h>
+#include <hardware/dmabits.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/graphics.h>
@@ -118,8 +121,12 @@ int main ()
 
 	WORD savedDMACON = custom->dmacon;
 
+	ConvertSample(beepSample, beepSampleSize);
+	ConvertSample(clickSample, clickSampleSize);
+
 	Write(Output(), (APTR)msg, msgLen);
 	OpenKeyboard();
+	OpenAudio();
 
 	if (!DDB_RunPlayer())
 	{
@@ -128,8 +135,11 @@ int main ()
 		Write(Output(), (APTR)"\n", 1);
 	}
 
-	custom->dmacon = savedDMACON;
+	custom->dmacon = (savedDMACON & 0x3FF) | DMAF_SETCLR;
+	Delay(5);
+	custom->dmacon = (~savedDMACON & 0x3FF);
 
+	CloseAudio();
 	CloseKeyboard();
 
 	CloseLibrary((struct Library*)IntuitionBase);

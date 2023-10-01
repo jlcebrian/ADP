@@ -14,6 +14,7 @@
 #include "keyboard.h"
 #include "timer.h"
 #include "video.h"
+#include "audio.h"
 
 #include <exec/execbase.h>
 #include <exec/ports.h>
@@ -479,6 +480,12 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
 	if (key) *key = v & 0xFF;
 	if (ext) *ext = v >> 8;
 	if (modifiers) *modifiers = GetModifiers();
+
+	if ((v >> 8) == 0x44 && interpreter)	// F10
+	{
+		if (++interpreter->keyClick == 3)
+			interpreter->keyClick = 0;
+	}
 }
 
 void VID_GetMilliseconds (uint32_t* time)
@@ -569,12 +576,57 @@ void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
 
 void VID_PlaySample (uint8_t no, int* duration)
 {
-	// TODO
+	DMG_Entry* entry = DMG_GetEntry(dmg, no);
+	if (entry == NULL || entry->type != DMGEntry_Audio)
+		return;
+
+	uint8_t* audioDataFromFile = DMG_GetEntryData(dmg, no, ImageMode_Audio);
+	if (audioDataFromFile == 0)
+		return;
+
+	uint8_t* buffer = audioDataFromFile;
+	DMG_Cache* cache = DMG_GetImageCache(dmg, no, entry, entry->length);
+	if (cache != 0)
+	{
+		buffer = (uint8_t*)(cache + 1);
+		if (cache->populated == false)
+		{
+			MemCopy(buffer, audioDataFromFile, entry->length);
+			ConvertSample(buffer, entry->length);
+		}
+	}
+	else
+	{
+		// We could play the data from the file cache instead, but
+		// - We may end up converting the sample twice
+		// - It may not be in chip RAM in the future
+		//
+		// So, we're aborting for now. This case should never happen anyway,
+		// since we should have enough image cache for any audio sample.
+		return;
+	}
+
+	uint16_t inputHz;
+	switch (entry->x)
+	{
+		case DMG_5KHZ:   inputHz =  5000; break;
+		case DMG_7KHZ:   inputHz =  7000; break;
+		case DMG_9_5KHZ: inputHz =  9500; break;
+		case DMG_15KHZ:  inputHz = 15000; break;
+		case DMG_20KHZ:  inputHz = 20000; break;
+		case DMG_30KHZ:  inputHz = 30000; break;
+		default:         inputHz = 11025; break;
+	}
+
+	if (duration != NULL)
+		*duration = entry->length * 1000 / inputHz;
+
+	PlaySample(buffer, entry->length, inputHz, 64);
 }
 
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 {
-	// TODO
+	PlaySample((uint8_t*)buffer, samples, hz, volume);
 }
 
 void VID_Quit ()

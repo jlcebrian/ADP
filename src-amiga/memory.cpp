@@ -22,7 +22,13 @@ LONG         os_totalAllocated = 0;
 
 void *OSAlloc(size_t size)
 {
-	void* block = AllocMem(size + BlockHeaderSize, MEMF_ANY | MEMF_CLEAR);
+	// Note: not all memory must be allocated in the chip pool,
+	// we should expose some way to allocate from the fast pool instead.
+	// 
+	// Things which should go into chip pool:
+	// - Audio buffers (DMG_GetEntryData for audio)
+	// - Uncompressed pictures (DMG_SetupImageCache)
+	void* block = AllocMem(size + BlockHeaderSize, MEMF_CHIP | MEMF_CLEAR);
 	if (block == 0)
 		return 0;
 
