@@ -42,3 +42,10 @@ extern void   VID_ShowError           (const char* msg);
 extern void   VID_ActivatePalette     ();
 extern void   VID_ShowProgressBar     (uint16_t amount);
 extern void   VID_InnerLoop           ();
+
+#ifdef HAS_CLIPBOARD
+extern bool   VID_HasClipboardText    (uint32_t* size);
+extern void   VID_GetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
+extern void   VID_SetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
+
+#endif

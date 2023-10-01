@@ -60,7 +60,7 @@ SET VERSION=/DVERSION=%VERSION%
 SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
 SET TOOLOPTS=/Iinclude-tools /Ilib-win64/libpng
-SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib-win64\libpng /Ilib-win64\sdl\include /Iinclude /D_STDCLIB /DNO_CACHE
+SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib-win64\libpng /Ilib-win64\sdl\include /Iinclude /D_STDCLIB /DNO_CACHE /DHAS_CLIPBOARD
 set OPTIM=/Zi /GR- /EHsc /MP8 /FC /GL
 SET LINK=
 

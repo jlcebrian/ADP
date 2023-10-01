@@ -992,3 +992,120 @@ void VID_VSync()
 	VID_InnerLoop();
 	SDL_Delay(16);
 }
+
+static char* clipboard = 0;
+
+static uint32_t ConvertUTF8 (char* text)
+{
+	uint8_t* org = (uint8_t*)text;
+	uint8_t* src = (uint8_t*)text;
+	uint8_t* dst = (uint8_t*)text;
+	while (*src)
+	{
+		uint32_t c = *src++;
+		if ((c & 0xE0) == 0xC0)
+			c = ((c & 0x1F) << 6) | (*src++ & 0x7F);
+		else if ((c & 0xF0) == 0xE0)
+			c = ((c & 0x0F) << 12) | ((*src++ & 0x7F) << 6) | (*src++ & 0x7F);
+		else if ((c & 0xF8) == 0xF0)
+			c = ((c & 0x07) << 18) | ((*src++ & 0x7F) << 12) | ((*src++ & 0x7F) << 6) | (*src++ & 0x7F);
+		
+		if (c >= 32 && c <= 255)
+			*dst++ = DDB_ISO2Char[c];
+	}
+	*dst = 0;
+	return dst - org;
+}
+
+static uint32_t MeasureUTF8Conversion (const uint8_t* text, uint32_t length)
+{
+	uint32_t size = 0;
+	const uint8_t* end = text + length;
+	while (*text && text < end)
+	{
+		uint8_t c = *text++;
+		c = DDB_Char2ISO[c];
+		if (c <= 127)
+			size += 1;
+		else 
+			size += 2;
+	}
+	return size + 1;
+}
+
+static void ConvertToUTF8 (const uint8_t* text, uint32_t size, uint8_t* buffer, uint32_t bufferSize)
+{
+	const uint8_t* src = text;
+	const uint8_t* end = text + size;
+	uint8_t* dst = buffer;
+	uint8_t* dstEnd = buffer + bufferSize;
+	while (*src && src < end && dst < dstEnd)
+	{
+		uint32_t c = *src++;
+		c = DDB_Char2ISO[c];
+		if (c <= 127)
+		{
+			*dst++ = c;
+		}
+		else 
+		{
+			*dst++ = 0xC0 | ((c >> 6) & 0x1F);
+			if (dst < dstEnd)
+				*dst++ = 0x80 | ((c >> 0) & 0x3F);
+		}
+	}
+	if (dst < dstEnd)
+		*dst = 0;
+}
+
+bool VID_HasClipboardText(uint32_t *size)
+{
+	if (clipboard != 0)
+		SDL_free(clipboard);
+	
+	clipboard = SDL_GetClipboardText();
+	if (clipboard != 0)
+	{
+		uint32_t length = ConvertUTF8(clipboard);
+		if (size)
+			*size = length;
+		return true;
+	}
+	return false;
+}
+
+void VID_GetClipboardText(uint8_t *buffer, uint32_t bufferSize)
+{
+	if (buffer == 0 || bufferSize == 0)
+		return;
+	if (clipboard == 0)
+	{
+		*buffer = 0;
+		return;
+	}
+
+	uint32_t length = ConvertUTF8(clipboard);
+	if (length > bufferSize)
+		length = bufferSize;
+		
+	MemCopy(buffer, clipboard, length);
+	if (length < bufferSize)
+		buffer[length] = 0;
+}
+
+void VID_SetClipboardText(uint8_t *buffer, uint32_t bufferSize)
+{
+	if (buffer == 0 || bufferSize == 0)
+		return;
+	if (clipboard != 0)
+	{
+		Free(clipboard);
+		clipboard = 0;
+	}
+	
+	uint32_t size = MeasureUTF8Conversion(buffer, bufferSize);
+	uint8_t* text = Allocate<uint8_t>("Clipboard text", size);
+	ConvertToUTF8(buffer, bufferSize, text, size);
+	SDL_SetClipboardText((char *)text);
+	Free(text);
+}

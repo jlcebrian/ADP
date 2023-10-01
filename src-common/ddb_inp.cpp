@@ -1,6 +1,7 @@
 #include <ddb.h>
 #include <ddb_scr.h>
 #include <ddb_data.h>
+#include <ddb_vid.h>
 #include <os_char.h>
 #include <os_file.h>
 #include <os_lib.h>
@@ -751,21 +752,55 @@ void DDB_ProcessInputFrame()
 
 		default:
 			// fprintf(stderr, "Key: %04X\n", key | (ext << 8));
-			if ((key == 'z' || key == 'Z') && (mod & SCR_KEYMOD_CTRL))
+
+			if ((mod & SCR_KEYMOD_CTRL) != 0)
 			{
-				Undo(i);
-				DDB_PrintInputLine(i, true);
-				if (i->state == DDB_INPUT)
-					UpdateLastInputHistoryLine(i);
-				break;
-			}
-			if ((key == 'y' || key == 'Y') && (mod & SCR_KEYMOD_CTRL))
-			{
-				Redo(i);
-				DDB_PrintInputLine(i, true);
-				if (i->state == DDB_INPUT)
-					UpdateLastInputHistoryLine(i);
-				break;
+				#ifdef HAS_CLIPBOARD
+				if (key == 'v' || key == 'V')
+				{
+					uint32_t size = 0;
+					if (VID_HasClipboardText(&size))
+					{
+						if (i->inputBufferLength >= sizeof(i->inputBuffer) - 1)
+							break;
+						if (size > sizeof(i->inputBuffer) - i->inputBufferLength - 1)
+							size = sizeof(i->inputBuffer) - i->inputBufferLength - 1;
+						if (size == 0)
+							break;
+
+						MemMove(i->inputBuffer + i->inputCursorX + size, i->inputBuffer + i->inputCursorX, i->inputBufferLength - i->inputCursorX);
+						VID_GetClipboardText(i->inputBuffer + i->inputCursorX, size);
+						i->inputBufferLength += size;
+						i->inputCursorX += size;
+						SaveUndoState(i, Undo_Keep);
+						DDB_PrintInputLine(i, true);
+						if (i->state == DDB_INPUT)
+							UpdateLastInputHistoryLine(i);
+					}
+					break;
+				}
+				if (key == 'c' || key == 'C')
+				{
+					VID_SetClipboardText(i->inputBuffer, i->inputBufferLength);
+					break;
+				}
+				#endif
+				if (key == 'z' || key == 'Z')
+				{
+					Undo(i);
+					DDB_PrintInputLine(i, true);
+					if (i->state == DDB_INPUT)
+						UpdateLastInputHistoryLine(i);
+					break;
+				}
+				if (key == 'y' || key == 'Y')
+				{
+					Redo(i);
+					DDB_PrintInputLine(i, true);
+					if (i->state == DDB_INPUT)
+						UpdateLastInputHistoryLine(i);
+					break;
+				}
 			}
 			if (ext == 0 && key >= 16 && key <= 127 && i->inputBufferLength < sizeof(i->inputBuffer)-1)
 			{
