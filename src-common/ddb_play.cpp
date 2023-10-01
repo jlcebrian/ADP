@@ -15,8 +15,6 @@ static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
-static DDB*        ddb;
-static PlayerState state = Player_Starting;
 
 static void EnumFiles(const char* pattern = "*")
 {
@@ -124,12 +122,6 @@ static void ShowLoaderPrompt(int parts, DDB_Language language)
 	}
 }
 
-static void WaitForKeyUpdate(int elapsed)
-{
-	if (VID_AnyKey())
-		VID_Quit();
-}
-
 static void LoaderScreenUpdate(int elapsed)
 {
 	if (VID_AnyKey())
@@ -150,6 +142,9 @@ static void LoaderScreenUpdate(int elapsed)
 
 static int frame;
 static uint8_t r[16], g[16], b[16];
+
+static PlayerState state = Player_Starting;
+static DDB*        ddb;
 
 static void FadeOutStep(int elapsed)
 {
@@ -182,6 +177,12 @@ static void FadeOut()
 	FadeOutStep(0);
 
 	VID_MainLoopAsync(0, FadeOutStep);
+}
+
+static void WaitForKeyUpdate(int elapsed)
+{
+	if (VID_AnyKey())
+		VID_Quit();
 }
 
 PlayerState DDB_RunPlayerAsync(const char* location)
@@ -345,7 +346,7 @@ bool DDB_RunPlayer()
 
 	DDB_Check(ddbFileName, &machine, &language, 0);
 
-	int scrCount = CountFiles(".scr");
+	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
 	{
 		if (machine == DDB_MACHINE_ATARIST && CountFiles(".exe") > 0)

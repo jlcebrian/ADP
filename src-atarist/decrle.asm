@@ -181,7 +181,5 @@ _DecompressRLE
 .ret		movem.l	(sp)+,d2-d7/a2-a6
 		rts
 
-		SECTION .data
-
 SavedColor	dc.b	0
 EOLShift	dc.b	0

@@ -26,6 +26,8 @@
 #define DEBUG_KEYCODES 0
 #endif
 
+extern "C" void PlaySample (const uint8_t* data, uint32_t dataSize, uint32_t hzMode);
+
 static bool     quit;
 static uint8_t  palette[16][3];
 static uint16_t colors[16];
@@ -539,6 +541,12 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 	if (ext) *ext = (in >> 16);
 	if (mod) *mod = GetKeyModifiers();
 
+	if (interpreter && (in >> 16) == 0x44) // F10
+	{
+		if (++interpreter->keyClick == 3)
+			interpreter->keyClick = 0;
+	}
+
 #if DEBUG_KEYCODES
 	char buf[16];
 	sprintf(buf, "%08X %04X", in, GetKeyModifiers());
@@ -876,12 +884,45 @@ void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
 
 void VID_PlaySample (uint8_t no, int* duration)
 {
-	// TODO
+	DMG_Entry* entry = DMG_GetEntry(dmg, no);
+	if (entry == NULL || entry->type != DMGEntry_Audio)
+		return;
+	uint8_t* audioData = DMG_GetEntryDataPlanar(dmg, no);
+	if (audioData == 0)
+		return;
+
+	if (entry->x > 5 || entry->x < 0)
+		return;
+	PlaySample(audioData, entry->length, entry->x);
+
+	if (duration != NULL)
+	{
+		int sampleHz = 30000;
+		switch (entry->x)
+		{
+			case DMG_5KHZ:   sampleHz = 5000; break;
+			case DMG_7KHZ:   sampleHz = 7000; break;
+			case DMG_9_5KHZ: sampleHz = 9500; break;
+			case DMG_15KHZ:  sampleHz = 15000; break;
+			case DMG_20KHZ:  sampleHz = 20000; break;
+			case DMG_30KHZ:  sampleHz = 30000; break;
+		}
+		*duration = entry->length * 1000 / sampleHz;
+	}
 }
 
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 {
-	// TODO
+	int hzMode = DMG_5KHZ;
+
+	     if (hz <  5000) hzMode = DMG_5KHZ;
+	else if (hz <  8500) hzMode = DMG_7KHZ;
+	else if (hz < 12250) hzMode = DMG_9_5KHZ;
+	else if (hz < 17500) hzMode = DMG_15KHZ;
+	else if (hz < 25000) hzMode = DMG_20KHZ;
+	else hzMode = DMG_30KHZ;
+	
+	PlaySample((uint8_t*)buffer, samples, hzMode);
 }
 
 void VID_Quit ()

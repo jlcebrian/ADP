@@ -48,7 +48,8 @@ CPPFILES := 		\
 	player.cpp		\
 	video.cpp
 ASMFILES :=			\
-	decrle.asm
+	decrle.asm		\
+	audio.asm
 
 CPPOBJS := $(patsubst %.cpp,obj/atarist/%.o,$(CPPFILES))
 ASMOBJS := $(patsubst %.asm,obj/atarist/%.o,$(ASMFILES))

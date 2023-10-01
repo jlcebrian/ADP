@@ -23,6 +23,11 @@ static void init()
 	ret = Super(0L);
 	for (int n = 0; n < 16; n++)
 		defaultPalette[n] = Setcolor(n, -1);
+
+#ifndef NO_SAMPLES
+	// Disable key click, keep key repeat
+	*conterm = 2;
+#endif
 }
 
 static void quit()
