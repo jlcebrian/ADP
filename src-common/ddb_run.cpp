@@ -2614,10 +2614,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->prompt = param0;
 				break;
 			case CONDACT_PAPER:
+				DDB_Flush(i);
 				// Transparent paper is not supported in the original
 				i->win.paper = param0 == 255 ? 255 : param0 & 0x0F;
 				break;
 			case CONDACT_INK:
+				DDB_Flush(i);
 				i->win.ink = param0 & 0x0F;
 				break;
 			case CONDACT_TIMEOUT:
