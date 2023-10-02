@@ -142,7 +142,11 @@ static void LoaderScreenUpdate(int elapsed)
 static void WaitForKeyUpdate(int elapsed)
 {
 	if (VID_AnyKey())
+	{
+		uint8_t key = 0, ext = 0;
+		VID_GetKey(&key, &ext, 0);
 		VID_Quit();
+	}
 }
 
 #if _WEB
@@ -163,13 +167,19 @@ static void FadeOutStep(int elapsed)
 		VID_SetPaletteColor(i, r2, g2, b2);
 	}
 	frame++;
+	VID_ActivatePalette();
 	
 	if (frame >= 16)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
-		for (int i = 0; i < 16; i++)
-			VID_SetPaletteColor(i, r[i], g[i], b[i]);
+		for (int n = 0; n < 16; n++)
+		{
+			VID_SetPaletteColor(n,
+								EGAPalette[n] >> 16,
+								EGAPalette[n] >> 8,
+								EGAPalette[n]);
+		}
 		VID_Quit();
 	}
 }
@@ -277,8 +287,6 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 	// Start the game
 
-	VID_RestoreScreen();
-	VID_ClearBuffer(false);
 	if (ddbSelected == -1)
 	{
 		CloseEnum();
@@ -427,14 +435,17 @@ bool DDB_RunPlayer()
 	}
 	VID_ShowProgressBar(255);
 	
-	if (ddbCount == 1 && scrCount > 0)
+	if (scrCount > 0)
 	{
-		DDB_Interpreter* i = interpreter;
-		uint8_t key, ext;
 		VID_RestoreScreen();
-		VID_MainLoop(0, WaitForKeyUpdate);
-		VID_GetKey(&key, &ext, 0);
-		interpreter = i;
+		if (ddbCount == 1)
+		{
+			DDB_Interpreter* i = interpreter;
+			uint8_t key, ext;
+			VID_MainLoop(0, WaitForKeyUpdate);
+			VID_GetKey(&key, &ext, 0);
+			interpreter = i;
+		}
 	}
 	if (scrCount > 0)
 		FadeOut();
