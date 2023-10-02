@@ -18,6 +18,8 @@ extern void TracePrintf(const char* format, ...);
 #define TRACE(...)
 #endif
 
+static void MarkWindowOutput();
+
 static uint8_t objNameBuffer[256];
 
 static uint8_t ToUpper(uint8_t ch);
@@ -1258,10 +1260,17 @@ static struct
 	int y;
 	int width;
 	int height;
+	bool hasOutput;
 }
 windowClears[16];
 static int windowClearCount = 0;
 static const int maxWindowClears = sizeof(windowClears) / sizeof(windowClears[0]);
+
+static void MarkWindowOutput()
+{
+	if (windowClearCount > 0)
+		windowClears[windowClearCount - 1].hasOutput = true;
+}
 
 static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 {
@@ -1270,7 +1279,8 @@ static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 		if (   windowClears[n].x < i->win.x + i->win.width       
 			&& windowClears[n].x + windowClears[n].width > i->win.x 
 			&& windowClears[n].y < i->win.y + i->win.height      
-			&& windowClears[n].y + windowClears[n].height > i->win.y)
+			&& windowClears[n].y + windowClears[n].height > i->win.y
+			&& windowClears[n].hasOutput)
 		{
 			// fprintf(stderr, "Window %d (%d,%d %dx%d) overlaps previously cleared window %d (%d,%d %dx%d)\n", i->curwin,
 			// 	i->win.x, i->win.y, i->win.width, i->win.height,
@@ -1284,10 +1294,12 @@ static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 		windowClears[windowClearCount].y = i->win.y;
 		windowClears[windowClearCount].width = i->win.width;
 		windowClears[windowClearCount].height = i->win.height;
+		windowClears[windowClearCount].hasOutput = i->win.paper != 0;
 		windowClearCount++;
 	}
 	return false;
 }
+
 // --------------------
 //   Public functions
 // --------------------
@@ -1593,14 +1605,17 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				break;
 			case CONDACT_MES:
+				MarkWindowOutput();
 				DDB_OutputMessage(i, DDB_MSG, param0);
 				i->done = true;
 				break;
 			case CONDACT_SYSMESS:
+				MarkWindowOutput();
 				DDB_OutputMessage(i, DDB_SYSMSG, param0);
 				i->done = true;
 				break;
 			case CONDACT_MESSAGE:
+				MarkWindowOutput();
 				DDB_OutputMessage(i, DDB_MSG, param0);
 				DDB_Flush(i);
 				DDB_NewLine(i);
@@ -2477,7 +2492,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					repeatingDisplay = true;
 				}
 				else
+				{
 					DDB_ClearWindow(i, &i->win);
+				}
+				MarkWindowOutput();
 				break;
 			case CONDACT_MODE:
 				i->win.flags = param0;
