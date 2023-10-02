@@ -1,6 +1,7 @@
 VERSION ?= BETA0.1
 
-CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON -DHAS_CLIPBOARD
+CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON 
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 CPPFLAGS += -O2
@@ -13,7 +14,7 @@ LDFLAGS += `sdl2-config --libs`
 DIRS = src-common/ 
 VPATH = $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
-TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
+TOOL_SRCS = dmg_edit img
 TOOL_MAIN_SRCS = $(wildcard src-tools/tool_*.cpp)
 TOOL_MAIN_OBJS = $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
 OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
