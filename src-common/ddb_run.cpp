@@ -4,7 +4,7 @@
 #include <os_mem.h>
 #include <os_lib.h>
 
-#define PAUSE_ON_INKEY 1
+#define PAUSE_ON_INKEY 0
 #define DEBUG_UNDO 0
 
 #ifndef TRACE_ON
@@ -427,7 +427,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 				break;
 			wordWidth += width;
 		}
-		if (w->posX + wordWidth > maxX)
+		if (w->posX + wordWidth >= maxX)
 			DDB_NewLineAtWindow(i, w);
 	}
 
