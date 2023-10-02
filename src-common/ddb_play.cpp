@@ -24,7 +24,7 @@ static void EnumFiles(const char* pattern = "*")
 	fileCount = 0;
 	nameBuffer = Allocate<char>("Temporary filenames", NAME_BUFFER_SIZE);
 	
-	if (File_FindFirst(pattern, &r))
+	if (OS_FindFirstFile(pattern, &r))
 	{
 		char* ptr = nameBuffer;
 		char* end = nameBuffer + NAME_BUFFER_SIZE;
@@ -39,7 +39,7 @@ static void EnumFiles(const char* pattern = "*")
 			fileCount++;
 			if (fileCount == MAX_FILES || ptr >= end-1)
 				break;
-		} while (File_FindNext(&r));
+		} while (OS_FindNextFile(&r));
 	}
 
 	// Sort files

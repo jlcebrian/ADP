@@ -22,15 +22,15 @@ void FillFindFileResults (FindFileResults* results)
 	results->description[0] = 0;
 }
 
-bool File_FindFirst(const char *pattern, FindFileResults *results)
+bool OS_FindFirstFile(const char *pattern, FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
 
 	i->dirp = opendir(".");
-	return File_FindNext(results);
+	return OS_FindNextFile(results);
 }
 
-bool File_FindNext(FindFileResults *results)
+bool OS_FindNextFile(FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
 

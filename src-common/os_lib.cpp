@@ -48,68 +48,11 @@ char *LongToChar(long value, char *buffer, int radix)
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-
-File *File_Open(const char *file, FileOpenMode mode)
-{
-	return (File*) fopen(file, mode == ReadOnly ? "rb" : "rb+");
-}
-
-File *File_Create(const char *file)
-{
-	FILE* f = fopen(file, "wb");
-	return (File*) f;
-}
-
-uint64_t File_GetPosition(File *file)
-{
-	return ftell((FILE*)file);
-}
-
-bool File_Truncate(File *file, uint64_t size)
-{
-#ifdef _UNIX
-	return ftruncate(fileno((FILE*)file), size) == 0;
-#elif defined(_WINDOWS)
-	return _chsize(fileno((FILE*)file), size) == 0;
-#else
-	return false;
-#endif
-}
-
-void File_Close(File *file)
-{
-	fclose((FILE*)file);
-}
-
-uint64_t File_GetSize(File *file)
-{
-	FILE* f = (FILE*)file;
-	long pos = ftell(f);
-	fseek(f, 0, SEEK_END);
-	long size = ftell(f);
-	fseek(f, pos, SEEK_SET);
-	return (uint64_t)size;
-}
-
-uint64_t File_Read(File *file, void *buffer, uint64_t bytes)
-{
-	return fread(buffer, 1, bytes, (FILE*)file);
-
-}
-
-uint64_t File_Write(File *file, const void *buffer, uint64_t bytes)
-{
-	return fwrite(buffer, 1, bytes, (FILE*)file);
-}
-
-bool File_Seek(File *file, uint64_t position)
-{
-	return fseek((FILE*)file, position, SEEK_SET) == 0;
-}
 
 void *MemClear(void *mem, size_t size)
 {

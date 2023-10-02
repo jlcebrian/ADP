@@ -40,7 +40,7 @@ void FillFindResults(FindFileResults* results)
 	results->description[0] = 0;
 }
 
-bool File_FindFirst(const char *pattern, FindFileResults *results)
+bool OS_FindFirstFile(const char *pattern, FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)results->internalData;
 	i->data = (WIN32_FIND_DATA*)malloc(sizeof(WIN32_FIND_DATA));
@@ -56,7 +56,7 @@ bool File_FindFirst(const char *pattern, FindFileResults *results)
 	return true;
 }
 
-bool File_FindNext(FindFileResults *results)
+bool OS_FindNextFile(FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)results->internalData;
 	if (!FindNextFile(i->handle, i->data))

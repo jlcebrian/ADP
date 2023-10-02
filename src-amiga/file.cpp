@@ -129,7 +129,7 @@ static bool PatternMatches(const char* p, const char* f)
 	return *p == 0 && *f == 0;
 }
 
-bool File_FindFirst(const char* pattern, FindFileResults* info)
+bool OS_FindFirstFile(const char* pattern, FindFileResults* info)
 {
 	FindFileInternal* i = (FindFileInternal*)(info->internalData);
 
@@ -144,11 +144,11 @@ bool File_FindFirst(const char* pattern, FindFileResults* info)
 	}
 	FillFindResults(info);
 	if (!PatternMatches(pattern, i->info.fib_FileName))
-		return File_FindNext(info);
+		return OS_FindNextFile(info);
 	return true;
 }
 
-bool File_FindNext(FindFileResults* info)
+bool OS_FindNextFile(FindFileResults* info)
 {
 	FindFileInternal* i = (FindFileInternal*)(info->internalData);
 
@@ -156,7 +156,7 @@ bool File_FindNext(FindFileResults* info)
 		return false;
 	FillFindResults(info);
 	if (!PatternMatches(i->pattern, i->info.fib_FileName))
-		return File_FindNext(info);
+		return OS_FindNextFile(info);
 	return true;
 }
 

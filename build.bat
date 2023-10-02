@@ -60,7 +60,7 @@ SET VERSION=/DVERSION=%VERSION%
 SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
 SET TOOLOPTS=/Iinclude-tools /Ilib-win64/libpng
-SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib-win64\libpng /Ilib-win64\sdl\include /Iinclude /D_STDCLIB /DNO_CACHE /DHAS_CLIPBOARD /DHAS_FULLSCREEN
+SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib-win64\libpng /Ilib-win64\sdl\include /Iinclude /D_STDCLIB /DNO_CACHE /DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM
 set OPTIM=/Zi /GR- /EHsc /MP8 /FC /GL
 SET LINK=
 
@@ -72,13 +72,15 @@ SET TOOLLIBS=lib-win64\libpng\libpng16.lib lib-win64\zlib\zlib.lib
 
 echo ---- Compiling DC
 cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dc.exe ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\os_arena.cpp ^
-	src-tools\dim.cpp ^
-	src-tools\dim_adf.cpp ^
-	src-tools\dim_cpc.cpp ^
-	src-tools\dim_fat.cpp ^
+	src-windows\files.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
 	src-tools\dc_main.cpp ^
 	src-tools\dc_cp437.cpp ^
 	src-tools\dc_cp850.cpp ^
@@ -91,20 +93,28 @@ IF %ERRORLEVEL% NEQ 0 GOTO :EOF
 
 echo ---- Compiling DSK
 cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dsk.exe ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
-	src-tools\dim.cpp ^
-	src-tools\dim_adf.cpp ^
-	src-tools\dim_cpc.cpp ^
-	src-tools\dim_fat.cpp ^
+	src-windows\files.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
 	src-tools\tool_dsk.cpp ^
 	%TOOLLIBS% /link %LINK% /SUBSYSTEM:CONSOLE
 IF %ERRORLEVEL% NEQ 0 GOTO :EOF
 
 echo ---- Compiling CHR
 cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\chr.exe ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
+	src-windows\files.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
 	src-tools\img.cpp ^
 	src-tools\tool_chr.cpp ^
 	%TOOLLIBS% /link %LINK% /SUBSYSTEM:CONSOLE
@@ -120,8 +130,14 @@ cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dmg.exe ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
 	src-common\ddb_pal.cpp ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
+	src-windows\files.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
 	src-tools\img.cpp ^
 	src-tools\tool_dmg.cpp ^
 	src-tools\dmg_edit.cpp ^
@@ -148,6 +164,11 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe  /DDEBUG_ALLOCS ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
 	src-common\dmg.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\scrfile.cpp ^
@@ -178,6 +199,11 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
 	src-common\dmg.cpp ^
+	src-common\dim.cpp ^
+	src-common\dim_adf.cpp ^
+	src-common\dim_cpc.cpp ^
+	src-common\dim_fat.cpp ^
+	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\scrfile.cpp ^

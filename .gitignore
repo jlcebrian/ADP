@@ -12,5 +12,6 @@ build
 *.sce
 *.ddb
 *.10x
+.vscode
 
 web-games/*
