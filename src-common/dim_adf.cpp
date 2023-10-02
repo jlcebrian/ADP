@@ -1,3 +1,5 @@
+#ifdef HAS_VIRTUALFILESYSTEM
+
 #include <dim_adf.h>
 #include <dim.h>
 #include <os_file.h>
@@ -388,3 +390,5 @@ bool ADF_ChangeDirectory (ADF_Disk* disk, const char* name)
 	memcpy(disk->cwd[index].hashTable, disk->block.dataBlocks, 72*4);
 	return true;
 }
+
+#endif

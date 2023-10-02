@@ -62,6 +62,8 @@ struct File
 	uint64_t size;
 };
 
+
+extern bool     File_MountDisk (const char* file);
 extern File*    File_Open      (const char* file, FileOpenMode mode = ReadOnly);
 extern File*    File_Create    (const char* file);
 extern bool     File_FindFirst (const char* pattern, FindFileResults* results);

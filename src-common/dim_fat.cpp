@@ -1,3 +1,5 @@
+#ifdef HAS_VIRTUALFILESYSTEM
+
 #include <dim_fat.h>
 #include <os_mem.h>
 
@@ -1079,3 +1081,5 @@ uint32_t FAT_WriteFile (FAT_Disk* disk, const char* filename, const uint8_t* buf
 	FAT_UpdateDirectoryEntry(disk, &results.entry, results.sector, results.offset);
 	return results.entry.fileSize;
 }
+
+#endif

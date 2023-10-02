@@ -233,12 +233,18 @@ File* File_Create(const char* fileName)
 
 bool File_FindFirst (const char* pattern, FindFileResults* results)  
 { 
-	return OS_FindFirstFile(pattern, results); 
+	if (mountedDisk)
+		return DIM_FindFirstFile(mountedDisk, results, pattern);
+	else
+		return OS_FindFirstFile(pattern, results); 
 }
 
 bool File_FindNext (FindFileResults* results)                       
 { 
-	return OS_FindNextFile(results); 
+	if (mountedDisk)
+		return DIM_FindNextFile(mountedDisk, results);
+	else
+		return OS_FindNextFile(results); 
 }
 
 #elif _STDCLIB

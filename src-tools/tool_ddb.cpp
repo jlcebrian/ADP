@@ -1,6 +1,7 @@
 #include <ddb.h>
 #include <ddb_vid.h>
 #include <os_mem.h>
+#include <os_file.h>
 
 #ifdef _WIN32
 #include <SDL.h>
@@ -55,13 +56,13 @@ static Action action = ACTION_RUN;
 void ShowHelp()
 {
 	printf("ADP DAAD Database Utility " VERSION_STR " \n\n");
-	printf("Dumps, inspects or runs a game from a DDB file.\n\n");
-	printf("Usage: ddb [action] [options] <input.ddb>\n\n");
+	printf("Dumps, inspects or runs a game from a DDB file or a disk image.\n\n");
+	printf("Usage: ddb [action] [options] <input.ddb>\n");
+	printf("Usage: ddb [action] [options] <input.adf/.st/.dsk>\n\n");
 	printf("Actions:\n\n");
 	printf("    l     Show game information\n");
 	printf("    r     Runs the game (default action)\n");
 	// printf("    t     Runs the game in test/debug mode\n");
-	// printf("    o     Optimizes the database (text compression)\n");
 	printf("    d     Decompiles/dumps the database in .SCE text format\n");
 	printf("\nOptions:\n\n");
 	printf("   -v     Show a trace of the program's execution\n\n");
@@ -174,6 +175,15 @@ int main (int argc, char *argv[])
 		argv++;
 		argc--;
 	}
+
+	#ifdef HAS_VIRTUALFILESYSTEM
+	if (File_MountDisk(argv[1]))
+	{
+		if (!DDB_RunPlayer())
+			fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+		return 0;
+	}
+	#endif
 
 	DDB* ddb = DDB_Load(argv[1]);
 	if (ddb == NULL)

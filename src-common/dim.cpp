@@ -1,3 +1,5 @@
+#ifdef HAS_VIRTUALFILESYSTEM
+
 #include <dim.h>
 #include <dim_fat.h>
 #include <dim_cpc.h>
@@ -511,3 +513,5 @@ void DIM_CloseDisk(DIM_Disk* disk)
 			break;
 	}
 }
+
+#endif

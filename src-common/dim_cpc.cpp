@@ -1,3 +1,5 @@
+#ifdef HAS_VIRTUALFILESYSTEM
+
 #include <dim_cpc.h>
 #include <dim.h>
 #include <os_mem.h>
@@ -634,3 +636,5 @@ void CPC_CloseDisk (CPC_Disk* disk)
 	Free(disk->directory);
 	Free(disk);
 }
+
+#endif
