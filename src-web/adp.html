@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>ADP</title>
+    <style>
+	@import url('https://fonts.cdnfonts.com/css/space-age');
+
+	body 
+	{
+	  	color: white; 
+		background: black; 
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		min-height: 100vh;
+		overflow: hidden;
+		gap: 30px;
+		font-family:Georgia, 'Times New Roman', Times, serif;
+		line-height: 150%;
+	}
+
+	#drop-area
+	{
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		gap: 30px;
+	}
+	#drop-area-text
+	{
+		border-radius: 20px;
+		padding: 80px 40px;
+		border: 2px dashed white;
+
+		font-size: 30px;
+		color: white;
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		gap: 60px;
+		text-align: center;
+	}
+	.info
+	{
+		font-size: 16px;
+		line-height: 150%;
+		color: #999;
+		max-width: 400px;
+	}
+	.subtitle {
+		font-family: 'Space Age', sans-serif;
+		font-size: 32px;
+		text-align: center;
+	}
+
+	.diskette {
+		width: 100px;
+		height: 100px;
+		background-image: url("data:image/svg+xml,%3C%3Fxml version='1.0' encoding='iso-8859-1'%3F%3E%3Csvg fill='white' height='100px' width='100px' version='1.1' id='Layer_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='0 0 512 512' xml:space='preserve'%3E%3Cg%3E%3Cg%3E%3Cpath d='M354.133,31.695h-69.486c-5.051,0-9.143,4.094-9.143,9.143v98.743c0,5.049,4.092,9.143,9.143,9.143h69.486 c5.05,0,9.143-4.094,9.143-9.143V40.838C363.276,35.789,359.184,31.695,354.133,31.695z M344.99,130.438h-51.2V49.981h51.2 V130.438z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M419.327,204.8H103.645c-15.475,0-28.064,12.589-28.064,28.064V442.49c0,15.473,12.589,28.063,28.064,28.063h315.683 c15.473,0,28.063-12.589,28.063-28.064V232.864C447.39,217.389,434.801,204.8,419.327,204.8z M429.105,442.49 c0,5.391-4.386,9.778-9.778,9.778H103.645c-5.392,0-9.778-4.386-9.778-9.778V232.864c0-5.391,4.386-9.778,9.778-9.778h315.683 c5.391,0,9.777,4.386,9.777,9.778V442.49z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M401.067,256H121.905c-5.051,0-9.143,4.094-9.143,9.143c0,5.049,4.092,9.143,9.143,9.143h279.162 c5.05,0,9.143-4.094,9.143-9.143C410.21,260.094,406.117,256,401.067,256z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M401.067,299.886H121.905c-5.051,0-9.143,4.094-9.143,9.143c0,5.049,4.092,9.143,9.143,9.143h279.162 c5.05,0,9.143-4.094,9.143-9.143C410.21,303.979,406.117,299.886,401.067,299.886z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M401.067,343.771H121.905c-5.051,0-9.143,4.094-9.143,9.143s4.092,9.143,9.143,9.143h279.162 c5.05,0,9.143-4.094,9.143-9.143S406.117,343.771,401.067,343.771z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M494.913,37.705l-48.14-35.892C445.193,0.636,443.276,0,441.307,0H92.315c-5.051,0-9.143,4.094-9.143,9.143 c0,5.049,4.092,9.143,9.143,9.143H128v152.99c0,5.049,4.092,9.143,9.143,9.143h41.894c5.051,0,9.143-4.094,9.143-9.143 c0-0.095-0.011-0.187-0.015-0.28c0.002-0.094,0.015-0.187,0.015-0.28c0-5.049-4.092-9.143-9.143-9.143h-32.349V18.286h234.874 v143.287H215.608c-5.051,0-9.143,4.094-9.143,9.143c0,0.095,0.011,0.187,0.015,0.28c-0.002,0.094-0.015,0.186-0.015,0.28 c0,5.049,4.092,9.143,9.143,9.143h175.097c3.919,0,7.252-2.47,8.553-5.934c0.522-1.151,0.819-2.423,0.819-3.769V18.286h38.196 l42.032,31.338v347.915c0,5.049,4.092,9.143,9.143,9.143s9.143-4.094,9.143-9.143V45.035 C498.59,42.149,497.228,39.431,494.913,37.705z'/%3E%3C/g%3E%3C/g%3E%3Cg%3E%3Cg%3E%3Cpath d='M489.448,424.967c-5.051,0-9.143,4.094-9.143,9.143v59.604H31.695V18.286h24.048c5.05,0,9.143-4.094,9.143-9.143 C64.886,4.094,60.793,0,55.743,0H22.552c-5.05,0-9.143,4.094-9.143,9.143v493.714c0,5.049,4.092,9.143,9.143,9.143h466.895 c5.051,0,9.143-4.094,9.143-9.143V434.11C498.59,429.061,494.498,424.967,489.448,424.967z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+	}
+
+	.emscripten 
+	{ 
+		padding-right: 0; 
+		margin-left: auto; 
+		margin-right: auto; 
+	}
+
+	textarea.emscripten { font-family: monospace; width: 80%; }
+	div.emscripten { text-align: center; }
+	div.emscripten_border { border: 1px solid black; }
+	
+	/* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+	canvas.emscripten 
+	{ 
+		border: 0px none; 
+		background-color: black; 
+		width: 100%;
+		height: 100%;
+	}
+    </style>
+  </head>
+  <body>
+  	<script src="../kioskboard-aio-2.3.0.min.js"></script>
+	<input class="js-kioskboard-input"  style="position: fixed; top: 0; left: 0; width: 100vw" id="input" type="text">
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+	
+	<div id="drop-area">
+		<div class="subtitle">ADP Web Player</div>
+		<div id="drop-area-text">
+			<div class="diskette"></div>
+			Drop your game here
+			<div class="info">
+				Drag here the folder containing your game (.DDB, .DAT, .CHR, etc.)
+				or a disk image for Amiga (.ADF), Atari ST (.ST), MS-DOS (.DSK), etc.
+			</div>
+		</div>
+	</div>
+
+
+	<script>
+		var kbHeight = 0;
+		var kbVisible = false;
+		var isTouchScreen = ('ontouchstart' in document.documentElement);
+
+		var Module = {
+			print: n => {
+				console.log(n);
+			},
+			locateFile: (path, prefix) => {
+				console.log("locateFile", path, prefix);
+				return prefix + path;
+			},
+			canvas: (() => {
+				var canvas = document.getElementById('canvas');
+				console.log("Canvas", canvas);
+				canvas.addEventListener("webglcontextlost", (e) => { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+				return canvas;
+			})(),
+			noInitialRun: true,
+			onRuntimeInitialized: () => {
+				//Module.ccall('RunGameFromTXT', 'void', [], []);
+				
+				var ddbFound = false;
+
+				// Add support to drop files into drop area
+				var dropArea = document.getElementById('drop-area');
+				var dropAreaText = document.getElementById('drop-area-text');
+				
+				async function readFileAsync(file) {
+					return new Promise((resolve, reject) => {
+						let reader = new FileReader();
+						reader.onload = () => {
+							resolve(reader.result);
+						};
+						reader.onerror = reject;
+						reader.readAsArrayBuffer(file);
+					})
+				}
+
+				async function processDroppedItem(item) {
+					if (item.isDirectory) {
+						return new Promise((resolve, reject) => {
+							var reader = item.createReader();
+							reader.readEntries(async (entries) => {
+								var promises = [];
+								for (var i = 0; i < entries.length; i++) {
+									promises.push(processDroppedItem(entries[i]));
+								}
+								await Promise.all(promises);
+								resolve();
+							});
+						});
+					} else if (item.isFile) {
+						if (item.name.toLowerCase().endsWith(".ddb")) {
+							ddbFound = true;
+						}
+						return new Promise((resolve, reject) => {
+							item.file(file =>  {
+								readFileAsync(file).then(contents => {
+									var length = contents.byteLength;
+									var buffer = Module._malloc(length);
+									Module.HEAPU8.set(new Uint8Array(contents), buffer);
+									var playing = Module.ccall('SaveFile', 'bool', ['string', 'void*', 'int'], [ "/home/" + file.name, buffer, length]);
+									if (playing)
+									{
+										dropArea.style.visibility = "hidden";
+										document.getElementById('canvas').style.visibility = "visible";
+									}
+									resolve();
+								}).catch(error => {
+									console.log("Error reading file", file.name, error);
+									reject(error);
+								});
+							})
+						})
+					}
+				}
+
+				function highlight(e) {
+					dropArea.classList.add('highlight');
+					dropAreaText.innerHTML = "Drop files here";
+				}
+
+				function unhighlight(e) {
+					dropArea.classList.remove('highlight');
+					dropAreaText.innerHTML = "Drop files here";
+				}
+
+				function handleDrop(e) {
+					var dt = e.dataTransfer;
+					var entries = dt.items;
+					if (entries.length > 0) {
+						ddbFound = false;
+						var promises = [];
+						for (var i = 0; i < entries.length; i++) {
+							var item = entries[i].webkitGetAsEntry();
+							promises.push(processDroppedItem(item));
+						}
+						Promise.all(promises).then(() => {
+							if (ddbFound) {
+									Module.ccall('RunGameFrom', 'void', [ 'string' ], [ "/home/" ]);
+									dropArea.style.visibility = "hidden";
+									document.getElementById('canvas').style.visibility = "visible";
+							}
+						});
+					}
+					e.preventDefault();
+				}
+
+				function preventDefaults (e) {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+				
+				['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+					dropArea.addEventListener(eventName, preventDefaults, false);
+				});
+				
+				['dragenter', 'dragover'].forEach(eventName => {
+					dropArea.addEventListener(eventName, highlight, false);
+				});
+				
+				['dragleave', 'drop'].forEach(eventName => {
+					dropArea.addEventListener(eventName, unhighlight, false);
+				});
+
+				dropArea.addEventListener('drop', handleDrop, false);
+
+			}
+		};
+
+		function updateCanvasSize() {
+			var canvas = document.getElementById("canvas");
+			var kb = document.getElementById("KioskBoard-VirtualKeyboard");
+			if (!kb)
+			{
+				kbVisible = false;
+				kbHeight = 0;
+				canvas.style.height = "100vh";
+			}
+			else
+			{
+				if (kbVisible == false)
+				{
+					kbVisible = true;
+					var keys = Array.from(window.document.querySelectorAll('.kioskboard-key'));
+					keys.forEach(function(key) {
+						key.addEventListener('touchend', function(event) {
+    						event.stopImmediatePropagation();
+							var capsLock = document.querySelector('.kioskboard-key-capslock');
+							var capsLockActive = false;
+							if (capsLock.classList.contains('capslock-active')) {
+								capsLockActive = true;
+							}
+							var key = this.dataset.value;
+							if (capsLockActive) {
+								key = key.toUpperCase();
+							} else {
+								key = key.toLowerCase();
+							}
+							key = key.charCodeAt(0);
+							Module.ccall('KeyPressed', 'void', ['number'], [key]);
+						});
+					});
+
+					window.document.querySelector('.kioskboard-key-enter').addEventListener('touchend', function(event) {
+						event.stopImmediatePropagation();
+						Module.ccall('KeyPressed', 'void', ['number'], [13]);
+					});
+					window.document.querySelector('.kioskboard-key-backspace').addEventListener('touchend', function(event) {
+						event.stopImmediatePropagation();
+						Module.ccall('KeyPressed', 'void', ['number'], [8]);
+					});
+				}
+				kbHeight = kb.clientHeight;
+				var windowHeight = window.innerHeight;
+				canvas.style.height = (windowHeight - kbHeight) + "px";
+			}
+			requestAnimationFrame(updateCanvasSize);
+		}
+
+		window.onload = () => {
+			requestAnimationFrame(updateCanvasSize);
+			if (isTouchScreen)
+			{
+				document.getElementById('input').addEventListener('keydown', function(event) {
+					if (event.keyCode == 13) {
+						event.preventDefault();
+						Module.ccall('KeyPressed', 'void', ['number'], [event.keyCode]);
+					}
+				});
+				KioskBoard.init({
+					theme: 'dark',
+					keysEnterCanClose: false,
+					keysArrayOfObjects: [
+						{
+							"0": "Q",
+							"1": "W",
+							"2": "E",
+							"3": "R",
+							"4": "T",
+							"5": "Y",
+							"6": "U",
+							"7": "I",
+							"8": "O",
+							"9": "P"
+						},
+						{
+							"0": "A",
+							"1": "S",
+							"2": "D",
+							"3": "F",
+							"4": "G",
+							"5": "H",
+							"6": "J",
+							"7": "K",
+							"8": "L",
+							"9": "Ñ"
+						},
+						{
+							"0": "Z",
+							"1": "X",
+							"2": "C",
+							"3": "V",
+							"4": "B",
+							"5": "N",
+							"6": "M"
+						}
+					]
+				})
+				KioskBoard.run('.js-kioskboard-input', {});
+			}
+			else
+			{
+				document.getElementById('input').style.display = "none";
+			}
+		}
+	</script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

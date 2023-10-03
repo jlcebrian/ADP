@@ -65,6 +65,10 @@
 				canvas.addEventListener("webglcontextlost", (e) => { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
 				return canvas;
 			})(),
+			noInitialRun: true,
+			onRuntimeInitialized: () => {
+				Module.ccall('RunGame', 'void', [], []);
+			}
 		};
 
 		function updateCanvasSize() {

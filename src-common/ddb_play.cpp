@@ -34,6 +34,7 @@ static void EnumFiles(const char* pattern = "*")
 				continue;
 			if (fileCount >= MAX_FILES)
 				break;
+			DebugPrintf("Found file %s\n", r.fileName);
 			files[fileCount] = ptr;
 			ptr += StrCopy(files[fileCount], end - ptr, r.fileName);
 			fileCount++;
@@ -207,6 +208,12 @@ static const char* PlayerStateToString(PlayerState state)
 		case Player_Error: return "Error";
 	}
 	return "Unknown";
+}
+
+void DDB_RestartAsyncPlayer()
+{
+	if (state == Player_Finished || state == Player_Error)
+		state = Player_Starting;
 }
 
 PlayerState DDB_RunPlayerAsync(const char* location)

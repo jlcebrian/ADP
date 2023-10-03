@@ -1,16 +1,16 @@
 VERSION ?= BETA0.1
+SHELL := cmd.exe
 
 CC = emcc
 CXX = em++
 CPPFLAGS += -flto=full -Os -sUSE_SDL=2 \
-	    -fno-rtti -s DISABLE_EXCEPTION_CATCHING 
+	-fno-rtti -s DISABLE_EXCEPTION_CATCHING 
 LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
-	--shell-file shell.html  \
 	-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap'] \
-	-sEXPORTED_FUNCTIONS=_main,_KeyPressed
+	-sEXPORTED_FUNCTIONS=_main,_KeyPressed,_RunGame,_RunGameFromTXT,_RunGameFrom,_SaveFile,_malloc
 	
 CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
-CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN -DHAS_VIRTUALFILESYSTEM
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 
@@ -30,6 +30,10 @@ SRCS := \
 	ddb_run.cpp \
 	ddb_scr.cpp \
 	ddb_vid.cpp \
+	dim.cpp \
+	dim_adf.cpp \
+	dim_cpc.cpp \
+	dim_fat.cpp \
 	dmg.cpp \
 	dmg_cga.cpp \
 	dmg_ega.cpp \
@@ -38,6 +42,7 @@ SRCS := \
 	dmg_imgp.cpp \
 	dmg_rlec.cpp \
 	dmg_univ.cpp \
+	os_file.cpp \
 	os_lib.cpp \
 	os_mem.cpp \
 	os_char.cpp \
@@ -52,26 +57,31 @@ OBJS := $(addprefix obj/web/,$(patsubst %.cpp,%.o,$(SRCS)))
 
 GAMES = $(notdir $(wildcard web-games/*))
 GAMEDIRS = $(patsubst %,out\web\\%,$(GAMES))
+FILES = src-web/kioskboard-aio-2.3.0.min.js
 
 all: out/web/adp/index.html $(patsubst %,out/web/%/index.html,$(GAMES)) 
 
-out/web/adp/index.html: $(OBJS) shell.html
+out/web/adp/index.html: $(OBJS) $(FILES) src-web/adp.html
 	$(info Building adp)
 ifeq ($(OS), Windows_NT)
 	@IF NOT EXIST "out\web\adp" mkdir out\web\adp
+	@copy $(subst /,\,$(FILES)) out\web >NUL
 else
 	@mkdir -o out/web/adp
+	@cp $(FILES) out/web
 endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) 
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --shell-file src-web/adp.html
 
-out/web/%/index.html: $(OBJS) shell.html
+out/web/%/index.html: $(OBJS) $(FILES) src-web/shell.html
 	$(info Building $*)
 ifeq ($(OS), Windows_NT)
-	@IF NOT EXIST "out\web\$*" mkdir out\web\$*
+	@IF NOT EXIST "out\web\$*" mkdir out\web\$*	
+	@copy $(subst /,\,$(FILES)) out\web >NUL
 else
 	@mkdir -o out/web/$*
+	@cp $(FILES) out/web
 endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --preload-file web-games/$*@/data/ 
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --preload-file web-games/$*@/data/ --shell-file src-web/shell.html
 
 clean:
 ifeq ($(OS), Windows_NT)

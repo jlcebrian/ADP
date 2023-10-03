@@ -2,11 +2,8 @@
  Interpreter
 ─────────────
 
-	- Add copy/paste support for desktop/web platforms
-	- Amiga: version 1 images are broken right now
 	- Honor palette range as it appears in .DAT files (AD didn't use it?)
 	- Legacy platforms: Ask for disk # when there are multiple DDB files but no corresponding DATs
-	- Amiga/Atari ST: Add sound support for both versions
 	- DOS: use fast VRAM copy in scroll
 	- DOS: faster DISPLAY implementation using page 3 as buffer
 	- Fix LOAD/SAVE flow & make a compatible .SAV file format

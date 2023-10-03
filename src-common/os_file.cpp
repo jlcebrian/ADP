@@ -227,7 +227,9 @@ File *File_Open(const char *fileName, FileOpenMode mode)
 
 File* File_Create(const char* fileName)
 {
-	// TODO: Support additional providers
+	// Should be write to the mounted disk instead?
+	// Makes sense for a tool, but not for a save game position.
+	
 	return Native_Create(fileName);
 }
 
