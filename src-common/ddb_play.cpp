@@ -175,12 +175,7 @@ static void FadeOutStep(int elapsed)
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
 		for (int n = 0; n < 16; n++)
-		{
-			VID_SetPaletteColor(n,
-								EGAPalette[n] >> 16,
-								EGAPalette[n] >> 8,
-								EGAPalette[n]);
-		}
+			VID_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
 		VID_Quit();
 	}
 }
@@ -461,12 +456,7 @@ bool DDB_RunPlayer()
 	VID_ClearBuffer(false);
 
 	for (int n = 0; n < 16; n++)
-	{
-		VID_SetPaletteColor(n,
-		                    EGAPalette[n] >> 16,
-		                    EGAPalette[n] >> 8,
-		                    EGAPalette[n]);
-	}
+		VID_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
 
 	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);

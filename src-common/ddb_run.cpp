@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_scr.h>
+#include <ddb_pal.h>
 #include <os_char.h>
 #include <os_mem.h>
 #include <os_lib.h>
@@ -94,6 +95,8 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 
 	i->win = i->windef[0];
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
+	for (int n = 0; n < 16; n++)
+		SCR_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
 }
 
 void DDB_Reset (DDB_Interpreter* i)
