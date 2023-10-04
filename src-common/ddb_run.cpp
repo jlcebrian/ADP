@@ -658,7 +658,14 @@ bool DDB_OutputMessage (DDB_Interpreter* i, DDB_MsgType type, uint8_t index)
 
 void DDB_OutputInputPrompt(DDB_Interpreter* i)
 {
-	DDB_Window *iw = i->inputWindow == 0 || i->inputWindow == i->curwin ? &i->win : &i->windef[i->inputWindow];
+	DDB_Window *iw = DDB_GetInputWindow(i);
+
+	int prompt = i->flags[Flag_Prompt];
+	if (prompt == 0 || prompt >= i->ddb->numSystemMessages)
+		prompt = RandInt(2, 5);
+
+	TRACE("\n\n");
+	DDB_OutputMessageWin(i, DDB_SYSMSG, prompt, &i->win);
 	DDB_OutputMessageWin(i, DDB_SYSMSG, 33, iw);
 }
 
@@ -2644,8 +2651,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_PROMPT:
-				// Doesn't seem to do anything
-				i->prompt = param0;
+				i->flags[Flag_Prompt] = param0;
+				i->done = true;
 				break;
 			case CONDACT_PAPER:
 				DDB_Flush(i);
