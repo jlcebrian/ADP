@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>ADP</title>
+    <style>
+	body 
+	{
+	  	color: white; 
+		background: black; 
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		min-height: 100vh;
+		overflow: hidden;
+		gap: 30px;
+	}
+
+	.emscripten 
+	{ 
+		padding-right: 0; 
+		margin-left: auto; 
+		margin-right: auto; 
+	}
+
+	textarea.emscripten { font-family: monospace; width: 80%; }
+	div.emscripten { text-align: center; }
+	div.emscripten_border { border: 1px solid black; }
+	
+	/* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+	canvas.emscripten 
+	{ 
+		border: 0px none; 
+		background-color: black; 
+		width: 100%;
+		height: 100%;
+	}
+    </style>
+  </head>
+  <body>
+  	<script src="./kioskboard-aio-2.3.0.min.js"></script>
+	<input class="js-kioskboard-input"  style="position: fixed; top: 0; left: 0; width: 100vw;" id="input" type="text">
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+	<script>
+		var kbHeight = 0;
+		var kbVisible = false;
+		var isTouchScreen = ('ontouchstart' in document.documentElement);
+
+		var Module = {
+			print: n => {
+				console.log(n);
+			},
+			locateFile: (path, prefix) => {
+				console.log("locateFile", path, prefix);
+				return prefix + path;
+			},
+			canvas: (() => {
+				var canvas = document.getElementById('canvas');
+				console.log("Canvas", canvas);
+				canvas.addEventListener("webglcontextlost", (e) => { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+				return canvas;
+			})(),
+			noInitialRun: true,
+			onRuntimeInitialized: () => {
+				// TODO: Implement a OSSync callback to remove this hackish wait
+				setTimeout(() => {
+					Module.ccall('RunGameFromTXT', 'void', [], []);
+				}, 500);
+			}
+		};
+
+		function updateCanvasSize() {
+			var canvas = document.getElementById("canvas");
+			var kb = document.getElementById("KioskBoard-VirtualKeyboard");
+			if (!kb)
+			{
+				kbVisible = false;
+				kbHeight = 0;
+				canvas.style.height = "100vh";
+			}
+			else
+			{
+				if (kbVisible == false)
+				{
+					kbVisible = true;
+					var keys = Array.from(window.document.querySelectorAll('.kioskboard-key'));
+					keys.forEach(function(key) {
+						key.addEventListener('touchend', function(event) {
+    						event.stopImmediatePropagation();
+							var capsLock = document.querySelector('.kioskboard-key-capslock');
+							var capsLockActive = false;
+							if (capsLock.classList.contains('capslock-active')) {
+								capsLockActive = true;
+							}
+							var key = this.dataset.value;
+							if (capsLockActive) {
+								key = key.toUpperCase();
+							} else {
+								key = key.toLowerCase();
+							}
+							key = key.charCodeAt(0);
+							Module.ccall('KeyPressed', 'void', ['number'], [key]);
+						});
+					});
+
+					window.document.querySelector('.kioskboard-key-enter').addEventListener('touchend', function(event) {
+						event.stopImmediatePropagation();
+						Module.ccall('KeyPressed', 'void', ['number'], [13]);
+					});
+					window.document.querySelector('.kioskboard-key-backspace').addEventListener('touchend', function(event) {
+						event.stopImmediatePropagation();
+						Module.ccall('KeyPressed', 'void', ['number'], [8]);
+					});
+				}
+				kbHeight = kb.clientHeight;
+				var windowHeight = window.innerHeight;
+				canvas.style.height = (windowHeight - kbHeight) + "px";
+			}
+			requestAnimationFrame(updateCanvasSize);
+		}
+
+		window.onload = () => {
+			requestAnimationFrame(updateCanvasSize);
+			if (isTouchScreen)
+			{
+				document.getElementById('input').addEventListener('keydown', function(event) {
+					if (event.keyCode == 13) {
+						event.preventDefault();
+						Module.ccall('KeyPressed', 'void', ['number'], [event.keyCode]);
+					}
+				});
+				KioskBoard.init({
+					theme: 'dark',
+					keysEnterCanClose: false,
+					keysArrayOfObjects: [
+						{
+							"0": "Q",
+							"1": "W",
+							"2": "E",
+							"3": "R",
+							"4": "T",
+							"5": "Y",
+							"6": "U",
+							"7": "I",
+							"8": "O",
+							"9": "P"
+						},
+						{
+							"0": "A",
+							"1": "S",
+							"2": "D",
+							"3": "F",
+							"4": "G",
+							"5": "H",
+							"6": "J",
+							"7": "K",
+							"8": "L",
+							"9": "Ñ"
+						},
+						{
+							"0": "Z",
+							"1": "X",
+							"2": "C",
+							"3": "V",
+							"4": "B",
+							"5": "N",
+							"6": "M"
+						}
+					]
+				})
+				KioskBoard.run('.js-kioskboard-input', {});
+				console.log("KioskBoard", KioskBoard);
+				document.getElementById('input').focus();
+			}
+		}
+	</script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

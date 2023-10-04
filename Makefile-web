@@ -59,7 +59,18 @@ GAMES = $(notdir $(wildcard web-games/*))
 GAMEDIRS = $(patsubst %,out\web\\%,$(GAMES))
 FILES = src-web/kioskboard-aio-2.3.0.min.js
 
-all: out/web/adp/index.html $(patsubst %,out/web/%/index.html,$(GAMES)) 
+all: out/web/adp/index.html out/web/dist/index.html $(patsubst %,out/web/%/index.html,$(GAMES)) 
+
+out/web/dist/index.html: $(OBJS) $(FILES) src-web/from-files.html
+	$(info Building dist)
+ifeq ($(OS), Windows_NT)
+	@IF NOT EXIST "out\web\dist" mkdir out\web\dist
+	@copy $(subst /,\,$(FILES)) out\web >NUL
+else
+	@mkdir -o out/web/dist
+	@cp $(FILES) out/web
+endif
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --shell-file src-web/from-files.html
 
 out/web/adp/index.html: $(OBJS) $(FILES) src-web/adp.html
 	$(info Building adp)
