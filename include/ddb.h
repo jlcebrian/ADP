@@ -550,6 +550,7 @@ extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
 extern void				DDB_CloseInterpreter	 (DDB_Interpreter* interpreter);
+extern void				DDB_ResetColorPalette	 ();
 
 extern DDB_Error    	DDB_GetError             ();
 extern void		    	DDB_SetError             (DDB_Error error);
