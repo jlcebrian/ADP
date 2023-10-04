@@ -29,10 +29,13 @@ DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 		i->inputWindow == i->curwin ? &i->win : &i->windef[i->inputWindow];
 }
 
-void DDB_StartInput(DDB_Interpreter* i)
+void DDB_StartInput(DDB_Interpreter* i, bool withPrompt)
 {
 	DDB_Window *iw = DDB_GetInputWindow(i);
-	
+
+	if (withPrompt)
+		DDB_OutputUserPrompt(i);
+
 	DDB_Flush(i);
 	DDB_ResetScrollCounts(i);
 	DDB_OutputInputPrompt(i);

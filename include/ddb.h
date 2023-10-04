@@ -562,6 +562,7 @@ extern const char*      DDB_GetCondactName       (DDB_Condact condact);
 extern void             DDB_Flush                (DDB_Interpreter* i);
 extern void             DDB_FlushWindow          (DDB_Interpreter* i, DDB_Window* w);
 extern void             DDB_ResetScrollCounts    (DDB_Interpreter* i);
+extern void             DDB_OutputUserPrompt     (DDB_Interpreter* i);
 extern void             DDB_OutputInputPrompt    (DDB_Interpreter* i);
 extern void             DDB_OutputText           (DDB_Interpreter* i, const char* text);
 extern bool             DDB_OutputMessage        (DDB_Interpreter* i, DDB_MsgType type, uint8_t index);
@@ -576,7 +577,7 @@ extern void             DDB_PlayClick            (DDB_Interpreter* i, bool allow
 extern void             DDB_CalculateCells       (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint8_t* cellW);
 
 extern void             DDB_ProcessInputFrame    ();
-extern void             DDB_StartInput           (DDB_Interpreter* i);
+extern void             DDB_StartInput           (DDB_Interpreter* i, bool withPrompt);
 extern void             DDB_FinishInput          (DDB_Interpreter * i, bool timeout);
 extern void             DDB_PrintInputLine       (DDB_Interpreter* i, bool withCursor);
 extern void             DDB_ResolveInputEnd      (DDB_Interpreter* i);

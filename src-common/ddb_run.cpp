@@ -656,16 +656,18 @@ bool DDB_OutputMessage (DDB_Interpreter* i, DDB_MsgType type, uint8_t index)
 	return DDB_OutputMessageWin(i, type, index, &i->win);
 }
 
-void DDB_OutputInputPrompt(DDB_Interpreter* i)
+void DDB_OutputUserPrompt(DDB_Interpreter* i)
 {
-	DDB_Window *iw = DDB_GetInputWindow(i);
-
 	int prompt = i->flags[Flag_Prompt];
 	if (prompt == 0 || prompt >= i->ddb->numSystemMessages)
 		prompt = RandInt(2, 5);
-
 	TRACE("\n\n");
 	DDB_OutputMessageWin(i, DDB_SYSMSG, prompt, &i->win);
+}
+
+void DDB_OutputInputPrompt(DDB_Interpreter* i)
+{
+	DDB_Window *iw = DDB_GetInputWindow(i);
 	DDB_OutputMessageWin(i, DDB_SYSMSG, 33, iw);
 }
 
@@ -1694,7 +1696,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				DDB_OutputMessageWin(i, DDB_SYSMSG, 13, iw);
 				DDB_FlushWindow(i, iw);
-				DDB_StartInput(i);
+				DDB_StartInput(i, false);
 				i->state = DDB_INPUT_END;
 				DDB_PrintInputLine(i, true);
 				TRACE("\n");
@@ -1706,7 +1708,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				DDB_OutputMessageWin(i, DDB_SYSMSG, 12, iw);
 				DDB_FlushWindow(i, iw);
-				DDB_StartInput(i);
+				DDB_StartInput(i, false);
 				i->state = DDB_INPUT_QUIT;
 				DDB_PrintInputLine(i, true);
 				UpdatePos(i, process, entry, offset + params + 1);
@@ -2057,7 +2059,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						i->inputBufferPtr++;
 					if (i->inputBufferPtr == i->inputBufferLength)
 					{
-						DDB_StartInput(i);
+						DDB_StartInput(i, true);
 						i->oldMainLoopState = FLOW_INPUT;
 						i->state = DDB_INPUT;
 						if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
@@ -3004,7 +3006,7 @@ static void StepFunction(int elapsed)
 							i->procstack[0].offset = 0;
 							i->procstackptr = 0;
 						} else {
-							DDB_StartInput(i);
+							DDB_StartInput(i, true);
 							i->oldMainLoopState = FLOW_INPUT;
 							DDB_PrintInputLine(i, true);
 							if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
