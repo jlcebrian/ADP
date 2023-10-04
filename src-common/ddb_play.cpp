@@ -265,7 +265,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		
 		if (scrCount > 0)
 		{
-			if (machine == DDB_MACHINE_ATARIST && CountFiles(".exe") > 0)
+			if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
 				machine = DDB_MACHINE_AMIGA;
 			if (!VID_DisplaySCRFile(GetFile(".scr", 0), machine))
 			{
@@ -376,7 +376,7 @@ bool DDB_RunPlayer()
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
 	{
-		if (machine == DDB_MACHINE_ATARIST && CountFiles(".exe") > 0)
+		if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
 			machine = DDB_MACHINE_AMIGA;
 		if (!VID_DisplaySCRFile(GetFile(".scr", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
