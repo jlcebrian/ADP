@@ -1,6 +1,6 @@
 @echo off
 SETLOCAL
-SET VERSION=BETA0.1b
+SET VERSION=BETA0.2
 
 IF "%1"=="Windows" GOTO :WINDOWS
 IF "%1"=="Amiga" GOTO :AMIGA

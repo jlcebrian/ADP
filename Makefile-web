@@ -1,4 +1,4 @@
-VERSION ?= BETA0.1
+VERSION ?= BETA0.2
 SHELL := cmd.exe
 
 CC = emcc

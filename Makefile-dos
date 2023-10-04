@@ -22,6 +22,7 @@ OBJS = 		     &
 	dmg_rlec.obj &
 	dmg_univ.obj &
 	ddb_scr.obj  &
+	os_file.obj  &
 	os_char.obj  &
 	os_lib.obj   &
 	os_mem.obj   &
