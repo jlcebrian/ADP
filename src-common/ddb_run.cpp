@@ -1856,6 +1856,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 				DDB_ResetScrollCounts(i);
 				DDB_ResetSmoothScrollFlags(i);
+				i->done = true;
 				TRACE("\n");
 				return;
 
@@ -2443,20 +2444,24 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				DDB_SetWindow(i, param0);
 				repeatingDisplay = false;
+				i->done = true;
 				TRACE("Window %d: at %d,%d %dx%d", i->curwin, i->win.x, i->win.y, i->win.width, i->win.height);
 				break;
 			case CONDACT_WINAT:
 				DDB_Flush(i);
 				WinAt(i, param0, param1);
+				i->done = true;
 				TRACE("Window %d: at %d,%d %dx%d", i->curwin, i->win.x, i->win.y, i->win.width, i->win.height);
 				break;
 			case CONDACT_WINSIZE:
 				DDB_Flush(i);
 				WinSize(i, param0, param1);
+				i->done = true;
 				TRACE("Window %d: at %d,%d %dx%d", i->curwin, i->win.x, i->win.y, i->win.width, i->win.height);
 				break;
 			case CONDACT_CLS: 
 				DDB_Flush(i);
+				i->done = true;
                 if (AnyWindowOverlapsCurrent(i))
                 {
 					// fprintf(stderr, "WARNING: Overlap detected in CLS in process %d, entry %d, offset %d\n", process, entry, offset);
@@ -2484,8 +2489,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					}
 					repeatingDisplay = false;
 				}
+				i->done = true;
 				break;
 			case CONDACT_DISPLAY:
+				i->done = true;
 				if (param0 == 0)
 				{
 					if (repeatingDisplay)
@@ -2506,8 +2513,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_MODE:
 				i->win.flags = param0;
+				i->done = true;
 				break;
 			case CONDACT_GFX:		// GRAPHIC in old version
+				i->done = true;
 				if (i->ddb->version == 1)
 				{
 					// Set bits 3 to 6 of graphic flags
@@ -2642,10 +2651,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				// Transparent paper is not supported in the original
 				i->win.paper = param0 == 255 ? 255 : param0 & 0x0F;
+				i->done = true;
 				break;
 			case CONDACT_INK:
 				DDB_Flush(i);
 				i->win.ink = param0 & 0x0F;
+				i->done = true;
 				break;
 			case CONDACT_TIMEOUT:
 				ok = (i->flags[Flag_TimeoutFlags] & Timeout_LastFrame) != 0;
@@ -2737,12 +2748,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				i->win.saveX = i->win.posX;
 				i->win.saveY = i->win.posY;
+				i->done = true;
 				break;
 
 			case CONDACT_BACKAT:
 				DDB_Flush(i);
 				i->win.posX = i->win.saveX;
 				i->win.posY = i->win.saveY;
+				i->done = true;
 				break;
 
 			case CONDACT_SFX:
@@ -2760,6 +2773,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				} else {
 					// This enables keyboard click (bit 0) and key repeat (bit 1) in original interpreter
 				}
+				i->done = true;
 				break;
 
 			case CONDACT_CENTRE:
@@ -2768,6 +2782,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->windef[i->curwin].x = i->win.x;
 				i->windef[i->curwin].width = i->win.width;
 				i->windef[i->curwin].posX = i->win.posX;
+				i->done = true;
 				break;
 
 			// TODO
