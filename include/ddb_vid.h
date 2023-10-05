@@ -32,10 +32,11 @@ extern void   VID_RestoreScreen       ();
 extern void   VID_SaveScreen          ();
 extern void   VID_Scroll              (int x, int y, int w, int h, int lines, uint8_t paper);
 extern void   VID_SetOpBuffer         (SCR_Operation op, bool front);
+extern void   VID_SetDefaultPalette   ();
 extern void   VID_SetPaletteColor     (uint8_t color, uint8_t r, uint8_t g, uint8_t b);
 extern void   VID_SetTextInputMode    (bool enabled);
 extern void   VID_SwapScreen          ();
-extern void   VID_UpdateInkMap        ();
+extern void   VID_UpdateInkMap        (DDB_ScreenMode mode);
 extern void   VID_VSync               ();
 extern void   VID_WaitForKey          ();		// Not suported in all platforms
 extern void   VID_ShowError           (const char* msg);

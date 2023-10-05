@@ -185,7 +185,7 @@ void VID_SetPalette (uint32_t* palette)
 		uint8_t b = (palette[n]      ) & 0xFF;
 		VID_SetPaletteColor(n, r, g, b);
 	}
-	VID_UpdateInkMap();
+	VID_UpdateInkMap(ScreenMode_VGA16);
 
 #if DEBUG_PALETTE
 	for (int color = 0; color < 16; color++)

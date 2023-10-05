@@ -94,7 +94,7 @@ int main (int argc, char *argv[])
 
 	VID_LoadDataFile(file);
 
-	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb);
+	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
 	if (interpreter == 0)
 		error(DDB_GetErrorString());
 

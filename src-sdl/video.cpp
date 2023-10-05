@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+DDB_ScreenMode screenMode = ScreenMode_VGA16;
+
 SDL_Window*  window;
 SDL_Surface* surface;
 
@@ -331,6 +333,8 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 
 void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 {
+	if (screenMode == ScreenMode_CGA || screenMode == ScreenMode_EGA)
+		return;
 	palette[color] = (r << 16) | (g << 8) | b;
 }
 
@@ -441,7 +445,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 					entry->RGB32Palette[15] = 0xFFFFFFFF;
 				for (int n = 0; n < 16; n++)
 					palette[n] = filePalette[n];
-				VID_UpdateInkMap();
 				VID_ActivatePalette();
 			}
 			break;
@@ -916,11 +919,13 @@ bool VID_LoadDataFile(const char* fileName)
 		memcpy(charset + 1024, DefaultCharset, 1024);
 	}
 
+	screenMode = (DDB_ScreenMode)dmg->screenMode;
 	if (dmg->screenMode == ScreenMode_CGA)
 		memcpy (palette, CGAPaletteCyan, sizeof(CGAPaletteCyan));
 	else if (dmg->screenMode == ScreenMode_EGA)
 		memcpy (palette, EGAPalette, sizeof(EGAPalette));
-	VID_UpdateInkMap();
+	memcpy (DefaultPalette, palette, sizeof(palette));
+	VID_UpdateInkMap(screenMode);
 	
 	//DMG_SetupFileCache(dmg);
 	//DMG_SetupImageCache(dmg, 32768);
@@ -957,8 +962,8 @@ bool VID_Initialize ()
 	textBuffer = frontBuffer;
 	graphicsBuffer = frontBuffer;
 
-	memcpy (palette, EGAPalette, sizeof(EGAPalette));
-	VID_UpdateInkMap();
+	memcpy(palette, EGAPalette, sizeof(EGAPalette));
+	VID_UpdateInkMap(ScreenMode_VGA16);
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);

@@ -325,7 +325,6 @@ void VID_SetPalette (uint32_t* pal)
 		palette[n][2] = b;
 		colors[n] = ColorValue(r, g, b);
 	}
-	VID_UpdateInkMap();
 
 	Vsync();
 	for (int n = 0; n < 16; n++)
@@ -706,7 +705,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			break;
 
 		case ScreenMode_CGA:
-			VID_SetPalette( entry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
+			VID_SetPalette(entry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
 			break;
 	}
 
@@ -1003,15 +1002,8 @@ bool VID_Initialize()
 	memset(frontBuffer, 0, 32000);
 	memset(backBuffer, 0, 32000);
 	VID_UpdateScreenPointers();
-
-	for (int n = 0; n < 16; n++)
-	{
-		VID_SetPaletteColor(n,
-		                    EGAPalette[n] >> 16,
-		                    EGAPalette[n] >> 8,
-		                    EGAPalette[n]);
-	}
-	VID_UpdateInkMap();
+	VID_SetDefaultPalette();
+	VID_UpdateInkMap(ScreenMode_VGA16);
 
 	HideCursor();
 	VID_Clear(0, 0, 320, 200, 0);

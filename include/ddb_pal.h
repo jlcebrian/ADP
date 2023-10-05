@@ -8,3 +8,4 @@ extern uint16_t RGB2Pal (uint32_t color);
 extern uint32_t EGAPalette[16];
 extern uint32_t CGAPaletteRed[16];
 extern uint32_t CGAPaletteCyan[16];
+extern uint32_t DefaultPalette[16];

@@ -174,8 +174,7 @@ static void FadeOutStep(int elapsed)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
-		for (int n = 0; n < 16; n++)
-			VID_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
+		VID_SetDefaultPalette();
 		VID_Quit();
 	}
 }
@@ -213,6 +212,8 @@ void DDB_RestartAsyncPlayer()
 
 PlayerState DDB_RunPlayerAsync(const char* location)
 {
+	static DDB_ScreenMode screenMode = ScreenMode_VGA16;
+
 	if (state == Player_Finished || state == Player_Error)
 		return state;
 
@@ -246,6 +247,20 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		EnumFiles(path);
 		ddbCount = CountFiles(".ddb");
 		scrCount = CountFiles(".scr");
+		const char* scrExtension = ".scr";
+		if (scrCount == 0)
+		{
+			if ((scrCount = CountFiles(".egs")) > 0)
+			{
+				scrExtension = ".egs";
+				screenMode = ScreenMode_EGA;
+			}
+			else if ((scrCount = CountFiles(".cgs")) > 0)
+			{
+				scrExtension = ".cgs";
+				screenMode = ScreenMode_CGA;
+			}
+		}
 		DebugPrintf("Found %d DDBs and %d screens\n", ddbCount, scrCount);
 		if (ddbCount == 0)
 		{
@@ -262,7 +277,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		{
 			if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
 				machine = DDB_MACHINE_AMIGA;
-			if (!VID_DisplaySCRFile(GetFile(".scr", 0), machine))
+			if (!VID_DisplaySCRFile(GetFile(scrExtension, 0), machine))
 			{
 				VID_ShowError(DDB_GetErrorString());
 				return state = Player_Error;
@@ -311,7 +326,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		return state = Player_Error;
 	}
 	VID_LoadDataFile(ddbFileName);
-	DDB_CreateInterpreter(ddb);
+	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 	{
 		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
@@ -350,6 +365,7 @@ bool DDB_RunPlayer()
 {
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;
+	DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
 	EnumFiles();
 	
@@ -376,13 +392,15 @@ bool DDB_RunPlayer()
 		if (!VID_DisplaySCRFile(GetFile(".scr", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
 	}
-	else if (CountFiles(".egs") > 0)
+	else if ((scrCount = CountFiles(".egs")) > 0)
 	{
+		screenMode = ScreenMode_EGA;
 		if (!VID_DisplaySCRFile(GetFile(".egs", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
 	}
-	else if (CountFiles(".cgs") > 0)
+	else if ((scrCount = CountFiles(".cgs")) > 0)
 	{
+		screenMode = ScreenMode_CGA;
 		if (!VID_DisplaySCRFile(GetFile(".cgs", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
 	}
@@ -427,7 +445,7 @@ bool DDB_RunPlayer()
 
 	VID_LoadDataFile(ddbFileName);
 
-	DDB_CreateInterpreter(ddb);
+	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 	{
 		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
@@ -440,23 +458,19 @@ bool DDB_RunPlayer()
 	if (scrCount > 0)
 	{
 		VID_RestoreScreen();
-		if (ddbCount == 1)
-		{
-			DDB_Interpreter* i = interpreter;
-			uint8_t key, ext;
-			VID_MainLoop(0, WaitForKeyUpdate);
-			VID_GetKey(&key, &ext, 0);
-			interpreter = i;
-		}
+
+		DDB_Interpreter* i = interpreter;
+		uint8_t key, ext;
+		VID_MainLoop(0, WaitForKeyUpdate);
+		VID_GetKey(&key, &ext, 0);
+		interpreter = i;
 	}
 	if (scrCount > 0)
 		FadeOut();
 
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
-
-	for (int n = 0; n < 16; n++)
-		VID_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
+	VID_SetDefaultPalette();
 
 	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);

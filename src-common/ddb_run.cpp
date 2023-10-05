@@ -1,6 +1,7 @@
 #include <ddb.h>
 #include <ddb_scr.h>
 #include <ddb_pal.h>
+#include <dmg.h>
 #include <os_char.h>
 #include <os_mem.h>
 #include <os_lib.h>
@@ -95,12 +96,6 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 
 	i->win = i->windef[0];
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
-}
-
-void DDB_ResetColorPalette () 
-{
-	for (int n = 0; n < 16; n++)
-		SCR_SetPaletteColor(n, EGAPalette[n] >> 16, EGAPalette[n] >> 8, EGAPalette[n]);
 }
 
 void DDB_Reset (DDB_Interpreter* i)
@@ -3066,7 +3061,7 @@ void DDB_Run (DDB_Interpreter* i)
 	SCR_MainLoop(i, StepFunction);
 }
 
-DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb)
+DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 {
 	DDB_Interpreter* i = Allocate<DDB_Interpreter>("DDB Interpreter");
 	if (!i)
@@ -3080,8 +3075,7 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb)
 
 	MemClear(i, sizeof(DDB_Interpreter));
 	i->ddb = ddb;
-	i->screenMode = ScreenMode_VGA16;
-
+	i->screenMode = mode;
 	i->saveStateSize = 256 + ddb->numObjects;
 	i->bufferSize = i->saveStateSize * 2;
 	i->buffer = Allocate<uint8_t>("DDB Savestate", i->bufferSize);

@@ -91,7 +91,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 	{
 		DDB_Reset(i);
 		DDB_ResetWindows(i);
-		DDB_ResetColorPalette();
+		VID_SetDefaultPalette();
 		i->state = DDB_RUNNING;
 	}
 	else

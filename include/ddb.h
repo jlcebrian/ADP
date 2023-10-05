@@ -544,13 +544,12 @@ extern void				DDB_DumpMetrics			 (DDB* ddb, DDB_PrintFunc print);
 extern void 			DDB_DumpProcess			 (DDB* ddb, uint8_t process, DDB_PrintFunc print);
 extern void				DDB_Close				 (DDB* ddb);
  
-extern DDB_Interpreter* DDB_CreateInterpreter	 (DDB* ddb);
+extern DDB_Interpreter* DDB_CreateInterpreter	 (DDB* ddb, DDB_ScreenMode mode);
 extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
 extern void				DDB_CloseInterpreter	 (DDB_Interpreter* interpreter);
-extern void				DDB_ResetColorPalette	 ();
 
 extern DDB_Error    	DDB_GetError             ();
 extern void		    	DDB_SetError             (DDB_Error error);

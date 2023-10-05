@@ -226,7 +226,7 @@ int main (int argc, char *argv[])
 	VID_Initialize();
 	VID_LoadDataFile(argv[1]);
 
-	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb);
+	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
 	if (interpreter == NULL)
 	{
 		fprintf(stderr, "Error: %s\n", DDB_GetErrorString());

@@ -649,7 +649,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			uint8_t b = (palette[n] >>  0) & 0xFF;
 			VID_SetPaletteColor(n, r, g, b);
 		}
-		VID_UpdateInkMap();
 	}
 }
 

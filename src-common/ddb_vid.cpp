@@ -1,4 +1,5 @@
 #include <ddb_vid.h>
+#include <ddb_pal.h>
 #include <os_lib.h>
 #include <dmg.h>
 
@@ -27,55 +28,35 @@ bool VID_SampleExists (uint8_t picno)
 	return (entry != 0 && entry->type == DMGEntry_Audio);
 }
 
-void VID_UpdateInkMap()
+void VID_SetDefaultPalette()
+{
+	for (int n = 0; n < 16; n++)
+	{
+		uint32_t color = DefaultPalette[n];
+		VID_SetPaletteColor(n, (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
+	}
+}
+
+void VID_UpdateInkMap(DDB_ScreenMode mode)
 {
 	// DAAD Ink (as used by INK, PAPER condacts) is mapped as follows:
 	//
 	// 0:		Left as is
 	// 1:		Replaced by 15
 	// 2-15:	Decreased by 1
-	//
-	// You can define USE_ADAPTIVE_INKMAP if you want color 1 to be
-	// replaced by the highest color in the palette instead
 
-#if USE_ADAPTIVE_INKMAP
-	uint8_t white = 0;
-	int whiteValue = 0;
-	uint8_t black = 0;
-	int blackValue = 0x1000000;
-	int n;
-
-	for (n = 0; n < 16; n++)
-	{
-		uint8_t r, g, b;
-		VID_GetPaletteColor(n, &r, &g, &b);
-		int value = r + g + b;
-		if (value >= whiteValue)
-		{
-			whiteValue = value;
-			white = n;
-		}
-		if (value < blackValue)
-		{
-			blackValue = value;
-			black = n;
-		}
-	}
-	inkMap[0] = black;
-	inkMap[1] = white;
-	for (n = 2; n < 16; n++)
-	{
-		int i = n;
-		if (black >= i) i--;
-		if (white >= i) i--;
-		inkMap[n] = i;
-	}
-#else
 	inkMap[0] = 0;
 	inkMap[1] = 15;
-	for (int n = 2; n < 16; n++)
-		inkMap[n] = n-1;
-#endif
+	if (mode == ScreenMode_CGA)
+	{
+		inkMap[2] = 2;
+		inkMap[3] = 1;
+	}
+	else
+	{
+		for (int n = 2; n < 16; n++)
+			inkMap[n] = n-1;
+	}
 }
 
 void VID_ShowError(const char* msg)
