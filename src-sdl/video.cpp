@@ -194,14 +194,6 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 	return true;
 }
 
-void VID_ResetInkMap()
-{
-	inkMap[0] = 0;
-	inkMap[1] = 15;
-	for (int n = 2; n < 16; n++)
-		inkMap[n] = n-1;
-}
-
 void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
 	//fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
@@ -456,7 +448,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			for (int n = 0; n < 16; n++) {
 				palette[n] = entry->CGAMode == CGA_Red ? CGAPaletteRed[n] : CGAPaletteCyan[n];
 			}
-			VID_ResetInkMap();
 			break;
 	}
 
@@ -925,7 +916,6 @@ bool VID_LoadDataFile(const char* fileName)
 	else if (dmg->screenMode == ScreenMode_EGA)
 		memcpy (palette, EGAPalette, sizeof(EGAPalette));
 	memcpy (DefaultPalette, palette, sizeof(palette));
-	VID_UpdateInkMap(screenMode);
 	
 	//DMG_SetupFileCache(dmg);
 	//DMG_SetupImageCache(dmg, 32768);
@@ -963,8 +953,6 @@ bool VID_Initialize ()
 	graphicsBuffer = frontBuffer;
 
 	memcpy(palette, EGAPalette, sizeof(EGAPalette));
-	VID_UpdateInkMap(ScreenMode_VGA16);
-
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
 

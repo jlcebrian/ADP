@@ -78,6 +78,40 @@ static const char* TranslateChar(uint8_t c)
 	return buffer;
 }
 
+void DDB_SetupInkMap (DDB_Interpreter* i)
+{
+	i->inkMap[0] = 0;
+	i->inkMap[1] = 15;
+	for (int n = 2; n < 16; n++)
+		i->inkMap[n] = n-1;
+
+	if (i->ddb->target == DDB_MACHINE_IBMPC)
+	{
+		if (i->screenMode == ScreenMode_Text)
+		{
+			for (int n = 0; n < 16; n++)
+				i->inkMap[n] = n;
+		}
+		else if (i->screenMode == ScreenMode_CGA)
+		{
+			for (int n = 0; n < 16; n += 4)
+			{
+				i->inkMap[n] = 0;
+				i->inkMap[n+1] = 3;
+				i->inkMap[n+2] = 2;
+				i->inkMap[n+3] = 1;
+			}
+		}
+		else 
+		{
+			i->inkMap[2] = 4;
+			i->inkMap[3] = 2;
+			i->inkMap[4] = 1;
+			i->inkMap[5] = 3;
+		}
+	}
+}
+
 void DDB_ResetWindows (DDB_Interpreter* i)
 {
 	for (int n = 0; n < 8; n++)
@@ -96,6 +130,7 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 
 	i->win = i->windef[0];
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
+	DDB_SetupInkMap(i);
 }
 
 void DDB_Reset (DDB_Interpreter* i)
@@ -236,8 +271,8 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 	DDB_Window* w = &i->win;
 	int x = w->x;
 	int maxX = i->cellX*8 + i->cellW*8;
-	int ink = inkMap[w->ink];
-	int paper = inkMap[w->paper];
+	int ink = w->ink;
+	int paper = w->paper;
 
 	DDB_GetMessage(i->ddb, DDB_SYSMSG, 32, more, sizeof(more));
 	SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, paper);
@@ -261,7 +296,7 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 bool DDB_NextLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 {
 	int maxY = w->y + w->height - lineHeight;
-	int paper = inkMap[w->paper];
+	int paper = w->paper;
 
 	w->posX = w->x;
 	w->posY += lineHeight;
@@ -310,9 +345,8 @@ bool DDB_NewLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 	maxX = cellX * 8 + cellW * 8;
 	if (w->posX < maxX)
 	{
-		int paper = inkMap[w->paper];
 		// fprintf(stderr, "NewLine clearing up to %d (posX:%d cellX:%d cellW:%d)\n", maxX, w->posX, cellX, cellW);
-		SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, paper);
+		SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
 	}
 
 	return DDB_NextLineAtWindow(i, w);
@@ -339,14 +373,9 @@ void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 		width = i->cellW * 8;
 	}
 
-	// Hack: check how it is done in the originals, because it's not clearing
-	// the right window pixels in Espacial's menus or Chichen's cutscenes
-	//if (x + width - 2 < w->x + w->width)
-	//	width = w->x + w->width - x - 2;
-
 	// int index = w == &i->win ? i->curwin : w - i->windef;
 	// fprintf(stderr, "Clearing window %d: %d,%d %dx%d\n", index, x, w->y, width, w->height);
-	SCR_Clear(x, w->y, width, w->height, inkMap[w->paper & 0x0F]);
+	SCR_Clear(x, w->y, width, w->height, w->paper == 255 ? 0 : w->paper);
 
 	w->posX = w->x;
 	w->posY = w->y;
@@ -461,7 +490,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			}
 			DDB_NewLineAtWindow(i, w);
 		}
-		SCR_DrawCharacter(w->posX, w->posY, ch, inkMap[w->ink], inkMap[w->paper]);
+		SCR_DrawCharacter(w->posX, w->posY, ch, w->ink, w->paper);
 		w->posX += width;
 	}
 	i->pendingPtr = 0;
@@ -2654,12 +2683,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_PAPER:
 				DDB_Flush(i);
 				// Transparent paper is not supported in the original
-				i->win.paper = param0 == 255 ? 255 : param0 & 0x0F;
+				i->win.paper = param0 == 255 ? 255 : i->inkMap[param0 & 0x0F];
 				i->done = true;
 				break;
 			case CONDACT_INK:
 				DDB_Flush(i);
-				i->win.ink = param0 & 0x0F;
+				i->win.ink = i->inkMap[param0 & 0x0F];
 				i->done = true;
 				break;
 			case CONDACT_TIMEOUT:

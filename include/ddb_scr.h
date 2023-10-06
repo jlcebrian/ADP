@@ -20,7 +20,6 @@ extern uint16_t   screenWidth;
 extern uint16_t   screenHeight;
 extern uint8_t    charset[2048];
 extern uint8_t    charWidth[256];
-extern uint8_t    inkMap[16];
 
 enum SCR_Command
 {

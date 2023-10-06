@@ -85,7 +85,7 @@ enum DDB_Flag
 	Flag_ObjAttributes  = 58,			// 3A  (2 bytes) Attributes of the current object
 	Flag_Key1      		= 60,			// 3C  Current ASCII key code after INKEY
 	Flag_Key2      		= 61,			// 3D  Extended key code after INKEY
-	Flag_ScreenMode 	= 62,			// 3E  2: Text, 4: CGA, 13: EGA, 141: VGA
+	Flag_ScreenMode 	= 62,			// 3E  2: Text, 4: CGA, 13 ($0D): EGA, 141 ($8D): VGA
 	Flag_Window    		= 63,			// 3F  Which window is active at the moment
 
 	// Flags 64 to 255 are unused
@@ -468,6 +468,7 @@ struct DDB_Interpreter
 	DDB_Window		win;
 	DDB_Window		windef[8];
 
+	uint8_t			inkMap[16];
 	uint8_t			curwin;
 	uint8_t			inputWindow;
 	uint8_t			inputFlags;

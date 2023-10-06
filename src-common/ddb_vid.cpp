@@ -10,7 +10,6 @@ uint8_t 	columnWidth;
 uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
-uint8_t 	inkMap[16] = { 0, 15 };
 
 bool VID_PictureExists (uint8_t picno)
 {
@@ -34,28 +33,6 @@ void VID_SetDefaultPalette()
 	{
 		uint32_t color = DefaultPalette[n];
 		VID_SetPaletteColor(n, (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
-	}
-}
-
-void VID_UpdateInkMap(DDB_ScreenMode mode)
-{
-	// DAAD Ink (as used by INK, PAPER condacts) is mapped as follows:
-	//
-	// 0:		Left as is
-	// 1:		Replaced by 15
-	// 2-15:	Decreased by 1
-
-	inkMap[0] = 0;
-	inkMap[1] = 15;
-	if (mode == ScreenMode_CGA)
-	{
-		inkMap[2] = 2;
-		inkMap[3] = 1;
-	}
-	else
-	{
-		for (int n = 2; n < 16; n++)
-			inkMap[n] = n-1;
 	}
 }
 

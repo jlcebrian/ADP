@@ -642,7 +642,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			screenMode == ScreenMode_VGA16 ? ImageMode_RGBA32 :
 			screenMode == ScreenMode_EGA ? ImageMode_RGBA32EGA : ImageMode_RGBA32CGA);
 		if (dmg->version == DMG_Version1)
-			palette[inkMap[1]] = 0xFFFFFFFF;
+			palette[15] = 0xFFFFFFFF;
 		for (int n = 0; n < 16; n++) {
 			uint8_t r = (palette[n] >> 16) & 0xFF;
 			uint8_t g = (palette[n] >>  8) & 0xFF;
@@ -1110,10 +1110,6 @@ bool VID_Initialize()
 	columnWidth   = 6;
 	screenWidth   = 320;
 	screenHeight  = 200;
-	inkMap[0]     = 0;
-	inkMap[1]     = 15;
-	for (int n = 2; n < 16; n++)
-		inkMap[n] = n-1;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = 6;
 

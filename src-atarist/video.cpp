@@ -1003,7 +1003,6 @@ bool VID_Initialize()
 	memset(backBuffer, 0, 32000);
 	VID_UpdateScreenPointers();
 	VID_SetDefaultPalette();
-	VID_UpdateInkMap(ScreenMode_VGA16);
 
 	HideCursor();
 	VID_Clear(0, 0, 320, 200, 0);

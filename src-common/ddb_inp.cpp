@@ -462,8 +462,8 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	int maxX;
 	int n;
 
-	int ink = inkMap[w->ink & 0x0F];
-	int paper = inkMap[w->paper & 0x0F];
+	int ink = w->ink & 0x0F;
+	int paper = w->paper & 0x0F;
 
 	// ST/Amiga have originally some weird combination here,
 	// but PC uses just the text colors and it looks better
