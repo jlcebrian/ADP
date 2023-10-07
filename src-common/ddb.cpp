@@ -235,7 +235,7 @@ static DDB_CondactMap version2Condacts[128] = {
 	{ CONDACT_TIME,   		  2 },		// 0x53
 	{ CONDACT_PICTURE,		  1 },		// 0x54
 	{ CONDACT_DOALL,  		  1 },		// 0x55
-	{ CONDACT_MOUSE,  		  1 },		// 0x56
+	{ CONDACT_MOUSE,  		  2 },		// 0x56
 	{ CONDACT_GFX,    		  2 },		// 0x57
 	{ CONDACT_ISNOTAT,		  2 },		// 0x58
 	{ CONDACT_WEIGH,  		  2 },		// 0x59
