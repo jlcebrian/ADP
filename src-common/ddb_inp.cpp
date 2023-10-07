@@ -116,6 +116,7 @@ void DDB_ResolveInputQuit(DDB_Interpreter* i)
 	DDB_GetMessage(i->ddb, DDB_SYSMSG, 30, buffer, 2);
 	if (ToUpper(i->inputBuffer[0]) == ToUpper(buffer[0]))
 	{
+		i->done = true;
 		i->state = DDB_RUNNING;
 	}
 	else
