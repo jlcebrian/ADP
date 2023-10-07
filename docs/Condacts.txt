@@ -1,0 +1,63 @@
+───────────────────────────────────────────────────────────────────────────────
+  Undocumented or weird DAAD Condacts
+───────────────────────────────────────────────────────────────────────────────
+
+
+INK	    n
+PAPER	n
+
+    Both condact use a look-up table which is platform-dependant in order
+    to choose the actual color that will be used for the text:
+
+            Color       ST/AMIGA    CGA         EGA/VGA
+
+            0           0           0           0
+            1           15          3           15
+            2           1           2           4
+            3           2           1           2
+            4           3           0           1
+            5           4           3           3
+            6           5           2           5
+            7           6           1           6
+            8           7           0           7
+            9           8           3           8
+            10          9           2           9
+            11          10          1           10
+            12          11          0           11
+            13          12          3           12
+            14          13          2           13
+            15          14          1           14
+
+    The MS-DOS interpreter uses the parameter as-is in text mode.
+
+
+
+MOUSE   flagno  op                  (Condact 0x56, replaces version 1 PROMPT)
+
+    This condact requires two parameters. The second parameter is a
+    command/operation number, similar to how GFX/SFX works:
+
+            Command
+
+            0       Reset/initialize the mouse
+            1       Show the mouse cursor
+            2       Hide the mouse cursor
+            3       Get the mouse position & state
+    
+    The second parameter marks the first one of a table of four flags
+    which are populated when command is 3 with the following info:
+
+            Flag    Description
+
+            n+0     Mouse button state
+            n+1     Mouse X position, in 8x8 cell coordinates
+            n+2     Mouse Y position, in 8x8 cell coordinates (row)
+            n+3     Mouse X position, in 6x8 character coordinates
+
+    The button state is a combination of the following values:
+
+            Value
+
+            1       Left mouse button is down
+            2       Right mouse button is down
+            4       Middle mouse button is down
