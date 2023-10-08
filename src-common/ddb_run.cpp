@@ -121,7 +121,7 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 		w->y = 0;
 		w->width = screenWidth;
 		w->height = screenHeight;
-		w->ink = 1;
+		w->ink = 15;
 		w->paper = 0;
 		w->posX = w->x;
 		w->posY = w->y;
@@ -2522,7 +2522,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					}
 					repeatingDisplay = false;
 				}
-				i->done = true;
 				break;
 			case CONDACT_DISPLAY:
 				i->done = true;

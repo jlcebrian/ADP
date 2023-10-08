@@ -432,12 +432,12 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 		case ScreenMode_VGA16:
 			if (entry->fixed)
 			{
-				// TODO: This is a hack to fix the palette for the old version of the game
-				if (dmg->version == DMG_Version1)
-					entry->RGB32Palette[15] = 0xFFFFFFFF;
 				for (int n = 0; n < 16; n++)
 					palette[n] = filePalette[n];
-				VID_ActivatePalette();
+				// TODO: This is a hack to fix the palette for Original/Jabato
+				//       We should check the ST/DOS interpreter to see what's going on
+				if (dmg->version == DMG_Version1)
+					palette[15] = 0xFFFFFFFF;
 			}
 			break;
 
