@@ -201,7 +201,8 @@ static void TraceVocabularyWord (DDB* ddb, uint8_t type, uint8_t index)
 		}
 		ptr += 7;
 	}
-	if (type == WordType_Verb && index < 40)
+	const int convertibleNoun = ddb->version == 1 ? 20 : 40;
+	if (type == WordType_Verb && index < convertibleNoun)
 		TraceVocabularyWord(ddb, WordType_Noun, index);
 	else
 		TRACE("%-5d", index);
@@ -1275,7 +1276,8 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 		i->inputBufferPtr = ptr - i->inputBuffer;
 	}
 
-	if (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < 40)
+	const int convertibleNoun = i->ddb->version == 1 ? 20 : 40;
+	if (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < convertibleNoun)
 		i->flags[Flag_Verb] = i->flags[Flag_Noun1];
 	else if (i->flags[Flag_Verb] == 255 && previousVerb)
 		i->flags[Flag_Verb] = previousVerb;
