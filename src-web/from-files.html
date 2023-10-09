@@ -98,6 +98,7 @@
 								capsLockActive = true;
 							}
 							var key = this.dataset.value;
+							if (key == "''") key = "\"";
 							if (capsLockActive) {
 								key = key.toUpperCase();
 							} else {
@@ -169,7 +170,10 @@
 							"3": "V",
 							"4": "B",
 							"5": "N",
-							"6": "M"
+							"6": "M",
+							"7": ",",
+							"8": ".",
+							"9": "''",
 						}
 					]
 				})
