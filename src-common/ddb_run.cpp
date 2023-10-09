@@ -246,7 +246,7 @@ void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint
 {
 	static int inc[] = { 0,1,2,3,1,2,3,3,1,2,2,3,1,1,2,3 };
 	int charsX = w->x / 6;
-	int charsW = w->width / 6 - 1;
+	int charsW = w->width / 6;
 	int cellsX = 3*(charsX >> 2) + ((charsX & 3) != 0 ? (charsX & 3)-1 : 0);
 	int cellsW = inc[((charsX & 3) << 2) | (charsW & 3)] + 3*(charsW >> 2);
 
@@ -767,8 +767,6 @@ static void CenterWindow (DDB_Interpreter* i, DDB_Window* w)
 static void WinSize (DDB_Interpreter* i, int lines, int columns)
 {
 	DDB_Window* w = &i->windef[i->curwin];
-	
-	columns++;
 
 	w->height = lines * lineHeight;
 	w->width = columns * columnWidth;
