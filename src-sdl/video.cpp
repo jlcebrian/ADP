@@ -915,7 +915,7 @@ bool VID_LoadDataFile(const char* fileName)
 		memcpy (palette, CGAPaletteCyan, sizeof(CGAPaletteCyan));
 	else if (dmg->screenMode == ScreenMode_EGA)
 		memcpy (palette, EGAPalette, sizeof(EGAPalette));
-	memcpy (DefaultPalette, palette, sizeof(palette));
+	memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
 	
 	//DMG_SetupFileCache(dmg);
 	//DMG_SetupImageCache(dmg, 32768);
