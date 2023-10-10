@@ -174,7 +174,9 @@ static void FadeOutStep(int elapsed)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
-		VID_SetDefaultPalette();
+		for (int i = 0; i < 16; i++)
+			VID_SetPaletteColor(i, r[i], g[i], b[i]);
+		VID_ActivatePalette();
 		VID_Quit();
 	}
 }
@@ -259,6 +261,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			{
 				scrExtension = ".cgs";
 				screenMode = ScreenMode_CGA;
+			}
+			else if ((scrCount = CountFiles(".vgs")) > 0)
+			{
+				scrExtension = ".vgs";
+				screenMode = ScreenMode_VGA16;
 			}
 		}
 		DebugPrintf("Found %d DDBs and %d screens\n", ddbCount, scrCount);
@@ -404,6 +411,12 @@ bool DDB_RunPlayer()
 		if (!VID_DisplaySCRFile(GetFile(".cgs", 0), machine))
 			VID_ShowError(DDB_GetErrorString());
 	}
+	else if ((scrCount = CountFiles(".vgs")) > 0)
+	{
+		screenMode = ScreenMode_VGA16;
+		if (!VID_DisplaySCRFile(GetFile(".vgs", 0), machine))
+			VID_ShowError(DDB_GetErrorString());
+	}
 
 	if (ddbCount > 1)
 	{
@@ -470,7 +483,6 @@ bool DDB_RunPlayer()
 
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
-	VID_SetDefaultPalette();
 
 	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);

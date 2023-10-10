@@ -917,8 +917,9 @@ bool VID_LoadDataFile(const char* fileName)
 		memcpy (palette, EGAPalette, sizeof(EGAPalette));
 	memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
 	
-	//DMG_SetupFileCache(dmg);
-	//DMG_SetupImageCache(dmg, 32768);
+	// Uncomment the following lines to test Atari/Amiga caches in desktop/web:
+	// DMG_SetupFileCache(dmg);
+	// DMG_SetupImageCache(dmg, 32768);
 
 	return true;
 }

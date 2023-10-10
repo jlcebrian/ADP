@@ -45,9 +45,9 @@ be present in the same folder and with the same name as the DDB:
 
 ```
 		.DDB		Adventure game database
-		.DAT		Graphics database (it can also be .EGS or .CGS)
+		.DAT		Graphics database (it can also be .EGA or .CGA)
 		.CHR		Character set (it can also be .CH0 for ST)
-		.SCR		Loading/splash screen
+		.SCR		Loading/splash screen (it can also be .EGS, .CGS or .VGS)
 ```
 
 PLAYER simply will run any DDB file it finds in the same folder as

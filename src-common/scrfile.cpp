@@ -118,13 +118,31 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		else
 		{
 			// EGA
-			for (int n = 0; n < 16; n++) {
-				palette[n] = EGAPalette[n];
+			uint8_t* data = buffer + 1;
+			if (size <= 32048)
+			{
+				for (int n = 0; n < 16; n++) {
+					palette[n] = EGAPalette[n];
+				}
+			}
+			else
+			{
+				uint8_t* filePalette = buffer + 1;
+				data = buffer + 49;
+				for (int n = 0; n < 16; n++) {
+					uint16_t r = filePalette[n * 3];
+					uint16_t g = filePalette[n * 3 + 1];
+					uint16_t b = filePalette[n * 3 + 2];
+					r = (r << 2) | (r & 0x03);
+					g = (g << 2) | (g & 0x03);
+					b = (b << 2) | (b & 0x03);
+					palette[n] = 0xFF000000 | (r << 16) | (g << 8) | b;
+				}
 			}
 
 			for (int y = 0 ; y < 200 && y < height; y++)
 			{
-				uint8_t* row = buffer + 1 + 40*y;
+				uint8_t* row = data + 40*y;
 				int bitPlaneStride = 8000;
 				for (int x = 0; x < 320; x++)
 				{
