@@ -2,7 +2,7 @@
  Interpreter
 ─────────────
 
-	- Fix QUIT command (weird things in EBPP)
+	- Add support for multiple sentence conversations to PSI (Hobbit)
 	- Honor palette range as it appears in .DAT files (AD didn't use it?)
 	- Legacy platforms: Ask for disk # when there are multiple DDB files but no corresponding DATs
 	- DOS: use fast VRAM copy in scroll

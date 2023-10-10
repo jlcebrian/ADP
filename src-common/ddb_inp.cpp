@@ -89,9 +89,23 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 	DDB_GetMessage(i->ddb, DDB_SYSMSG, 30, buffer, 3);
 	if (ToUpper(i->inputBuffer[0]) == ToUpper(buffer[0]))
 	{
-		DDB_Reset(i);
-		DDB_ResetWindows(i);
-		VID_SetDefaultPalette();
+		DDB_NewText(i);
+		
+		if (i->ddb->version == 1)
+		{
+			DDB_Reset(i);
+			DDB_ResetWindows(i);
+			VID_SetDefaultPalette();
+		}
+		else
+		{
+			i->flags[Flag_Locno] = 0;
+			i->procstackptr = 0;
+			i->doall = false;
+			i->procstack[0].entry = 0;
+			i->procstack[0].process = 0;
+			i->procstack[0].offset = 0;
+		}
 		i->state = DDB_RUNNING;
 	}
 	else

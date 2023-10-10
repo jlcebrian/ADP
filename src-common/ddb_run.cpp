@@ -1718,6 +1718,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			{
 				DDB_Window* iw = DDB_GetInputWindow(i);
 				DDB_Flush(i);
+				DDB_NewText(i);
 				DDB_OutputMessageWin(i, DDB_SYSMSG, 13, iw);
 				DDB_FlushWindow(i, iw);
 				DDB_StartInput(i, false);
@@ -1730,6 +1731,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			{
 				DDB_Window* iw = DDB_GetInputWindow(i);
 				DDB_Flush(i);
+				DDB_NewText(i);
 				DDB_OutputMessageWin(i, DDB_SYSMSG, 12, iw);
 				DDB_FlushWindow(i, iw);
 				DDB_StartInput(i, false);
@@ -1750,6 +1752,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("\n");
 					return;
 				}
+
+				// TODO: DAAD v2 implements here an AUTOLOAD feature
+				// for PCW, which is not implemented in other platforms.
+				// For now, we perform a complete reset (which is not
+				// available by default in DAAD v2). The original interpreters
+				// just did a RESTART in this case.
+				
 				DDB_Reset(i);
 				process = 0;
 				entry = 0;
@@ -2717,6 +2726,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_OutputMessage(i, DDB_SYSMSG, 60);		// Enter file name
 					DDB_OutputText(i, " ");
 					DDB_Flush(i);
+					DDB_NewText(i);
 					i->state = DDB_INPUT_SAVE;
 					DDB_NewText(i);
 					DDB_PrintInputLine(i, true);
@@ -2747,6 +2757,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_OutputMessage(i, DDB_SYSMSG, 60);		// Enter file name
 					DDB_OutputText(i, " ");
 					DDB_Flush(i);
+					DDB_NewText(i);
 					i->state = DDB_INPUT_LOAD;
 					DDB_NewText(i);
 					DDB_PrintInputLine(i, true);
