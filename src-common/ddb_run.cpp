@@ -1148,15 +1148,17 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 	uint8_t previousVerb = 255;
 	int wordsFound = 0;
 
-	if (quoted && i->quotedString) {
-		ptr = i->quotedString;
-		end = i->quotedString + i->quotedStringLength;
-	} else if (quoted && i->inputBufferPtr >= i->inputBufferLength) {
-		return false;
-	} else {
+	if (quoted && !i->quotedString && (i->sentenceFlags & SentenceFlag_Colon) != 0) {
 		ptr = i->inputBuffer + i->inputBufferPtr;
 		end = i->inputBuffer + i->inputBufferLength;
 		quoted = false;
+	} else if (quoted && i->quotedString) {
+		ptr = i->quotedString;
+		end = i->quotedString + i->quotedStringLength;
+	} else {
+		if (quoted) return false;
+		ptr = i->inputBuffer + i->inputBufferPtr;
+		end = i->inputBuffer + i->inputBufferLength;
 	}
 
 	if (i->inputBufferPtr != 0)
@@ -1202,7 +1204,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 			else if (*ptr == '?')
 				i->sentenceFlags |= SentenceFlag_Question;
 			ptr++;
-			if (wordsFound == 0)
+			if (wordsFound == 0 && (i->sentenceFlags & SentenceFlag_UnknownWord) == 0)
 				continue;
 			break;
 		}
@@ -1277,7 +1279,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 	const int convertibleNoun = i->ddb->version == 1 ? 20 : 40;
 	if (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < convertibleNoun)
 		i->flags[Flag_Verb] = i->flags[Flag_Noun1];
-	else if (i->flags[Flag_Verb] == 255 && previousVerb)
+	else if (i->flags[Flag_Verb] == 255 && previousVerb && i->flags[Flag_Noun1] != 255 && i->flags[Flag_Noun1] != previousVerb)
 		i->flags[Flag_Verb] = previousVerb;
 
 	if (i->flags[Flag_Noun1] != 255 && i->flags[Flag_Noun1] >= 50)
