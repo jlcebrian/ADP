@@ -470,7 +470,6 @@ struct DDB_Interpreter
 
 	uint8_t			inkMap[16];
 	uint8_t			curwin;
-	uint8_t			inputWindow;
 	uint8_t			inputFlags;
 	uint8_t			cellX;
 	uint8_t			cellW;
@@ -564,6 +563,7 @@ extern void             DDB_FlushWindow          (DDB_Interpreter* i, DDB_Window
 extern void             DDB_ResetScrollCounts    (DDB_Interpreter* i);
 extern void             DDB_OutputUserPrompt     (DDB_Interpreter* i);
 extern void             DDB_OutputInputPrompt    (DDB_Interpreter* i);
+extern void             DDB_OutputChar           (DDB_Interpreter* i, const char c);
 extern void             DDB_OutputText           (DDB_Interpreter* i, const char* text);
 extern bool             DDB_OutputMessage        (DDB_Interpreter* i, DDB_MsgType type, uint8_t index);
 extern void             DDB_Desc                 (DDB_Interpreter* i, uint8_t locno);

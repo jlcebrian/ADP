@@ -24,9 +24,10 @@ static void UpdateLastInputHistoryLine (DDB_Interpreter* i);
 
 DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 {
+	int inputWindow = i->flags[Flag_InputStream] & 0x07;
 	return 
-		i->inputWindow == 0 || 
-		i->inputWindow == i->curwin ? &i->win : &i->windef[i->inputWindow];
+		inputWindow == 0 || 
+		inputWindow == i->curwin ? &i->win : &i->windef[inputWindow];
 }
 
 void DDB_StartInput(DDB_Interpreter* i, bool withPrompt)
@@ -70,11 +71,49 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 	else
 		iw->posX += i->inputCursorX * columnWidth;
 
-	if ((i->inputFlags & echoFlag) != 0 && i->inputBufferLength > 0)
+	if ((i->inputFlags & echoFlag) != 0 && i->inputBufferLength > 0 && i->curwin != (i->flags[Flag_InputStream] & 7))
 	{
-		DDB_OutputMessage(i, DDB_SYSMSG, 33);
-		DDB_OutputText(i, (const char*)i->inputBuffer);
-		DDB_NewLine(i);
+		char buffer[64] = { 0, 0 };
+
+		DDB_Flush(i);
+		#if REPRODUCE_ECHO_BUG
+		if (i->ddb->target == DDB_MACHINE_ATARIST)
+		{
+			int newlineCount = 0;
+			DDB_GetMessage(i->ddb, DDB_SYSMSG, 33, buffer, 64);
+			for (int n = 0; buffer[n]; n++)
+				if (buffer[n] == '\r')
+					newlineCount++;
+			if (newlineCount == 0)
+			{
+				for (int m = 0; m < i->inputBufferLength; m++)
+					DDB_OutputChar(i, i->inputBuffer[m]);
+			}
+			for (int n = 0; n < 64 && buffer[n] != 0; n++)
+			{
+				DDB_OutputChar(i, buffer[n]);
+				if (buffer[n] == '\r')
+				{
+					if (--newlineCount == 0)
+					{
+						for (int m = 0; m < i->inputBufferLength; m++)
+							DDB_OutputChar(i, i->inputBuffer[m]);
+					}
+				}
+			}
+			DDB_Flush(i);
+			DDB_NewLine(i);
+		}
+		else
+		#endif
+		{
+			DDB_Flush(i);
+			DDB_OutputMessage(i, DDB_SYSMSG, 33);
+			for (int n = 0; n < i->inputBufferLength; n++)
+				DDB_OutputChar(i, i->inputBuffer[n]);
+			DDB_Flush(i);
+			DDB_NewLine(i);
+		}
 	}
 
 	i->inputCursorX = 0;

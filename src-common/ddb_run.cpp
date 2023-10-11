@@ -438,6 +438,10 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 
 void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 {
+	// TODO: This logic is incorrect. The pending buffer should know which window
+	// it was written to, and the flush should only flush that window. The current
+	// implementation sometimes writes garbage to the unintended window.
+	
 	int maxX = i->cellX*8 + i->cellW*8;
 	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
 	
@@ -585,7 +589,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 	i->pending[i->pendingPtr++] = c;
 }
 
-static void OutputChar (DDB_Interpreter* i, char c)
+void DDB_OutputChar (DDB_Interpreter* i, char c)
 {
 	OutputCharToWindow(i, &i->win, c);
 }
@@ -683,11 +687,14 @@ bool DDB_OutputMessage (DDB_Interpreter* i, DDB_MsgType type, uint8_t index)
 
 void DDB_OutputUserPrompt(DDB_Interpreter* i)
 {
+	DDB_Window *iw = DDB_GetInputWindow(i);
 	int prompt = i->flags[Flag_Prompt];
 	if (prompt == 0 || prompt >= i->ddb->numSystemMessages)
 		prompt = RandInt(2, 5);
 	TRACE("\n\n");
-	DDB_OutputMessageWin(i, DDB_SYSMSG, prompt, &i->win);
+	DDB_Flush(i);
+	DDB_OutputMessageWin(i, DDB_SYSMSG, prompt, iw);
+	DDB_FlushWindow(i, iw);
 }
 
 void DDB_OutputInputPrompt(DDB_Interpreter* i)
@@ -832,7 +839,7 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 			else
 			{
 				DDB_OutputText(i, (const char *)objNameBuffer);
-				OutputChar(i, '\r');
+				DDB_OutputChar(i, '\r');
 			}
 			count--;
 		}
@@ -1713,7 +1720,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			}
 			case CONDACT_INPUT:
-				i->inputWindow = param0;
+				i->flags[Flag_InputStream] = param0;
 				i->inputFlags = param1;
 				break;
 			case CONDACT_END:
