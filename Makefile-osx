@@ -1,0 +1,45 @@
+VERSION ?= 0.2d
+
+CPPFLAGS += -D_OSX -D_THREAD_SAFE
+CPPFLAGS += -arch x86_64 -arch arm64 -target macos10.12
+LDFLAGS  += -target macos10.12 -arch x86_64 -arch arm64
+CPPFLAGS += -Ilib/sdl2/include
+LDFLAGS  += lib/osx/libSDL2.a lib/osx/libSDL2main.a
+LDFLAGS  += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
+
+CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -DTRACE_ON 
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
+CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
+CPPFLAGS += -g -DVERSION=$(VERSION)
+CPPFLAGS += -O2
+
+DIRS = src-common/ 
+VPATH = $(DIRS) src-sdl/ src-unix/
+SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
+OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
+
+OBJS += obj/unix/files.o
+OBJS += obj/unix/error.o
+UNIX_OBJS = obj/unix/player.o
+
+-include $(OBJS:.o=.d)
+
+all: out/ADP.app
+
+out/ADP.app: out/player
+	mkdir -p out/ADP.app/Contents/MacOS
+	mkdir -p out/ADP.app/Contents/Resources
+	cp out/player out/ADP.app/Contents/MacOS/ADP
+	cp -r lib/logo.icns out/ADP.app/Contents/Resources/ADP.icns
+	cp -r lib/Info.plist out/ADP.app/Contents/Info.plist
+
+out/player: $(OBJS) obj/unix/player.o
+	$(CXX) -o $@ $^ $(LDFLAGS)
+
+clean:
+	rm -f obj/unix/*.o
+
+$(OBJS) $(UNIX_OBJS) : obj/unix/%.o : %.cpp
+	$(info Compiling $<)
+	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+

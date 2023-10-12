@@ -4,6 +4,10 @@
 #include <os_file.h>
 #include <os_lib.h>
 
+#if _OSX
+#include <unistd.h>
+#endif
+
 #include <SDL.h>
 
 #if _WEB
@@ -170,6 +174,10 @@ void TracePrintf(const char* format, ...)
 
 int main (int argc, char *argv[])
 {
+	#if _OSX
+	chdir(SDL_GetBasePath());
+	#endif
+
 	OSInit();
 	if (!DDB_RunPlayer())
 		OSError(DDB_GetErrorString());
