@@ -325,8 +325,6 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 
 void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 {
-	if (screenMode == ScreenMode_CGA || screenMode == ScreenMode_EGA)
-		return;
 	palette[color] = (r << 16) | (g << 8) | b;
 }
 

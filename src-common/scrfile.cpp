@@ -117,16 +117,17 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		}
 		else
 		{
-			// EGA
 			uint8_t* data = buffer + 1;
 			if (size <= 32048)
 			{
-				for (int n = 0; n < 16; n++) {
+				// EGA
+				for (int n = 0; n < 16; n++) {	
 					palette[n] = EGAPalette[n];
 				}
 			}
 			else
 			{
+				// VGA
 				uint8_t* filePalette = buffer + 1;
 				data = buffer + 49;
 				for (int n = 0; n < 16; n++) {
