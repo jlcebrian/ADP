@@ -43,6 +43,7 @@ CPPFILES := 		\
 	os_char.cpp 	\
 	os_lib.cpp		\
 	os_mem.cpp		\
+	os_file.cpp		\
 	scrfile.cpp		\
 	files.cpp		\
 	player.cpp		\
