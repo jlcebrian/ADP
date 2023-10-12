@@ -173,9 +173,8 @@ static void FadeOutStep(int elapsed)
 	if (frame >= 16)
 	{
 		VID_ClearBuffer(true);
-		VID_ClearBuffer(false);
-		for (int i = 0; i < 16; i++)
-			VID_SetPaletteColor(i, r[i], g[i], b[i]);
+		VID_ClearBuffer(false);	
+		VID_SetDefaultPalette();
 		VID_ActivatePalette();
 		VID_Quit();
 	}
@@ -364,8 +363,7 @@ static void FadeOut()
 		}
 		VID_VSync();
 	}
-	for (int i = 0; i < 16; i++)
-		VID_SetPaletteColor(i, r[i], g[i], b[i]);
+	VID_SetDefaultPalette();
 }
 
 bool DDB_RunPlayer()

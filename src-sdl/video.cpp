@@ -910,10 +910,15 @@ bool VID_LoadDataFile(const char* fileName)
 
 	screenMode = (DDB_ScreenMode)dmg->screenMode;
 	if (dmg->screenMode == ScreenMode_CGA)
+	{
 		memcpy (palette, CGAPaletteCyan, sizeof(CGAPaletteCyan));
+		memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+	}
 	else if (dmg->screenMode == ScreenMode_EGA)
+	{
 		memcpy (palette, EGAPalette, sizeof(EGAPalette));
-	memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+		memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+	}
 	
 	// Uncomment the following lines to test Atari/Amiga caches in desktop/web:
 	// DMG_SetupFileCache(dmg);
