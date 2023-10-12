@@ -1,8 +1,12 @@
 @echo off
 SETLOCAL
-SET VERSION=BETA0.2c
+SET VERSION=BETA0.2d
 
-IF "%1"=="Windows" GOTO :WINDOWS
+IF "%1"=="Windows" GOTO :WINDOWS64
+IF "%1"=="Windows32" GOTO :WINDOWS32
+IF "%1"=="Windows64" GOTO :WINDOWS64
+IF "%1"=="Win32" GOTO :WINDOWS32
+IF "%1"=="Win64" GOTO :WINDOWS64
 IF "%1"=="Amiga" GOTO :AMIGA
 IF "%1"=="DOS" GOTO :DOS
 IF "%1"=="Web" GOTO :WEB
@@ -50,13 +54,20 @@ GOTO :EOF
 REM -----------------------------------------------------------------
 REM  Windows x64 executables compiled with Visual Studio
 REM -----------------------------------------------------------------
-:WINDOWS
+:WINDOWS32
 SETLOCAL
 SET WIN=win32
-
 WHERE cl >NUL 2>NUL
-IF %ERRORLEVEL% NEQ 0 call devenv.bat
+IF %ERRORLEVEL% NEQ 0 call vcvars32.bat
+GOTO :WINBUILD
 
+:WINDOWS64
+SETLOCAL
+SET WIN=win64
+WHERE cl >NUL 2>NUL
+IF %ERRORLEVEL% NEQ 0 call vcvars64.bat
+
+:WINBUILD
 SET VERSION=/DVERSION=%VERSION%
 SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
