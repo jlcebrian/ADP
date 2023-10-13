@@ -39,6 +39,11 @@ bool       exitGame = false;
 bool       textInput;
 uint32_t   palette[256];
 
+// Specific for Spectrum
+uint8_t*   bitmap = NULL;
+uint8_t*   attributes = NULL;
+uint8_t    curAttr = 0;
+
 #if _WEB
 bool       supportsOpenFileDialog = false;
 #else
@@ -199,11 +204,48 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
 	//fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
-	for (int dy = 0 ; dy < h; dy++)
+
+	switch (screenMachine)
 	{
-		uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
-		for (int dx = 0; dx < w; dx++)
-			ptr[dx] = color;
+		case DDB_MACHINE_SPECTRUM:
+		{
+			uint8_t maskLeft = 0xFF00 >> (x & 7);
+			uint8_t maskRight = (0x00FF << 8 - ((x + w) & 7)) >> 8;
+			w = ((x + w + 7) >> 3) - (x >> 3);
+			for (int dy = 0; dy < h; dy++)
+			{
+				uint8_t* ptr = bitmap + (y + dy) * 32 + (x >> 3);
+				if (w == 0)
+					*ptr &= (maskLeft | maskRight);
+				else
+				{
+					ptr[0] &= maskLeft;
+					for (int dx = 1; dx < w; dx++)
+						ptr[dx] = 0;
+					ptr[w] &= maskRight;
+				}
+			}
+
+			color = ((color & 7) << 3) | (curAttr & 0xC7);
+
+			uint8_t* attr = attributes + (y >> 3) * 32 + (x >> 3);
+			for (int dy = 0; dy < h; dy += 8)
+			{
+				for (int dx = 0; dx < w; dx++)
+					attr[dx] = color;
+				attr += 32;
+			}
+			break;
+		}
+
+		default:
+			for (int dy = 0 ; dy < h; dy++)
+			{
+				uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
+				for (int dx = 0; dx < w; dx++)
+					ptr[dx] = color;
+			}
+			break;
 	}
 }
 
@@ -213,22 +255,36 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 
 	if (lines < h)
 	{
-		for (; dy < h - lines; dy++)
+		switch (screenMachine)
 		{
-			uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
-			uint8_t* next = ptr + lines * screenWidth;
+			case DDB_MACHINE_SPECTRUM:
+				w >>= 3;
+				for (; dy < h - lines; dy++)
+				{
+					uint8_t* ptr = bitmap + (y + dy) * 32 + (x >> 3);
+					uint8_t* next = ptr + lines * 32;
 
-			for (int dx = 0; dx < w; dx++)
-				ptr[dx] = next[dx];
+					for (int dx = 0; dx < w; dx++)
+						ptr[dx] = next[dx];
+				}
+				// TODO: Scroll attributes
+				w <<= 3;
+				break;
+
+			default:
+				for (; dy < h - lines; dy++)
+				{
+					uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
+					uint8_t* next = ptr + lines * screenWidth;
+
+					for (int dx = 0; dx < w; dx++)
+						ptr[dx] = next[dx];
+				}
+				break;
 		}
 	}
-	
-	for (; dy < h; dy++)
-	{
-		uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
-		for (int dx = 0; dx < w; dx++)
-			ptr[dx] = paper;
-	}
+
+	VID_Clear(x, y + dy, w, lines, paper);
 }
 
 void VID_ClearBuffer (bool front)
@@ -294,25 +350,80 @@ void VID_SwapScreen ()
 
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-
-	uint8_t* ptr = charset + (ch << 3);
-	uint8_t* pixels = textBuffer + y * screenWidth + x;
-
-	if (paper == 255)
+	switch (screenMachine)
 	{
-		for (int line = 0; line < 8; line++, pixels += screenWidth)
+		case DDB_MACHINE_SPECTRUM:
 		{
-			for (int col = 0; col < 8; col++)
-				if ((ptr[line] & (0x80 >> col)))
-					pixels[col] = ink;
+			uint8_t* ptr = charset + (ch << 3);
+			uint8_t* out = bitmap + y * 32 + (x >> 3);
+			uint8_t  rot = x & 7;
+			uint8_t* attr = attributes + (y >> 3) * 32 + (x >> 3);
+			uint8_t xattr = (ink & 0x30) << 2;
+			uint8_t width = charWidth[ch];
+
+			ink &= 7;
+
+			if (paper == 255)
+			{
+				*attr = (*attr & 0x37) | ink | xattr;
+				if (rot > 8-width)
+					attr[1] = (attr[1] & 0x37) | ink | xattr;
+			}
+			else
+			{
+				paper &= 7;
+				curAttr = ink | (paper << 3) | xattr;
+				*attr = curAttr;
+				if (rot > 8-width)
+					attr[1] = *attr;
+			}
+
+			for (int line = 0; line < 8; line++)
+			{
+				uint8_t* sav = out;
+				uint8_t mask = 0x80 >> rot;
+				for (int col = 0; col < 6; col++)
+				{
+					if ((ptr[line] & (0x80 >> col)))
+						*out |= mask;
+					else if (paper != 255)
+						*out &= ~mask;
+					mask >>= 1;
+					if (mask == 0)
+					{
+						mask = 0x80;
+						out++;
+					}
+				}
+				out = sav + 32;
+			}
+			break;
 		}
-	}
-	else
-	{
-		for (int line = 0; line < 8; line++, pixels += screenWidth)
+
+		default:
 		{
-			for (int col = 0; col < 6; col++)
-				pixels[col] = (ptr[line] & (0x80 >> col)) ? ink : paper;
+			uint8_t* ptr = charset + (ch << 3);
+			uint8_t* pixels = textBuffer + y * screenWidth + x;
+			uint8_t  width = charWidth[ch];
+
+			if (paper == 255)
+			{
+				for (int line = 0; line < 8; line++, pixels += screenWidth)
+				{
+					for (int col = 0; col < width; col++)
+						if ((ptr[line] & (0x80 >> col)))
+							pixels[col] = ink;
+				}
+			}
+			else
+			{
+				for (int line = 0; line < 8; line++, pixels += screenWidth)
+				{
+					for (int col = 0; col < width; col++)
+						pixels[col] = (ptr[line] & (0x80 >> col)) ? ink : paper;
+				}
+			}
+			break;
 		}
 	}
 }
@@ -592,6 +703,54 @@ void VID_SetTextInputMode (bool enabled)
 	}
 }
 
+static void	RenderSpectrumScreen()
+{
+	bool flashOn = (SDL_GetTicks() / 500) & 1;
+
+	uint8_t* attrPtr = attributes;
+	for (int y = 0; y < 24; y++)
+	{
+		uint8_t* ptr = bitmap + 32 * (y * 8);
+		uint8_t* out = frontBuffer + y * 8 * screenWidth;
+
+		for (int x = 0; x < 32; x++, ptr++)
+		{
+			uint8_t attr = *attrPtr++;
+			uint8_t ink = (attr & 0x07);
+			uint8_t paper = ((attr >> 3) & 0x07);
+			if (attr & 0x40)
+			{
+				// Bright On
+				ink |= 0x08;
+				paper |= 0x08;
+			}
+			if ((attr & 0x80) && flashOn)
+			{
+				// Flash On
+				uint8_t tmp = ink;
+				ink = paper;
+				paper = tmp;
+			}
+
+			uint8_t* outPtr = out;
+
+			for (int cy = 0; cy < 8; cy++)
+			{
+				uint8_t pixels = ptr[cy * 32];
+
+				for (int cx = 0; cx < 8; cx++)
+				{
+					out[cx] = (pixels & 0x80) ? ink : paper;
+					pixels <<= 1;
+				}
+				out += screenWidth;
+			}
+
+			out = outPtr + 8;
+		}
+	}
+}
+
 void VID_InnerLoop()
 {
 	Uint32 now = SDL_GetTicks();
@@ -706,6 +865,9 @@ void VID_InnerLoop()
 	}
 	else
 	{
+		if (screenMachine == DDB_MACHINE_SPECTRUM)
+			RenderSpectrumScreen();
+
 		int srcWidth = screenWidth;
 		int srcHeight = screenHeight;
 	
@@ -937,16 +1099,19 @@ bool VID_Initialize (DDB_Machine machine)
 	VID_InitAudio();
 	SDL_StopTextInput();
 	
-	screenMachine    = machine;
 	switch (machine)
 	{
 		case DDB_MACHINE_SPECTRUM:
-			screenWidth  = 256;
-			screenHeight = 192;
+			screenMachine = machine;
+			screenWidth   = 256;
+			screenHeight  = 192;
+			bitmap        = Allocate<uint8_t>("Spectrum Screen Data", 256 * 192 / 8);
+			attributes    = Allocate<uint8_t>("Spectrum Attributes", 32 * 24);
 			break;
 		default:
-			screenWidth  = 320;
-			screenHeight = 200;
+			screenMachine = DDB_MACHINE_IBMPC;
+			screenWidth   = 320;
+			screenHeight  = 200;
 			break;
 	}
 	lineHeight       = 8;
