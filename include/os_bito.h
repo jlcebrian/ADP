@@ -70,6 +70,19 @@ static inline uint32_t read32(const uint8_t* ptr, bool littleEndian)
 		return ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24);
 }
 
+static inline uint16_t fix16(uint16_t value, bool littleEndian)
+{
+	union
+	{
+		uint16_t as16;
+		uint8_t  as8[2];
+	}
+	v;
+
+	v.as16 = value;
+	return read16(v.as8, littleEndian);
+}
+
 static inline uint32_t fix32(uint32_t value, bool littleEndian)
 {
 	union

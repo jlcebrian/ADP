@@ -85,11 +85,11 @@ int main (int argc, char *argv[])
 	strncpy(file, argv[1], 32);
 	file[31] = 0;
 
-	if (!VID_Initialize())
-		error(DDB_GetErrorString());
-
 	DDB* ddb = DDB_Load(file);
 	if (!ddb)
+		error(DDB_GetErrorString());
+
+	if (!VID_Initialize(ddb->target))
 		error(DDB_GetErrorString());
 
 	VID_LoadDataFile(file);

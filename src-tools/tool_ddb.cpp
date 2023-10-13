@@ -223,7 +223,7 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	VID_Initialize();
+	VID_Initialize(ddb->target);
 	VID_LoadDataFile(argv[1]);
 
 	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);

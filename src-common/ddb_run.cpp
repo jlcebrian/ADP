@@ -1138,11 +1138,22 @@ static bool EndsWithPronoun (const char* word, int len)
 	if (len < 2)
 		return false;
 	if (ToUpper(word[len-2]) == 'L' && (ToUpper(word[len-1]) == 'A' || ToUpper(word[len-1]) == 'O'))
+	{
+		// This hack prevents the parser from wrongly recognizing
+		// pronouns in words like HABLA or AFILA
+		
+		if (len > 2 && ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I')
+			return false;
 		return true;
+	}
 	if (len < 3 || ToUpper(word[len-1]) != 'S')
 		return false;
 	if (ToUpper(word[len-3]) == 'L' && (ToUpper(word[len-2]) == 'A' || ToUpper(word[len-2]) == 'O'))	
+	{
+		if (len > 3 && ToUpper(word[len-4]) == 'B' || ToUpper(word[len-4]) == 'I')
+			return false;
 		return true;
+	}
 	return false;
 }
 

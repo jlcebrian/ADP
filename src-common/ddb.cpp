@@ -293,15 +293,16 @@ const char* DDB_GetErrorString()
 {
 	switch (ddbError)
 	{
-		case DDB_ERROR_NONE:           return "No error";
-		case DDB_ERROR_FILE_NOT_FOUND: return "File not found";
-		case DDB_ERROR_READING_FILE:   return "I/O error reading file";
-		case DDB_ERROR_SEEKING_FILE:   return "I/O error seeking file";
-		case DDB_ERROR_OUT_OF_MEMORY:  return "Out of memory";
-		case DDB_ERROR_INVALID_FILE:   return "Corrupted or invalid DDB file";
-		case DDB_ERROR_SDL:            return "SDL error";
-		case DDB_ERROR_NO_DDBS_FOUND:  return "No DDBs found";
-		default:                       return "Unknown error";
+		case DDB_ERROR_NONE:               return "No error";
+		case DDB_ERROR_FILE_NOT_FOUND:     return "File not found";
+		case DDB_ERROR_READING_FILE:       return "I/O error reading file";
+		case DDB_ERROR_SEEKING_FILE:       return "I/O error seeking file";
+		case DDB_ERROR_OUT_OF_MEMORY:      return "Out of memory";
+		case DDB_ERROR_INVALID_FILE:       return "Corrupted or invalid DDB file";
+		case DDB_ERROR_FILE_NOT_SUPPORTED: return "Unsupported file format";
+		case DDB_ERROR_SDL:                return "SDL error";
+		case DDB_ERROR_NO_DDBS_FOUND:      return "No DDBs found";
+		default:                           return "Unknown error";
 	}
 }
 
@@ -481,7 +482,7 @@ static void DDB_FixOffsets (DDB* ddb)
 			if (offset >= ddb->dataSize || offset < 32)
 			{
 				DDB_Warning("Invalid internal offset 0x%04X (entry %d in %s)", offset, m, tableName[n]);
-				ddbError = DDB_ERROR_INVALID_FILE;
+				//ddbError = DDB_ERROR_INVALID_FILE;
 				table[m] = 0;
 				continue;
 			}
@@ -532,9 +533,8 @@ DDB* DDB_Create()
 	ddb->version = 2;
 	ddb->target = DDB_MACHINE_ATARIST;
 	ddb->language = DDB_SPANISH;
-
-	ddb->data = (uint8_t*)ddb;
-	ddb->dataSize = sizeof(DDB);
+	ddb->data = 0;
+	ddb->dataSize = 0;
 	return ddb;
 }
 
@@ -560,6 +560,49 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	return true;
 }
 
+static uint16_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
+{
+	uint16_t offset = 0;
+
+	// This is actually the minimum offset for the platform
+
+	switch (target)
+	{
+		case DDB_MACHINE_SPECTRUM: offset = 0x5B00; break;
+		case DDB_MACHINE_C64:      offset = 0x3880; break;
+		case DDB_MACHINE_CPC:      offset = 0x2880; break;
+		case DDB_MACHINE_MSX:      offset = 0x0100; break;
+		case DDB_MACHINE_PLUS4:    offset = 0x7080; break;
+		default:                   offset = 0; break;
+	}
+
+	// Exploring the entire memory is a bit overkill, but...
+
+	while (offset < size)
+	{
+		if (   (memory[offset] == 1 || memory[offset] == 2) // DAAD Version
+		    && (memory[offset+1] & 0xF0) == (target << 4)   // Machine
+			&& (memory[offset+2] == 0x5F))
+		{
+			uint16_t eofOffset = offset + 0x1E;
+			if (memory[offset] == 2) eofOffset += 2;
+			uint16_t eof = read16(memory + eofOffset, true);
+			if (eof <= size && eof > offset + 32)
+			{
+				ddb->baseOffset = offset;
+				ddb->data = memory + offset;
+				ddb->dataSize = eof - offset;
+				return true;
+			}
+		}
+
+		if (offset == 65535)
+			break;
+		offset++;
+	}
+	return 0;
+}
+
 DDB* DDB_Load(const char* filename)
 {
 	ddbError = DDB_ERROR_NONE;
@@ -579,81 +622,113 @@ DDB* DDB_Load(const char* filename)
 		return 0;
 	}
 
-	uint8_t* buffer = 0;
-	buffer = Allocate<uint8_t>("DDB Contents", fileSize);
-	if (buffer == 0)
-	{
-		ddbError = DDB_ERROR_OUT_OF_MEMORY;
-		File_Close(file);
-		return 0;
-	}
+	uint8_t* memory = 0;
+	uint8_t* data = 0;
 
 	DDB* ddb = Allocate<DDB>("DDB", 1, true);
 	if (ddb == 0)
 	{
 		ddbError = DDB_ERROR_OUT_OF_MEMORY;
 		File_Close(file);
-		Free(buffer);
+		Free(memory);
 		return 0;
 	}
 
-	if (File_Read(file, buffer, fileSize) != fileSize)
+	#if HAS_SNAPSHOTS
+
+	size_t ramSize;
+	DDB_Machine snapshotMachine;
+	if (DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
 	{
-		ddbError = DDB_ERROR_READING_FILE;
 		File_Close(file);
-		Free(buffer);
-		return 0;
-	}
-	File_Close(file);
 
-	ddb->data       = buffer;
-	ddb->dataSize   = fileSize;
-	ddb->version    = buffer[0];
-	ddb->language   = (DDB_Language)(buffer[1] & 0x0F);
-	ddb->target     = (DDB_Machine)(buffer[1] >> 4);
+		if (GuessDDBOffset(memory, ramSize, snapshotMachine, ddb) == false)
+		{
+			ddbError = DDB_ERROR_FILE_NOT_SUPPORTED;
+			Free(memory);
+			Free(ddb);
+			return 0;
+		}
+
+		data = ddb->data;
+	}
+	else
+
+	#endif
+
+	{
+		if (memory == 0)
+			memory = Allocate<uint8_t>("DDB Contents", fileSize);
+		if (memory == 0)
+		{
+			ddbError = DDB_ERROR_OUT_OF_MEMORY;
+			File_Close(file);
+			return 0;
+		}
+		if (File_Read(file, memory, fileSize) != fileSize)
+		{
+			ddbError = DDB_ERROR_READING_FILE;
+			File_Close(file);
+			Free(memory);
+			return 0;
+		}
+		File_Close(file);
+
+		data          = memory;
+		ddb->memory   = memory;
+		ddb->data     = data;
+		ddb->dataSize = fileSize;
+	}
+
+	ddb->version    = data[0];
+	ddb->language   = (DDB_Language)(data[1] & 0x0F);
+	ddb->target     = (DDB_Machine)(data[1] >> 4);
 	ddb->condactMap = ddb->version == 1 ? version1Condacts : version2Condacts;
 
-	switch (ddb->target)
+	if (ddb->baseOffset == 0)
 	{
-		case DDB_MACHINE_SPECTRUM:
-			ddb->baseOffset = 0x8400;
-			break;
-		case DDB_MACHINE_C64:
-			ddb->baseOffset = 0x3880;
-			break;
-		case DDB_MACHINE_CPC:
-			ddb->baseOffset = 0x2880;
-			break;
-		case DDB_MACHINE_MSX:
-			ddb->baseOffset = 0x0100;
-			break;
-		case DDB_MACHINE_PLUS4:
-			ddb->baseOffset = 0x7080;
-			break;
-		default:
-			ddb->baseOffset = 0;
-			break;
+		switch (ddb->target)
+		{
+			case DDB_MACHINE_SPECTRUM:
+				ddb->baseOffset = 0x8400;
+				break;
+			case DDB_MACHINE_C64:
+				ddb->baseOffset = 0x3880;
+				break;
+			case DDB_MACHINE_CPC:
+				ddb->baseOffset = 0x2880;
+				break;
+			case DDB_MACHINE_MSX:
+				ddb->baseOffset = 0x0100;
+				break;
+			case DDB_MACHINE_PLUS4:
+				ddb->baseOffset = 0x7080;
+				break;
+			default:
+				ddb->baseOffset = 0;
+				break;
+		}
 	}
 
 	if (ddb->version > 2)
 	{
 		DDB_Warning("Invalid DDB header: unsupported version %d", ddb->version);
 		ddbError = DDB_ERROR_INVALID_FILE;
-		Free(buffer);
+		Free(memory);
 		Free(ddb);
 		return 0;
 	}
-	if (buffer[2] != 0x5F)
+	if (data[2] != 0x5F)
 	{
-		DDB_Warning("Invalid DDB header: unsuppoorted wildcard character '%c'", buffer[2]);
+		DDB_Warning("Invalid DDB header: unsupported wildcard character '%c'", data[2]);
 		ddbError = DDB_ERROR_INVALID_FILE;
-		Free(buffer);
+		Free(memory);
 		Free(ddb);
 		return 0;
 	}
 
-	uint16_t headerSizeBE = read16(buffer + (ddb->version == 1 ? 30 : 32), false);
-	uint16_t headerSizeLE = read16(buffer + (ddb->version == 1 ? 30 : 32), true);
+	uint16_t headerSizeBE = read16(data + (ddb->version == 1 ? 30 : 32), false);
+	uint16_t headerSizeLE = read16(data + (ddb->version == 1 ? 30 : 32), true);
 	if (headerSizeBE == fileSize)
 		ddb->littleEndian = false;
 	else if (headerSizeLE == fileSize)
@@ -664,8 +739,8 @@ DDB* DDB_Load(const char* filename)
 		bool littleEndianValid = true;
 		for (int n = 8 ; n < 30; n += 2)
 		{
-			uint16_t offsetBE = read16(buffer + n, false);
-			uint16_t offsetLE = read16(buffer + n, true);
+			uint16_t offsetBE = read16(data + n, false);
+			uint16_t offsetLE = read16(data + n, true);
 			if (offsetBE < ddb->baseOffset || (uint64_t)(offsetBE - ddb->baseOffset) >= fileSize)
 				bigEndianValid = false;
 			if (offsetLE < ddb->baseOffset || (uint64_t)(offsetLE - ddb->baseOffset) >= fileSize)
@@ -679,7 +754,7 @@ DDB* DDB_Load(const char* filename)
 		{
 			DDB_Warning("Invalid DDB header: unable to guess endianess");
 			ddbError = DDB_ERROR_INVALID_FILE;
-			Free(buffer);
+			Free(memory);
 			Free(ddb);
 			return 0;
 		}
@@ -687,27 +762,27 @@ DDB* DDB_Load(const char* filename)
 		//DDB_Warning("Endianess guessed: %s-endian", ddb->littleEndian ? "little" : "big");
 	}
 
-	ddb->numObjects        = buffer[3];
-	ddb->numLocations      = buffer[4];
-	ddb->numMessages       = buffer[5];
-	ddb->numSystemMessages = buffer[6];
-	ddb->numProcesses      = buffer[7];
+	ddb->numObjects        = data[3];
+	ddb->numLocations      = data[4];
+	ddb->numMessages       = data[5];
+	ddb->numSystemMessages = data[6];
+	ddb->numProcesses      = data[7];
 
-	ddb->tokens            = buffer + read16(buffer + 8, ddb->littleEndian) - ddb->baseOffset;
-	ddb->processTable      = (uint16_t*)(buffer + read16(buffer + 10, ddb->littleEndian) - ddb->baseOffset);
-	ddb->objNamTable       = (uint16_t*)(buffer + read16(buffer + 12, ddb->littleEndian) - ddb->baseOffset);
-	ddb->locDescTable      = (uint16_t*)(buffer + read16(buffer + 14, ddb->littleEndian) - ddb->baseOffset);
-	ddb->msgTable          = (uint16_t*)(buffer + read16(buffer + 16, ddb->littleEndian) - ddb->baseOffset);
-	ddb->sysMsgTable       = (uint16_t*)(buffer + read16(buffer + 18, ddb->littleEndian) - ddb->baseOffset);
-	ddb->connections       = (uint16_t*)(buffer + read16(buffer + 20, ddb->littleEndian) - ddb->baseOffset);
-	ddb->vocabulary        = buffer + read16(buffer + 22, ddb->littleEndian) - ddb->baseOffset;
-	ddb->objLocTable       = buffer + read16(buffer + 24, ddb->littleEndian) - ddb->baseOffset;
-	ddb->objWordsTable     = buffer + read16(buffer + 26, ddb->littleEndian) - ddb->baseOffset;
-	ddb->objAttrTable      = buffer + read16(buffer + 28, ddb->littleEndian) - ddb->baseOffset;
+	ddb->tokens            = data + read16(data + 8, ddb->littleEndian) - ddb->baseOffset;
+	ddb->processTable      = (uint16_t*)(data + read16(data + 10, ddb->littleEndian) - ddb->baseOffset);
+	ddb->objNamTable       = (uint16_t*)(data + read16(data + 12, ddb->littleEndian) - ddb->baseOffset);
+	ddb->locDescTable      = (uint16_t*)(data + read16(data + 14, ddb->littleEndian) - ddb->baseOffset);
+	ddb->msgTable          = (uint16_t*)(data + read16(data + 16, ddb->littleEndian) - ddb->baseOffset);
+	ddb->sysMsgTable       = (uint16_t*)(data + read16(data + 18, ddb->littleEndian) - ddb->baseOffset);
+	ddb->connections       = (uint16_t*)(data + read16(data + 20, ddb->littleEndian) - ddb->baseOffset);
+	ddb->vocabulary        = data + read16(data + 22, ddb->littleEndian) - ddb->baseOffset;
+	ddb->objLocTable       = data + read16(data + 24, ddb->littleEndian) - ddb->baseOffset;
+	ddb->objWordsTable     = data + read16(data + 26, ddb->littleEndian) - ddb->baseOffset;
+	ddb->objAttrTable      = data + read16(data + 28, ddb->littleEndian) - ddb->baseOffset;
 
 	if (ddb->version == 2)
 	{
-		ddb->objExAttrTable = (uint16_t*)(buffer + read16(buffer + 30, ddb->littleEndian) - ddb->baseOffset);
+		ddb->objExAttrTable = (uint16_t*)(data + read16(data + 30, ddb->littleEndian) - ddb->baseOffset);
 
 		// TODO: Figure out the actual flag order in different architectures, this looks wrong
 		for (int n = 0; n < ddb->numObjects; n++)
@@ -719,7 +794,7 @@ DDB* DDB_Load(const char* filename)
 	// An offset 0 means no tokens in file. Otherwise,
 	// update the token pointers in the DDB structure
 
-	if (ddb->tokens == buffer)
+	if (ddb->tokens == data)
 	{
 		ddb->hasTokens = false;
 		ddb->tokens = 0;
@@ -728,7 +803,7 @@ DDB* DDB_Load(const char* filename)
 	{
 		int n;
 		uint8_t* ptr = ddb->tokens + 1;
-		uint8_t* end = buffer + fileSize;
+		uint8_t* end = data + fileSize;
 		for (n = 128; n <= 255; n++)
 		{
 			ddb->tokensPtr[n - 128] = ptr;
@@ -770,7 +845,7 @@ DDB* DDB_Load(const char* filename)
 
 	if (ddbError != DDB_ERROR_NONE)
 	{
-		Free(buffer);
+		Free(memory);
 		Free(ddb);
 		return 0;
 	}
@@ -781,6 +856,7 @@ void DDB_Close(DDB* ddb)
 {
 	if (ddb == 0)
 		return;
-	Free(ddb->data);
+	if (ddb->memory != 0)
+		Free(ddb->memory);
 	Free(ddb);
 }

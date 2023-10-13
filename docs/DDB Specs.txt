@@ -26,9 +26,7 @@
     0x001A		2			Object words table address
     0x001C		2			Object attributes table address
     0x001E		2			Extra object attributes address
-    0x0020		2			File length
-
-	0x0028					Extern data offset?
+    0x0020		2			File length (actually, address of the first byte after the file)
 
 	File may be little-endian or big-endian depending on the target
 	platform (big endian for ST/Amiga, little endian for PC).

@@ -4,7 +4,7 @@
 
 extern bool   exitGame;
 
-extern bool   VID_Initialize          ();
+extern bool   VID_Initialize          (DDB_Machine machine);
 extern void   VID_Finish              ();
 
 extern bool   VID_AnyKey              ();

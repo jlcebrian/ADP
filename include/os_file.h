@@ -77,6 +77,8 @@ inline uint64_t File_GetPosition (File *file)                                   
 inline bool     File_Truncate    (File *file, uint64_t size)                      { return file->truncate(file, size);       }
 inline void     File_Close       (File *file)                                     { return file->close(file);                }
 
+extern File*    Memory_Open      (void *data, uint64_t dataSize);
+
 #else
 
 struct File;

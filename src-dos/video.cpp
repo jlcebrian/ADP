@@ -1094,7 +1094,7 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 	quit = false;
 }
 
-bool VID_Initialize()
+bool VID_Initialize(DDB_Machine machine)
 {
 	if (initialized)
 		return false;

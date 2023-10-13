@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
 SDL_Window*  window;
@@ -928,7 +929,7 @@ bool VID_LoadDataFile(const char* fileName)
 	return true;
 }
 
-bool VID_Initialize ()
+bool VID_Initialize (DDB_Machine machine)
 {
 	DebugPrintf("Initializing video subsystem\n");
 
@@ -936,12 +937,20 @@ bool VID_Initialize ()
 	VID_InitAudio();
 	SDL_StopTextInput();
 	
-	screenWidth      = 320;
-	screenHeight     = 200;
+	screenMachine    = machine;
+	switch (machine)
+	{
+		case DDB_MACHINE_SPECTRUM:
+			screenWidth  = 256;
+			screenHeight = 192;
+			break;
+		default:
+			screenWidth  = 320;
+			screenHeight = 200;
+			break;
+	}
 	lineHeight       = 8;
 	columnWidth      = 6;
-	screenWidth      = 320;
-	screenHeight     = 200;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = 6;
 

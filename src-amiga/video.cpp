@@ -820,7 +820,7 @@ void ProgramDisplay()
 	RunCopperProgram(copper1, copPtr);
 }
 
-bool VID_Initialize()
+bool VID_Initialize(DDB_Machine machine)
 {
 	if (initialized)
 		return true;

@@ -275,9 +275,9 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			return state = Player_Error;
 		}
 
-		VID_Initialize();
 		StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 		DDB_Check(ddbFileName, &machine, &language, 0);
+		VID_Initialize(machine);
 		
 		if (scrCount > 0)
 		{
@@ -383,11 +383,10 @@ bool DDB_RunPlayer()
 	}
 
 	DebugPrintf("Initializing video\n");
-	VID_Initialize();
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-
 	DDB_Check(ddbFileName, &machine, &language, 0);
+	VID_Initialize(machine);
 
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)

@@ -13,6 +13,7 @@
 /* ───────────────────────────────────────────────────────────────────────── */
 
 struct DDB_Interpreter;
+struct File;
 
 enum DDB_WordType
 {
@@ -153,6 +154,7 @@ enum DDB_Error
 	DDB_ERROR_SEEKING_FILE,
 	DDB_ERROR_OUT_OF_MEMORY,
 	DDB_ERROR_INVALID_FILE,
+	DDB_ERROR_FILE_NOT_SUPPORTED,
 	DDB_ERROR_SDL,
 	DDB_ERROR_NO_DDBS_FOUND,
 };
@@ -360,6 +362,7 @@ struct DDB
 	
 	// Data storage: all pointers above are required to point to this block
 
+	uint8_t*		memory;
 	uint8_t*		data;
 	uint16_t		dataSize;
 	uint16_t		baseOffset;
@@ -592,4 +595,9 @@ extern bool             DDB_RunPlayer            ();
 extern void             DDB_RestartAsyncPlayer   ();
 
 extern bool             SCR_GetScreen            (const char* fileName, DDB_Machine target, uint8_t* buffer, size_t bufferSize, uint8_t* output, int width, int height, uint32_t* palette);
+
+#if HAS_SNAPSHOTS
+extern bool             DDB_LoadSnapshot         (File* file, const char* filename, uint8_t** ram, size_t* size, DDB_Machine* machine);
+#endif
+
 #endif
