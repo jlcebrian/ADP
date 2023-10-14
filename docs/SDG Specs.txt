@@ -1,0 +1,92 @@
+───────────────────────────────────────────────────────────────────────────────
+	.SDG	Spectrum Graphics Database file format
+───────────────────────────────────────────────────────────────────────────────
+
+	An .SDG file is a binary file containing the character set and pictures
+	for a Spectrum DAAD adventure.
+
+	The file header is placed at the end of the file, and is intended to
+	be located at the end of the Spectrum's 64K address space. Addresses
+	in the following table (and addresses insider the SDG's tables) always
+	refer to that RAM address space.
+
+    ADDRESS		SIZE		DESCRIPTION
+
+	0xFFE9		2			First byte of available RAM ("SPARE")
+	0xFFEF		2			Pointer to the start of the SDG data in RAM
+	0xFFF1		2			Pointer to the table of picture addresses
+	0xFFF3		2			Pointer to the window definitions
+	0xFFF5		2			Pointer to extra data (always contains just FF)
+	0xFFF7		2			Pointer to the charater set (2048 bytes)
+	0xFFF9		2			Pointer to the color palette (9 bytes)
+	0xFFFB		2			Pointer to the end of the SDG (must be FF FF)
+	0xFFFD		1			Number of pictures
+	0xFFFE		2			Contains 00 00 to mark the end of the file
+	
+	--EOF--
+
+	The "SPARE" variable is a user setting which is used in the graphics
+	editor to keep track of the available memory. Corresponds to the first
+	byte of free memory after the adventure's database (DDB) data.
+
+
+
+
+	  PICTURE ADDRESS TABLE
+	─────────────────────────
+
+	This table contains two bytes for every picture, pointing to the
+	address of the picture's string in RAM. Pictures are always
+	contiguous, so the next picture's address marks the previous's end
+	(however, all pictures must end with command 07 RETURN anyway).
+
+	Four extra bytes are added at the end of the table. The first two
+	contain a pointer to the first byte after the end of the last picture,
+	then followed by FF FF to mark the end of the table.	
+
+
+
+
+	  WINDOW LIST
+	───────────────
+
+	This table contains 5 bytes for every picture in the database:
+
+	OFFSET	SIZE		DESCRIPTION
+
+	0		1			Bit 0-2		Ink
+						Bit 3-5		Paper
+						Bit 7		If true, the window is a picture
+									Otherwise, it is a subroutine
+
+	1		1			Window Y coordinate
+	2		1			Window X coordinate									
+	3		1			Window height
+	4		1			Window width
+
+	The data defined a position and size for a picture, but keep in
+	mind all coordinates are absolute and drawing operations are not
+	clipped. The window information is just used to clear the screen
+	area behind the picture before drawing it.
+
+	Coordinates are given in 6x8 character units (0,0 is top left).
+
+	Subroutines do not have a window or colors, so everything in
+	this table is ignored except for the subroutine flag.
+
+
+
+
+	  COLOR PALETTE
+	─────────────────
+
+	The first byte is a border color.
+
+	The rest is a color table which is used by INK/PAPER to replace the
+	parameter received by the color number from this table. The usual
+	color table present by default in most adventures is:
+
+				00	07	02	03	04	05	06	01
+
+	This is similar to hard-coded tables present in 16 bits interpreters.
+

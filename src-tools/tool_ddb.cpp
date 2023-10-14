@@ -12,6 +12,20 @@
 #include <stdarg.h>
 
 static bool trace = false;
+static bool force = false;
+
+static const char* ChangeExtension(const char* fileName, const char* extension)
+{
+	static char newFileName[256];
+
+	StrCopy(newFileName, 256, fileName);
+	newFileName[256-1] = 0;
+	char* ptr = (char *)StrRChr(newFileName, '.');
+	if (ptr == 0)
+		ptr = newFileName + StrLen(newFileName);
+	StrCopy(ptr, newFileName+256-ptr, extension);
+	return newFileName;
+}
 
 void TracePrintf(const char* format, ...)
 {
@@ -46,7 +60,7 @@ typedef enum
 	ACTION_LIST,
 	ACTION_RUN,
 	ACTION_TEST,
-	ACTION_OPTIMIZE,
+	ACTION_EXTRACT,
 	ACTION_DUMP
 }
 Action;
@@ -58,10 +72,11 @@ void ShowHelp()
 	printf("ADP DAAD Database Utility " VERSION_STR " \n\n");
 	printf("Dumps, inspects or runs a game from a DDB file or a disk image.\n\n");
 	printf("Usage: ddb [action] [options] <input.ddb>\n");
-	printf("Usage: ddb [action] [options] <input.adf/.st/.dsk>\n\n");
+	printf("Usage: ddb [action] [options] <input.adf/.st/.dsk> [output.ddb]\n\n");
 	printf("Actions:\n\n");
 	printf("    l     Show game information\n");
 	printf("    r     Runs the game (default action)\n");
+	printf("    x     Extracts game database (useful for images & snapshots)\n");
 	// printf("    t     Runs the game in test/debug mode\n");
 	printf("    d     Decompiles/dumps the database in .SCE text format\n");
 	printf("\nOptions:\n\n");
@@ -139,7 +154,6 @@ static const char* DescribeMachine(DDB_Machine machine)
 		case DDB_MACHINE_MSX2:     return "MSX2"; break;
 		default:                   return "Unknown"; break;
 	}
-	
 }
 
 int main (int argc, char *argv[])
@@ -161,12 +175,14 @@ int main (int argc, char *argv[])
 			case 'l':	action = ACTION_LIST; break;
 			case 'r':	action = ACTION_RUN; break;
 			case 't':	action = ACTION_TEST; break;
-			case 'o':	action = ACTION_OPTIMIZE; break;
+			case 'x':	action = ACTION_EXTRACT; break;
 			case 'd':	action = ACTION_DUMP; break;
 			case '-':
 				actionFound = false;
 				if (argv[1][1] == 'v')
 					trace = true;
+				if (argv[1][1] == 'f')
+					force = true;
 				break;
 			default:
 				ShowHelp();
@@ -220,6 +236,54 @@ int main (int argc, char *argv[])
 		if (ddb->oldMainLoop)
 			printf("    - Uses PAWS style main loop (PRO 0 is a responses table)\n");	
 		DDB_DumpMetrics(ddb, printf);
+		return 0;
+	}
+
+	if (action == ACTION_EXTRACT)
+	{
+		argv++, argc--;
+		if (argc < 2)
+		{
+			fprintf(stderr, "Error: No output file specified\n");
+			return 1;
+		}
+
+		const char* outputFileName = ChangeExtension(argv[1], ".ddb");
+		if (!force)
+		{
+			File* outputFile = File_Open(outputFileName, ReadOnly);
+			if (outputFile)
+			{
+				File_Close(outputFile);
+				fprintf(stderr, "Error: Output file '%s' already exists (use -f to force overwrite)\n", outputFileName);
+				return 1;
+			}
+		}
+		if (!DDB_Write(ddb, outputFileName))
+		{
+			fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
+			return 1;
+		}
+		printf("DDB file written to '%s'\n", outputFileName);
+		if (DDB_HasVectorDatabase())
+		{
+			const char* extension = ".bin";
+			switch (ddb->target)
+			{
+				case DDB_MACHINE_SPECTRUM: extension = ".sdg"; break;
+				case DDB_MACHINE_C64:      extension = ".cdg"; break;
+				case DDB_MACHINE_CPC:      extension = ".adg"; break;
+				case DDB_MACHINE_MSX:      extension = ".mdg"; break;
+				default: break;
+			}
+			outputFileName = ChangeExtension(argv[1], extension);
+			if (!DDB_WriteVectorDatabase(outputFileName))
+			{
+				fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
+				return 1;
+			}
+			printf("Vector database written to '%s'\n", outputFileName);
+		}
 		return 0;
 	}
 

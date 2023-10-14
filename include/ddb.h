@@ -151,7 +151,9 @@ enum DDB_Error
 	DDB_ERROR_NONE,
 	DDB_ERROR_FILE_NOT_FOUND,
 	DDB_ERROR_READING_FILE,
+	DDB_ERROR_CREATING_FILE,
 	DDB_ERROR_SEEKING_FILE,
+	DDB_ERROR_WRITING_FILE,
 	DDB_ERROR_OUT_OF_MEMORY,
 	DDB_ERROR_INVALID_FILE,
 	DDB_ERROR_FILE_NOT_SUPPORTED,
@@ -542,6 +544,7 @@ typedef int (*DDB_PrintFunc)(const char* format, ...);
 extern DDB*				DDB_Load				 (const char* filename);
 extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, int* version);
 extern DDB*             DDB_Create               ();
+extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);
 extern void 			DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
 extern void				DDB_Dump				 (DDB* ddb, DDB_PrintFunc print);
@@ -606,6 +609,8 @@ extern bool             DDB_LoadSnapshot         (File* file, const char* filena
 extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, const uint8_t* data, size_t size);
 extern bool             DDB_HasVectorPicture     (uint8_t picno);
 extern bool             DDB_DrawVectorPicture    (uint8_t picno);
+extern bool             DDB_HasVectorDatabase    ();
+extern bool             DDB_WriteVectorDatabase  (const char* filename);
 #endif
 
 #endif

@@ -113,6 +113,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\scrfile.cpp ^
+	src-tools\ddb_writ.cpp ^
 	src-tools\tool_ddb.cpp ^
 	src-sdl\video.cpp ^
 	src-windows\error.cpp ^

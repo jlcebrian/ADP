@@ -1,10 +1,12 @@
 #if HAS_DRAWSTRING
 
-#include "ddb.h"
-#include "ddb_data.h"
-#include "ddb_vid.h"
-#include "os_bito.h"
-#include "os_lib.h"
+#include <ddb.h>
+#include <ddb_data.h>
+#include <ddb_vid.h>
+#include <os_bito.h>
+#include <os_lib.h>
+#include <os_file.h>
+#include <stdio.h>
 
 // #define TRACE_VECTOR
 // #define DISABLE_FILL
@@ -13,6 +15,7 @@ extern void VID_SaveDebugBitmap();
 
 static const uint8_t* vectorGraphicsRAM = 0;
 
+static uint16_t spare;
 static uint16_t start;
 static uint16_t table;
 static uint16_t windefs;
@@ -627,7 +630,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 
 			vectorGraphicsRAM = data;
 
-			// There is actually an unknown data section at 0xFFED
+			spare   = read16LE(data + 0xFFED);
 			start   = read16LE(data + 0xFFEF);
 			table   = read16LE(data + 0xFFF1);
 			windefs = read16LE(data + 0xFFF3);
@@ -652,6 +655,8 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 					return false;
 			}
 
+			ending = 0xFFFF;
+
 			VID_SetCharset(data + charset);
 			return true;
 		}
@@ -671,6 +676,37 @@ bool DDB_HasVectorPicture (uint8_t picno)
 	if (*ptr == 7)
 		return false;
 
+	return true;
+}
+
+bool DDB_HasVectorDatabase()
+{
+	return vectorGraphicsRAM != 0;
+}
+
+bool DDB_WriteVectorDatabase(const char* filename)
+{
+	if (vectorGraphicsRAM == 0)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	File* file = File_Create(filename);
+	if (file == 0)
+	{
+		DDB_SetError(DDB_ERROR_CREATING_FILE);
+		return false;
+	}
+	
+	printf("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
+	if (File_Write(file, vectorGraphicsRAM + start, ending - start + 1) != ending - start + 1)
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_WRITING_FILE);
+		return false;
+	}
+	File_Close(file);
 	return true;
 }
 

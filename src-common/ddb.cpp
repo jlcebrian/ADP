@@ -297,6 +297,8 @@ const char* DDB_GetErrorString()
 		case DDB_ERROR_FILE_NOT_FOUND:     return "File not found";
 		case DDB_ERROR_READING_FILE:       return "I/O error reading file";
 		case DDB_ERROR_SEEKING_FILE:       return "I/O error seeking file";
+		case DDB_ERROR_CREATING_FILE:	   return "I/O error creating file";
+		case DDB_ERROR_WRITING_FILE:       return "I/O error writing file";
 		case DDB_ERROR_OUT_OF_MEMORY:      return "Out of memory";
 		case DDB_ERROR_INVALID_FILE:       return "Corrupted or invalid DDB file";
 		case DDB_ERROR_FILE_NOT_SUPPORTED: return "Unsupported file format";
@@ -427,7 +429,7 @@ void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, si
 
 /* ───────────────────────────────────────────────────────────────────────── */
 
-static void DDB_FixOffsets (DDB* ddb)
+void DDB_FixOffsets (DDB* ddb)
 {
 	int n;
 
@@ -519,23 +521,6 @@ static void DDB_FixOffsets (DDB* ddb)
 			entryIndex++;
 		}
 	}
-}
-
-DDB* DDB_Create()
-{
-	DDB* ddb = Allocate<DDB>("DDB");
-	if (ddb == 0)
-	{
-		ddbError = DDB_ERROR_OUT_OF_MEMORY;
-		return 0;
-	}
-
-	ddb->version = 2;
-	ddb->target = DDB_MACHINE_ATARIST;
-	ddb->language = DDB_SPANISH;
-	ddb->data = 0;
-	ddb->dataSize = 0;
-	return ddb;
 }
 
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, int* version)
