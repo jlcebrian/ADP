@@ -358,7 +358,7 @@ bool DDB_NewLine (DDB_Interpreter* i)
 {
 	return DDB_NewLineAtWindow(i, &i->win);
 }
-
+#include <stdio.h>
 void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 {
 	int x, width;
@@ -375,8 +375,8 @@ void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 		width = i->cellW * 8;
 	}
 
-	// int index = w == &i->win ? i->curwin : w - i->windef;
-	// fprintf(stderr, "Clearing window %d: %d,%d %dx%d\n", index, x, w->y, width, w->height);
+	int index = w == &i->win ? i->curwin : w - i->windef;
+	fprintf(stderr, "Clearing window %d: %d,%d %dx%d\n", index, x, w->y, width, w->height);
 	SCR_Clear(x, w->y, width, w->height, w->paper == 255 ? 0 : w->paper);
 
 	w->posX = w->x;

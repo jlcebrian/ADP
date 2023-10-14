@@ -8,6 +8,7 @@
 
 static uint8_t* snapshotRAM = 0;
 static size_t   snapshotSize = 0;
+static uint8_t* snapshotDDB = 0;
 
 static bool CheckExtension(const char* filename, const char* ext)
 {
@@ -361,6 +362,92 @@ static bool LoadSnapshotFromTZX (File* file)
 }
 
 // ----------------------------------------------------------------------------
+//  RAW file support
+// ----------------------------------------------------------------------------
+
+// This loads a binary file into memory and tries to search for a valid DDB
+// file inside. It is not very reliable, but may be the only option for
+// some games which are stored in uncompressed formats.
+
+bool LoadSnapshotFromRAW(File* file)
+{
+	uint64_t fileSize = (size_t)File_GetSize(file);
+	if (fileSize > 128 * 1024)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	snapshotSize = fileSize > 65536 ? (size_t)fileSize : 65536;
+	if (!AllocateSnapshot(snapshotSize))
+		return false;
+
+	if (File_Read(file, snapshotRAM, fileSize) != fileSize)
+	{
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+
+	for (size_t offset = 0; offset < snapshotSize - 32; offset++)
+	{
+		uint8_t *ptr = snapshotRAM + offset;
+		if ((ptr[0] == 1 || ptr[0] == 2) && (ptr[2] == 0x5F))
+		{
+			DDB_Machine platform = (DDB_Machine)(ptr[1] >> 4);
+			uint16_t baseOffset  = 0;
+			switch (platform)
+			{
+				case DDB_MACHINE_SPECTRUM: baseOffset = 0x8400; break;
+				case DDB_MACHINE_C64:      baseOffset = 0x3880; break;
+				case DDB_MACHINE_CPC:      baseOffset = 0x2880; break;
+				case DDB_MACHINE_MSX:      baseOffset = 0x0100; break;
+				case DDB_MACHINE_PLUS4:    baseOffset = 0x7080; break;
+				default: break;
+			}
+			if (baseOffset != 0)
+			{
+				// Check the vocabulary table
+				uint16_t voc = read16(ptr + 0x16, true);
+				if (voc < baseOffset)
+					continue;
+				uint8_t* vocdata = ptr + voc - baseOffset;
+				bool valid = true;
+				bool spaces = false;
+				bool endingZero = false;
+				int wordCount = 0;
+				while (vocdata < snapshotRAM + snapshotSize)
+				{
+					if (vocdata[0] == 0)	// Vocabulary must end with a zero
+					{
+						endingZero = true;
+						break;
+					}
+					if (vocdata[6] > 6)		// Word type must be 0-6
+					{
+						valid = false;
+						break;
+					}
+					if (vocdata[4] == 0xDF)	// Vocabulary must have at least one short word
+						spaces = true;
+					vocdata += 7;
+					wordCount++;
+				}
+				if (wordCount < 16 || !spaces || !valid)
+					continue;
+
+				// Move the data into its base address
+				uint16_t remaining = 65536 - baseOffset;
+				snapshotDDB = snapshotRAM + baseOffset;
+				MemMove(snapshotDDB, ptr, remaining);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+// ----------------------------------------------------------------------------
 //  Loader
 // ----------------------------------------------------------------------------
 
@@ -379,7 +466,7 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (size) *size = snapshotSize;
 		return true;
 	}
-	if (CheckExtension(filename, "tzx"))
+	else if (CheckExtension(filename, "tzx"))
 	{
 		if (!LoadSnapshotFromTZX(file))
 			return false;
@@ -387,6 +474,18 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (machine) *machine = DDB_MACHINE_SPECTRUM;
 		if (ram) *ram = snapshotRAM;
 		if (size) *size = snapshotSize;
+		return true;
+	}
+	else if (CheckExtension(filename, "cas") ||
+			 CheckExtension(filename, "tap"))
+	{
+		if (!LoadSnapshotFromRAW(file))
+			return false;
+
+		if (machine) *machine = (DDB_Machine)(snapshotDDB[1] >> 4);
+		if (ram) *ram = snapshotRAM;
+		if (size) *size = snapshotSize;
+
 		return true;
 	}
 

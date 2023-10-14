@@ -560,9 +560,9 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	return true;
 }
 
-static uint16_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
+static uint32_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
 {
-	uint16_t offset = 0;
+	uint32_t offset = 0;
 
 	// This is actually the minimum offset for the platform
 

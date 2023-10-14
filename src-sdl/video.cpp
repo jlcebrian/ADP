@@ -242,7 +242,7 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 		case DDB_MACHINE_SPECTRUM:
 		{
 			uint8_t maskLeft = 0xFF00 >> (x & 7);
-			uint8_t maskRight = (0x00FF << 8 - ((x + w) & 7)) >> 8;
+			uint8_t maskRight = (0x00FF << ((x + w) & 7)) >> 8;
 			w = ((x + w - 1) >> 3) - (x >> 3);
 			for (int dy = 0; dy < h; dy++)
 			{
