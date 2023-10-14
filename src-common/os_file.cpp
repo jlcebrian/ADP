@@ -39,6 +39,7 @@ bool Native_Truncate(File *file, uint64_t size)
 void Native_Close(File *file)
 {
 	fclose((FILE*)file->data);
+	Free(file);
 }
 
 uint64_t Native_GetSize(File *file)

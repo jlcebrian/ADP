@@ -216,13 +216,34 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
 	//fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
 
+	if (y < 0) {
+		h += y;
+		y = 0;
+	}
+	if (x < 0) {
+		w += x;
+		x = 0;
+	}
+	if (y >= screenHeight) 
+		return;
+	if (x >= screenWidth) 
+		return;
+	if (x + w > screenWidth)
+		w = screenWidth - x;
+	if (y + h > screenHeight)
+		h = screenHeight - y;
+	if (w <= 0) 
+		return;
+	if (h <= 0) 
+		return;
+
 	switch (screenMachine)
 	{
 		case DDB_MACHINE_SPECTRUM:
 		{
 			uint8_t maskLeft = 0xFF00 >> (x & 7);
 			uint8_t maskRight = (0x00FF << 8 - ((x + w) & 7)) >> 8;
-			w = ((x + w + 7) >> 3) - (x >> 3);
+			w = ((x + w - 1) >> 3) - (x >> 3);
 			for (int dy = 0; dy < h; dy++)
 			{
 				uint8_t* ptr = bitmap + (y + dy) * 32 + (x >> 3);

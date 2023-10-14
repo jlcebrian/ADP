@@ -163,7 +163,9 @@ static void InnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, 
 		while ((*ptr & mask) != 0)
 		{
 			x++;
-			if (x > maxX) return;
+			if (x > maxX) {
+				return;
+			}
 			mask >>= 1;
 			if (mask == 0)
 			{
@@ -293,7 +295,8 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
 
 	InnerFill(x, x, y, ch, 1);
-	InnerFill(x, x, y-1, ch, -1);
+	if (y > 0)
+		InnerFill(x, x, y-1, ch, -1);
 }
 
 void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
