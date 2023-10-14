@@ -116,14 +116,14 @@ static uint8_t* GetZ80RAMPage (int version, int mode, int page)
 		// Consider that page 0 is selected
 		switch (page)
 		{
-			case 2: return snapshotRAM + 0x8000;
-			case 5: return snapshotRAM + 0x4000;
-			case 0: return snapshotRAM + 0xC000;
-			case 1: return snapshotRAM + 0x10000;
-			case 3: return snapshotRAM + 0x14000;
-			case 4: return snapshotRAM + 0x18000;
-			case 6: return snapshotRAM + 0x1C000;
-			case 7: return snapshotRAM + 0x20000;
+			case 5: return snapshotRAM + 0x8000;
+			case 8: return snapshotRAM + 0x4000;
+			case 3: return snapshotRAM + 0xC000;
+			case 4: return snapshotRAM + 0x10000;
+			case 6: return snapshotRAM + 0x14000;
+			case 7: return snapshotRAM + 0x18000;
+			case 9: return snapshotRAM + 0x1C000;
+			case 10: return snapshotRAM + 0x20000;
 			default: return 0;
 		}
 	}
@@ -390,7 +390,6 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		return true;
 	}
 
-	File_Close(file);
 	return false;
 }
 

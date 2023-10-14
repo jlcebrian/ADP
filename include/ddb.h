@@ -336,6 +336,7 @@ struct DDB
 
 	bool			littleEndian;
 	bool			oldMainLoop;
+	bool			vector;
 
 	uint8_t			numObjects;
 	uint8_t			numLocations;
@@ -598,6 +599,12 @@ extern bool             SCR_GetScreen            (const char* fileName, DDB_Mach
 
 #if HAS_SNAPSHOTS
 extern bool             DDB_LoadSnapshot         (File* file, const char* filename, uint8_t** ram, size_t* size, DDB_Machine* machine);
+#endif
+
+#if HAS_DRAWSTRING
+extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, const uint8_t* data, size_t size);
+extern bool             DDB_HasVectorPicture     (uint8_t picno);
+extern bool             DDB_DrawVectorPicture    (uint8_t picno);
 #endif
 
 #endif

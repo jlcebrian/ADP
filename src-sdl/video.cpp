@@ -37,6 +37,7 @@ uint8_t    bufferedIndex;
 bool       quit;
 bool       exitGame = false;
 bool       textInput;
+bool	   charsetInitialized = false;
 uint32_t   palette[256];
 
 // Specific for Spectrum
@@ -178,6 +179,12 @@ static const char* ChangeExtension (const char* filename, const char* newExtensi
 	strncpy(buffer, filename, ptr - filename);
 	strcpy(buffer + (ptr - filename), newExtension);
 	return buffer;
+}
+
+void VID_SetCharset (const uint8_t* newCharset)
+{
+	MemCopy(charset, newCharset, 2048);
+	charsetInitialized = true;
 }
 
 static bool LoadCharset (uint8_t* ptr, const char* filename)
@@ -703,7 +710,7 @@ void VID_SetTextInputMode (bool enabled)
 	}
 }
 
-static void	RenderSpectrumScreen()
+static void	RenderSpectrumScreen(uint8_t* attributes)
 {
 	bool flashOn = (SDL_GetTicks() / 500) & 1;
 
@@ -722,7 +729,8 @@ static void	RenderSpectrumScreen()
 			{
 				// Bright On
 				ink |= 0x08;
-				paper |= 0x08;
+				if (paper != 0)
+					paper |= 0x08;
 			}
 			if ((attr & 0x80) && flashOn)
 			{
@@ -749,6 +757,40 @@ static void	RenderSpectrumScreen()
 			out = outPtr + 8;
 		}
 	}
+}
+
+void VID_SaveDebugBitmap()
+{
+	static int n = 0;
+
+	uint8_t grid[768];
+	for (int n = 0; n < 768; n++)
+	{
+		int y = n / 32;
+		int x = n % 32;
+		int checkboard = ((x & 1) ^ (y & 1));
+		grid[n] = checkboard ? (6 << 3) : (7 << 3);
+	}
+
+	if (screenMachine == DDB_MACHINE_SPECTRUM)
+		RenderSpectrumScreen(grid);
+
+	char name[64];
+	sprintf(name, "debug%04d.bmp", n++);
+	printf("\nSaving debug bitmap: %s\n", name);
+
+	SDL_Color colors[16];
+	for (int n = 0; n < 16; n++)
+	{
+		colors[n].r = (palette[n] >> 16) & 0xFF;
+		colors[n].g = (palette[n] >> 8) & 0xFF;
+		colors[n].b = (palette[n] >> 0) & 0xFF;
+	}
+
+	SDL_Surface* debugSurface = SDL_CreateRGBSurfaceFrom(frontBuffer, screenWidth, screenHeight, 8, screenWidth, 0, 0, 0, 0);
+	SDL_SetPaletteColors(debugSurface->format->palette, colors, 0, 16);
+	SDL_SaveBMP(debugSurface, name);
+	SDL_FreeSurface(debugSurface);
 }
 
 void VID_InnerLoop()
@@ -866,7 +908,7 @@ void VID_InnerLoop()
 	else
 	{
 		if (screenMachine == DDB_MACHINE_SPECTRUM)
-			RenderSpectrumScreen();
+			RenderSpectrumScreen(attributes);
 
 		int srcWidth = screenWidth;
 		int srcHeight = screenHeight;
@@ -1068,20 +1110,27 @@ bool VID_LoadDataFile(const char* fileName)
 	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
-		memcpy(charset, DefaultCharset, 1024);
-		memcpy(charset + 1024, DefaultCharset, 1024);
+		if (!charsetInitialized)
+		{
+			memcpy(charset, DefaultCharset, 1024);
+			memcpy(charset + 1024, DefaultCharset, 1024);
+		}
 	}
+	charsetInitialized = true;
 
-	screenMode = (DDB_ScreenMode)dmg->screenMode;
-	if (dmg->screenMode == ScreenMode_CGA)
+	if (screenMachine == DDB_MACHINE_SPECTRUM)
 	{
-		memcpy (palette, CGAPaletteCyan, sizeof(CGAPaletteCyan));
-		memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
-	}
-	else if (dmg->screenMode == ScreenMode_EGA)
-	{
-		memcpy (palette, EGAPalette, sizeof(EGAPalette));
-		memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+		screenMode = (DDB_ScreenMode)dmg->screenMode;
+		if (dmg->screenMode == ScreenMode_CGA)
+		{
+			memcpy (palette, CGAPaletteCyan, sizeof(CGAPaletteCyan));
+			memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+		}
+		else if (dmg->screenMode == ScreenMode_EGA)
+		{
+			memcpy (palette, EGAPalette, sizeof(EGAPalette));
+			memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
+		}
 	}
 	
 	// Uncomment the following lines to test Atari/Amiga caches in desktop/web:
@@ -1102,6 +1151,7 @@ bool VID_Initialize (DDB_Machine machine)
 	switch (machine)
 	{
 		case DDB_MACHINE_SPECTRUM:
+			memcpy(DefaultPalette, ZXSpectrumPalette, sizeof(ZXSpectrumPalette));
 			screenMachine = machine;
 			screenWidth   = 256;
 			screenHeight  = 192;
@@ -1109,6 +1159,7 @@ bool VID_Initialize (DDB_Machine machine)
 			attributes    = Allocate<uint8_t>("Spectrum Attributes", 32 * 24);
 			break;
 		default:
+			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
 			screenMachine = DDB_MACHINE_IBMPC;
 			screenWidth   = 320;
 			screenHeight  = 200;
@@ -1118,6 +1169,8 @@ bool VID_Initialize (DDB_Machine machine)
 	columnWidth      = 6;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = 6;
+
+	memcpy (palette, DefaultPalette, sizeof(DefaultPalette));
 
 	frontBuffer   = Allocate<uint8_t>("Graphics front buffer", screenWidth * screenHeight);
 	backBuffer    = Allocate<uint8_t>("Graphics back buffer", screenWidth * screenHeight);
@@ -1131,9 +1184,12 @@ bool VID_Initialize (DDB_Machine machine)
 	textBuffer = frontBuffer;
 	graphicsBuffer = frontBuffer;
 
-	memcpy(palette, EGAPalette, sizeof(EGAPalette));
-	memcpy(charset, DefaultCharset, 1024);
-	memcpy(charset + 1024, DefaultCharset, 1024);
+	if (charsetInitialized == false)
+	{
+		memcpy(charset, DefaultCharset, 1024);
+		memcpy(charset + 1024, DefaultCharset, 1024);
+		charsetInitialized = true;
+	}
 
 	int scale = 3;
 	SDL_DisplayMode DM;

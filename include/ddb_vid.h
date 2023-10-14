@@ -42,6 +42,19 @@ extern void   VID_ShowError           (const char* msg);
 extern void   VID_ActivatePalette     ();
 extern void   VID_ShowProgressBar     (uint16_t amount);
 extern void   VID_InnerLoop           ();
+extern void   VID_SetCharset          (const uint8_t* charset);
+
+#ifdef HAS_DRAWSTRING
+extern void   VID_SetInk     		  (uint8_t color);
+extern void   VID_SetPaper     		  (uint8_t color);
+extern void   VID_SetPaper     		  (uint8_t color);
+extern void   VID_MoveTo			  (uint16_t x, uint16_t y);
+extern void   VID_MoveBy			  (int16_t x, int16_t y);
+extern void   VID_DrawPixel			  (uint8_t color);
+extern void   VID_DrawLine  		  (int16_t x, int16_t y, uint8_t color);
+extern void   VID_PatternFill         (int16_t x, int16_t y, int pattern);
+extern void   VID_AttributeFill		  (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+#endif
 
 #ifdef HAS_CLIPBOARD
 extern bool   VID_HasClipboardText    (uint32_t* size);

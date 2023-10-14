@@ -1019,12 +1019,22 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 	}
 	else
 	{
-		if (SCR_PictureExists(i->flags[Flag_Locno]))
+		i->flags[40] = 0;
+			
+		DDB_SetWindow(i, 0);
+		if (i->ddb->vector)
 		{
-			DDB_SetWindow(i, 0);
+			DDB_ClearWindow(i, &i->win);
+			if (DDB_DrawVectorPicture(i->flags[Flag_Locno]))
+				i->flags[40] = 255;
+		}
+		else if (SCR_PictureExists(i->flags[Flag_Locno]))
+		{
+			i->flags[40] = 255;
 			BufferPicture(i, i->flags[Flag_Locno]);
 			DrawBufferedPicture(i);
 		}
+
 		DDB_SetWindow(i, 1);
 		if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 		{
@@ -2538,16 +2548,33 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_PICTURE:
 				if (i->ddb->version == 1)
 				{
-					if (BufferPicture(i, param0))
+					if (i->ddb->vector)
+					{
+						#if HAS_DRAWSTRING
+						DDB_DrawVectorPicture(param0);
+						#endif
+					}
+					else if (BufferPicture(i, param0))
 						DrawBufferedPicture(i);
 				}
 				else
 				{
-					ok = BufferPicture(i, param0);
-					if (ok == false && SCR_SampleExists(param0))
+					if (i->ddb->vector)
 					{
-						ok = true;
-						i->currentPicture = param0;
+						#if HAS_DRAWSTRING
+						ok = DDB_HasVectorPicture(param0);
+						if (ok) 
+							i->currentPicture = param0;
+						#endif
+					}
+					else
+					{
+						ok = BufferPicture(i, param0);
+						if (ok == false && SCR_SampleExists(param0))
+						{
+							ok = true;
+							i->currentPicture = param0;
+						}
 					}
 					repeatingDisplay = false;
 				}
@@ -2563,7 +2590,16 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						TRACE("\n");
 						return;
 					}
-					DrawBufferedPicture(i);
+					if (i->ddb->vector)
+					{
+						#if HAS_DRAWSTRING
+						DDB_DrawVectorPicture(i->currentPicture);
+						#endif
+					}
+					else
+					{
+						DrawBufferedPicture(i);
+					}
 					repeatingDisplay = true;
 				}
 				else

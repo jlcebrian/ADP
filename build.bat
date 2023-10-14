@@ -72,7 +72,8 @@ SET VERSION=/DVERSION=%VERSION%
 SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
 SET TOOLOPTS=/Iinclude-tools /Ilib/libpng
-SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib\libpng /Ilib\sdl2\include /Iinclude /D_STDCLIB /DNO_CACHE /DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS
+SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib\libpng /Ilib\sdl2\include /Iinclude /D_STDCLIB /DNO_CACHE ^
+	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING
 set OPTIM=/Zi /GR- /EHsc /MP8 /FC /GL
 SET LINK=
 
@@ -87,6 +88,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\ddb.cpp ^
 	src-common\os_char.cpp ^
 	src-common\ddb_data.cpp ^
+	src-common\ddb_draw.cpp ^
 	src-common\ddb_dump.cpp ^
 	src-common\ddb_inp.cpp ^
 	src-common\ddb_pal.cpp ^
@@ -123,6 +125,7 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^
 	src-common\ddb.cpp ^
 	src-common\os_char.cpp ^
 	src-common\ddb_data.cpp ^
+	src-common\ddb_draw.cpp ^
 	src-common\ddb_dump.cpp ^
 	src-common\ddb_inp.cpp ^
 	src-common\ddb_pal.cpp ^

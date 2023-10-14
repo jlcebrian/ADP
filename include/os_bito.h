@@ -2,22 +2,22 @@
 
 #include <os_types.h>
 
-static inline uint16_t read16LE(uint8_t* ptr)
+static inline uint16_t read16LE(const uint8_t* ptr)
 {
 	return ptr[0] | (ptr[1] << 8);
 }
 
-static inline uint32_t read32LE(uint8_t* ptr)
+static inline uint32_t read32LE(const uint8_t* ptr)
 {
 	return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
 }
 
-static inline uint16_t read16BE(uint8_t* ptr)
+static inline uint16_t read16BE(const uint8_t* ptr)
 {
 	return ptr[1] | (ptr[0] << 8);
 }
 
-static inline uint32_t read32BE(uint8_t* ptr)
+static inline uint32_t read32BE(const uint8_t* ptr)
 {
 	return ptr[3] | (ptr[2] << 8) | (ptr[1] << 16) | (ptr[0] << 24);
 }

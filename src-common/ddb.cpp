@@ -649,6 +649,10 @@ DDB* DDB_Load(const char* filename)
 			Free(ddb);
 			return 0;
 		}
+		#if HAS_DRAWSTRING
+		if (DDB_LoadVectorGraphics(snapshotMachine, memory, ramSize))
+			ddb->vector = true;
+		#endif
 
 		data = ddb->data;
 	}
