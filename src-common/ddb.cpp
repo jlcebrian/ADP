@@ -792,6 +792,10 @@ DDB* DDB_Load(const char* filename)
 		for (int n = 0; n < ddb->numObjects; n++)
 			ddb->objExAttrTable[n] = read16((const uint8_t*) &ddb->objExAttrTable[n], !ddb->littleEndian);
 	}
+
+	uint16_t externOffset = read16(data + (ddb->version == 2 ? 34 : 32), ddb->littleEndian);
+	if (externOffset != 0 && externOffset > ddb->baseOffset)
+		ddb->externData   = (uint8_t*)(data + externOffset - ddb->baseOffset);
 	
 	DDB_FixOffsets(ddb);
 

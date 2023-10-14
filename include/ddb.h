@@ -360,6 +360,7 @@ struct DDB
 	uint16_t*		locDescTable;
 	uint16_t*		connections;
 	uint8_t*		vocabulary;
+	uint8_t*        externData;
 	
 	// Data storage: all pointers above are required to point to this block
 

@@ -5,6 +5,7 @@
 #include <os_char.h>
 #include <os_mem.h>
 #include <os_lib.h>
+#include <os_bito.h>
 
 #define PAUSE_ON_INKEY 0
 #define DEBUG_UNDO 0
@@ -2884,10 +2885,51 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 
+			case CONDACT_EXTERN:
+				
+				// This fixes Templos & Chichen, but it is hackish to say the least
+				// Unfortunately, the only way to improve it is to add a full blown
+				// Z80 CPU emulator to the interpreter, which is not going to happen
+
+				if (i->ddb->externData != 0)
+				{
+					static uint8_t templosRoutine[] = {
+						0xC5, 				// PUSH BC
+						0xEB, 				// EX DE,HL
+						0x01, 0x00, 0x00, 	// LD BC,address
+						0x21, 0x00, 0x00,	// LD HL,address
+						0xED, 0xB0,			// LDIR
+						0xC1, 				// POP BC
+						0xC9,				// RET
+						0xFF
+					};
+
+					// Try to detect Templos/Chichen data init routines
+					uint8_t* ptr = i->ddb->externData;
+					bool matchesTemplos = true;
+					for (int n = 0; templosRoutine[n] != 0xFF; n++)
+					{
+						if (templosRoutine[n] != 0 && ptr[n] != templosRoutine[n])
+						{
+							matchesTemplos = false;
+							break;
+						}
+					}
+					if (matchesTemplos)
+					{
+						uint16_t length  = read16(ptr + 3, i->ddb->littleEndian);
+						uint16_t address = read16(ptr + 6, i->ddb->littleEndian) - i->ddb->baseOffset;
+						uint8_t* data    = i->ddb->data;
+						if (address < i->ddb->dataSize && address + length <= i->ddb->dataSize && length < 256 - param0)
+							MemCopy(i->flags + param0, data + address, length);
+					}
+				}
+				i->done = true;
+				break;
+
 			// TODO
 
 			case CONDACT_CALL:
-			case CONDACT_EXTERN:
 			case CONDACT_BEEP:
 			case CONDACT_MOUSE:
 			case CONDACT_BORDER:
