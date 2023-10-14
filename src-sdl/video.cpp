@@ -203,7 +203,11 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 		return false;
 	}
 	fseek(file, 128, SEEK_SET);
-	fread(ptr, 1, 2048, file);
+	if (fread(ptr, 1, 2048, file) != 2048)
+	{
+		fclose(file);
+		return false;
+	}
 	fclose(file);
 	return true;
 }

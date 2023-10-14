@@ -1020,8 +1020,10 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		if (i->ddb->vector)
 		{
 			DDB_ClearWindow(i, &i->win);
+			#if HAS_DRAWSTRING
 			if (DDB_DrawVectorPicture(i->flags[Flag_Locno]))
 				i->flags[40] = 255;
+			#endif
 		}
 		else if (SCR_PictureExists(i->flags[Flag_Locno]))
 		{
