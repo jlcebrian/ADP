@@ -723,8 +723,6 @@ static void WinAt (DDB_Interpreter* i, int line, int col)
 {
 	DDB_Window* w = &i->windef[i->curwin];
 
-	w->posY -= w->y;
-	w->posX -= w->x;
 	w->y = line * lineHeight;
 	w->x = col * columnWidth;
 
@@ -738,9 +736,7 @@ static void WinAt (DDB_Interpreter* i, int line, int col)
 	if (w->width + w->x > screenWidth)
 		w->width = w->x >= screenWidth ? 0 : screenWidth - w->x;
 
-	// Make sure printing position stays between limits
-	// WARNING: this resets the scroll line counter
-	PrintAt(i, w, w->posY, w->posX);
+	PrintAt(i, w, 0, 0);
 
 	i->win.posX = w->posX;
 	i->win.posY = w->posY;
@@ -783,9 +779,7 @@ static void WinSize (DDB_Interpreter* i, int lines, int columns)
 	if (w->width + w->x > screenWidth)
 		w->width = w->x >= screenWidth ? 0 : screenWidth - w->x;
 
-	// Make sure printing position stays between limits
-	// WARNING: this resets the scroll line counter
-	PrintAt(i, w, w->posY, w->posX);
+	PrintAt(i, w, 0, 0);
 
 	i->win.posX = w->posX;
 	i->win.posY = w->posY;
