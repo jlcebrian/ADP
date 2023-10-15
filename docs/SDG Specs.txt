@@ -1,92 +1,338 @@
 ───────────────────────────────────────────────────────────────────────────────
-	.SDG	Spectrum Graphics Database file format
+    .SDG	Spectrum Graphics Database file format
 ───────────────────────────────────────────────────────────────────────────────
 
-	An .SDG file is a binary file containing the character set and pictures
-	for a Spectrum DAAD adventure.
+    An .SDG file is a binary file containing the character set and pictures
+    for a Spectrum DAAD adventure.
 
-	The file header is placed at the end of the file, and is intended to
-	be located at the end of the Spectrum's 64K address space. Addresses
-	in the following table (and addresses insider the SDG's tables) always
-	refer to that RAM address space.
+    The file header is placed at the end of the file, and is intended to
+    be located at the end of the Spectrum's 64K address space. Addresses
+    in the following table (and addresses insider the SDG's tables) always
+    refer to that RAM address space.
 
     ADDRESS		SIZE		DESCRIPTION
 
-	0xFFE9		2			First byte of available RAM ("SPARE")
-	0xFFEF		2			Pointer to the start of the SDG data in RAM
-	0xFFF1		2			Pointer to the table of picture addresses
-	0xFFF3		2			Pointer to the window definitions
-	0xFFF5		2			Pointer to extra data (always contains just FF)
-	0xFFF7		2			Pointer to the charater set (2048 bytes)
-	0xFFF9		2			Pointer to the color palette (9 bytes)
-	0xFFFB		2			Pointer to the end of the SDG (must be FF FF)
-	0xFFFD		1			Number of pictures
-	0xFFFE		2			Contains 00 00 to mark the end of the file
-	
-	--EOF--
+    0xFFE9		2			First byte of available RAM ("SPARE")
+    0xFFEF		2			Pointer to the start of the SDG data in RAM
+    0xFFF1		2			Pointer to the table of picture addresses
+    0xFFF3		2			Pointer to the window definitions (5 bytes each)
+    0xFFF5		2			Pointer to extra data (always contains just FF)
+    0xFFF7		2			Pointer to the character set (2048 bytes)
+    0xFFF9		2			Pointer to the color palette (9 bytes)
+    0xFFFB		2			Contains FF FF
+    0xFFFD		1			Number of pictures
+    0xFFFE		2			Contains 00 00 to mark the end of the file
+    
+    --EOF--
 
-	The "SPARE" variable is a user setting which is used in the graphics
-	editor to keep track of the available memory. Corresponds to the first
-	byte of free memory after the adventure's database (DDB) data.
+    The "SPARE" variable is a user setting which is used in the graphics
+    editor to keep track of the available memory. Corresponds to the first
+    byte of free memory after the adventure's database (DDB) data.
+
+    ────────────────────
+      PICTURE ENCODING
+    ────────────────────
+
+    This table contains two bytes for every picture, pointing to the
+    address of the picture's string in RAM. Pictures are always
+    contiguous, so the next picture's address marks the previous's end
+    (however, all pictures must end with command 07 RETURN anyway).
+
+    Four extra bytes are added at the end of the table. The first two
+    contain a pointer to the first byte after the end of the last picture,
+    then followed by FF FF to mark the end of the table.
+
+    The picture data itself is a string of commands of variable size.
+    The lowest 3 bits of the first byte are the command number:
+
+        COMMAND		SIZE    OFFSET
+
+        0   PLOT    3       Sets the cursor position to an absolute
+                            coordinate. If OVER+INVERSE are set, it
+                            acts as a MOVE and doesn't modify the
+                            underlying pixel (it affects colors, though)
+
+                            Coordinates are given with (0,0) at the
+                            bottom left of the screen (pixel row 175)
+                            and positive is up.
+        
+                            0   Bit 0-2     Command number (0)
+                                Bit 3       OVER flag
+                                Bit 4       INVERSE flag
+                            1               X coordinate
+                            2               Y coordinate
+
+        1   LINE    2-3     Draws a line from the current cursor position
+                            with a relative displacement. If the compression
+                            flag is set, the command is followed by a single
+                            second byte with the Y in the lower 4 bits and 
+                            the X in the upper 4 bits.
+
+                            0   Bit 0-2     Command number (1)
+                                Bit 3       OVER flag
+                                Bit 4       INVERSE flag
+                                Bit 5       1: Compressed to 2 bytes
+                                Bit 6       1: X is negative
+                                Bit 7       1: Y is negative
+                            1               X coordinate
+                            2               Y coordinate
+
+        2   BLOCK   3-5     This command encodes pattern, solid and
+                            attribute fills, depending on the first byte:
+
+                            SOLID FILL
+
+                            0   Bit 0-2     Command number (2)
+                                Bit 4-5     Fill type (0)
+                                Bit 6       1: X is negative
+                                Bit 7       1: Y is negative
+                            1               X coordinate
+                            2               Y coordinate
+
+                            ATTRIBUTE FILL
+                            
+                            0   Bit 0-2     Command number (2)
+                                Bit 4-5     Fill type (1)
+                            1               Width
+                            2               Height
+                            3               Column
+                            4               Row
+
+                            PATTERN FILL
+
+                            0   Bit 0-2     Command number (2)
+                                Bit 4-5     Fill type (2)
+                                Bit 6       1: X is negative
+                                Bit 7       1: Y is negative
+                            1               X coordinate
+                            2               Y coordinate
+                            3               Pattern index
+
+        3   GOSUB           Calls a subroutine. The subroutine can
+                            be scaled (0 keeps the original scale,
+                            1-7 codify an n/8 scale) and flipped,
+                            affecting coordinates from commands 0-2.
+
+                            0   Bit 0-2     Command number (3)
+                                Bit 3-5     Scale (0-7)
+                                Bit 6       1: X Flip
+                                Bit 7       1: Y Flip
+                            1               Picture number
+
+        4   TEXT            (TODO)
+
+        5   PAPER           Sets the paper or bright value.
+
+                            0   Bit 0-2     Command number (5)
+                                Bit 3-6     Color (0-8)
+                                Bit 7       1: Bright
+
+        6   INK             Sets the ink or flash value.                                
+
+                            0   Bit 0-2     Command number (6)
+                                Bit 3-6     Color (0-8)
+                                Bit 7       1: Flash
+        
+        7   RETURN          Marks the end of the picture or subroutine.
+
+                            0   Bit 0-2     Command number (7)
+
+    ───────────────
+      WINDOW LIST
+    ───────────────
+
+    This table contains 5 bytes for every picture in the database:
+
+    OFFSET	SIZE		DESCRIPTION
+
+    0		1			Bit 0-2		Ink
+                        Bit 3-5		Paper
+                        Bit 7		Type: 1=picture, 0=subroutine
+
+    1		1			Window Y coordinate
+    2		1			Window X coordinate									
+    3		1			Window height
+    4		1			Window width
+
+    The data defined a position and size for a picture, but keep in
+    mind all coordinates are absolute and drawing operations are not
+    clipped. The window information is just used to clear the screen
+    area behind the picture before drawing it.
+
+    Coordinates are given in 6x8 character units (0,0 is top left).
+
+    Subroutines do not have a window or colors, so everything in
+    this table is ignored except for the subroutine flag.
+
+    ─────────────────
+      COLOR PALETTE
+    ─────────────────
+
+    The first byte is a border color.
+
+    The rest is a color table which is used by INK/PAPER to replace the
+    parameter received by the color number from this table. The usual
+    color table present by default in most adventures is:
+
+                00	07	02	03	04	05	06	01
+
+    This is similar to hard-coded tables present in 16 bits interpreters.
 
 
 
 
-	  PICTURE ADDRESS TABLE
-	─────────────────────────
+───────────────────────────────────────────────────────────────────────────────
+    .ADG	Amstrad CPC Graphics Database file format
+───────────────────────────────────────────────────────────────────────────────
 
-	This table contains two bytes for every picture, pointing to the
-	address of the picture's string in RAM. Pictures are always
-	contiguous, so the next picture's address marks the previous's end
-	(however, all pictures must end with command 07 RETURN anyway).
+    The CPC version of the SDG file is similar to the Spectrum version,
+    with a few caveats: the character set is located at address 0x9E00,
+    and the graphic database grows under it:
 
-	Four extra bytes are added at the end of the table. The first two
-	contain a pointer to the first byte after the end of the last picture,
-	then followed by FF FF to mark the end of the table.	
+    ADDRESS		SIZE		DESCRIPTION
 
+    0x9DEF		2			Pointer to the start of the ADG data in RAM
+    0x9DF1		2			Pointer to the table of picture addresses
+    0x9DF3		2			Pointer to the window definitions (8 bytes each)
+    0x9DF5		2			Pointer to extra data (1 byte, always FF)
+    0x9DF7		2			Pointer to extra data (8 bytes, always FF)
+    0x9DF9		2			Pointer to the color palette (7 bytes)
+    0x9DFB		2			Contains FF FF
+    0x9DFD		1			Number of pictures
+    0x9DFE		2			Contains 00 00 or 00 18 (perhaps a version number?)
 
+    ───────────────
+      WINDOW LIST
+    ───────────────
 
+    This table contains 8 bytes for every picture in the database:
 
-	  WINDOW LIST
-	───────────────
+    OFFSET	SIZE		DESCRIPTION
 
-	This table contains 5 bytes for every picture in the database:
+    0		1			Picture type
+    1		3			Color palette for colors 1-3 (0 to 26 each)
+    1		1			Window Y coordinate
+    2		1			Window X coordinate									
+    3		1			Window height
+    4		1			Window width
 
-	OFFSET	SIZE		DESCRIPTION
+    Picture type is 0x00 for a picture and 0x80 for a subroutine.
+    0x40 is used in Chichen for pictures instead.
 
-	0		1			Bit 0-2		Ink
-						Bit 3-5		Paper
-						Bit 7		If true, the window is a picture
-									Otherwise, it is a subroutine
+    The color palette is an entry to the standard CPC color palette:
+            
+            0       Black             #000000
+            1		Blue		      #000080
+            2		Bright Blue		  #0000FF
+            3		Red		          #800000
+            4		Magenta		      #800080
+            5		Mauve		      #8000FF
+            6		Bright Red		  #FF0000
+            7		Purple		      #FF0080
+            8		Bright Magenta	  #FF00FF
+            9		Green		      #008000
+            10		Cyan		      #008080
+            11		Sky Blue	      #0080FF
+            12		Yellow		      #808000
+            13		White		      #808080
+            14		Pastel Blue		  #8080FF
+            15		Orange		      #FF8000
+            16		Pink		      #FF8080
+            17		Pastel Magenta    #FF80FF
+            18		Bright Green	  #00FF00
+            19		Sea Green		  #00FF80
+            20		Bright Cyan		  #00FFFF
+            21		Lime		      #80FF00
+            22		Pastel Green	  #80FF80
+            23		Pastel Cyan		  #80FFFF
+            24		Bright Yellow	  #FFFF00
+            25		Pastel Yellow	  #FFFF80
+            26		Bright White	  #FFFFFF
 
-	1		1			Window Y coordinate
-	2		1			Window X coordinate									
-	3		1			Window height
-	4		1			Window width
+    ────────────────────
+      PICTURE ENCODING
+    ────────────────────
 
-	The data defined a position and size for a picture, but keep in
-	mind all coordinates are absolute and drawing operations are not
-	clipped. The window information is just used to clear the screen
-	area behind the picture before drawing it.
+    This picture data has a different encoding compared to the ZX Spectrum 
+    format, with the command index stored in bits 1-3 of the first byte,
+    in order to speed up the drawing routing using a jump table.
 
-	Coordinates are given in 6x8 character units (0,0 is top left).
+        COMMAND		SIZE    OFFSET
 
-	Subroutines do not have a window or colors, so everything in
-	this table is ignored except for the subroutine flag.
+        0   *       1       This encodes several single-byte commands:
+        
+                            0   Bit 0       Upper parameter bit
+                                Bit 1-3     Command number (0)
+                                Bit 4       1: PEN (parameter: 0-3)
+                                Bit 6       1: RETURN
+                                Bit 7       Lower parameter bit
 
+        1   TEXT    4       Prints a character in an absolute position.
 
+                            0   Bit 1-3     Command number (1)
+                                Bit 4       1
+                                Bit 5       1
+                                Bit 7       X coordinate bit 8
+                            1               X coordinate
+                            2               Y coordinate
+                            1               Character index
 
+        2   GOSUB   2       Calls a subroutine. The scale value uses
+                            two left circular shifts to be read in
+                            the original interpreter.
 
-	  COLOR PALETTE
-	─────────────────
+                            0   Bit 0       Upper bit of scale
+                                Bit 1-3     Command number (2)
+                                Bit 3-5     Scale (0-7)
+                                Bit 4       1: X Flip
+                                Bit 5       1: Y Flip
+                                Bit 6-7     Lower bits of scale
+                            1               Picture number
 
-	The first byte is a border color.
+        3   PLOT    3       Sets the cursor position to an absolute
+                            coordinate, optionally plotting a pixel.
+        
+                            0   Bit 1-3     Command number (3)
+                                Bit 6       1: Plot (0: Move)
+                                Bit 7       X coordinate bit 8
+                            1               X coordinate
+                            2               Y coordinate
 
-	The rest is a color table which is used by INK/PAPER to replace the
-	parameter received by the color number from this table. The usual
-	color table present by default in most adventures is:
+        4   LINE    2-3     Draws a line from the current cursor position
+                            with a relative displacement. If the compression
+                            flag is set, the command is followed by a single
+                            second byte with the Y in the lower 4 bits and 
+                            the X in the upper 4 bits.
 
-				00	07	02	03	04	05	06	01
+                            0   Bit 0       1: Compressed to 2 bytes
+                                Bit 1-3     Command number (4)
+                                Bit 4       1: Y is negative
+                                Bit 5       1: X is negative
+                                Bit 6       1: Line (0: Relative Move)
+                                Bit 7       X coordinate bit 8
+                            1               X coordinate
+                            2               Y coordinate
 
-	This is similar to hard-coded tables present in 16 bits interpreters.
+        5   FILL    3       Solid fill
 
+                            0   Bit 1-3     Command number (5)
+                            1               X coordinate
+                            2               Y coordinate
+
+        6   SHADE   4       Pattern fill
+
+                            0   Bit 0       Paper bit 1
+                                Bit 1-3     Command number (6)
+                                Bit 6       Paper bit 0
+                                Bit 7       X coordinate bit 8
+                            1               X coordinate   
+                            2               Y coordinate
+                            3               Pattern index
+
+        7   BLOCK   5       Solid block fill. It works in 4 pixel blocks,
+                            using firmware routine 0xBC17 (SCR FLOOD BOX).
+
+                            0   Bit 1-3     Command number (7)
+                            1-2             Screen Address of top-left hand
+                            3               Height
+                            4               Width in pixels
