@@ -83,6 +83,9 @@ IF "%2"=="Release" SET LINK=/DEBUG:NONE
 SET LIBS=lib\sdl2\%WIN%\SDL2-static.lib lib\sdl2\%WIN%\SDL2main.lib user32.lib gdi32.lib comdlg32.lib ole32.lib shell32.lib setupapi.lib winmm.lib imm32.lib version.lib advapi32.lib oleaut32.lib
 SET TOOLLIBS=lib\libpng\%WIN%\libpng16.lib lib\zlib\%WIN%\zlib.lib
 
+taskkill /F /IM ddb.exe /T >NUL 2>&1
+taskkill /F /IM adp.exe /T >NUL 2>&1
+
 echo ---- Compiling DDB
 cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\ddb.cpp ^

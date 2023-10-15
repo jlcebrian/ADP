@@ -44,6 +44,7 @@ uint32_t   palette[256];
 uint8_t*   bitmap = NULL;
 uint8_t*   attributes = NULL;
 uint8_t    curAttr = 0;
+uint8_t    stride = 32;
 
 #if _WEB
 bool       supportsOpenFileDialog = false;
@@ -237,47 +238,43 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 	if (h <= 0) 
 		return;
 
-	switch (screenMachine)
+	if (attributes)
 	{
-		case DDB_MACHINE_SPECTRUM:
+		uint8_t maskLeft = 0xFF00 >> (x & 7);
+		uint8_t maskRight = (0x00FF << ((x + w) & 7)) >> 8;
+		w = ((x + w - 1) >> 3) - (x >> 3);
+		for (int dy = 0; dy < h; dy++)
 		{
-			uint8_t maskLeft = 0xFF00 >> (x & 7);
-			uint8_t maskRight = (0x00FF << ((x + w) & 7)) >> 8;
-			w = ((x + w - 1) >> 3) - (x >> 3);
-			for (int dy = 0; dy < h; dy++)
+			uint8_t* ptr = bitmap + (y + dy) * stride + (x >> 3);
+			if (w == 0)
+				*ptr &= (maskLeft | maskRight);
+			else
 			{
-				uint8_t* ptr = bitmap + (y + dy) * 32 + (x >> 3);
-				if (w == 0)
-					*ptr &= (maskLeft | maskRight);
-				else
-				{
-					ptr[0] &= maskLeft;
-					for (int dx = 1; dx < w; dx++)
-						ptr[dx] = 0;
-					ptr[w] &= maskRight;
-				}
+				ptr[0] &= maskLeft;
+				for (int dx = 1; dx < w; dx++)
+					ptr[dx] = 0;
+				ptr[w] &= maskRight;
 			}
-
-			color = ((color & 7) << 3) | (curAttr & 0xC7);
-
-			uint8_t* attr = attributes + (y >> 3) * 32 + (x >> 3);
-			for (int dy = 0; dy < h; dy += 8)
-			{
-				for (int dx = 0; dx < w; dx++)
-					attr[dx] = color;
-				attr += 32;
-			}
-			break;
 		}
 
-		default:
-			for (int dy = 0 ; dy < h; dy++)
-			{
-				uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
-				for (int dx = 0; dx < w; dx++)
-					ptr[dx] = color;
-			}
-			break;
+		color = ((color & 7) << 3) | (curAttr & 0xC7);
+
+		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
+		for (int dy = 0; dy < h; dy += 8)
+		{
+			for (int dx = 0; dx < w; dx++)
+				attr[dx] = color;
+			attr += stride;
+		}
+	}
+	else
+	{
+		for (int dy = 0 ; dy < h; dy++)
+		{
+			uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
+			for (int dx = 0; dx < w; dx++)
+				ptr[dx] = color;
+		}
 	}
 }
 
@@ -287,32 +284,32 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 
 	if (lines < h)
 	{
-		switch (screenMachine)
+		if (attributes)
 		{
-			case DDB_MACHINE_SPECTRUM:
-				w >>= 3;
-				for (; dy < h - lines; dy++)
-				{
-					uint8_t* ptr = bitmap + (y + dy) * 32 + (x >> 3);
-					uint8_t* next = ptr + lines * 32;
+			w >>= 3;
+			for (; dy < h - lines; dy++)
+			{
+				uint8_t *ptr = bitmap + (y + dy) * stride + (x >> 3);
+				uint8_t *next = ptr + lines * stride;
 
-					for (int dx = 0; dx < w; dx++)
-						ptr[dx] = next[dx];
-				}
-				// TODO: Scroll attributes
-				w <<= 3;
-				break;
+				for (int dx = 0; dx < w; dx++)
+					ptr[dx] = next[dx];
+			}
 
-			default:
-				for (; dy < h - lines; dy++)
-				{
-					uint8_t* ptr = textBuffer + (y + dy) * screenWidth + x;
-					uint8_t* next = ptr + lines * screenWidth;
+			// TODO: Scroll attributes
+			w <<= 3;
+		}
+		else
+		{
 
-					for (int dx = 0; dx < w; dx++)
-						ptr[dx] = next[dx];
-				}
-				break;
+			for (; dy < h - lines; dy++)
+			{
+				uint8_t *ptr = textBuffer + (y + dy) * screenWidth + x;
+				uint8_t *next = ptr + lines * screenWidth;
+
+				for (int dx = 0; dx < w; dx++)
+					ptr[dx] = next[dx];
+			}
 		}
 	}
 
@@ -382,80 +379,73 @@ void VID_SwapScreen ()
 
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-	switch (screenMachine)
+	if (attributes)
 	{
-		case DDB_MACHINE_SPECTRUM:
+		uint8_t* ptr = charset + (ch << 3);
+		uint8_t* out = bitmap + y * stride + (x >> 3);
+		uint8_t  rot = x & 7;
+		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
+		uint8_t xattr = (ink & 0x30) << 2;
+		uint8_t width = charWidth[ch];
+
+		ink &= 7;
+
+		if (paper == 255)
 		{
-			uint8_t* ptr = charset + (ch << 3);
-			uint8_t* out = bitmap + y * 32 + (x >> 3);
-			uint8_t  rot = x & 7;
-			uint8_t* attr = attributes + (y >> 3) * 32 + (x >> 3);
-			uint8_t xattr = (ink & 0x30) << 2;
-			uint8_t width = charWidth[ch];
-
-			ink &= 7;
-
-			if (paper == 255)
-			{
-				*attr = (*attr & 0x37) | ink | xattr;
-				if (rot > 8-width)
-					attr[1] = (attr[1] & 0x37) | ink | xattr;
-			}
-			else
-			{
-				paper &= 7;
-				curAttr = ink | (paper << 3) | xattr;
-				*attr = curAttr;
-				if (rot > 8-width)
-					attr[1] = *attr;
-			}
-
-			for (int line = 0; line < 8; line++)
-			{
-				uint8_t* sav = out;
-				uint8_t mask = 0x80 >> rot;
-				for (int col = 0; col < 6; col++)
-				{
-					if ((ptr[line] & (0x80 >> col)))
-						*out |= mask;
-					else if (paper != 255)
-						*out &= ~mask;
-					mask >>= 1;
-					if (mask == 0)
-					{
-						mask = 0x80;
-						out++;
-					}
-				}
-				out = sav + 32;
-			}
-			break;
+			*attr = (*attr & 0x37) | ink | xattr;
+			if (rot > 8-width)
+				attr[1] = (attr[1] & 0x37) | ink | xattr;
+		}
+		else
+		{
+			paper &= 7;
+			curAttr = ink | (paper << 3) | xattr;
+			*attr = curAttr;
+			if (rot > 8-width)
+				attr[1] = *attr;
 		}
 
-		default:
+		for (int line = 0; line < 8; line++)
 		{
-			uint8_t* ptr = charset + (ch << 3);
-			uint8_t* pixels = textBuffer + y * screenWidth + x;
-			uint8_t  width = charWidth[ch];
+			uint8_t* sav = out;
+			uint8_t mask = 0x80 >> rot;
+			for (int col = 0; col < 6; col++)
+			{
+				if ((ptr[line] & (0x80 >> col)))
+					*out |= mask;
+				else if (paper != 255)
+					*out &= ~mask;
+				mask >>= 1;
+				if (mask == 0)
+				{
+					mask = 0x80;
+					out++;
+				}
+			}
+			out = sav + stride;
+		}
+		return;
+	}
 
-			if (paper == 255)
-			{
-				for (int line = 0; line < 8; line++, pixels += screenWidth)
-				{
-					for (int col = 0; col < width; col++)
-						if ((ptr[line] & (0x80 >> col)))
-							pixels[col] = ink;
-				}
-			}
-			else
-			{
-				for (int line = 0; line < 8; line++, pixels += screenWidth)
-				{
-					for (int col = 0; col < width; col++)
-						pixels[col] = (ptr[line] & (0x80 >> col)) ? ink : paper;
-				}
-			}
-			break;
+	uint8_t* ptr = charset + (ch << 3);
+	uint8_t* pixels = textBuffer + y * screenWidth + x;
+	uint8_t  width = charWidth[ch];
+
+	if (paper == 255)
+	{
+		for (int line = 0; line < 8; line++, pixels += screenWidth)
+		{
+			for (int col = 0; col < width; col++)
+				if ((ptr[line] & (0x80 >> col)))
+					pixels[col] = ink;
+		}
+	}
+	else
+	{
+		for (int line = 0; line < 8; line++, pixels += screenWidth)
+		{
+			for (int col = 0; col < width; col++)
+				pixels[col] = (ptr[line] & (0x80 >> col)) ? ink : paper;
 		}
 	}
 }
@@ -740,12 +730,14 @@ static void	RenderSpectrumScreen(uint8_t* attributes)
 	bool flashOn = (SDL_GetTicks() / 500) & 1;
 
 	uint8_t* attrPtr = attributes;
-	for (int y = 0; y < 24; y++)
+	uint8_t cols = screenWidth / 8;
+	uint8_t rows = screenHeight / 8;
+	for (int y = 0; y < rows; y++)
 	{
-		uint8_t* ptr = bitmap + 32 * (y * 8);
+		uint8_t* ptr = bitmap + stride * (y * 8);
 		uint8_t* out = frontBuffer + y * 8 * screenWidth;
 
-		for (int x = 0; x < 32; x++, ptr++)
+		for (int x = 0; x < cols; x++, ptr++)
 		{
 			uint8_t attr = *attrPtr++;
 			uint8_t ink = (attr & 0x07);
@@ -769,7 +761,7 @@ static void	RenderSpectrumScreen(uint8_t* attributes)
 
 			for (int cy = 0; cy < 8; cy++)
 			{
-				uint8_t pixels = ptr[cy * 32];
+				uint8_t pixels = ptr[cy * stride];
 
 				for (int cx = 0; cx < 8; cx++)
 				{
@@ -788,17 +780,27 @@ void VID_SaveDebugBitmap()
 {
 	static int n = 0;
 
-	uint8_t grid[768];
-	for (int n = 0; n < 768; n++)
+	if (bitmap)
 	{
-		int y = n / 32;
-		int x = n % 32;
-		int checkboard = ((x & 1) ^ (y & 1));
-		grid[n] = checkboard ? (6 << 3) : (7 << 3);
-	}
-
-	if (screenMachine == DDB_MACHINE_SPECTRUM)
+		uint16_t length = screenWidth * screenHeight / 64;
+		uint8_t* grid = Allocate<uint8_t>("Temp Debug Grid", length);
+		uint8_t  color0 = 6 << 3;
+		uint8_t  color1 = 7 << 3;
+		if (screenMachine == DDB_MACHINE_C64)
+		{
+			color0 = 1;
+			color1 = 3;
+		}
+		for (int n = 0; n < length; n++)
+		{
+			int y = n / stride;
+			int x = n % stride;
+			int checkboard = ((x & 1) ^ (y & 1));
+			grid[n] = checkboard ? color1: color0;
+		}
 		RenderSpectrumScreen(grid);
+		Free(grid);
+	}
 
 	char name[64];
 	sprintf(name, "debug%04d.bmp", n++);
@@ -932,7 +934,7 @@ void VID_InnerLoop()
 	}
 	else
 	{
-		if (screenMachine == DDB_MACHINE_SPECTRUM)
+		if (attributes)
 			RenderSpectrumScreen(attributes);
 
 		int srcWidth = screenWidth;
@@ -1187,13 +1189,26 @@ bool VID_Initialize (DDB_Machine machine)
 			screenHeight  = 192;
 			bitmap        = Allocate<uint8_t>("Spectrum Screen Data", 256 * 192 / 8);
 			attributes    = Allocate<uint8_t>("Spectrum Attributes", 32 * 24);
+			stride        = 32;
 			break;
 		case DDB_MACHINE_CPC:
 			memcpy(DefaultPalette, CPCPalette, sizeof(CPCPalette));
 			screenMachine = machine;
 			screenWidth   = 320;
 			screenHeight  = 200;
-			columnWidth = 8;
+			columnWidth   = 8;
+			for (int n = 0; n < 256; n++)
+				charWidth[n] = 8;	
+			break;
+		case DDB_MACHINE_C64:
+			memcpy(DefaultPalette, Commodore64Palette, sizeof(Commodore64Palette));
+			screenMachine = machine;
+			screenWidth   = 320;
+			screenHeight  = 200;
+			bitmap        = Allocate<uint8_t>("C64 Screen Data", 320 * 200 / 8);
+			attributes    = Allocate<uint8_t>("C64 Attributes", 40 * 25);
+			stride        = 40;
+			columnWidth   = 8;
 			for (int n = 0; n < 256; n++)
 				charWidth[n] = 8;	
 			break;

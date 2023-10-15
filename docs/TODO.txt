@@ -2,6 +2,7 @@
  Interpreter
 ─────────────
 
+	- Scroll attributes
 	- Snapshot support
 	-	Fix 128K snapshot support (currently broken in CPC and Spectrum)
 	-	CPC: Support more snapshot formats 

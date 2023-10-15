@@ -81,47 +81,61 @@ static const char* TranslateChar(uint8_t c)
 
 void DDB_SetupInkMap (DDB_Interpreter* i)
 {
-	i->inkMap[0] = 0;
-	i->inkMap[1] = 15;
-	for (int n = 2; n < 16; n++)
-		i->inkMap[n] = n-1;
-	
-	if (i->ddb->target == DDB_MACHINE_CPC)
+	switch (i->ddb->target)
 	{
-		for (int n = 0; n < 16; n++)
-			i->inkMap[n] = n & 3;
-	}
-	if (i->ddb->target == DDB_MACHINE_IBMPC)
-	{
-		if (i->screenMode == ScreenMode_Text)
-		{
+		case DDB_MACHINE_CPC:
+			for (int n = 0; n < 16; n++)
+				i->inkMap[n] = n & 3;
+			break;
+
+		case DDB_MACHINE_C64:
 			for (int n = 0; n < 16; n++)
 				i->inkMap[n] = n;
-		}
-		else if (i->screenMode == ScreenMode_CGA)
-		{
-			for (int n = 0; n < 16; n += 4)
+			break;
+
+		case DDB_MACHINE_IBMPC:
+			if (i->screenMode == ScreenMode_Text)
 			{
-				i->inkMap[n] = 0;
-				i->inkMap[n+1] = 3;
-				i->inkMap[n+2] = 2;
-				i->inkMap[n+3] = 1;
+				for (int n = 0; n < 16; n++)
+					i->inkMap[n] = n;
 			}
-		}
-		else 
-		{
-			i->inkMap[2] = 4;
-			i->inkMap[3] = 2;
-			i->inkMap[4] = 1;
-			i->inkMap[5] = 3;
-		}
+			else if (i->screenMode == ScreenMode_CGA)
+			{
+				for (int n = 0; n < 16; n += 4)
+				{
+					i->inkMap[n] = 0;
+					i->inkMap[n+1] = 3;
+					i->inkMap[n+2] = 2;
+					i->inkMap[n+3] = 1;
+				}
+			}
+			else 
+			{
+				i->inkMap[0] = 0;
+				i->inkMap[1] = 15;
+				i->inkMap[2] = 4;
+				i->inkMap[3] = 2;
+				i->inkMap[4] = 1;
+				i->inkMap[5] = 3;
+				for (int n = 6; n < 16; n++)
+					i->inkMap[n] = n-1;
+			}
+			break;
+
+		default:
+			i->inkMap[0] = 0;
+			i->inkMap[1] = 15;
+			for (int n = 2; n < 16; n++)
+				i->inkMap[n] = n-1;
+			break;
 	}
 }
 
 void DDB_ResetWindows (DDB_Interpreter* i)
 {
 	int defaultInk = 15;
-	if (i->ddb->target == DDB_MACHINE_CPC)
+	if (i->ddb->target == DDB_MACHINE_CPC ||
+	 	i->ddb->target == DDB_MACHINE_C64)
 		defaultInk = 1;
 
 	for (int n = 0; n < 8; n++)

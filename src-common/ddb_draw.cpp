@@ -51,6 +51,8 @@ static uint8_t depth = 0;
 
 static uint16_t scrMaxX = 255;
 static uint16_t scrMaxY = 175;
+static uint8_t  stride  = 32;
+static bool     pixelMode = false;
 
 void VID_SetInk (uint8_t value)
 {
@@ -138,7 +140,7 @@ void VID_MoveBy (int16_t x, int16_t y)
 
 void VID_SetAttribute()
 {
-	uint16_t offset = (cursorY >> 3) * 32 + (cursorX >> 3);
+	uint16_t offset = (cursorY >> 3) * stride + (cursorX >> 3);
 	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
 }
 
@@ -147,17 +149,12 @@ int VID_GetPixel(int16_t x, int16_t y)
 	if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
 		return 0;
 
-	switch (vectorGraphicsMachine)
-	{
-		default:
-			return graphicsBuffer[screenWidth*y + x];
-			break;
+	if (pixelMode)
+		return graphicsBuffer[screenWidth*y + x];
 
-		case DDB_MACHINE_SPECTRUM:
-			uint8_t* ptr = bitmap + y * 32 + (x >> 3);
-			uint8_t mask = 0x80 >> (x & 7);
-			return (*ptr & mask) != 0;
-	}
+	uint8_t* ptr = bitmap + y * stride + (x >> 3);
+	uint8_t mask = 0x80 >> (x & 7);
+	return (*ptr & mask) != 0 ? 1 : 0;
 }
 
 int VID_GetPixel()
@@ -167,28 +164,23 @@ int VID_GetPixel()
 
 void VID_DrawPixel(uint8_t color)
 {
-	switch (vectorGraphicsMachine)
+	if (pixelMode)
 	{
-		default:
-			graphicsBuffer[screenWidth*cursorY + cursorX] = color;
-			break;
-
-		case DDB_MACHINE_SPECTRUM:
-		{
-			uint8_t* ptr = bitmap + cursorY * 32 + (cursorX >> 3);
-			uint8_t mask = 0x80 >> (cursorX & 7);
-
-			if (color == 255)
-				*ptr ^= mask;
-			else if (color == 0)
-				*ptr &= ~mask;
-			else
-				*ptr |= mask;
-
-			VID_SetAttribute();
-			break;
-		}
+		graphicsBuffer[screenWidth*cursorY + cursorX] = color;
+		return;
 	}
+
+	uint8_t* ptr = bitmap + cursorY * stride + (cursorX >> 3);
+	uint8_t mask = 0x80 >> (cursorX & 7);
+
+	if (color == 255)
+		*ptr ^= mask;
+	else if (color == 0)
+		*ptr &= ~mask;
+	else
+		*ptr |= mask;
+
+	VID_SetAttribute();
 }
 
 static void GenericInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction, uint8_t color)
@@ -262,16 +254,16 @@ static void GenericInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pa
 static void SpectrumInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction)
 {
 	#ifdef DISABLE_FILL
-	uint8_t* p = bitmap + y * 32 + (minX >> 3);
+	uint8_t* p = bitmap + y * stride + (minX >> 3);
 	*p |= 0x80 >> (minX & 7);
 	return;
 	#endif
 
 	int16_t x = minX;
-	uint8_t* ptr = bitmap + y * 32 + (x >> 3);
+	uint8_t* ptr = bitmap + y * stride + (x >> 3);
 	uint8_t mask = 0x80 >> (x & 7);
 	uint8_t cy = y & 7;
-	uint8_t* attr = attributes + (y >> 3) * 32 + (x >> 3);
+	uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
 
 	if ((*ptr & mask) != 0)
 	{
@@ -373,28 +365,23 @@ void VID_DrawPixel(int16_t x, int16_t y, uint8_t color)
 	if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
 		return;
 
-	switch (vectorGraphicsMachine)
+	if (pixelMode)
 	{
-		default:
-			graphicsBuffer[screenWidth*y + x] = color;
-			break;
-
-		case DDB_MACHINE_SPECTRUM:
-		{
-			uint8_t* ptr = bitmap + y * 32 + (x >> 3);
-			uint8_t mask = 0x80 >> (x & 7);
-			if (color == 0)
-				*ptr &= ~mask;
-			else if (color == 255)
-				*ptr ^= mask;
-			else
-				*ptr |= mask;
-
-			uint16_t offset = (y >> 3) * 32 + (x >> 3);
-			attributes[offset] = (attributes[offset] & attrMask) | attrValue;
-			break;
-		}
+		graphicsBuffer[screenWidth*y + x] = color;
+		return;
 	}
+
+	uint8_t* ptr = bitmap + y * stride + (x >> 3);
+	uint8_t mask = 0x80 >> (x & 7);
+	if (color == 0)
+		*ptr &= ~mask;
+	else if (color == 255)
+		*ptr ^= mask;
+	else
+		*ptr |= mask;
+
+	uint16_t offset = (y >> 3) * stride + (x >> 3);
+	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
 }
 
 void VID_PatternFill(int16_t x, int16_t y, int pattern)
@@ -413,22 +400,21 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	else
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
 
-	switch (vectorGraphicsMachine)
+	if (pixelMode)
 	{
-		default:
-		{
-			int color = VID_GetPixel(x, y);
-			GenericInnerFill(x, x, y, ch, 1, color);
-			if (y > 0)
-				GenericInnerFill(x, x, y-1, ch, -1, color);
-			break;
-		}
-
-		case DDB_MACHINE_SPECTRUM:
-			SpectrumInnerFill(x, x, y, ch, 1);
-			if (y > 0)
-				SpectrumInnerFill(x, x, y-1, ch, -1);
-			break;
+		int color = VID_GetPixel(x, y);
+		GenericInnerFill(x, x, y, ch, 1, color);
+		if (y > 0)
+			GenericInnerFill(x, x, y-1, ch, -1, color);
+	}
+	else
+	{
+		int color = VID_GetPixel(x, y);
+		if (color)
+			return;
+		SpectrumInnerFill(x, x, y, ch, 1);
+		if (y > 0)
+			SpectrumInnerFill(x, x, y-1, ch, -1);
 	}
 }
 
@@ -496,7 +482,7 @@ void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
 
 void VID_AttributeFill (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
-	if (vectorGraphicsMachine != DDB_MACHINE_SPECTRUM)
+	if (pixelMode)
 		return;
 
 	if (x1 < x0) {
@@ -519,14 +505,14 @@ void VID_AttributeFill (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 	if (y1 > maxrow)
 		y1 = maxrow;
 
-	uint8_t* ptr = attributes + y0 * 32 + x0;
-	uint8_t* end = attributes + y1 * 32 + x1;
+	uint8_t* ptr = attributes + y0 * stride + x0;
+	uint8_t* end = attributes + y1 * stride + x1;
 	for (int y = y0; y <= y1; y++)
 	{
 		uint8_t* line = ptr;
 		for (int x = x0; x <= x1; x++, ptr++)
 			*ptr = (*ptr & attrMask) | attrValue;
-		ptr = line + 32;
+		ptr = line + stride;
 	}
 }
 
@@ -555,6 +541,149 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 	{
 		default:
 			return false;
+
+		case DDB_MACHINE_C64:
+			if (*ptr == 0x02)
+				return false;
+			for (;;)
+			{
+				switch (*ptr & 0x07)
+				{
+					case 0:
+						// TODO: THIS IS GUESSWORK AND PROBABLY WRONG !!!!!
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X INK %d\n", ptr[0], ptr[0] >> 3);
+						#endif
+						VID_SetInk(*ptr >> 3);
+						ptr += 1;
+						break;
+
+					case 1:
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X PAPER %d\n", ptr[0], ptr[0] >> 3);
+						#endif
+						VID_SetPaper(*ptr >> 3);
+						ptr += 1;
+						break;
+
+					case 2:		// RETURN
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X RETURN\n\n", ptr[0]);
+						#endif
+
+						depth--;
+						return true;
+
+					case 3: // GOSUB
+					{
+						int scale = (*ptr >> 3) & 0x7;
+						bool sflipX = (*ptr & 0x80) != 0;
+						bool sflipY = (*ptr & 0x40) != 0;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						fflush(stdout);
+						#endif
+
+						if (flipX) sflipX = !sflipX;
+						if (flipY) sflipY = !sflipY;
+						DrawVectorSubroutine(ptr[1], scale, sflipX, sflipY);
+						ptr += 2;
+						break;
+					}
+
+					case 4:		// PLOT
+					{
+						int x = ptr[1] | ((ptr[0] & 0x08) << 5);
+						int y = ptr[2];
+						if (flipX) x = scrMaxX - x;
+						if (flipY) y = scrMaxY - y;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X PLOT    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						#endif
+						VID_MoveTo(x, y);
+						switch (*ptr & 0xC0)		// Inverse + Over flags
+						{
+							case 0x00: VID_DrawPixel(1); break;
+							case 0x40: VID_DrawPixel(255); break;
+							case 0x80: VID_DrawPixel(0); break;
+							case 0xC0: VID_SetAttribute(); break;
+						}
+						ptr += 3;
+						break;
+					}
+
+					case 5: // LINE
+					{
+						int x = ptr[1];
+						int y = ptr[2];
+
+						#ifdef TRACE_VECTOR
+						if ((*ptr & 0xC0) == 0xC0)
+							DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+						else
+							DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+						#endif
+						
+						if (*ptr & 0x20) x = -x;
+						if (*ptr & 0x10) y = -y;
+						if (flipX) x = -x;
+						if (flipY) y = -y;
+						y = y * scale / 8;
+						x = x * scale / 8;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("       (%d, %d)\n", x, y);
+						#endif
+						switch (*ptr & 0xC0)		// Inverse + Over flags
+						{
+							case 0x00: VID_DrawLine(x, y, 1); break;
+							case 0x40: VID_DrawLine(x, y, 255); break;
+							case 0x80: VID_DrawLine(x, y, 0); break;
+							case 0xC0: VID_MoveBy(x, y); break;
+						}
+						ptr += 3;
+						break;
+					}
+
+					case 6:							// FILL/SHADE
+					{
+						int x = ptr[1];
+						int y = ptr[2];
+						int p = (*ptr & 0x80) ? ptr[3] : -1;
+						if (flipX) x = -x;
+						if (flipY) y = -y;
+						if (*ptr & 0x20) x = -x;
+						if (*ptr & 0x10) y = -y;
+
+						#ifdef TRACE_VECTOR
+						if (p != -1)
+							DebugPrintf("%02X SHADE   %02X %02X %02X      (%d, %d, %d)\n", ptr[0], ptr[1], ptr[2], ptr[3], x, y, p);
+						else
+							DebugPrintf("%02X FILL    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						#endif
+						VID_PatternFill(x, y, p);
+						ptr += p == -1 ? 3 : 4;
+						break;
+					}
+						
+					case 7:		// BLOCK
+					{
+						uint8_t y0 = ptr[1];
+						uint8_t x0 = ptr[2];
+						uint8_t y1 = y0+ptr[3];
+						uint8_t x1 = x0+ptr[4];
+						
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
+						#endif
+						VID_AttributeFill(x0, y0, x1, y1);
+						ptr += 5;
+						break;
+					}
+				}
+			}
 
 		case DDB_MACHINE_CPC:
 			if (*ptr == 0x40)
@@ -689,17 +818,17 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						break;
 					}
 					case 5:		// FILL
-					{
-						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
-						#endif
-						
+					{						
 						int x = ptr[1] | ((ptr[0] & 0x80) << 1);
 						int y = ptr[2];
 						if (flipX) x = -x;
 						if (!flipY) y = -y;
 						if (*ptr & 0x20) x = -x;
 						if (*ptr & 0x10) y = -y;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X FILL    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						#endif
 						VID_PatternFill(x, y, -1);
 						ptr += 3;
 						break;
@@ -946,12 +1075,193 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 	}
 }
 
+bool DDB_HasVectorPicture (uint8_t picno)
+{
+	if (picno >= count)
+		return false;
+
+	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
+	const uint8_t *ptr = vectorGraphicsRAM + offset;
+
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			return (*ptr != 2);
+		case DDB_MACHINE_CPC:
+			return (*ptr != 0x40);
+		case DDB_MACHINE_SPECTRUM:
+			return (*ptr != 7);
+	}
+}
+
+bool DDB_DrawVectorPicture (uint8_t picno)
+{
+	if (picno >= count)
+		return false;
+
+	switch (vectorGraphicsMachine)
+	{
+		case DDB_MACHINE_C64:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			if (win[0] == 0)
+			{
+				int row    = win[2];
+				int col    = win[3];
+				int height = win[4];
+				int width  = win[5];
+
+				VID_SetInk(win[1] & 0x0F);
+				VID_SetPaper((win[1] >> 4) & 0x0F);
+				VID_Clear(col*8, row*8, width*8, height*8, 0);
+			}
+			else
+			{
+				// Subroutine
+				return false;
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			// VID_SaveDebugBitmap();
+			return result;
+		}
+
+		case DDB_MACHINE_CPC:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			if (win[0] == 0)
+			{
+				// Subroutine
+				return false;
+			}
+			else
+			{
+				if (win[1] < 27) VID_SetPaletteColor32(1, CPC_Colors[win[1] & 0x1F]);
+				if (win[2] < 27) VID_SetPaletteColor32(2, CPC_Colors[win[2] & 0x1F]);
+				if (win[3] < 27) VID_SetPaletteColor32(3, CPC_Colors[win[3] & 0x1F]);
+
+				int row    = win[4];
+				int col    = win[5];
+				int height = win[6];
+				int width  = win[7];
+				VID_Clear(col*8, row*8, width*8, height*8, 0);
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+			ink     = 1;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			// VID_SaveDebugBitmap();
+			return result;
+		}
+
+		case DDB_MACHINE_SPECTRUM:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+			if ((win[0] & 0x80) == 0x80)
+			{
+				VID_SetInk(win[0] & 0x07);
+				VID_SetPaper((win[0] >> 3) & 0x07);
+				VID_SetBright(0);
+				VID_SetFlash(0);
+				
+				int row = win[1];
+				int col = win[2];
+				int height = win[3];
+				int width = win[4];
+				VID_Clear(col*6, row*8, width*6, height*8, 0);
+				int col8 = (col*6) / 8;
+				int width8 = (col*6+width*6 + 5) / 8 - col8;
+				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+			}
+			else
+			{
+				// Subroutine
+				return false;
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			// VID_SaveDebugBitmap();
+			return result;
+		}
+	}
+
+	return false;
+}
+
+bool DDB_HasVectorDatabase()
+{
+	return vectorGraphicsRAM != 0;
+}
+
+bool DDB_WriteVectorDatabase(const char* filename)
+{
+	if (vectorGraphicsRAM == 0)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	File* file = File_Create(filename);
+	if (file == 0)
+	{
+		DDB_SetError(DDB_ERROR_CREATING_FILE);
+		return false;
+	}
+	
+	DebugPrintf("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
+	if (File_Write(file, vectorGraphicsRAM + start, ending - start + 1) != ending - start + 1)
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_WRITING_FILE);
+		return false;
+	}
+	File_Close(file);
+	return true;
+}
+
 bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t size)
 {
 	vectorGraphicsMachine = target;
 
 	switch (target)
 	{
+		case DDB_MACHINE_C64:
+		{
+			if (size < 65536)
+				return false;
+
+			vectorGraphicsRAM = data;
+			start   = read16LE(data + 0xCBEF);
+			table   = read16LE(data + 0xCBF1);
+			windefs = read16LE(data + 0xCBF3);
+			unknown = read16LE(data + 0xCBF5);
+			charset = read16LE(data + 0xCBF7);;
+			coltab  = read16LE(data + 0xCBF9);
+			ending  = read16LE(data + 0xCBFB);
+			count   = data[0xCBFD];
+
+			if (table < start || charset < start || coltab < start)
+				return false;
+			if (windefs + 6*count > size)
+				return false;
+			if (data[windefs + 6*count] != 0xFF)
+				return false;
+			if (ending != 0xFFFF)
+				return false;
+			
+			ending  = 0xCBFF;
+			scrMaxX = 319;
+			scrMaxY = 199;
+			stride  = 40;
+			VID_SetCharset(data + charset);
+			return true;
+		}
+
 		case DDB_MACHINE_CPC:
 		{
 			if (size < 65536)
@@ -977,12 +1287,13 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			if (ending != 0xFFFF)
 				return false;
 			
-			ending  = charset + 2048;
+			ending  = charset + 2048 - 1;
 			scrMaxX = 319;
 			scrMaxY = 183;
 			VID_SetCharset(data + charset);
 			return true;
 		}
+
 		case DDB_MACHINE_SPECTRUM:
 		{
 			if (size < 65536)
@@ -1018,6 +1329,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			ending  = 0xFFFF;
 			scrMaxX = 255;
 			scrMaxY = 175;
+			stride  = 32;
 
 			VID_SetCharset(data + charset);
 			return true;
@@ -1026,127 +1338,6 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 		default:
 			return false;
 	}
-}
-
-bool DDB_HasVectorPicture (uint8_t picno)
-{
-	if (picno >= count)
-		return false;
-
-	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
-	const uint8_t *ptr = vectorGraphicsRAM + offset;
-
-	switch (vectorGraphicsMachine)
-	{
-		default:
-			return false;
-		case DDB_MACHINE_CPC:
-			return (*ptr != 0x40);
-		case DDB_MACHINE_SPECTRUM:
-			return (*ptr != 7);
-	}
-}
-
-bool DDB_HasVectorDatabase()
-{
-	return vectorGraphicsRAM != 0;
-}
-
-bool DDB_WriteVectorDatabase(const char* filename)
-{
-	if (vectorGraphicsRAM == 0)
-	{
-		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
-		return false;
-	}
-
-	File* file = File_Create(filename);
-	if (file == 0)
-	{
-		DDB_SetError(DDB_ERROR_CREATING_FILE);
-		return false;
-	}
-	
-	printf("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
-	if (File_Write(file, vectorGraphicsRAM + start, ending - start + 1) != ending - start + 1)
-	{
-		File_Close(file);
-		DDB_SetError(DDB_ERROR_WRITING_FILE);
-		return false;
-	}
-	File_Close(file);
-	return true;
-}
-
-bool DDB_DrawVectorPicture (uint8_t picno)
-{
-	if (picno >= count)
-		return false;
-
-	switch (vectorGraphicsMachine)
-	{
-		case DDB_MACHINE_CPC:
-		{
-			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
-			if (win[0] == 0)
-			{
-				// Subroutine
-				return false;
-			}
-			else
-			{
-				if (win[1] < 27) VID_SetPaletteColor32(1, CPC_Colors[win[1] & 0x1F]);
-				if (win[2] < 27) VID_SetPaletteColor32(2, CPC_Colors[win[2] & 0x1F]);
-				if (win[3] < 27) VID_SetPaletteColor32(3, CPC_Colors[win[3] & 0x1F]);
-
-				int row    = win[4];
-				int col    = win[5];
-				int height = win[6];
-				int width  = win[7];
-				VID_Clear(col*8, row*8, width*8, height*8, 0);
-			}
-			cursorX = 0;
-			cursorY = scrMaxY;
-			ink     = 1;
-
-			bool result = DrawVectorSubroutine(picno, 0, false, false);
-			VID_SaveDebugBitmap();
-			return result;
-		}
-		case DDB_MACHINE_SPECTRUM:
-		{
-			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
-			if ((win[0] & 0x80) == 0x80)
-			{
-				VID_SetInk(win[0] & 0x07);
-				VID_SetPaper((win[0] >> 3) & 0x07);
-				VID_SetBright(0);
-				VID_SetFlash(0);
-				
-				int row = win[1];
-				int col = win[2];
-				int height = win[3];
-				int width = win[4];
-				VID_Clear(col*6, row*8, width*6, height*8, 0);
-				int col8 = (col*6) / 8;
-				int width8 = (col*6+width*6 + 5) / 8 - col8;
-				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
-			}
-			else
-			{
-				// Subroutine
-				return false;
-			}
-			cursorX = 0;
-			cursorY = scrMaxY;
-
-			bool result = DrawVectorSubroutine(picno, 0, false, false);
-			// VID_SaveDebugBitmap();
-			return result;
-		}
-	}
-
-	return false;
 }
 
 #endif

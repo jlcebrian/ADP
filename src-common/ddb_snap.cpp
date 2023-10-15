@@ -32,6 +32,94 @@ static bool AllocateSnapshot(size_t size)
 }
 
 // ----------------------------------------------------------------------------
+//  VSF Snapshot support
+// ----------------------------------------------------------------------------
+
+static bool LoadSnapshotFromVSF(File* file)
+{
+	static const char* VSFHeader = "VICE Snapshot File\x1A";
+
+	char header[58];
+	
+	File_Seek(file, 0);
+	if (File_Read(file, header, 58) != 58) 
+	{
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+	if (StrComp(header, VSFHeader, 0x13) != 0)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+	
+	bool is128k = false;
+	if (StrComp(header+0x15, "C128", 4) == 0)
+		is128k = true;
+	else if (StrComp(header+0x15, "C64", 3) != 0)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	uint64_t fileSize = File_GetSize(file);
+	uint64_t position = File_GetPosition(file);
+	for (;;)
+	{
+		if (position >= fileSize)
+			return false;
+
+		char moduleHeader[22];
+		if (File_Read(file, moduleHeader, 22) != 22)
+		{
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			return false;
+		}
+		uint32_t moduleSize = read32LE((uint8_t*)moduleHeader + 18);
+		if (StrComp(moduleHeader, "C64MEM") == 0)
+		{
+			File_Seek(file, position + 0x1A);
+			snapshotRAM = Allocate<uint8_t>("Snapshot", 65536);
+			if (snapshotRAM == 0)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				return false;
+			}
+			snapshotSize = 65536;
+			if (File_Read(file, snapshotRAM, 65536) != 65536)
+			{
+				Free(snapshotRAM);
+				snapshotRAM = 0;
+				DDB_SetError(DDB_ERROR_READING_FILE);
+				return false;
+			}
+			return true;
+		}
+		else if (StrComp(moduleHeader, "C128MEM") == 0)
+		{
+			File_Seek(file, position + 0x1A);
+			snapshotRAM = Allocate<uint8_t>("Snapshot", 131072);
+			if (snapshotRAM == 0)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				return false;
+			}
+			snapshotSize = 131072;
+			if (File_Read(file, snapshotRAM, 131072) != 131072)
+			{
+				Free(snapshotRAM);
+				snapshotRAM = 0;
+				DDB_SetError(DDB_ERROR_READING_FILE);
+				return false;
+			}
+			return true;
+		}
+		position += moduleSize;
+		File_Seek(file, position);
+	}
+}
+
+// ----------------------------------------------------------------------------
 //  SNA Snapshot support
 // ----------------------------------------------------------------------------
 
@@ -536,6 +624,16 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 			return false;
 
 		if (machine) *machine = DDB_MACHINE_SPECTRUM;
+		if (ram) *ram = snapshotRAM;
+		if (size) *size = snapshotSize;
+		return true;
+	}
+	else if (CheckExtension(filename, "vsf"))
+	{
+		if (!LoadSnapshotFromVSF(file))
+			return false;
+
+		if (machine) *machine = DDB_MACHINE_C64;
 		if (ram) *ram = snapshotRAM;
 		if (size) *size = snapshotSize;
 		return true;
