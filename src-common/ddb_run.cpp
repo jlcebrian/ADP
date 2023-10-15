@@ -85,7 +85,12 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 	i->inkMap[1] = 15;
 	for (int n = 2; n < 16; n++)
 		i->inkMap[n] = n-1;
-
+	
+	if (i->ddb->target == DDB_MACHINE_CPC)
+	{
+		for (int n = 0; n < 16; n++)
+			i->inkMap[n] = n & 3;
+	}
 	if (i->ddb->target == DDB_MACHINE_IBMPC)
 	{
 		if (i->screenMode == ScreenMode_Text)
@@ -115,17 +120,21 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 
 void DDB_ResetWindows (DDB_Interpreter* i)
 {
+	int defaultInk = 15;
+	if (i->ddb->target == DDB_MACHINE_CPC)
+		defaultInk = 1;
+
 	for (int n = 0; n < 8; n++)
 	{
-		DDB_Window* w = &i->windef[n];
-		w->x = 0;
-		w->y = 0;
-		w->width = screenWidth;
-		w->height = screenHeight;
-		w->ink = 15;
-		w->paper = 0;
-		w->posX = w->x;
-		w->posY = w->y;
+		DDB_Window* w  = &i->windef[n];
+		w->x           = 0;
+		w->y           = 0;
+		w->width       = screenWidth;
+		w->height      = screenHeight;
+		w->ink         = defaultInk;
+		w->paper       = 0;
+		w->posX        = w->x;
+		w->posY        = w->y;
 		w->scrollCount = 0;
 	}
 

@@ -1143,7 +1143,7 @@ bool VID_LoadDataFile(const char* fileName)
 	}
 	charsetInitialized = true;
 
-	if (screenMachine == DDB_MACHINE_SPECTRUM)
+	if (screenMachine == DDB_MACHINE_IBMPC)
 	{
 		screenMode = (DDB_ScreenMode)dmg->screenMode;
 		if (dmg->screenMode == ScreenMode_CGA)
@@ -1172,6 +1172,11 @@ bool VID_Initialize (DDB_Machine machine)
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 	VID_InitAudio();
 	SDL_StopTextInput();
+
+	lineHeight       = 8;
+	columnWidth      = 6;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = 6;
 	
 	switch (machine)
 	{
@@ -1183,6 +1188,15 @@ bool VID_Initialize (DDB_Machine machine)
 			bitmap        = Allocate<uint8_t>("Spectrum Screen Data", 256 * 192 / 8);
 			attributes    = Allocate<uint8_t>("Spectrum Attributes", 32 * 24);
 			break;
+		case DDB_MACHINE_CPC:
+			memcpy(DefaultPalette, CPCPalette, sizeof(CPCPalette));
+			screenMachine = machine;
+			screenWidth   = 320;
+			screenHeight  = 200;
+			columnWidth = 8;
+			for (int n = 0; n < 256; n++)
+				charWidth[n] = 6;	
+			break;
 		default:
 			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
 			screenMachine = DDB_MACHINE_IBMPC;
@@ -1190,10 +1204,6 @@ bool VID_Initialize (DDB_Machine machine)
 			screenHeight  = 200;
 			break;
 	}
-	lineHeight       = 8;
-	columnWidth      = 6;
-	for (int n = 0; n < 256; n++)
-		charWidth[n] = 6;
 
 	memcpy (palette, DefaultPalette, sizeof(DefaultPalette));
 

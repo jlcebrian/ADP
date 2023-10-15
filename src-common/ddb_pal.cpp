@@ -8,6 +8,11 @@ uint32_t ZXSpectrumPalette[16] =
 	0xFF00FF00, 0xFF00FFFF, 0xFFFFFF00, 0xFFFFFFFF,
 };
 
+uint32_t CPCPalette[4] = 
+{
+	0xFF000000, 0xFFFFFFFF, 0xFF000080, 0xFF808000,
+};
+
 uint32_t EGAPalette[16] = 
 {
 	0xFF000000, 0xFF0000A0, 0xFF00AA00, 0xFF00AAAA,

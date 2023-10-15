@@ -32,6 +32,52 @@ static bool AllocateSnapshot(size_t size)
 }
 
 // ----------------------------------------------------------------------------
+//  SNA Snapshot support
+// ----------------------------------------------------------------------------
+
+static bool LoadCPCSnapshotFromSNA(File* file)
+{
+	char header[8];
+	
+	File_Seek(file, 0);
+	if (File_Read(file, header, 8) != 8)
+		return false;
+	if (StrComp(header, "MV - SNA", 8) != 0)
+		return false;
+
+	uint16_t memsize;
+	File_Seek(file, 0x6b);
+	if (File_Read(file, &memsize, 2) != 2)
+	{
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+	memsize = fix16(memsize, true);
+	if (memsize != 64 && memsize != 128)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	snapshotRAM = Allocate<uint8_t>("Snapshot", 65536);
+	if (snapshotRAM == 0)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+	snapshotSize = 65536;
+	File_Seek(file, 0x100);
+	if (File_Read(file, snapshotRAM, 65536) != 65536)
+	{
+		Free(snapshotRAM);
+		snapshotRAM = 0;
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+	return true;
+}
+
+// ----------------------------------------------------------------------------
 //  Z80 Snapshot support
 // ----------------------------------------------------------------------------
 
@@ -142,7 +188,14 @@ static bool LoadSnapshotFromZ80 (File* file)
 		return false;
 	}
 
+	File_Seek(file, 0);
+
 	uint8_t* data = Allocate<uint8_t>("Snapshot file", (size_t)fileSize);
+	if (data == 0)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
 	if (File_Read(file, data, fileSize) != fileSize)
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
@@ -465,6 +518,17 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (ram) *ram = snapshotRAM;
 		if (size) *size = snapshotSize;
 		return true;
+	}
+	else if (CheckExtension(filename, "sna"))
+	{
+		if (LoadCPCSnapshotFromSNA(file))
+		{
+			if (machine) *machine = DDB_MACHINE_CPC;
+			if (ram) *ram = snapshotRAM;
+			if (size) *size = snapshotSize;
+			return true;
+		}
+		return false;
 	}
 	else if (CheckExtension(filename, "tzx"))
 	{

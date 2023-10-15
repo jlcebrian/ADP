@@ -119,7 +119,16 @@
                                 Bit 7       1: Y Flip
                             1               Picture number
 
-        4   TEXT            (TODO)
+        4   TEXT            Prints a character in an absolute position.
+                            The character must fix a 8x8 grid: coordinates
+                            are given in 8x8 character units (0,0: top left).
+
+                            0   Bit 0-2     Command number (4)
+                                Bit 3       OVER flag
+                                Bit 4       INVERSE flag
+                            1               Character index
+                            2               Column
+                            3               Row
 
         5   PAPER           Sets the paper or bright value.
 
@@ -275,7 +284,7 @@
                                 Bit 7       X coordinate bit 8
                             1               X coordinate
                             2               Y coordinate
-                            1               Character index
+                            3               Character index
 
         2   GOSUB   2       Calls a subroutine. The scale value uses
                             two left circular shifts to be read in
@@ -336,3 +345,47 @@
                             1-2             Screen Address of top-left hand
                             3               Height
                             4               Width in pixels
+
+
+───────────────────────────────────────────────────────────────────────────────
+    .CDG	Commodore 64 Graphics Database file format
+───────────────────────────────────────────────────────────────────────────────
+
+    The C64 version of the SDG file is similar to the Spectrum version,
+    except the end of memory is at 0xCBFF:
+
+    ADDRESS		SIZE		DESCRIPTION
+
+    0xCBED		2			First byte of available RAM ("SPARE")
+    0xCBEF		2			Pointer to the start of the CDG data in RAM
+    0xCBF1		2			Pointer to the table of picture addresses
+    0xCBF3		2			Pointer to the window definitions (6 bytes each)
+    0xCBF5		2			Pointer to extra data (1 byte, always FF)
+    0xCBF7		2			Pointer to character set (2048 bytes)
+    0xCBF9		2			Pointer to the color palette (17 bytes)
+    0xCBFB		2			Contains FF FF
+    0xCBFD		1			Number of pictures
+    0xCBFE		2			Contains 00 00 
+
+
+───────────────────────────────────────────────────────────────────────────────
+    .MDG	MSX Graphics Database file format
+───────────────────────────────────────────────────────────────────────────────
+
+    The MSX version of the SDG file is similar to the Spectrum version,
+    except the end of memory is at 0xAFFF:
+
+    ADDRESS		SIZE		DESCRIPTION
+
+    0xAFED		2			??
+    0xAFEF		2			Pointer to the start of the MDG data in RAM
+    0xAFF1		2			Pointer to the table of picture addresses
+    0xAFF3		2			Pointer to the window definitions (6 bytes each)
+    0xAFF5		2			Pointer to extra data (1 byte, always FF)
+    0xAFF7		2			Pointer to character set (2048 bytes)
+    0xAFF9		2			Pointer to the color palette (17 bytes)
+    0xAFFB		2			Contains FF FF
+    0xAFFD		1			Number of pictures
+    0xAFFE		2			Contains 00 00 
+    
+    The picture encoding is the same as Spectrum.

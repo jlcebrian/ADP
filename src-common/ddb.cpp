@@ -598,15 +598,8 @@ DDB* DDB_Load(const char* filename)
 		ddbError = DDB_ERROR_FILE_NOT_FOUND;
 		return 0;
 	}
-	uint64_t fileSize = File_GetSize(file);
-	if (fileSize > MAX_DDB_SIZE)
-	{
-		ddbError = DDB_ERROR_OUT_OF_MEMORY;
-		DDB_Warning("File '%s' is too big (max size: %d)\n", filename, MAX_DDB_SIZE);
-		File_Close(file);
-		return 0;
-	}
 
+	uint64_t fileSize = File_GetSize(file);
 	uint8_t* memory = 0;
 	uint8_t* data = 0;
 
@@ -646,6 +639,15 @@ DDB* DDB_Load(const char* filename)
 	#endif
 
 	{
+		if (fileSize > MAX_DDB_SIZE)
+		{
+			ddbError = DDB_ERROR_OUT_OF_MEMORY;
+			DDB_Warning("File '%s' is too big (max size: %d)\n", filename, MAX_DDB_SIZE);
+			File_Close(file);
+			Free(ddb);
+			return 0;
+		}
+
 		if (memory == 0)
 			memory = Allocate<uint8_t>("DDB Contents", fileSize);
 		if (memory == 0)
@@ -659,6 +661,7 @@ DDB* DDB_Load(const char* filename)
 			ddbError = DDB_ERROR_READING_FILE;
 			File_Close(file);
 			Free(memory);
+			Free(ddb);
 			return 0;
 		}
 		File_Close(file);

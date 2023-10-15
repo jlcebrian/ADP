@@ -11,9 +11,16 @@
 // #define TRACE_VECTOR
 // #define DISABLE_FILL
 
+uint32_t CPC_Colors[27] = {
+	0xFF000000, 0xFF000080, 0xFF0000FF, 0xFF800000, 0xFF800080, 0xFF8000FF, 0xFFFF0000, 0xFFFF0080, 0xFFFF00FF,
+	0xFF008000, 0xFF008080, 0xFF0080FF, 0xFF808000, 0xFF808080, 0xFF8080FF, 0xFFFF8000, 0xFFFF8080, 0xFFFF80FF,
+	0xFF00FF00, 0xFF00FF80, 0xFF00FFFF, 0xFF80FF00, 0xFF80FF80, 0xFF80FFFF, 0xFFFFFF00, 0xFFFFFF80, 0xFFFFFFFF,
+};
+
 extern void VID_SaveDebugBitmap();
 
 static const uint8_t* vectorGraphicsRAM = 0;
+static DDB_Machine vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 
 static uint16_t spare;
 static uint16_t start;
@@ -22,11 +29,15 @@ static uint16_t windefs;
 static uint16_t unknown;
 static uint16_t charset;
 static uint16_t coltab;
+static uint16_t extra;
 static uint16_t ending;
 static uint16_t count;
 
+// TODO: Move drawing functions to a separate file
 extern uint8_t* bitmap;
 extern uint8_t* attributes;
+extern uint8_t* graphicsBuffer;
+extern uint16_t screenWidth;
 
 static uint16_t cursorX;
 static uint16_t cursorY;
@@ -131,22 +142,124 @@ void VID_SetAttribute()
 	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
 }
 
-void VID_DrawPixel(uint8_t color)
+int VID_GetPixel(int16_t x, int16_t y)
 {
-	uint8_t* ptr = bitmap + cursorY * 32 + (cursorX >> 3);
-	uint8_t mask = 0x80 >> (cursorX & 7);
+	if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
+		return 0;
 
-	if (color == 255)
-		*ptr ^= mask;
-	else if (color == 0)
-		*ptr &= ~mask;
-	else
-		*ptr |= mask;
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			return graphicsBuffer[screenWidth*y + x];
+			break;
 
-	VID_SetAttribute();
+		case DDB_MACHINE_SPECTRUM:
+			uint8_t* ptr = bitmap + y * 32 + (x >> 3);
+			uint8_t mask = 0x80 >> (x & 7);
+			return (*ptr & mask) != 0;
+	}
 }
 
-static void InnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction)
+int VID_GetPixel()
+{
+	return VID_GetPixel(cursorX, cursorY);
+}
+
+void VID_DrawPixel(uint8_t color)
+{
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			graphicsBuffer[screenWidth*cursorY + cursorX] = color;
+			break;
+
+		case DDB_MACHINE_SPECTRUM:
+		{
+			uint8_t* ptr = bitmap + cursorY * 32 + (cursorX >> 3);
+			uint8_t mask = 0x80 >> (cursorX & 7);
+
+			if (color == 255)
+				*ptr ^= mask;
+			else if (color == 0)
+				*ptr &= ~mask;
+			else
+				*ptr |= mask;
+
+			VID_SetAttribute();
+			break;
+		}
+	}
+}
+
+static void GenericInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction, uint8_t color)
+{
+	#ifdef DISABLE_FILL
+	VID_DrawPixel(minX, y, 15);
+	return;
+	#endif
+
+	int16_t  x    = minX;
+	uint8_t *ptr  = graphicsBuffer + screenWidth * y + x;
+
+	if (*ptr != color)
+	{
+		// Find left wall, to the right of the initial position
+		while (*ptr != color)
+		{
+			x++;
+			if (x > maxX) return;
+			ptr++;
+		}
+		minX  = x;
+	}
+	else
+	{
+		// Find left wall
+		while (*ptr == color)
+		{
+			if (x == 0) break;
+			x--;
+			ptr--;
+		}
+		minX = x+1;
+		if (*ptr != color)
+		{
+			x++;
+			ptr++;
+		}
+	}
+
+	// Fill to the right
+	while (*ptr == color)
+	{
+		*ptr = (pattern[y & 0x07] & (0x80 >> (x & 7))) ? ink : paper;
+		x++;
+		if (x > scrMaxX) break;
+		ptr++;
+	}
+	if (x-1 > maxX)
+		maxX = x-1;
+
+	if (direction == -1 && y > 0)
+		GenericInnerFill(minX, x-1, y-1, pattern, -1, color);
+	else if (direction == 1 && y < scrMaxY)
+		GenericInnerFill(minX, x-1, y+1, pattern, 1, color);
+
+	if (maxX > x)
+	{
+		// Find next hole to fill
+		while (*ptr != color)
+		{
+			if (x == scrMaxX) return;
+			x++;
+			ptr++;
+		}
+		if (x <= maxX)
+			GenericInnerFill(x, maxX, y, pattern, direction, color);
+	}
+}
+
+static void SpectrumInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction)
 {
 	#ifdef DISABLE_FILL
 	uint8_t* p = bitmap + y * 32 + (minX >> 3);
@@ -230,18 +343,10 @@ static void InnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, 
 	if (x-1 > maxX)
 		maxX = x-1;
 
-	switch (direction)
-	{
-		case -1:
-			if (y > 0)
-				InnerFill(minX, x-1, y-1, pattern, -1);
-			break;
-
-		case 1:
-			if (y < scrMaxY)
-				InnerFill(minX, x-1, y+1, pattern, 1);
-			break;
-	}
+	if (direction == -1 && y > 0)
+		SpectrumInnerFill(minX, x-1, y-1, pattern, -1);
+	else if (direction == 1 && y < scrMaxY)
+		SpectrumInnerFill(minX, x-1, y+1, pattern, 1);
 
 	if (maxX > x)
 	{
@@ -259,7 +364,7 @@ static void InnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, 
 			}
 		}
 		if (x <= maxX)
-			InnerFill(x, maxX, y, pattern, direction);
+			SpectrumInnerFill(x, maxX, y, pattern, direction);
 	}
 }
 
@@ -268,17 +373,28 @@ void VID_DrawPixel(int16_t x, int16_t y, uint8_t color)
 	if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
 		return;
 
-	uint8_t* ptr = bitmap + y * 32 + (x >> 3);
-	uint8_t mask = 0x80 >> (x & 7);
-	if (color == 0)
-		*ptr &= ~mask;
-	else if (color == 255)
-		*ptr ^= mask;
-	else
-		*ptr |= mask;
-	
-	uint16_t offset = (y >> 3) * 32 + (x >> 3);
-	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			graphicsBuffer[screenWidth*y + x] = color;
+			break;
+
+		case DDB_MACHINE_SPECTRUM:
+		{
+			uint8_t* ptr = bitmap + y * 32 + (x >> 3);
+			uint8_t mask = 0x80 >> (x & 7);
+			if (color == 0)
+				*ptr &= ~mask;
+			else if (color == 255)
+				*ptr ^= mask;
+			else
+				*ptr |= mask;
+
+			uint16_t offset = (y >> 3) * 32 + (x >> 3);
+			attributes[offset] = (attributes[offset] & attrMask) | attrValue;
+			break;
+		}
+	}
 }
 
 void VID_PatternFill(int16_t x, int16_t y, int pattern)
@@ -297,9 +413,23 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	else
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
 
-	InnerFill(x, x, y, ch, 1);
-	if (y > 0)
-		InnerFill(x, x, y-1, ch, -1);
+	switch (vectorGraphicsMachine)
+	{
+		default:
+		{
+			int color = VID_GetPixel(x, y);
+			GenericInnerFill(x, x, y, ch, 1, color);
+			if (y > 0)
+				GenericInnerFill(x, x, y-1, ch, -1, color);
+			break;
+		}
+
+		case DDB_MACHINE_SPECTRUM:
+			SpectrumInnerFill(x, x, y, ch, 1);
+			if (y > 0)
+				SpectrumInnerFill(x, x, y-1, ch, -1);
+			break;
+	}
 }
 
 void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
@@ -366,6 +496,9 @@ void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
 
 void VID_AttributeFill (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
+	if (vectorGraphicsMachine != DDB_MACHINE_SPECTRUM)
+		return;
+
 	if (x1 < x0) {
 		uint8_t tmp = x0;
 		x0 = x1;
@@ -417,212 +550,439 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
 	const uint8_t* ptr = vectorGraphicsRAM + offset;
-	if (*ptr == 7)
-		return false;
 
-	for (;;)
+	switch (vectorGraphicsMachine)
 	{
-		switch (*ptr & 7)
-		{
-			case 0:	// PLOT
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X PLOT    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
-				#endif
+		default:
+			return false;
 
-				VID_MoveTo(flipX ? scrMaxX - ptr[1] : ptr[1], flipY ? ptr[2] : scrMaxY - ptr[2]);
-				switch (*ptr & 0x18)		// Inverse + Over flags
-				{
-					case 0x00: VID_DrawPixel(1); break;
-					case 0x08: VID_DrawPixel(255); break;
-					case 0x10: VID_DrawPixel(0); break;
-					case 0x18: VID_SetAttribute(); break;
-				}
-				ptr += 3;
-				break;
-			case 1: // LINE
+		case DDB_MACHINE_CPC:
+			if (*ptr == 0x40)
+				return false;
+			for (;;)
 			{
-				uint8_t c = *ptr;
-				int x, y;
-				if ((c & 0x20) != 0)
+				switch ((*ptr & 0x0E) >> 1)
 				{
-					x = (ptr[1] >> 4) & 0x0F;
-					y = ptr[1] & 0x0F;
+					case 0:		// PEN/RETURN
+						if ((*ptr & 0x40) != 0)
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X RETURN\n\n", ptr[0]);
+							#endif
+							return true;
+						}
+						else if ((*ptr & 0x10) != 0)
+						{
+							int ink = ((ptr[0] >> 7) & 0x01) | ((ptr[0] << 1) & 0x02);
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X PEN     %02X            (ink set to %d)\n", *ptr, ptr[1], ink);
+							#endif
+							VID_SetInk(ink);
+							ptr++;
+						}
+						else
+						{
+							// TODO: What to do in other cases?
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X ??\n\n", ptr[0]);
+							#endif
+							int ink = ((ptr[0] >> 7) & 0x01) | ((ptr[0] << 1) & 0x02);
+							VID_SetInk(ink);
+							ptr++;
+						}
+						break;
 
-					#ifdef TRACE_VECTOR
-					if ((c & 0x18) == 0x18)
-						DebugPrintf("%02X MOVE    %02X     ", ptr[0], ptr[1]);
-					else
-						DebugPrintf("%02X LINE    %02X     ", ptr[0], ptr[1]);
-					#endif
-					ptr += 2;
-				}
-				else
-				{
-					x = ptr[1];
-					y = ptr[2];
+					case 1:		// TEXT (TODO)
+					{
+						uint16_t x = ptr[1] | ((ptr[0] & 0x80) << 1);
+						uint16_t y = ptr[2];
+						uint16_t c = ptr[3];
 
-					#ifdef TRACE_VECTOR
-					if ((c & 0x18) == 0x18)
-						DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
-					else
-						DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
-					#endif
-					ptr += 3;
-				}
-				if (flipX) x = -x;
-				if (!flipY) y = -y;
-				if (c & 0x40) x = -x;
-				if (c & 0x80) y = -y;
-				y = y * scale / 8;
-				x = x * scale / 8;
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X TEXT                  (char %d at %d,%d)\n\n", ptr[0], c, x, y);
+						#endif
+						// TODO: Print character
+						ptr += 4;
+						break;
+					}
 
-				#ifdef TRACE_VECTOR
-				DebugPrintf("       (%d, %d)\n", x, y);
-				#endif
-				switch (c & 0x18)		// Inverse + Over flags
-				{
-					case 0x00: VID_DrawLine(x, y, 1); break;
-					case 0x08: VID_DrawLine(x, y, 255); break;
-					case 0x10: VID_DrawLine(x, y, 0); break;
-					case 0x18: VID_MoveBy(x, y); break;
+					case 2:		// GOSUB
+					{
+						int  scale  = ((ptr[0] >> 6) & 0x03) | ((ptr[0] << 2) & 0x04);
+						bool sflipX = (*ptr & 0x10) != 0;
+						bool sflipY = (*ptr & 0x20) != 0;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						#endif
+
+						if (flipX) sflipX = !sflipX;
+						if (flipY) sflipY = !sflipY;
+						DrawVectorSubroutine(ptr[1], scale, sflipX, sflipY);
+						ptr += 2;
+						break;
+					}
+
+					case 3:		// PLOT
+					{
+						uint16_t x = ptr[1] | ((ptr[0] & 0x80) << 1);
+						uint16_t y = scrMaxY - ptr[2];
+
+						// TODO: not sure if flip affects plot!
+						if (flipX) x = scrMaxX - x;
+						if (flipY) y = scrMaxY - y;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X PLOT    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						#endif
+						VID_MoveTo(x, y);
+						if ((*ptr & 0x40) != 0)
+							VID_DrawPixel(ink);
+						ptr += 3;
+						break;
+					}
+					case 4: // LINE
+					{
+						uint8_t c = *ptr;
+						int x, y;
+						if ((c & 0x01) != 0)
+						{
+							x = ((ptr[1] >> 4) & 0x0F) | ((ptr[0] & 0x80) >> 3);
+							y = ptr[1] & 0x0F;
+
+							#ifdef TRACE_VECTOR
+							if ((c & 0x40) != 0x40)
+								DebugPrintf("%02X MOVE    %02X     ", ptr[0], ptr[1]);
+							else
+								DebugPrintf("%02X LINE    %02X     ", ptr[0], ptr[1]);
+							#endif
+							ptr += 2;
+						}
+						else
+						{
+							x = ptr[1] | ((ptr[0] & 0x80) << 1);
+							y = ptr[2];
+
+							#ifdef TRACE_VECTOR
+							if ((c & 0x40) != 0x40)
+								DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							else
+								DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							#endif
+							ptr += 3;
+						}
+						if (flipX) x = -x;
+						if (!flipY) y = -y;
+						if (c & 0x20) x = -x;
+						if (c & 0x10) y = -y;
+						y = y * scale / 8;
+						x = x * scale / 8;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("       (%d, %d)\n", x, y);
+						#endif
+						switch (c & 0x40)
+						{
+							case 0x40: VID_DrawLine(x, y, ink); break;
+							case 0x00: VID_MoveBy(x, y); break;
+						}
+						break;
+					}
+					case 5:		// FILL
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
+						#endif
+						
+						int x = ptr[1] | ((ptr[0] & 0x80) << 1);
+						int y = ptr[2];
+						if (flipX) x = -x;
+						if (!flipY) y = -y;
+						if (*ptr & 0x20) x = -x;
+						if (*ptr & 0x10) y = -y;
+						VID_PatternFill(x, y, -1);
+						ptr += 3;
+						break;
+					}
+					case 6:		// SHADE
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+						#endif
+						
+						int cink  = ink;
+						int sink  = ink;
+						int spaper = ((ptr[0] & 0xC0) >> 6);
+						int x = ptr[1] | ((ptr[0] & 0x80) << 1);
+						int y = ptr[2];
+						if (flipX) x = -x;
+						if (!flipY) y = -y;
+						if (*ptr & 0x20) x = -x;
+						if (*ptr & 0x10) y = -y;
+						if (*ptr & 0x01) {
+							sink = spaper;
+							spaper = cink;
+						}
+						VID_SetInk(sink);
+						VID_SetPaper(spaper);
+						VID_PatternFill(x, y, ptr[3]);
+						VID_SetInk(cink);
+						ptr += 4;
+						break;
+					}
+					case 7:		// BLOCK
+					{
+						// TODO
+						ptr += 5;
+						break;
+					}
 				}
-				break;
 			}
-			case 2:
-				if ((*ptr & 0x30) == 0x10)			// BLOCK
-				{
-					uint8_t x0 = ptr[3];
-					uint8_t y0 = ptr[4];
-					uint8_t x1 = x0+ptr[2];
-					uint8_t y1 = y0+ptr[1];
-					
-					#ifdef TRACE_VECTOR
-					DebugPrintf("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
-					#endif
-					VID_AttributeFill(x0, y0, x1, y1);
-					ptr += 5;
-				}
-				else if ((*ptr & 0x20) != 0)	// SHADE
-				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
-					#endif
+			return true;
 
-					int x = ptr[1];
-					int y = ptr[2];
-					uint8_t shade = ptr[3];
-					if (flipX) x = -x;
-					if (!flipY) y = -y;
-					if (*ptr & 0x40) x = -x;
-					if (*ptr & 0x80) y = -y;
-					VID_PatternFill(x, y, shade);
-					ptr += 4;
-				}
-				else							// FILL
-				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
-					#endif
-					
-					int x = ptr[1];
-					int y = ptr[2];
-					if (flipX) x = -x;
-					if (!flipY) y = -y;
-					if (*ptr & 0x40) x = -x;
-					if (*ptr & 0x80) y = -y;
-					VID_PatternFill(x, y, -1);
-					ptr += 3;
-				}
-				break;
-			case 3: // GOSUB
+		case DDB_MACHINE_SPECTRUM:
+			if (*ptr == 7)
+				return false;
+			for (;;)
 			{
-				int scale = (*ptr >> 3) & 0x7;
-				bool sflipX = (*ptr & 0x40) != 0;
-				bool sflipY = (*ptr & 0x80) != 0;
-
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
-				fflush(stdout);
-				#endif
-
-				if (flipX) sflipX = !sflipX;
-				if (flipY) sflipY = !sflipY;
-				DrawVectorSubroutine(ptr[1], scale, sflipX, sflipY);
-				ptr += 2;
-				break;
-			}
-			case 4: // TEXT
-			{
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X TEXT    %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
-				#endif
-
-				ptr += 4;
-				break;
-			}
-			case 5: // PAPER
-			{
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X PAPER                 ", ptr[0]);
-				#endif
-
-				if (*ptr & 0x80)
+				switch (*ptr & 7)
 				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
-					#endif
-					VID_SetBright((*ptr >> 3) & 0x0F);
-				}
-				else
-				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
-					#endif
-					VID_SetPaper((*ptr >> 3) & 0x0F);
-				}
-				ptr++;
-				break;
-			}
-			case 6: // INK
-			{
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X INK                   ", ptr[0]);
-				#endif
+					case 0:	// PLOT
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X PLOT    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
+						#endif
 
-				if (*ptr & 0x80)
-				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
-					#endif
-					VID_SetFlash((*ptr >> 3) & 0x0F);
-				}
-				else
-				{
-					#ifdef TRACE_VECTOR
-					DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
-					#endif
-					VID_SetInk((*ptr >> 3) & 0x0F);
-				}
-				ptr++;
-				break;
-			}
-			case 7:
-			{
-				#ifdef TRACE_VECTOR
-				DebugPrintf("%02X RETURN\n\n", ptr[0]);
-				#endif
+						VID_MoveTo(flipX ? scrMaxX - ptr[1] : ptr[1], flipY ? ptr[2] : scrMaxY - ptr[2]);
+						switch (*ptr & 0x18)		// Inverse + Over flags
+						{
+							case 0x00: VID_DrawPixel(1); break;
+							case 0x08: VID_DrawPixel(255); break;
+							case 0x10: VID_DrawPixel(0); break;
+							case 0x18: VID_SetAttribute(); break;
+						}
+						ptr += 3;
+						break;
+					}
+					case 1: // LINE
+					{
+						uint8_t c = *ptr;
+						int x, y;
+						if ((c & 0x20) != 0)
+						{
+							x = (ptr[1] >> 4) & 0x0F;
+							y = ptr[1] & 0x0F;
 
-				depth--;
-				return true;
+							#ifdef TRACE_VECTOR
+							if ((c & 0x18) == 0x18)
+								DebugPrintf("%02X MOVE    %02X     ", ptr[0], ptr[1]);
+							else
+								DebugPrintf("%02X LINE    %02X     ", ptr[0], ptr[1]);
+							#endif
+							ptr += 2;
+						}
+						else
+						{
+							x = ptr[1];
+							y = ptr[2];
+
+							#ifdef TRACE_VECTOR
+							if ((c & 0x18) == 0x18)
+								DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							else
+								DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							#endif
+							ptr += 3;
+						}
+						if (flipX) x = -x;
+						if (!flipY) y = -y;
+						if (c & 0x40) x = -x;
+						if (c & 0x80) y = -y;
+						y = y * scale / 8;
+						x = x * scale / 8;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("       (%d, %d)\n", x, y);
+						#endif
+						switch (c & 0x18)		// Inverse + Over flags
+						{
+							case 0x00: VID_DrawLine(x, y, 1); break;
+							case 0x08: VID_DrawLine(x, y, 255); break;
+							case 0x10: VID_DrawLine(x, y, 0); break;
+							case 0x18: VID_MoveBy(x, y); break;
+						}
+						break;
+					}
+					case 2:
+						if ((*ptr & 0x30) == 0x10)			// BLOCK
+						{
+							uint8_t x0 = ptr[3];
+							uint8_t y0 = ptr[4];
+							uint8_t x1 = x0+ptr[2];
+							uint8_t y1 = y0+ptr[1];
+							
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
+							#endif
+							VID_AttributeFill(x0, y0, x1, y1);
+							ptr += 5;
+						}
+						else if ((*ptr & 0x20) != 0)	// SHADE
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+							#endif
+
+							int x = ptr[1];
+							int y = ptr[2];
+							uint8_t shade = ptr[3];
+							if (flipX) x = -x;
+							if (!flipY) y = -y;
+							if (*ptr & 0x40) x = -x;
+							if (*ptr & 0x80) y = -y;
+							VID_PatternFill(x, y, shade);
+							ptr += 4;
+						}
+						else							// FILL
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
+							#endif
+							
+							int x = ptr[1];
+							int y = ptr[2];
+							if (flipX) x = -x;
+							if (!flipY) y = -y;
+							if (*ptr & 0x40) x = -x;
+							if (*ptr & 0x80) y = -y;
+							VID_PatternFill(x, y, -1);
+							ptr += 3;
+						}
+						break;
+					case 3: // GOSUB
+					{
+						int scale = (*ptr >> 3) & 0x7;
+						bool sflipX = (*ptr & 0x40) != 0;
+						bool sflipY = (*ptr & 0x80) != 0;
+
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						fflush(stdout);
+						#endif
+
+						if (flipX) sflipX = !sflipX;
+						if (flipY) sflipY = !sflipY;
+						DrawVectorSubroutine(ptr[1], scale, sflipX, sflipY);
+						ptr += 2;
+						break;
+					}
+					case 4: // TEXT
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X TEXT    %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+						#endif
+
+						ptr += 4;
+						break;
+					}
+					case 5: // PAPER
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X PAPER                 ", ptr[0]);
+						#endif
+
+						if (*ptr & 0x80)
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
+							#endif
+							VID_SetBright((*ptr >> 3) & 0x0F);
+						}
+						else
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
+							#endif
+							VID_SetPaper((*ptr >> 3) & 0x0F);
+						}
+						ptr++;
+						break;
+					}
+					case 6: // INK
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X INK                   ", ptr[0]);
+						#endif
+
+						if (*ptr & 0x80)
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
+							#endif
+							VID_SetFlash((*ptr >> 3) & 0x0F);
+						}
+						else
+						{
+							#ifdef TRACE_VECTOR
+							DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
+							#endif
+							VID_SetInk((*ptr >> 3) & 0x0F);
+						}
+						ptr++;
+						break;
+					}
+					case 7:
+					{
+						#ifdef TRACE_VECTOR
+						DebugPrintf("%02X RETURN\n\n", ptr[0]);
+						#endif
+
+						depth--;
+						return true;
+					}
+				}
 			}
-		}
+			return true;
 	}
 }
 
 bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t size)
 {
+	vectorGraphicsMachine = target;
+
 	switch (target)
 	{
+		case DDB_MACHINE_CPC:
+		{
+			if (size < 65536)
+				return false;
+
+			vectorGraphicsRAM = data;
+
+			start   = read16LE(data + 0x9DEF);
+			table   = read16LE(data + 0x9DF1);
+			windefs = read16LE(data + 0x9DF3);
+			unknown = read16LE(data + 0x9DF5);
+			charset = 0x9E00;
+			coltab  = read16LE(data + 0x9DF9);
+			ending  = read16LE(data + 0x9DFB);
+			count   = data[0x9DFD];
+
+			if (table < start || charset < start || coltab < start)
+				return false;
+			if (windefs + 8*count > size)
+				return false;
+			if (data[windefs + 8*count] != 0xFF)
+				return false;
+			if (ending != 0xFFFF)
+				return false;
+			
+			ending  = charset + 2048;
+			scrMaxX = 319;
+			scrMaxY = 183;
+			VID_SetCharset(data + charset);
+			return true;
+		}
 		case DDB_MACHINE_SPECTRUM:
 		{
 			if (size < 65536)
@@ -655,7 +1015,9 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 					return false;
 			}
 
-			ending = 0xFFFF;
+			ending  = 0xFFFF;
+			scrMaxX = 255;
+			scrMaxY = 175;
 
 			VID_SetCharset(data + charset);
 			return true;
@@ -673,10 +1035,16 @@ bool DDB_HasVectorPicture (uint8_t picno)
 
 	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
 	const uint8_t *ptr = vectorGraphicsRAM + offset;
-	if (*ptr == 7)
-		return false;
 
-	return true;
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			return false;
+		case DDB_MACHINE_CPC:
+			return (*ptr != 0x40);
+		case DDB_MACHINE_SPECTRUM:
+			return (*ptr != 7);
+	}
 }
 
 bool DDB_HasVectorDatabase()
@@ -715,27 +1083,65 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 	if (picno >= count)
 		return false;
 
-	const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
-	VID_SetInk(win[0] & 0x07);
-	VID_SetPaper((win[0] >> 3) & 0x07);
-	VID_SetBright(0);
-	VID_SetFlash(0);
-	if ((win[0] & 0x80) == 0x80)
+	switch (vectorGraphicsMachine)
 	{
-		int row = win[1];
-		int col = win[2];
-		int height = win[3];
-		int width = win[4];
-		VID_Clear(col*6, row*8, width*6, height*8, 0);
-		int col8 = (col*6) / 8;
-		int width8 = (col*6+width*6 + 5) / 8 - col8;
-		VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+		case DDB_MACHINE_CPC:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			if (win[0] == 0)
+			{
+				// Subroutine
+				// TODO: Default colors (see manual)
+			}
+			else
+			{
+				if (win[1] < 27) VID_SetPaletteColor32(1, CPC_Colors[win[1] & 0x1F]);
+				if (win[2] < 27) VID_SetPaletteColor32(2, CPC_Colors[win[2] & 0x1F]);
+				if (win[3] < 27) VID_SetPaletteColor32(3, CPC_Colors[win[3] & 0x1F]);
+
+				int row    = win[4];
+				int col    = win[5];
+				int height = win[6];
+				int width  = win[7];
+				VID_Clear(col*8, row*8, width*8, height*8, 0);
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+			ink     = 1;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			VID_SaveDebugBitmap();
+			return result;
+		}
+		case DDB_MACHINE_SPECTRUM:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+			if ((win[0] & 0x80) == 0x80)
+			{
+				VID_SetInk(win[0] & 0x07);
+				VID_SetPaper((win[0] >> 3) & 0x07);
+				VID_SetBright(0);
+				VID_SetFlash(0);
+				
+				int row = win[1];
+				int col = win[2];
+				int height = win[3];
+				int width = win[4];
+				VID_Clear(col*6, row*8, width*6, height*8, 0);
+				int col8 = (col*6) / 8;
+				int width8 = (col*6+width*6 + 5) / 8 - col8;
+				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			// VID_SaveDebugBitmap();
+			return result;
+		}
 	}
-	cursorX = 0;
-	cursorY = scrMaxY;
-	bool result = DrawVectorSubroutine(picno, 0, false, false);
-	// VID_SaveDebugBitmap();
-	return result;
+
+	return false;
 }
 
 #endif
