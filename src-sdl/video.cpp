@@ -1195,7 +1195,7 @@ bool VID_Initialize (DDB_Machine machine)
 			screenHeight  = 200;
 			columnWidth = 8;
 			for (int n = 0; n < 256; n++)
-				charWidth[n] = 6;	
+				charWidth[n] = 8;	
 			break;
 		default:
 			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
