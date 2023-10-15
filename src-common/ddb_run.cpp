@@ -2557,6 +2557,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						#if HAS_DRAWSTRING
 						DDB_DrawVectorPicture(param0);
 						#endif
+						i->flags[40] = 255;
 					}
 					else if (BufferPicture(i, param0))
 						DrawBufferedPicture(i);

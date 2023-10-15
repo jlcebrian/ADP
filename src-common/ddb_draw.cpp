@@ -1091,7 +1091,7 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 			if (win[0] == 0)
 			{
 				// Subroutine
-				// TODO: Default colors (see manual)
+				return false;
 			}
 			else
 			{
@@ -1131,6 +1131,11 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 				int col8 = (col*6) / 8;
 				int width8 = (col*6+width*6 + 5) / 8 - col8;
 				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+			}
+			else
+			{
+				// Subroutine
+				return false;
 			}
 			cursorX = 0;
 			cursorY = scrMaxY;
