@@ -1,10 +1,13 @@
 #if HAS_SNAPSHOTS
 
-#include "ddb.h"
-#include "os_file.h"
-#include "os_lib.h"
-#include "os_mem.h"
-#include "os_bito.h"
+#define NOZIP_IMPLEMENTATION
+
+#include <ddb.h>
+#include <os_file.h>
+#include <os_lib.h>
+#include <os_mem.h>
+#include <os_bito.h>
+#include <nozip.h>
 
 static uint8_t* snapshotRAM = 0;
 static size_t   snapshotSize = 0;
@@ -29,6 +32,41 @@ static bool AllocateSnapshot(size_t size)
 	}
 	snapshotSize = size;
 	return true;
+}
+
+// ----------------------------------------------------------------------------
+//  STA Snapshot support (BlueMSX)
+// ----------------------------------------------------------------------------
+
+static bool LoadSnapshotFromSTA(File* file)
+{
+	ZIP_Entry* entries;
+	int count = ZIP_Read(&entries, file);
+
+	for (int n = 0; n < count; n++)
+	{
+		if (StrComp(entries[n].filename, "mapperNormalRam_00") == 0 &&
+			entries[n].uncompressed_size == 65556)
+		{
+			snapshotRAM = Allocate<uint8_t>("Snapshot", 65556);
+			if (snapshotRAM == 0)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				return false;
+			}
+			snapshotSize = 65536;
+			if (!ZIP_Extract(file, entries + n, snapshotRAM, 65556))
+			{
+				Free(snapshotRAM);
+				snapshotRAM = 0;
+				DDB_SetError(DDB_ERROR_READING_FILE);
+				return false;
+			}
+			MemMove(snapshotRAM, snapshotRAM+20, 65536);
+			return true;
+		}
+	}
+	return false;
 }
 
 // ----------------------------------------------------------------------------
@@ -624,6 +662,16 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 			return false;
 
 		if (machine) *machine = DDB_MACHINE_SPECTRUM;
+		if (ram) *ram = snapshotRAM;
+		if (size) *size = snapshotSize;
+		return true;
+	}
+	else if (CheckExtension(filename, "sta"))
+	{
+		if (!LoadSnapshotFromSTA(file))
+			return false;
+
+		if (machine) *machine = DDB_MACHINE_MSX;
 		if (ram) *ram = snapshotRAM;
 		if (size) *size = snapshotSize;
 		return true;

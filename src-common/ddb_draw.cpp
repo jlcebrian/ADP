@@ -8,7 +8,7 @@
 #include <os_file.h>
 #include <stdio.h>
 
-// #define TRACE_VECTOR
+#define TRACE_VECTOR
 // #define DISABLE_FILL
 
 uint32_t CPC_Colors[27] = {
@@ -53,34 +53,40 @@ static uint16_t scrMaxX = 255;
 static uint16_t scrMaxY = 175;
 static uint8_t  stride  = 32;
 static bool     pixelMode = false;
+static uint8_t  transparentColor = 8;
 
 void VID_SetInk (uint8_t value)
 {
+	uint8_t mask = transparentColor - 1;
+
 	ink = value;
-	if (ink == 8)
+	if (ink == transparentColor)
 	{
-		attrMask  |=  0x07;
-		attrValue &= ~0x07;
+		attrMask  |=  mask;
+		attrValue &= ~mask;
 	}
 	else
 	{
-		attrMask &= ~0x07;
-		attrValue = (attrValue & ~0x07) | (ink & 0x07);
+		attrMask &= ~mask;
+		attrValue = (attrValue & ~mask) | (ink & mask);
 	}
 }
 
 void VID_SetPaper (uint8_t value)
 {
+	uint8_t shift = transparentColor == 8 ? 3 : 4;
+	uint8_t mask = (transparentColor - 1) << shift;
+
 	paper = value;
-	if (paper == 8)
+	if (paper == transparentColor)
 	{
-		attrMask  |=  0x38;
-		attrValue &= ~0x38;
+		attrMask  |=  mask;
+		attrValue &= ~mask;
 	}
 	else
 	{
-		attrMask &= ~0x38;
-		attrValue = (attrValue & ~0x38) | ((paper & 0x07) << 3);
+		attrMask &= ~mask;
+		attrValue = (attrValue & ~mask) | ((paper << shift) & mask);
 	}
 }
 
@@ -870,6 +876,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 			return true;
 
 		case DDB_MACHINE_SPECTRUM:
+		case DDB_MACHINE_MSX:
 			if (*ptr == 7)
 				return false;
 			for (;;)
@@ -1020,19 +1027,29 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						DebugPrintf("%02X PAPER                 ", ptr[0]);
 						#endif
 
-						if (*ptr & 0x80)
+						if (transparentColor == 8)
 						{
-							#ifdef TRACE_VECTOR
-							DebugPrintf("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
-							#endif
-							VID_SetBright((*ptr >> 3) & 0x0F);
+							if (*ptr & 0x80)
+							{
+								#ifdef TRACE_VECTOR
+								DebugPrintf("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
+								#endif
+								VID_SetBright((*ptr >> 3) & 0x0F);
+							}
+							else
+							{
+								#ifdef TRACE_VECTOR
+								DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
+								#endif
+								VID_SetPaper((*ptr >> 3) & 0x0F);
+							}
 						}
 						else
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
+							DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x1F);
 							#endif
-							VID_SetPaper((*ptr >> 3) & 0x0F);
+							VID_SetPaper((*ptr >> 3) & 0x1F);
 						}
 						ptr++;
 						break;
@@ -1043,19 +1060,29 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						DebugPrintf("%02X INK                   ", ptr[0]);
 						#endif
 
-						if (*ptr & 0x80)
+						if (transparentColor == 8)
 						{
-							#ifdef TRACE_VECTOR
-							DebugPrintf("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
-							#endif
-							VID_SetFlash((*ptr >> 3) & 0x0F);
+							if (*ptr & 0x80)
+							{
+								#ifdef TRACE_VECTOR
+								DebugPrintf("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
+								#endif
+								VID_SetFlash((*ptr >> 3) & 0x0F);
+							}
+							else
+							{
+								#ifdef TRACE_VECTOR
+								DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
+								#endif
+								VID_SetInk((*ptr >> 3) & 0x0F);
+							}
 						}
 						else
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
+							DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x1F);
 							#endif
-							VID_SetInk((*ptr >> 3) & 0x0F);
+							VID_SetInk((*ptr >> 3) & 0x1F);
 						}
 						ptr++;
 						break;
@@ -1087,8 +1114,11 @@ bool DDB_HasVectorPicture (uint8_t picno)
 	{
 		default:
 			return (*ptr != 2);
+		case DDB_MACHINE_C64:
+			return (*ptr != 0x02);
 		case DDB_MACHINE_CPC:
 			return (*ptr != 0x40);
+		case DDB_MACHINE_MSX:
 		case DDB_MACHINE_SPECTRUM:
 			return (*ptr != 7);
 	}
@@ -1157,6 +1187,37 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 			return result;
 		}
 
+		case DDB_MACHINE_MSX:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			if ((win[0] & 0x80) == 0x80)
+			{
+				VID_SetInk(win[1] & 0x0F);
+				VID_SetPaper((win[1] >> 4) & 0x0F);
+				VID_SetBright(0);
+				VID_SetFlash(0);
+				
+				int row = win[2];
+				int col = win[3];
+				int height = win[4];
+				int width = win[5];
+				VID_Clear(col*6, row*8, width*6, height*8, 0);
+				int col8 = (col*6) / 8;
+				int width8 = (col*6+width*6 + 5) / 8 - col8;
+				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+			}
+			else
+			{
+				// Subroutine
+				return false;
+			}
+			cursorX = 0;
+			cursorY = scrMaxY;
+
+			bool result = DrawVectorSubroutine(picno, 0, false, false);
+			// VID_SaveDebugBitmap();
+			return result;
+		}
 		case DDB_MACHINE_SPECTRUM:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
@@ -1294,6 +1355,41 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			return true;
 		}
 
+		case DDB_MACHINE_MSX:
+		{
+			if (size < 65536)
+				return false;
+
+			vectorGraphicsRAM = data;
+
+			spare   = read16LE(data + 0xAFED);
+			start   = read16LE(data + 0xAFEF);
+			table   = read16LE(data + 0xAFF1);
+			windefs = read16LE(data + 0xAFF3);
+			unknown = read16LE(data + 0xAFF5);
+			charset = read16LE(data + 0xAFF7);
+			coltab  = read16LE(data + 0xAFF9);
+			ending  = read16LE(data + 0xAFFB);
+			count   = data[0xAFFD];
+
+			if (table < start || charset < start || coltab < start)
+				return false;
+			if (windefs + 6*count > size)
+				return false;
+			if (data[windefs + 6*count] != 0xFF)
+				return false;
+			if (ending != 0xFFFF)
+				return false;
+
+			scrMaxX = 255;
+			scrMaxY = 175;
+			stride  = 32;
+			transparentColor = 16;
+
+			VID_SetCharset(data + charset);
+			return true;
+		}
+
 		case DDB_MACHINE_SPECTRUM:
 		{
 			if (size < 65536)
@@ -1330,6 +1426,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			scrMaxX = 255;
 			scrMaxY = 175;
 			stride  = 32;
+			transparentColor = 8;
 
 			VID_SetCharset(data + charset);
 			return true;

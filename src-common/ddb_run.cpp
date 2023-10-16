@@ -89,6 +89,7 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 			break;
 
 		case DDB_MACHINE_C64:
+		case DDB_MACHINE_MSX:
 			for (int n = 0; n < 16; n++)
 				i->inkMap[n] = n;
 			break;

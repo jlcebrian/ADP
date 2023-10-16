@@ -385,10 +385,17 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		uint8_t* out = bitmap + y * stride + (x >> 3);
 		uint8_t  rot = x & 7;
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
-		uint8_t xattr = (ink & 0x30) << 2;
+		uint8_t xattr = 0;
 		uint8_t width = charWidth[ch];
+		uint8_t paperShift = 4;
 
-		ink &= 7;
+		if (screenMachine == DDB_MACHINE_SPECTRUM)
+		{
+			xattr = (ink & 0x30) << 2;			
+			ink &= 7;
+			paper &= 7;
+			paperShift = 3;
+		}
 
 		if (paper == 255)
 		{
@@ -399,7 +406,7 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		else
 		{
 			paper &= 7;
-			curAttr = ink | (paper << 3) | xattr;
+			curAttr = ink | (paper << paperShift) | xattr;
 			*attr = curAttr;
 			if (rot > 8-width)
 				attr[1] = *attr;
@@ -732,6 +739,7 @@ static void	RenderSpectrumScreen(uint8_t* attributes)
 	uint8_t* attrPtr = attributes;
 	uint8_t cols = screenWidth / 8;
 	uint8_t rows = screenHeight / 8;
+	bool spectrum = (screenMachine == DDB_MACHINE_SPECTRUM);
 	for (int y = 0; y < rows; y++)
 	{
 		uint8_t* ptr = bitmap + stride * (y * 8);
@@ -740,21 +748,30 @@ static void	RenderSpectrumScreen(uint8_t* attributes)
 		for (int x = 0; x < cols; x++, ptr++)
 		{
 			uint8_t attr = *attrPtr++;
-			uint8_t ink = (attr & 0x07);
-			uint8_t paper = ((attr >> 3) & 0x07);
-			if (attr & 0x40)
+			uint8_t ink, paper;
+			if (spectrum)
 			{
-				// Bright On
-				ink |= 0x08;
-				if (paper != 0)
-					paper |= 0x08;
+				ink = (attr & 0x07);
+				paper = ((attr >> 3) & 0x07);
+				if (attr & 0x40)
+				{
+					// Bright On
+					ink |= 0x08;
+					if (paper != 0)
+						paper |= 0x08;
+				}
+				if ((attr & 0x80) && flashOn)
+				{
+					// Flash On
+					uint8_t tmp = ink;
+					ink = paper;
+					paper = tmp;
+				}
 			}
-			if ((attr & 0x80) && flashOn)
+			else
 			{
-				// Flash On
-				uint8_t tmp = ink;
-				ink = paper;
-				paper = tmp;
+				ink = (attr & 0x0F);
+				paper = ((attr >> 4) & 0x0F);
 			}
 
 			uint8_t* outPtr = out;
@@ -1182,6 +1199,15 @@ bool VID_Initialize (DDB_Machine machine)
 	
 	switch (machine)
 	{
+		case DDB_MACHINE_MSX:
+			memcpy(DefaultPalette, MSXPalette, sizeof(MSXPalette));
+			screenMachine = machine;
+			screenWidth   = 256;
+			screenHeight  = 192;
+			bitmap        = Allocate<uint8_t>("MSX Screen Data", 256 * 192 / 8);
+			attributes    = Allocate<uint8_t>("MSX Attributes", 32 * 24);
+			stride        = 32;
+			break;
 		case DDB_MACHINE_SPECTRUM:
 			memcpy(DefaultPalette, ZXSpectrumPalette, sizeof(ZXSpectrumPalette));
 			screenMachine = machine;
