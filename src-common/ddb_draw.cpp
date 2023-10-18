@@ -1115,12 +1115,25 @@ bool DDB_HasVectorPicture (uint8_t picno)
 		default:
 			return (*ptr != 2);
 		case DDB_MACHINE_C64:
-			return (*ptr != 0x02);
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			return (*win == 0) && (*ptr != 0x02);
+		}
 		case DDB_MACHINE_CPC:
-			return (*ptr != 0x40);
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			return (*win != 0) && (*ptr != 0x40);
+		}
 		case DDB_MACHINE_MSX:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			return (*win & 0x80) && (*ptr != 7);
+		}
 		case DDB_MACHINE_SPECTRUM:
-			return (*ptr != 7);
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+			return (*win & 0x80) && (*ptr != 7);
+		}
 	}
 }
 

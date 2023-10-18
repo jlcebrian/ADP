@@ -1297,8 +1297,6 @@ bool VID_Initialize (DDB_Machine machine)
 
 	int w, h;
 	SDL_GetWindowSize(window, &w, &h);
-	DebugPrintf("Window Created: %p (%dx%d at scale %d)\n", window, w, h, scale);
-
 	return true;
 }
 

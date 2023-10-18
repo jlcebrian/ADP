@@ -88,6 +88,15 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 				i->inkMap[n] = n & 3;
 			break;
 
+		case DDB_MACHINE_SPECTRUM:
+			// TODO: Honor ink map from drawstring database
+			i->inkMap[0] = 0;
+			i->inkMap[1] = 7;
+			for (int n = 2; n < 16; n++)
+				i->inkMap[n] = n;
+			i->inkMap[7] = 1;
+			break;
+
 		case DDB_MACHINE_C64:
 		case DDB_MACHINE_MSX:
 			for (int n = 0; n < 16; n++)
