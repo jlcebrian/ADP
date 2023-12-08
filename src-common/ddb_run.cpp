@@ -1691,6 +1691,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			// Text output
 
+			case_DESC:
 			case CONDACT_DESC:
 				UpdatePos(i, process, entry, offset + params + 1);
 				if (params == 0)
@@ -2109,14 +2110,28 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_RESET:
-				i->flags[Flag_NumCarried] = 0;
-				for (int n = 0; n < i->ddb->numObjects; n++)
+				if (i->ddb->version == 1) 
 				{
-					i->objloc[n] = i->ddb->objLocTable[n];
-					if (i->objloc[n] == Loc_Carried)
-						i->flags[Flag_NumCarried]++;
+					for (int n = 0; n < i->ddb->numObjects; n++)
+					{
+						if (i->objloc[n] == i->flags[Flag_Locno])
+							i->objloc[n] = param0;
+						else if (i->objloc[n] != Loc_Carried && i->objloc[n] != Loc_Worn)
+							i->objloc[n] = i->ddb->objLocTable[n];
+					}
+					goto case_DESC;
 				}
-				i->done = true;
+				else
+				{
+					i->flags[Flag_NumCarried] = 0;
+					for (int n = 0; n < i->ddb->numObjects; n++)
+					{
+						i->objloc[n] = i->ddb->objLocTable[n];
+						if (i->objloc[n] == Loc_Carried)
+							i->flags[Flag_NumCarried]++;
+					}
+					i->done = true;
+				}
 				break;
 			case CONDACT_ABILITY:
 				i->flags[Flag_MaxCarried] = param0;

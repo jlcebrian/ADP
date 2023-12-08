@@ -286,7 +286,7 @@
           98	0x62		BACKAT 		0
           99	0x63		PRINTAT		2
          100	0x64		WHATO  		0
-         101	0x65		CALL   		1
+         101	0x65		CALL   		1       RESET in old games
          102	0x66		PUTO   		1
          103	0x67		NOTDONE		0
          104	0x68		AUTOP  		1

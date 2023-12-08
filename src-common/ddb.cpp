@@ -116,7 +116,7 @@ static DDB_CondactMap version1Condacts[128] = {
 	{ CONDACT_BACKAT, 		  0 },		// 0x62
 	{ CONDACT_PRINTAT,		  2 },		// 0x63
 	{ CONDACT_WHATO,  		  0 },		// 0x64
-	{ CONDACT_CALL,   		  1 },		// 0x65
+	{ CONDACT_RESET,   		  1 },		// 0x65
 	{ CONDACT_PUTO,   		  1 },		// 0x66
 	{ CONDACT_NOTDONE,		  0 },		// 0x67
 	{ CONDACT_AUTOP,  		  1 },		// 0x68
