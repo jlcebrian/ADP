@@ -86,6 +86,10 @@ SET TOOLLIBS=lib\libpng\%WIN%\libpng16.lib lib\zlib\%WIN%\zlib.lib
 taskkill /F /IM ddb.exe /T >NUL 2>&1
 taskkill /F /IM adp.exe /T >NUL 2>&1
 
+echo ---- Compiling resource files
+rc /nologo /fo lib\ddb.res lib\ddb.rc
+rc /nologo /fo lib\player.res lib\player.rc
+
 echo ---- Compiling DDB
 cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\ddb.cpp ^
@@ -158,7 +162,7 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^
 	src-sdl\video.cpp ^
 	src-windows\error.cpp ^
 	src-windows\files.cpp ^
-	%LIBS% lib\ddb.res /link %LINK% /SUBSYSTEM:WINDOWS
+	%LIBS% lib\player.res /link %LINK% /SUBSYSTEM:WINDOWS
 IF %ERRORLEVEL% NEQ 0 GOTO :EOF
 
 echo ---- Compiling DC
