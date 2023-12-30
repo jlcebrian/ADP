@@ -27,7 +27,7 @@ static uint16_t start;
 static uint16_t table;
 static uint16_t windefs;
 static uint16_t unknown;
-static uint16_t charset;
+static uint16_t chset;
 static uint16_t coltab;
 static uint16_t extra;
 static uint16_t ending;
@@ -402,7 +402,7 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	if (y > scrMaxY) y = scrMaxY;
 
 	if (pattern >= 0)
-		MemCopy(ch, vectorGraphicsRAM + charset + 8*pattern, 8);
+		MemCopy(ch, vectorGraphicsRAM + chset + 8*pattern, 8);
 	else
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
 
@@ -519,6 +519,64 @@ void VID_AttributeFill (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 		for (int x = x0; x <= x1; x++, ptr++)
 			*ptr = (*ptr & attrMask) | attrValue;
 		ptr = line + stride;
+	}
+}
+
+void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
+{
+	if (!attributes)
+		return;
+
+	uint8_t* ptr = charset + (ch << 3);
+	uint8_t* out = bitmap + y * stride + (x >> 3);
+	uint8_t  rot = x & 7;
+	uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
+	uint8_t xattr = 0;
+	uint8_t width = 8;
+	uint8_t paperShift = 4;
+
+	if (screenMachine == DDB_MACHINE_SPECTRUM)
+	{
+		xattr = (ink & 0x30) << 2;			
+		ink &= 7;
+		paper &= 7;
+		paperShift = 3;
+	}
+
+	uint8_t curAttr = ink | (paper << paperShift) | xattr;
+
+	if (paper == 255)
+	{
+		*attr = (*attr & 0x37) | ink | xattr;
+		if (rot > 8-width)
+			attr[1] = (attr[1] & 0x37) | ink | xattr;
+	}
+	else
+	{
+		paper &= 7;
+		*attr = curAttr;
+		if (rot > 8-width)
+			attr[1] = *attr;
+	}
+
+	for (int line = 0; line < 8; line++)
+	{
+		uint8_t* sav = out;
+		uint8_t mask = 0x80 >> rot;
+		for (int col = 0; col < 8; col++)
+		{
+			if ((ptr[line] & (0x80 >> col)))
+				*out |= mask;
+			else if (paper != 255)
+				*out &= ~mask;
+			mask >>= 1;
+			if (mask == 0)
+			{
+				mask = 0x80;
+				out++;
+			}
+		}
+		out = sav + stride;
 	}
 }
 
@@ -1018,6 +1076,11 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						DebugPrintf("%02X TEXT    %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 						#endif
 
+						int code = ptr[1];
+						int col  = ptr[2];
+						int row  = ptr[3];
+						VID_Draw8x8Character(col*8, row*8, code, ink, paper);
+
 						ptr += 4;
 						break;
 					}
@@ -1140,7 +1203,10 @@ bool DDB_HasVectorPicture (uint8_t picno)
 bool DDB_DrawVectorPicture (uint8_t picno)
 {
 	if (picno >= count)
+	{
+		printf("DDB_DrawVectorPicture: picno %d out of range (0-%d)\n", picno, count-1);
 		return false;
+	}
 
 	switch (vectorGraphicsMachine)
 	{
@@ -1253,7 +1319,7 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 			else
 			{
 				// Subroutine
-				return false;
+				// return false;
 			}
 			cursorX = 0;
 			cursorY = scrMaxY;
@@ -1314,12 +1380,12 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			table   = read16LE(data + 0xCBF1);
 			windefs = read16LE(data + 0xCBF3);
 			unknown = read16LE(data + 0xCBF5);
-			charset = read16LE(data + 0xCBF7);;
+			chset   = read16LE(data + 0xCBF7);;
 			coltab  = read16LE(data + 0xCBF9);
 			ending  = read16LE(data + 0xCBFB);
 			count   = data[0xCBFD];
 
-			if (table < start || charset < start || coltab < start)
+			if (table < start || chset < start || coltab < start)
 				return false;
 			if (windefs + 6*count > size)
 				return false;
@@ -1332,7 +1398,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			scrMaxX = 319;
 			scrMaxY = 199;
 			stride  = 40;
-			VID_SetCharset(data + charset);
+			VID_SetCharset(data + chset);
 			return true;
 		}
 
@@ -1347,12 +1413,12 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			table   = read16LE(data + 0x9DF1);
 			windefs = read16LE(data + 0x9DF3);
 			unknown = read16LE(data + 0x9DF5);
-			charset = 0x9E00;
+			chset   = 0x9E00;
 			coltab  = read16LE(data + 0x9DF9);
 			ending  = read16LE(data + 0x9DFB);
 			count   = data[0x9DFD];
 
-			if (table < start || charset < start || coltab < start)
+			if (table < start || chset < start || coltab < start)
 				return false;
 			if (windefs + 8*count > size)
 				return false;
@@ -1361,10 +1427,10 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			if (ending != 0xFFFF)
 				return false;
 			
-			ending  = charset + 2048 - 1;
+			ending  = chset + 2048 - 1;
 			scrMaxX = 319;
 			scrMaxY = 183;
-			VID_SetCharset(data + charset);
+			VID_SetCharset(data + chset);
 			return true;
 		}
 
@@ -1380,12 +1446,12 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			table   = read16LE(data + 0xAFF1);
 			windefs = read16LE(data + 0xAFF3);
 			unknown = read16LE(data + 0xAFF5);
-			charset = read16LE(data + 0xAFF7);
+			chset   = read16LE(data + 0xAFF7);
 			coltab  = read16LE(data + 0xAFF9);
 			ending  = read16LE(data + 0xAFFB);
 			count   = data[0xAFFD];
 
-			if (table < start || charset < start || coltab < start)
+			if (table < start || chset < start || coltab < start)
 				return false;
 			if (windefs + 6*count > size)
 				return false;
@@ -1399,7 +1465,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			stride  = 32;
 			transparentColor = 16;
 
-			VID_SetCharset(data + charset);
+			VID_SetCharset(data + chset);
 			return true;
 		}
 
@@ -1415,12 +1481,12 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			table   = read16LE(data + 0xFFF1);
 			windefs = read16LE(data + 0xFFF3);
 			unknown = read16LE(data + 0xFFF5);
-			charset = read16LE(data + 0xFFF7);
+			chset   = read16LE(data + 0xFFF7);
 			coltab  = read16LE(data + 0xFFF9);
 			ending  = read16LE(data + 0xFFFB);
 			count   = data[0xFFFD];
 
-			if (table < start || charset < start || coltab < start)
+			if (table < start || chset < start || coltab < start)
 				return false;
 			if (windefs + 5*count > size)
 				return false;
@@ -1441,7 +1507,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			stride  = 32;
 			transparentColor = 8;
 
-			VID_SetCharset(data + charset);
+			VID_SetCharset(data + chset);
 			return true;
 		}
 

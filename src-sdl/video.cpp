@@ -262,7 +262,7 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
 		for (int dy = 0; dy < h; dy += 8)
 		{
-			for (int dx = 0; dx < w; dx++)
+			for (int dx = 0; dx <= w; dx++)
 				attr[dx] = color;
 			attr += stride;
 		}

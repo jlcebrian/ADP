@@ -2,7 +2,8 @@
 
 #include <ddb.h>
 
-extern bool   exitGame;
+extern bool         exitGame;
+extern DDB_Machine  screenMachine;
 
 extern bool   VID_Initialize          (DDB_Machine machine);
 extern void   VID_Finish              ();
