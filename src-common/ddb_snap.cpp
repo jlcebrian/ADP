@@ -2,12 +2,12 @@
 
 #define NOZIP_IMPLEMENTATION
 
+#include <nozip.h>
 #include <ddb.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
 #include <os_bito.h>
-#include <nozip.h>
 
 static uint8_t* snapshotRAM = 0;
 static size_t   snapshotSize = 0;
@@ -200,6 +200,64 @@ static bool LoadCPCSnapshotFromSNA(File* file)
 		DDB_SetError(DDB_ERROR_READING_FILE);
 		return false;
 	}
+	return true;
+}
+
+// ----------------------------------------------------------------------------
+//  ZX Spectrum SNA Snapshot support
+// ----------------------------------------------------------------------------
+
+#pragma pack(push, 1)
+struct SNASnapshotHeader
+{
+	uint8_t	I;
+	uint16_t HLp, DEp, BCp, AFp, HL, DE, BC, IY, IX;
+	uint8_t interrupt, R;
+	uint16_t AF, SP;
+	uint8_t IM, border;
+};
+struct SNAP128KHeader
+{
+	uint16_t PC;
+	uint8_t  pager, trDOSPage;
+};
+#pragma pack(pop)
+
+static bool LoadSnapshotFromSNA (File* file)
+{
+	uint64_t fileSize = File_GetSize(file);
+
+	if (fileSize == 131103 || fileSize == 147487)
+	{
+		// This is a 128K snapshot
+		SNAP128KHeader header;
+
+		AllocateSnapshot(0x30000);
+		File_Seek(file, sizeof(SNASnapshotHeader));
+		File_Read(file, snapshotRAM + 16384, 49152);
+		File_Read(file, &header, sizeof(header));
+
+		uint8_t page = header.pager & 7;
+		MemCopy(snapshotRAM + 0x4000, snapshotRAM + 0x24000 /* page 5 */, 0x4000);
+		MemCopy(snapshotRAM + 0x8000, snapshotRAM + 0x18000 /* page 2 */, 0x4000);
+		MemCopy(snapshotRAM + 0xC000, snapshotRAM + 0x10000 + page * 0x4000, 0x4000);
+		for (int i = 0; i < 8; i++) 
+		{
+			if (i != page && i != 2 && i != 5)
+				File_Read(file, snapshotRAM + 0x10000 + i * 0x4000, 0x4000);
+		}
+		return true;
+	}
+
+	if (fileSize != 49179)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	AllocateSnapshot(65536);
+	File_Seek(file, sizeof(SNASnapshotHeader));
+	File_Read(file, snapshotRAM + 16384, 49152);
 	return true;
 }
 
@@ -650,6 +708,13 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (LoadCPCSnapshotFromSNA(file))
 		{
 			if (machine) *machine = DDB_MACHINE_CPC;
+			if (ram) *ram = snapshotRAM;
+			if (size) *size = snapshotSize;
+			return true;
+		}
+		if (LoadSnapshotFromSNA(file))
+		{
+			if (machine) *machine = DDB_MACHINE_SPECTRUM;
 			if (ram) *ram = snapshotRAM;
 			if (size) *size = snapshotSize;
 			return true;

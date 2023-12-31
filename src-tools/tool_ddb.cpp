@@ -265,6 +265,8 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 		printf("DDB file written to '%s'\n", outputFileName);
+		
+		#if HAS_DRAWSTRING
 		if (DDB_HasVectorDatabase())
 		{
 			const char* extension = ".bin";
@@ -284,6 +286,8 @@ int main (int argc, char *argv[])
 			}
 			printf("Vector database written to '%s'\n", outputFileName);
 		}
+		#endif
+		
 		return 0;
 	}
 

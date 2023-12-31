@@ -28,6 +28,7 @@
 
 #include <os_file.h>
 #include <os_lib.h>
+#include <os_mem.h>
 
 struct ZIP_Entry {
     uint64_t uncompressed_size;
@@ -37,11 +38,11 @@ struct ZIP_Entry {
     time_t mtime;
 };
 
-size_t ZIP_Read     (ZIP_Entry **ptr, File *stream);
-int    ZIP_Store    (File *stream, const char *filename, const void *data, size_t size);
-bool   ZIP_Seek     (File *stream, const ZIP_Entry *entry);
-bool   ZIP_Extract  (File *stream, const ZIP_Entry *entry, void *data, size_t size);
-int    ZIP_Finalize (File *stream);
+extern size_t ZIP_Read     (ZIP_Entry **ptr, File *stream);
+extern int    ZIP_Store    (File *stream, const char *filename, const void *data, size_t size);
+extern bool   ZIP_Seek     (File *stream, const ZIP_Entry *entry);
+extern bool   ZIP_Extract  (File *stream, const ZIP_Entry *entry, void *data, size_t size);
+extern int    ZIP_Finalize (File *stream);
 
 #endif // NOZIP_H
 

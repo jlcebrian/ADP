@@ -13,5 +13,6 @@ build
 *.ddb
 *.10x
 .vscode
+*.rdbg
 
 web-games/*
