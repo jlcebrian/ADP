@@ -238,9 +238,9 @@ static bool LoadSnapshotFromSNA (File* file)
 		File_Read(file, &header, sizeof(header));
 
 		uint8_t page = header.pager & 7;
-		MemCopy(snapshotRAM + 0x4000, snapshotRAM + 0x24000 /* page 5 */, 0x4000);
-		MemCopy(snapshotRAM + 0x8000, snapshotRAM + 0x18000 /* page 2 */, 0x4000);
-		MemCopy(snapshotRAM + 0xC000, snapshotRAM + 0x10000 + page * 0x4000, 0x4000);
+		MemCopy(snapshotRAM + 0x24000 /* page  5 */, snapshotRAM + 0x4000, 0x4000);
+		MemCopy(snapshotRAM + 0x18000 /* page  2 */, snapshotRAM + 0x8000, 0x4000);
+		MemCopy(snapshotRAM + 0x10000 + page*0x4000, snapshotRAM + 0xC000, 0x4000);
 		for (int i = 0; i < 8; i++) 
 		{
 			if (i != page && i != 2 && i != 5)

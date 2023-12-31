@@ -58,7 +58,7 @@ enum SCR_KeyMod
 
 typedef void (*MainLoopCallback)(int elapsed);
 
-#ifdef  NO_BUFFERING
+#if  NO_BUFFERING
 
 #include <ddb_vid.h>
 

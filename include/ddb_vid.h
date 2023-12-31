@@ -5,7 +5,7 @@
 extern bool         exitGame;
 extern DDB_Machine  screenMachine;
 
-extern bool   VID_Initialize          (DDB_Machine machine);
+extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version);
 extern void   VID_Finish              ();
 
 extern bool   VID_AnyKey              ();
@@ -44,13 +44,14 @@ extern void   VID_ActivatePalette     ();
 extern void   VID_ShowProgressBar     (uint16_t amount);
 extern void   VID_InnerLoop           ();
 extern void   VID_SetCharset          (const uint8_t* charset);
+extern void   VID_SetCharsetWidth     (uint8_t width);
 
 inline  void  VID_SetPaletteColor32   (uint8_t color, uint32_t rgb)
 {
 	VID_SetPaletteColor(color, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
 }
 
-#ifdef HAS_DRAWSTRING
+#if HAS_DRAWSTRING
 extern void   VID_SetInk     		  (uint8_t color);
 extern void   VID_SetPaper     		  (uint8_t color);
 extern void   VID_SetPaper     		  (uint8_t color);
@@ -63,12 +64,12 @@ extern void   VID_PatternFill         (int16_t x, int16_t y, int pattern);
 extern void   VID_AttributeFill		  (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
 #endif
 
-#ifdef HAS_CLIPBOARD
+#if HAS_CLIPBOARD
 extern bool   VID_HasClipboardText    (uint32_t* size);
 extern void   VID_GetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
 extern void   VID_SetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
 #endif
 
-#ifdef HAS_FULLSCREEN
+#if HAS_FULLSCREEN
 extern void   VID_ToggleFullscreen    ();
 #endif

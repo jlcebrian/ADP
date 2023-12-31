@@ -235,7 +235,7 @@ static void TraceVocabularyWord (DDB* ddb, uint8_t type, uint8_t index)
 		}
 		ptr += 7;
 	}
-	const int convertibleNoun = ddb->version == 1 ? 20 : 40;
+	const int convertibleNoun = ddb->version < 2 ? 20 : 40;
 	if (type == WordType_Verb && index < convertibleNoun)
 		TraceVocabularyWord(ddb, WordType_Noun, index);
 	else
@@ -675,19 +675,21 @@ bool DDB_OutputMessageWin (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, 
 
 	TRACE("%s%d: \"", DDB_MessageTypeNames[type], msgId);
 
+	uint8_t eof = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
+
 	while (true)
 	{
 		uint8_t c = *ptr++ ^ 0xFF;
-		if (c == 0x0A)
+		if (c == eof)
 			break;
-		if (c >= 128)
+		if (c >= ddb->firstToken)
 		{
 			if (!ddb->hasTokens)
 			{
 				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
 				continue;
 			}
-			uint8_t* token = ddb->tokensPtr[c - 128];
+			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
 			if (token == 0)
 			{
 				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
@@ -1015,7 +1017,7 @@ static bool Absent(DDB_Interpreter* i, uint8_t objno)
 
 void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 {
-	if (i->ddb->version == 2)
+	if (i->ddb->version > 1)
 	{
 		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);	
 		return;
@@ -1028,11 +1030,11 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		
 	if (i->flags[Flag_Darkness] != 0 && Absent(i, 0))
 	{
-		if (i->ddb->version == 1 && i->flags[4] > 0)
+		if (i->ddb->version < 2 && i->flags[4] > 0)
 			i->flags[4]--;
 
 
-		if (i->ddb->version == 1)
+		if (i->ddb->version < 2)
 		{
 			if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 			{
@@ -1048,7 +1050,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		i->flags[40] = 0;
 			
 		DDB_SetWindow(i, 0);
-		if (i->ddb->vector)
+		if (i->ddb->drawString)
 		{
 			DDB_ClearWindow(i, &i->win);
 			#if HAS_DRAWSTRING
@@ -1332,7 +1334,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 		i->inputBufferPtr = ptr - i->inputBuffer;
 	}
 
-	const int convertibleNoun = i->ddb->version == 1 ? 20 : 40;
+	const int convertibleNoun = i->ddb->version < 2 ? 20 : 40;
 	if (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < convertibleNoun)
 		i->flags[Flag_Verb] = i->flags[Flag_Noun1];
 	else if (i->flags[Flag_Verb] == 255 && previousVerb && i->flags[Flag_Noun1] != 255 && i->flags[Flag_Noun1] != previousVerb)
@@ -1408,6 +1410,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 	uint16_t paletteChanges = 0;
 	bool repeatingDisplay = false;
 
+	bool matchVerbNoun = true;
+	if (i->ddb->version < 2 && i->oldMainLoopState != FLOW_RESPONSES)
+		matchVerbNoun = false;
+
 	uint8_t  process  = i->procstack[i->procstackptr].process;
 	uint16_t entry    = i->procstack[i->procstackptr].entry;
 	uint16_t offset   = i->procstack[i->procstackptr].offset;
@@ -1476,8 +1482,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				uint8_t verb = entryPtr[0];
 				uint8_t noun = entryPtr[1];
 
-				if ((verb != 255 && verb != i->flags[Flag_Verb]) ||
-				    (noun != 255 && noun != i->flags[Flag_Noun1]))
+				if (matchVerbNoun && (
+					(verb != 255 && verb != i->flags[Flag_Verb]) ||
+				    (noun != 255 && noun != i->flags[Flag_Noun1])))
 				{
 					entry++;
 					offset = 0;
@@ -2110,7 +2117,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_RESET:
-				if (i->ddb->version == 1) 
+				if (i->ddb->version < 2) 
 				{
 					for (int n = 0; n < i->ddb->numObjects; n++)
 					{
@@ -2158,7 +2165,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			// Parser
 
 			case CONDACT_PARSE:
-				if (i->ddb->version >= 2 && param0 != 1)
+				if (i->ddb->version > 1 && param0 != 1)
 				{
 					// In later version, perform INPUT here when no input is available
 					while (i->inputBufferPtr < i->inputBufferLength && i->inputBuffer[i->inputBufferPtr] == ' ')
@@ -2180,7 +2187,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						return;
 					}
 				}
-				ok = !Parse(i, i->ddb->version == 1 || param0 == 1);
+				ok = !Parse(i, i->ddb->version < 2 || param0 == 1);
 				if (ok) DDB_NewText(i);
 				break;
 
@@ -2589,9 +2596,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_ClearWindow(i, &i->win);
 				break;
 			case CONDACT_PICTURE:
-				if (i->ddb->version == 1)
+				if (i->ddb->version < 2)
 				{
-					if (i->ddb->vector)
+					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
 						DDB_DrawVectorPicture(param0);
@@ -2603,7 +2610,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				else
 				{
-					if (i->ddb->vector)
+					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
 						ok = DDB_HasVectorPicture(param0);
@@ -2634,7 +2641,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						TRACE("\n");
 						return;
 					}
-					if (i->ddb->vector)
+					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
 						DDB_DrawVectorPicture(i->currentPicture);
@@ -2658,7 +2665,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_GFX:		// GRAPHIC in old version
 				i->done = true;
-				if (i->ddb->version == 1)
+				if (i->ddb->version < 2)
 				{
 					// Set bits 3 to 6 of graphic flags
 					i->flags[Flag_GraphicFlags] &= 0x87;

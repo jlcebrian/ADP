@@ -89,7 +89,7 @@ DDB* DDB_Create()
 		return 0;
 	}
 
-	ddb->version = 2;
+	ddb->version = DDB_VERSION_2;
 	ddb->target = DDB_MACHINE_ATARIST;
 	ddb->language = DDB_SPANISH;
 	ddb->data = 0;

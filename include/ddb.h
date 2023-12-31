@@ -210,6 +210,7 @@ enum DDB_Condact
 	CONDACT_GET,
 	CONDACT_GFX,
 	CONDACT_GOTO,
+	CONDACT_GRAPHIC,
 	CONDACT_GT,
 	CONDACT_HASAT,
 	CONDACT_HASNAT,
@@ -292,6 +293,13 @@ enum DDB_Condact
 	CONDACT_WORN,
 	CONDACT_ZERO,
 
+	// PAWS-specific
+	CONDACT_INVEN,
+	CONDACT_SCORE,
+	CONDACT_CHARSET,
+	CONDACT_LINE,
+	CONDACT_PROTECT,
+
 	CONDACT_INVALID,
 };
 
@@ -299,6 +307,13 @@ struct DDB_CondactMap
 {
 	DDB_Condact	condact;
 	uint8_t     parameters;
+};
+
+enum DDB_Version
+{
+	DDB_VERSION_PAWS = 0,
+	DDB_VERSION_1    = 1,
+	DDB_VERSION_2    = 2,
 };
 
 enum DDB_Machine
@@ -331,22 +346,24 @@ enum DDB_Flow
 
 struct DDB
 {
-	uint8_t 		version;			// 1: Original/Jabato - 2: Later
+	DDB_Version		version;			// 1: Original/Jabato - 2: Later
 	DDB_Machine		target;				// Target machine
 	DDB_Language	language;			// Target language
 	DDB_CondactMap*	condactMap;			// maps 0-127 to condacts
 
 	bool			littleEndian;
 	bool			oldMainLoop;
-	bool			vector;
+	bool			drawString;
 
 	uint8_t			numObjects;
 	uint8_t			numLocations;
 	uint8_t			numMessages;
 	uint8_t			numSystemMessages;
 	uint8_t			numProcesses;
+	uint8_t         numCharsets;
 
 	bool			hasTokens;
+	uint8_t         firstToken;
 	uint8_t*        tokens;
 	uint8_t*		tokensPtr[128];
 	size_t 			tokenBlockSize;
@@ -363,12 +380,13 @@ struct DDB
 	uint16_t*		connections;
 	uint8_t*		vocabulary;
 	uint8_t*        externData;
+	uint8_t*        charsets;
 	
 	// Data storage: all pointers above are required to point to this block
 
 	uint8_t*		memory;
 	uint8_t*		data;
-	uint16_t		dataSize;
+	uint32_t		dataSize;
 	uint16_t		baseOffset;
 };
 
@@ -542,7 +560,7 @@ extern DDB_Interpreter* interpreter;
 typedef int (*DDB_PrintFunc)(const char* format, ...);
 
 extern DDB*				DDB_Load				 (const char* filename);
-extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, int* version);
+extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version);
 extern DDB*             DDB_Create               ();
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);

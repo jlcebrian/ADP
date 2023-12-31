@@ -188,6 +188,12 @@ void VID_SetCharset (const uint8_t* newCharset)
 	charsetInitialized = true;
 }
 
+void VID_SetCharsetWidth(uint8_t w)
+{
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = w;
+}
+
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
 	FILE* file = fopen(filename, "rb");
@@ -1184,7 +1190,7 @@ bool VID_LoadDataFile(const char* fileName)
 	return true;
 }
 
-bool VID_Initialize (DDB_Machine machine)
+bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 {
 	DebugPrintf("Initializing video subsystem\n");
 
@@ -1192,10 +1198,10 @@ bool VID_Initialize (DDB_Machine machine)
 	VID_InitAudio();
 	SDL_StopTextInput();
 
-	lineHeight       = 8;
-	columnWidth      = 6;
+	lineHeight  = 8;
+	columnWidth = version == DDB_VERSION_PAWS ? 8 : 6;
 	for (int n = 0; n < 256; n++)
-		charWidth[n] = 6;
+		charWidth[n] = columnWidth;
 	
 	switch (machine)
 	{

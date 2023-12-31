@@ -102,7 +102,7 @@ static DDB_CondactMap version1Condacts[128] = {
 	{ CONDACT_PICTURE,		  1 },		// 0x54
 	{ CONDACT_DOALL,  		  1 },		// 0x55
 	{ CONDACT_PROMPT,  		  1 },		// 0x56
-	{ CONDACT_MODE,    		  2 },		// 0x57
+	{ CONDACT_GRAPHIC, 		  1 },		// 0x57
 	{ CONDACT_ISNOTAT,		  2 },		// 0x58
 	{ CONDACT_WEIGH,  		  2 },		// 0x59
 	{ CONDACT_PUTIN,  		  2 },		// 0x5A
@@ -279,6 +279,144 @@ static DDB_CondactMap version2Condacts[128] = {
 	{ CONDACT_RESET,   		  0 },		// 0x7F
 };
 
+#if HAS_PAWS
+
+static DDB_CondactMap pawsCondacts[128] = {
+	{ CONDACT_AT,     		  1 },		// 0x00
+	{ CONDACT_NOTAT,  		  1 },		// 0x01
+	{ CONDACT_ATGT,           1 },		// 0x02
+	{ CONDACT_ATLT,   		  1 },		// 0x03
+	{ CONDACT_PRESENT,		  1 },		// 0x04
+	{ CONDACT_ABSENT, 		  1 },		// 0x05
+	{ CONDACT_WORN,   		  1 },		// 0x06
+	{ CONDACT_NOTWORN,		  1 },		// 0x07
+	{ CONDACT_CARRIED,		  1 },		// 0x08
+	{ CONDACT_NOTCARR,		  1 },		// 0x09
+	{ CONDACT_CHANCE, 		  1 },		// 0x0A
+	{ CONDACT_ZERO,   		  1 },		// 0x0B
+	{ CONDACT_NOTZERO,		  1 },		// 0x0C
+	{ CONDACT_EQ,     		  2 },		// 0x0D
+	{ CONDACT_GT,     		  2 },		// 0x0E
+	{ CONDACT_LT,     		  2 },		// 0x0F
+	{ CONDACT_ADJECT1,		  1 },		// 0x10
+	{ CONDACT_ADVERB, 		  1 },		// 0x11
+	{ CONDACT_INVEN,   		  1 },		// 0x12
+	{ CONDACT_DESC,   		  1 },		// 0x13
+	{ CONDACT_QUIT,   		  0 },		// 0x14
+	{ CONDACT_END,    		  0 },		// 0x15
+	{ CONDACT_DONE,   		  0 },		// 0x16
+	{ CONDACT_OK,     		  0 },		// 0x17
+	{ CONDACT_ANYKEY, 		  0 },		// 0x18
+	{ CONDACT_SAVE,   		  0 },		// 0x19
+	{ CONDACT_LOAD,   		  0 },		// 0x1A
+	{ CONDACT_TURNS,    	  0 },		// 0x1B
+	{ CONDACT_SCORE,	  	  0 },		// 0x1C
+	{ CONDACT_CLS,    		  0 },		// 0x1D
+	{ CONDACT_DROPALL,		  0 },		// 0x1E
+	{ CONDACT_AUTOG,  		  0 },		// 0x1F
+	{ CONDACT_AUTOD,  		  0 },		// 0x20
+	{ CONDACT_AUTOW,  		  0 },		// 0x21
+	{ CONDACT_AUTOR,  		  0 },		// 0x22
+	{ CONDACT_PAUSE,  		  1 },		// 0x23
+	{ CONDACT_TIMEOUT, 	 	  0 },		// 0x24
+	{ CONDACT_GOTO,   		  1 },		// 0x25
+	{ CONDACT_MESSAGE,		  1 },		// 0x26
+	{ CONDACT_REMOVE, 		  1 },		// 0x27
+	{ CONDACT_GET,    		  1 },		// 0x28
+	{ CONDACT_DROP,   		  1 },		// 0x29
+	{ CONDACT_WEAR,   		  1 },		// 0x2A
+	{ CONDACT_DESTROY,		  1 },		// 0x2B
+	{ CONDACT_CREATE, 		  1 },		// 0x2C
+	{ CONDACT_SWAP,   		  2 },		// 0x2D
+	{ CONDACT_PLACE,  		  2 },		// 0x2E
+	{ CONDACT_SET,    		  1 },		// 0x2F
+	{ CONDACT_CLEAR,  		  1 },		// 0x30
+	{ CONDACT_PLUS,   		  2 },		// 0x31
+	{ CONDACT_MINUS,  		  2 },		// 0x32
+	{ CONDACT_LET,    		  2 },		// 0x33
+	{ CONDACT_NEWLINE,		  0 },		// 0x34
+	{ CONDACT_PRINT,  		  1 },		// 0x35
+	{ CONDACT_SYSMESS,		  1 },		// 0x36
+	{ CONDACT_ISAT,   		  2 },		// 0x37
+	{ CONDACT_COPYOF,  		  2 },		// 0x38
+	{ CONDACT_COPYOO,  		  2 },		// 0x39
+	{ CONDACT_COPYFO,  		  2 },		// 0x3A
+	{ CONDACT_COPYFF, 		  2 },		// 0x3B
+	{ CONDACT_LISTOBJ,		  0 },		// 0x3C
+	{ CONDACT_EXTERN, 		  2 },		// 0x3D
+	{ CONDACT_RAMSAVE,		  0 },		// 0x3E
+	{ CONDACT_RAMLOAD,		  1 },		// 0x3F
+	{ CONDACT_BEEP,   		  2 },		// 0x40
+	{ CONDACT_PAPER,  		  1 },		// 0x41
+	{ CONDACT_INK,    		  1 },		// 0x42
+	{ CONDACT_BORDER, 		  1 },		// 0x43
+	{ CONDACT_PREP,   		  1 },		// 0x44
+	{ CONDACT_NOUN2,  		  1 },		// 0x45
+	{ CONDACT_ADJECT2,		  1 },		// 0x46
+	{ CONDACT_ADD,    		  2 },		// 0x47
+	{ CONDACT_SUB,    		  2 },		// 0x48
+	{ CONDACT_PARSE,  		  0 },		// 0x49
+	{ CONDACT_LISTAT, 		  1 },		// 0x4A
+	{ CONDACT_PROCESS,		  1 },		// 0x4B
+	{ CONDACT_SAME,   		  2 },		// 0x4C
+	{ CONDACT_MES,    		  1 },		// 0x4D
+	{ CONDACT_CHARSET, 		  1 },		// 0x4E
+	{ CONDACT_NOTEQ,  		  2 },		// 0x4F
+	{ CONDACT_NOTSAME,		  2 },		// 0x50
+	{ CONDACT_MODE,   		  1 },		// 0x51
+	{ CONDACT_LINE,  		  1 },		// 0x52
+	{ CONDACT_TIME,   		  2 },		// 0x53
+	{ CONDACT_PICTURE,		  1 },		// 0x54
+	{ CONDACT_DOALL,  		  1 },		// 0x55
+	{ CONDACT_PROMPT,  		  1 },		// 0x56
+	{ CONDACT_GRAPHIC,		  1 },		// 0x57
+	{ CONDACT_ISNOTAT,		  2 },		// 0x58
+	{ CONDACT_WEIGH,  		  2 },		// 0x59
+	{ CONDACT_PUTIN,  		  2 },		// 0x5A
+	{ CONDACT_TAKEOUT,		  2 },		// 0x5B
+	{ CONDACT_NEWTEXT,		  0 },		// 0x5C
+	{ CONDACT_ABILITY,		  2 },		// 0x5D
+	{ CONDACT_WEIGHT, 		  1 },		// 0x5E
+	{ CONDACT_RANDOM, 		  1 },		// 0x5F
+	{ CONDACT_INPUT,  		  2 },		// 0x60
+	{ CONDACT_SAVEAT, 		  0 },		// 0x61
+	{ CONDACT_BACKAT, 		  0 },		// 0x62
+	{ CONDACT_PRINTAT,		  2 },		// 0x63
+	{ CONDACT_WHATO,  		  0 },		// 0x64
+	{ CONDACT_RESET,   		  1 },		// 0x65
+	{ CONDACT_PUTO,   		  1 },		// 0x66
+	{ CONDACT_NOTDONE,		  0 },		// 0x67
+	{ CONDACT_AUTOP,  		  1 },		// 0x68
+	{ CONDACT_AUTOT,  		  1 },		// 0x69
+	{ CONDACT_MOVE,   		  1 },		// 0x6A
+	{ CONDACT_PROTECT,		  0 },		// 0x6B
+
+	// --------------------
+
+	{ CONDACT_INVALID,        0 },		// 0x6C
+	{ CONDACT_INVALID,        0 },		// 0x6D
+	{ CONDACT_INVALID,        0 },		// 0x6E
+	{ CONDACT_INVALID,        0 },		// 0x6F
+	{ CONDACT_INVALID,        0 },		// 0x70
+	{ CONDACT_INVALID,        0 },		// 0x71
+	{ CONDACT_INVALID,        0 },		// 0x72
+	{ CONDACT_INVALID,        0 },		// 0x73
+	{ CONDACT_INVALID,        0 },		// 0x74
+	{ CONDACT_INVALID,        0 },		// 0x75
+	{ CONDACT_INVALID,        0 },		// 0x76
+	{ CONDACT_INVALID,        0 },		// 0x77
+	{ CONDACT_INVALID,        0 },		// 0x78
+	{ CONDACT_INVALID,        0 },		// 0x79
+	{ CONDACT_INVALID,        0 },		// 0x7A
+	{ CONDACT_INVALID,        0 },		// 0x7B
+	{ CONDACT_INVALID,        0 },		// 0x7C
+	{ CONDACT_INVALID,        0 },		// 0x7D
+	{ CONDACT_INVALID,        0 },		// 0x7E
+	{ CONDACT_INVALID,        0 },		// 0x7F
+};
+
+#endif
+
 void DDB_SetError(DDB_Error error)
 {
 	ddbError = error;
@@ -395,14 +533,14 @@ void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, si
 			*buffer = 0;
 			return;
 		}
-		if (c >= 128)
+		if (c >= ddb->firstToken)
 		{
 			if (!ddb->hasTokens)
 			{
 				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
 				continue;
 			}
-			uint8_t* token = ddb->tokensPtr[c - 128];
+			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
 			if (token == 0)
 			{
 				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
@@ -506,7 +644,7 @@ void DDB_FixOffsets (DDB* ddb)
 			// End of process marker
 			if (ptr[-2] == 0) 
 				break;
-
+			
 			uint16_t entryOffset = read16(ptr, ddb->littleEndian) - ddb->baseOffset;
 			if (entryOffset >= ddb->dataSize || entryOffset < 32)
 			{
@@ -517,13 +655,23 @@ void DDB_FixOffsets (DDB* ddb)
 				break;
 			}
 			*(uint16_t*)ptr = entryOffset;
+			
+			#if HAS_PAWS
+			if (ddb->version == DDB_VERSION_PAWS)
+			{
+				// Convert '*' entries to '_'
+				if (ptr[2] == 1) ptr[2] = 255;
+				if (ptr[3] == 1) ptr[3] = 255;
+			}
+			#endif
+
 			ptr += 4;
 			entryIndex++;
 		}
 	}
 }
 
-bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, int* version)
+bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
 {
 	uint8_t buffer[32];
 	File* file = File_Open(filename, ReadOnly);
@@ -541,7 +689,7 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	if (target != 0)
 		*target = (DDB_Machine)(buffer[1] >> 4);
 	if (version != 0)
-		*version = buffer[0];
+		*version = (DDB_Version)buffer[0];
 	return true;
 }
 
@@ -588,6 +736,108 @@ static uint32_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target,
 	return 0;
 }
 
+static void DDB_FillTokenPointers(DDB* ddb)
+{
+	// An offset 0 means no tokens in file. Otherwise,
+	// update the token pointers in the DDB structure
+
+	if (ddb->tokens == ddb->data)
+	{
+		ddb->hasTokens = false;
+		ddb->tokens = 0;
+	}
+	else
+	{
+		int n;
+		uint8_t* ptr = ddb->tokens + 1;
+		uint8_t* end = ddb->data + ddb->dataSize;
+		for (n = ddb->firstToken; n <= 255; n++)
+		{
+			ddb->tokensPtr[n - ddb->firstToken] = ptr;
+			while ((*ptr & 0x80) == 0 && *ptr != 0 && ptr < end)
+				ptr++;
+			if (*ptr == 0 || ptr == end)
+				break;
+			ptr++;
+		}
+		while (n < 256)
+			ddb->tokensPtr[n++ - ddb->firstToken] = 0;
+		ddb->hasTokens = true;
+		ddb->tokenBlockSize = ptr - ddb->tokens;
+	}
+}
+
+#if HAS_PAWS
+
+static bool CheckPAWSignature(uint8_t* memory, uint16_t base, uint16_t attr)
+{
+	return (
+		base < 65535-321 && 
+		base > 16384-311 && 
+		memory[attr]    == 16 && 
+		memory[attr+2]  == 17 && 
+		memory[attr+4]  == 18 && 
+		memory[attr+6]  == 19 && 
+		memory[attr+8]  == 20 && 
+		memory[attr+10] == 21
+	);
+}
+
+static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
+{
+	if (size < 65536) return false;
+
+	uint16_t base = read16LE(memory + 65533);
+	uint16_t attr = base + 311;
+	if (CheckPAWSignature(memory, base, attr))
+	{
+		// PAWS
+		ddb->data         = memory;
+		ddb->dataSize     = size;
+		ddb->version      = DDB_VERSION_PAWS;
+		ddb->language     = DDB_SPANISH;			// TODO: guess
+		ddb->target       = DDB_MACHINE_SPECTRUM;
+		ddb->condactMap   = pawsCondacts;
+		ddb->littleEndian = true;
+		ddb->firstToken   = 164;
+
+		ddb->numObjects        = memory[base + 324];
+		ddb->numLocations      = memory[base + 325];
+		ddb->numMessages       = memory[base + 326];
+		ddb->numSystemMessages = memory[base + 327];
+		ddb->numProcesses      = memory[base + 328];
+		ddb->numCharsets       = memory[base + 329];
+
+		ddb->charsets          = memory + read16LE(memory + base + 330);
+		ddb->tokens			   = memory + read16LE(memory + base + 332);
+		ddb->processTable	   = (uint16_t*)(memory + read16LE(memory + 65497));
+		ddb->objNamTable	   = (uint16_t*)(memory + read16LE(memory + 65499));
+		ddb->locDescTable	   = (uint16_t*)(memory + read16LE(memory + 65501));
+		ddb->msgTable		   = (uint16_t*)(memory + read16LE(memory + 65503));
+		ddb->sysMsgTable	   = (uint16_t*)(memory + read16LE(memory + 65505));
+		ddb->connections	   = (uint16_t*)(memory + read16LE(memory + 65507));
+		ddb->vocabulary		   = memory + read16LE(memory + 65509);
+		ddb->objLocTable	   = memory + read16LE(memory + 65511);
+		ddb->objWordsTable	   = memory + read16LE(memory + 65513);
+		ddb->objAttrTable	   = memory + read16LE(memory + 65515);
+		return true;
+	}
+	if (CheckPAWSignature(memory, base = 26931, attr = 27908))
+	{
+		// TODO: QUILL Version A
+		return false;
+	}
+	if (CheckPAWSignature(memory, base = 27356, attr = 27525))
+	{
+		// TODO: QUILL Version C
+		return false;
+	}
+
+	return false;
+}
+
+#endif
+
 DDB* DDB_Load(const char* filename)
 {
 	ddbError = DDB_ERROR_NONE;
@@ -619,6 +869,17 @@ DDB* DDB_Load(const char* filename)
 	if (DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
 	{
 		File_Close(file);
+		
+		#if HAS_PAWS
+		if (LoadPAWS(ddb, memory, ramSize))
+		{
+			DDB_FixOffsets(ddb);
+			DDB_FillTokenPointers(ddb);
+			ddb->oldMainLoop = true;
+			ddb->drawString = true;
+			return ddb;
+		}
+		#endif
 
 		if (GuessDDBOffset(memory, ramSize, snapshotMachine, ddb) == false)
 		{
@@ -627,9 +888,10 @@ DDB* DDB_Load(const char* filename)
 			Free(ddb);
 			return 0;
 		}
+
 		#if HAS_DRAWSTRING
 		if (DDB_LoadVectorGraphics(snapshotMachine, memory, ramSize))
-			ddb->vector = true;
+			ddb->drawString = true;
 		#endif
 
 		data = ddb->data;
@@ -641,8 +903,8 @@ DDB* DDB_Load(const char* filename)
 	{
 		if (fileSize > MAX_DDB_SIZE)
 		{
-			ddbError = DDB_ERROR_OUT_OF_MEMORY;
-			DDB_Warning("File '%s' is too big (max size: %d)\n", filename, MAX_DDB_SIZE);
+			ddbError = DDB_ERROR_INVALID_FILE;
+			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", filename, MAX_DDB_SIZE);
 			File_Close(file);
 			Free(ddb);
 			return 0;
@@ -672,10 +934,11 @@ DDB* DDB_Load(const char* filename)
 		ddb->dataSize = fileSize;
 	}
 
-	ddb->version    = data[0];
+	ddb->version    = (DDB_Version)data[0];
 	ddb->language   = (DDB_Language)(data[1] & 0x0F);
 	ddb->target     = (DDB_Machine)(data[1] >> 4);
 	ddb->condactMap = ddb->version == 1 ? version1Condacts : version2Condacts;
+	ddb->firstToken = 128;
 
 	if (ddb->baseOffset == 0)
 	{
@@ -786,34 +1049,7 @@ DDB* DDB_Load(const char* filename)
 		ddb->externData   = (uint8_t*)(data + externOffset - ddb->baseOffset);
 	
 	DDB_FixOffsets(ddb);
-
-	// An offset 0 means no tokens in file. Otherwise,
-	// update the token pointers in the DDB structure
-
-	if (ddb->tokens == data)
-	{
-		ddb->hasTokens = false;
-		ddb->tokens = 0;
-	}
-	else
-	{
-		int n;
-		uint8_t* ptr = ddb->tokens + 1;
-		uint8_t* end = data + fileSize;
-		for (n = 128; n <= 255; n++)
-		{
-			ddb->tokensPtr[n - 128] = ptr;
-			while ((*ptr & 0x80) == 0 && *ptr != 0 && ptr < end)
-				ptr++;
-			if (*ptr == 0 || ptr == end)
-				break;
-			ptr++;
-		}
-		while (n < 256)
-			ddb->tokensPtr[n++ - 128] = 0;
-		ddb->hasTokens = true;
-		ddb->tokenBlockSize = ptr - ddb->tokens;
-	}
+	DDB_FillTokenPointers(ddb);
 
 	// Old databases may need a PAWS style flow, try to
 	// detect if process table 0 is a responses table

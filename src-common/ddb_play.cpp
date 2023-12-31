@@ -371,6 +371,7 @@ bool DDB_RunPlayer()
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;
 	DDB_ScreenMode screenMode = ScreenMode_VGA16;
+	DDB_Version version = DDB_VERSION_2;
 
 	EnumFiles();
 	
@@ -385,8 +386,8 @@ bool DDB_RunPlayer()
 	DebugPrintf("Initializing video\n");
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-	DDB_Check(ddbFileName, &machine, &language, 0);
-	VID_Initialize(machine);
+	DDB_Check(ddbFileName, &machine, &language, &version);
+	VID_Initialize(machine, version);
 
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)

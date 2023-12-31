@@ -130,7 +130,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 	{
 		DDB_NewText(i);
 		
-		if (i->ddb->version == 1)
+		if (i->ddb->version < 2)
 		{
 			DDB_Reset(i);
 			DDB_ResetWindows(i);
