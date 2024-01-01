@@ -55,6 +55,7 @@ const char* DDB_GetCondactName(DDB_Condact condact)
 		case CONDACT_GET:     return "GET";
 		case CONDACT_GFX:     return "GFX";
 		case CONDACT_GOTO:    return "GOTO";
+		case CONDACT_GRAPHIC: return "GRAPHIC";
 		case CONDACT_GT:      return "GT";
 		case CONDACT_HASAT:   return "HASAT";
 		case CONDACT_HASNAT:  return "HASNAT";
@@ -136,6 +137,12 @@ const char* DDB_GetCondactName(DDB_Condact condact)
 		case CONDACT_WINSIZE: return "WINSIZE";
 		case CONDACT_WORN:    return "WORN";
 		case CONDACT_ZERO:    return "ZERO";
+		
+		case CONDACT_INVEN:   return "INVEN";
+		case CONDACT_SCORE:   return "SCORE";
+		case CONDACT_CHARSET: return "CHARSET";
+		case CONDACT_LINE:    return "LINE";
+		case CONDACT_PROTECT: return "PROTECT";
 
 		case CONDACT_INVALID: return "[Invalid Condact]";
 		default:              return "[Unknown Condact]";

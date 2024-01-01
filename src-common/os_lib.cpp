@@ -37,7 +37,7 @@ char *LongToChar(long value, char *buffer, int radix)
 	}
 	*p = '\0';
 
-	return buffer;
+	return p;
 }
 
 #if _STDCLIB

@@ -22,12 +22,13 @@ extern void VID_SaveDebugBitmap();
 static const uint8_t* vectorGraphicsRAM = 0;
 static DDB_Machine vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 
-static uint16_t spare;
-static uint16_t start;
-static uint16_t table;
-static uint16_t windefs;
-static uint16_t unknown;
-static uint16_t chset;
+static uint16_t start;				// Start of picture data
+static uint16_t spare;				// End of picture data
+static uint16_t attribs;			// Table of picture attributes (PAWS)
+static uint16_t table;				// Table of picture addresses
+static uint16_t windefs;			// Pointer to a table of windows definitions (entry size platform-dependant)
+static uint16_t unknown;			// TODO: Find out what this is
+static uint16_t chset;				// Table to the 2K character set
 static uint16_t coltab;
 static uint16_t extra;
 static uint16_t ending;
@@ -38,6 +39,10 @@ extern uint8_t* bitmap;
 extern uint8_t* attributes;
 extern uint8_t* graphicsBuffer;
 extern uint16_t screenWidth;
+
+static const uint8_t* udgs;
+static const uint8_t* shades = 0;
+static bool mixShades = false;
 
 static uint16_t cursorX;
 static uint16_t cursorY;
@@ -402,9 +407,23 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	if (y > scrMaxY) y = scrMaxY;
 
 	if (pattern >= 0)
-		MemCopy(ch, vectorGraphicsRAM + chset + 8*pattern, 8);
+	{
+		if (mixShades)
+		{
+			const uint8_t* pattern1 = shades + 8*(pattern & 0x0F);
+			const uint8_t* pattern2 = shades + 8*(pattern >> 4);
+			for (int n = 0; n < 8; n++)
+				ch[n] = pattern2[n] | pattern1[n];
+		}
+		else
+		{
+			MemCopy(ch, shades + 8*pattern, 8);
+		}
+	}
 	else
+	{
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
+	}
 
 	if (pixelMode)
 	{
@@ -1297,30 +1316,38 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 			// VID_SaveDebugBitmap();
 			return result;
 		}
+
 		case DDB_MACHINE_SPECTRUM:
 		{
-			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
-			if ((win[0] & 0x80) == 0x80)
+			if (windefs != 0)
 			{
-				VID_SetInk(win[0] & 0x07);
-				VID_SetPaper((win[0] >> 3) & 0x07);
+				const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+				if ((win[0] & 0x80) == 0x80)
+				{
+					VID_SetInk(win[0] & 0x07);
+					VID_SetPaper((win[0] >> 3) & 0x07);
+					VID_SetBright(0);
+					VID_SetFlash(0);
+					
+					int row = win[1];
+					int col = win[2];
+					int height = win[3];
+					int width = win[4];
+					VID_Clear(col*6, row*8, width*6, height*8, 0);
+					int col8 = (col*6) / 8;
+					int width8 = (col*6+width*6 + 5) / 8 - col8;
+					VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
+				}
+			}
+			else if (attribs != 0)
+			{
+				const uint8_t attr = vectorGraphicsRAM[attribs + picno];
+				VID_SetInk(attr & 0x07);
+				VID_SetPaper((attr >> 3) & 0x07);
 				VID_SetBright(0);
 				VID_SetFlash(0);
-				
-				int row = win[1];
-				int col = win[2];
-				int height = win[3];
-				int width = win[4];
-				VID_Clear(col*6, row*8, width*6, height*8, 0);
-				int col8 = (col*6) / 8;
-				int width8 = (col*6+width*6 + 5) / 8 - col8;
-				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
 			}
-			else
-			{
-				// Subroutine
-				// return false;
-			}
+
 			cursorX = 0;
 			cursorY = scrMaxY;
 
@@ -1364,9 +1391,40 @@ bool DDB_WriteVectorDatabase(const char* filename)
 	return true;
 }
 
+bool DDB_LoadPAWSGraphics (const uint8_t* data)
+{
+	vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
+	vectorGraphicsRAM     = data;
+
+	start   = read16LE(data + 0xFFFD);		// 9300
+	table   = read16LE(data + 0xFFF1);
+	attribs = read16LE(data + 0xFFF3);
+	windefs = 0;
+	chset   = 0;
+	coltab  = 0;
+	ending  = 0;
+	count   = (attribs - table) / 2;
+	ending  = 0xFFFF;
+
+	if (start != 0x9300 || table < attribs - 512 || table >= attribs)
+		return false;
+
+	scrMaxX          = 255;
+	scrMaxY          = 175;
+	stride           = 32;
+	transparentColor = 8;
+	udgs             = data + start;
+	shades           = data + start + 19*8;
+	mixShades        = true;
+
+	return true;
+}
+
 bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t size)
 {
 	vectorGraphicsMachine = target;
+	
+	mixShades = false;
 
 	switch (target)
 	{
@@ -1399,6 +1457,8 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			scrMaxY = 199;
 			stride  = 40;
 			VID_SetCharset(data + chset);
+			shades = vectorGraphicsRAM + chset;
+
 			return true;
 		}
 
@@ -1431,6 +1491,8 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			scrMaxX = 319;
 			scrMaxY = 183;
 			VID_SetCharset(data + chset);
+			shades = vectorGraphicsRAM + chset;
+
 			return true;
 		}
 
@@ -1466,6 +1528,8 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			transparentColor = 16;
 
 			VID_SetCharset(data + chset);
+			shades = vectorGraphicsRAM + chset;
+
 			return true;
 		}
 
@@ -1508,6 +1572,8 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 			transparentColor = 8;
 
 			VID_SetCharset(data + chset);
+			shades = vectorGraphicsRAM + chset;
+
 			return true;
 		}
 

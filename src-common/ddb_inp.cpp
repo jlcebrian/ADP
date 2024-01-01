@@ -80,8 +80,8 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 		if (i->ddb->target == DDB_MACHINE_ATARIST)
 		{
 			int newlineCount = 0;
-			DDB_GetMessage(i->ddb, DDB_SYSMSG, 33, buffer, 64);
-			for (int n = 0; buffer[n]; n++)
+			const char* end = DDB_GetMessage(i->ddb, DDB_SYSMSG, 33, buffer, 64);
+			for (int n = 0; buffer+n < end; n++)
 				if (buffer[n] == '\r')
 					newlineCount++;
 			if (newlineCount == 0)
@@ -89,7 +89,7 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 				for (int m = 0; m < i->inputBufferLength; m++)
 					DDB_OutputChar(i, i->inputBuffer[m]);
 			}
-			for (int n = 0; n < 64 && buffer[n] != 0; n++)
+			for (int n = 0; n < 64 && buffer+n < end; n++)
 			{
 				DDB_OutputChar(i, buffer[n]);
 				if (buffer[n] == '\r')

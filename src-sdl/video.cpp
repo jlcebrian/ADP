@@ -385,6 +385,8 @@ void VID_SwapScreen ()
 
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
+	uint8_t  width = charWidth[ch];
+
 	if (attributes)
 	{
 		uint8_t* ptr = charset + (ch << 3);
@@ -392,7 +394,6 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		uint8_t  rot = x & 7;
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
 		uint8_t xattr = 0;
-		uint8_t width = charWidth[ch];
 		uint8_t paperShift = 4;
 
 		if (screenMachine == DDB_MACHINE_SPECTRUM)
@@ -422,7 +423,7 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		{
 			uint8_t* sav = out;
 			uint8_t mask = 0x80 >> rot;
-			for (int col = 0; col < 6; col++)
+			for (int col = 0; col < width; col++)
 			{
 				if ((ptr[line] & (0x80 >> col)))
 					*out |= mask;
@@ -442,7 +443,6 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 	uint8_t* ptr = charset + (ch << 3);
 	uint8_t* pixels = textBuffer + y * screenWidth + x;
-	uint8_t  width = charWidth[ch];
 
 	if (paper == 255)
 	{

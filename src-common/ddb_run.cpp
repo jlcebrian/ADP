@@ -60,7 +60,7 @@ static const char* DDB_FlowNames[] = {
 
 static const char* TranslateChar(uint8_t c)
 {
-	static char buffer[2] = { 32, 0 };
+	static char buffer[16] = { 32, 0 };
 
 	if (c == '\n')
 		return "\\n";
@@ -74,8 +74,19 @@ static const char* TranslateChar(uint8_t c)
 		return "\\g";
 	else if (c == '\x0F')
 		return "\\t";
-		
-	buffer[0] = c;
+
+	if (c < 31)
+	{
+		buffer[0] = '{';
+		char* ptr = LongToChar(c, buffer + 1, 10);
+		*ptr++ = '}';
+		*ptr = 0;
+	}
+	else
+	{
+		buffer[0] = c;
+		buffer[1] = 0;
+	}
 	return buffer;
 }
 
@@ -141,6 +152,12 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 	}
 }
 
+void DDB_SetCharset (DDB* ddb, uint8_t c)
+{
+	if (ddb->numCharsets > c)
+		MemCopy(charset + 256, ddb->charsets + 768*c, 768);
+}
+
 void DDB_ResetWindows (DDB_Interpreter* i)
 {
 	int defaultInk = 15;
@@ -165,6 +182,7 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 	i->win = i->windef[0];
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
 	DDB_SetupInkMap(i);
+	DDB_SetCharset(i->ddb, i->ddb->numCharsets > 1 ? 1 : 0);
 }
 
 void DDB_Reset (DDB_Interpreter* i)
@@ -309,9 +327,9 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 	int ink = w->ink;
 	int paper = w->paper;
 
-	DDB_GetMessage(i->ddb, DDB_SYSMSG, 32, more, sizeof(more));
+	const char* end = DDB_GetMessage(i->ddb, DDB_SYSMSG, 32, more, sizeof(more));
 	SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, paper);
-	for (const char* ptr = more; *ptr; ptr++) {
+	for (const char* ptr = more; ptr < end; ptr++) {
 		if (x + charWidth[(uint8_t)*ptr] > maxX)
 			break;
 		SCR_DrawCharacter(x, w->posY, *ptr, ink, paper);
@@ -475,8 +493,9 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	// implementation sometimes writes garbage to the unintended window.
 	
 	int maxX = i->cellX*8 + i->cellW*8;
-	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
-	
+	bool pawsMode = i->ddb->version == DDB_VERSION_PAWS;
+	bool forceGraphics = !pawsMode && (w->flags & Win_ForceGraphics) != 0;
+
 	if (w != &i->win)
 	{
 		uint8_t cellX, cellW;
@@ -502,7 +521,43 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	for (int n = 0; n < i->pendingPtr ; n++)
 	{
 		uint8_t ch = i->pending[n];
-		if (ch < 16)
+		if (pawsMode && ch < 32)
+		{
+			switch (ch)
+			{
+				case 16:		// Ink
+					w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
+					n++;
+					continue;
+				case 17:		// Paper
+					w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
+					n++;
+					continue;
+				case 18:		// Flash
+					// TODO: Add flash support to Spectrum
+					w->paper = (w->paper & 0x07) | ((i->pending[n+1] & 0x01) << 3);
+					n++;
+					continue;
+				case 19:		// Bright
+					w->ink   = (w->ink   & 0x07) | ((i->pending[n+1] & 0x01) << 3);
+					n++;
+					continue;
+				case 1:
+				case 2:
+				case 3:
+				case 4:
+				case 5:
+				case 6:
+					DDB_SetCharset(i->ddb, ch - 1);
+					continue;
+				default:
+					DebugPrintf("Unknown PAWS control code %d\n", ch);
+					break;
+			}
+			// TODO: Color & charset changes
+			continue;
+		}
+		else if (ch < 16)
 		{
 			switch (ch)
 			{
@@ -558,17 +613,21 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 {
 	switch(c)
 	{
+		case 7:
 		case '\x0D':		// Newline ('\n') 
 			DDB_FlushWindow(i, w);
 			DDB_NewLineAtWindow(i, w);
 			return;
 
-		case '_':
 		case '@':
+			if (i->ddb->version == DDB_VERSION_PAWS)
+				break;
+
+		case '_':
 		{
 			int firstChar = 0;
-			DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
-			if (!objNameBuffer[0])
+			const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
+			if (end == objNameBuffer)
 				return;
 			if (i->ddb->language == DDB_SPANISH)
 			{
@@ -590,7 +649,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				objNameBuffer[firstChar] = ToUpper(objNameBuffer[firstChar]);
 			else
 				objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
-			for (uint8_t* ptr = objNameBuffer + firstChar; *ptr != 0; ptr++) {
+			for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
 				if (*ptr == '.') break;
 				OutputCharToWindow(i, w, *ptr);
 			}
@@ -598,16 +657,24 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 		}
 
 		case '\x0B':		// Clear screen ('\b')
-			DDB_FlushWindow(i, w);
-			DDB_ClearWindow(i, w);
-			return;
+			if (i->ddb->version != DDB_VERSION_PAWS)
+			{
+				DDB_FlushWindow(i, w);
+				DDB_ClearWindow(i, w);
+				return;
+			}
+			break;
 
 		case '\x0C':		// Wait for a keypress ('\k')
-			DDB_FlushWindow(i, w);
-			SCR_WaitForKey();
-			DDB_ResetScrollCounts(i);
-			w->smooth = 1;
-			return;
+			if (i->ddb->version != DDB_VERSION_PAWS)
+			{
+				DDB_FlushWindow(i, w);
+				SCR_WaitForKey();
+				DDB_ResetScrollCounts(i);
+				w->smooth = 1;
+				return;
+			}
+			break;
 	}
 
 	if (i->pendingPtr >= sizeof(i->pending)) {
@@ -851,11 +918,11 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 		if (i->objloc[n] == locno)
 		{
 			i->flags[Flag_ListFlags] |= ~0x80;
-			DDB_GetMessage(i->ddb, DDB_OBJNAME, n, (char *)objNameBuffer, sizeof(objNameBuffer));
+			const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, n, (char *)objNameBuffer, sizeof(objNameBuffer));
 			if (i->flags[Flag_ListFlags] & 0x40)		// Continuous listing
 			{
 				objNameBuffer[0] = ToLower(objNameBuffer[0]);
-				for (const char* ptr = (const char*)objNameBuffer; *ptr != 0 && *ptr != '.'; ptr++)
+				for (const char* ptr = (const char*)objNameBuffer; ptr < end && *ptr != '.'; ptr++)
 					OutputCharToWindow(i, &i->win, (uint8_t)*ptr);
 				if (count == 1)
 					DDB_OutputMessage(i, DDB_SYSMSG, 48);		// .
@@ -1047,20 +1114,23 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 	}
 	else
 	{
-		i->flags[40] = 0;
+		if (i->ddb->version >= 1)
+			i->flags[40] = 0;
 			
 		DDB_SetWindow(i, 0);
 		if (i->ddb->drawString)
 		{
 			DDB_ClearWindow(i, &i->win);
 			#if HAS_DRAWSTRING
-			if (DDB_DrawVectorPicture(i->flags[Flag_Locno]))
+			if (DDB_DrawVectorPicture(i->flags[Flag_Locno]) && i->ddb->version > 1)
 				i->flags[40] = 255;
 			#endif
 		}
 		else if (SCR_PictureExists(i->flags[Flag_Locno]))
 		{
-			i->flags[40] = 255;
+			if (i->ddb->version > 1)
+				i->flags[40] = 255;
+
 			BufferPicture(i, i->flags[Flag_Locno]);
 			DrawBufferedPicture(i);
 		}
@@ -2581,6 +2651,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				TRACE("Window %d: at %d,%d %dx%d", i->curwin, i->win.x, i->win.y, i->win.width, i->win.height);
 				break;
+			case CONDACT_LINE:
+				DDB_Flush(i);
+				i->flags[Flag_TopLine] = param0;			// LINE
+				DDB_SetWindow(i, 1);
+				WinAt(i, param0, 0);
+				WinSize(i, 24 - param0, 32);
+				i->done = true;
+				break;
 			case CONDACT_CLS: 
 				DDB_Flush(i);
 				i->done = true;
@@ -2593,6 +2671,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("\n");
 					return;
                 }
+				if (i->ddb->version == DDB_VERSION_PAWS)
+				{
+					DDB_SetWindow(i, 0);
+					WinAt(i, 0, 0);
+					WinSize(i, 24, 32);
+				}
 				DDB_ClearWindow(i, &i->win);
 				break;
 			case CONDACT_PICTURE:
@@ -2603,7 +2687,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						#if HAS_DRAWSTRING
 						DDB_DrawVectorPicture(param0);
 						#endif
-						i->flags[40] = 255;
+
+						// TODO: Did Original do this? Check
+						if (i->ddb->version != DDB_VERSION_PAWS)
+							i->flags[40] = 255;
 					}
 					else if (BufferPicture(i, param0))
 						DrawBufferedPicture(i);
@@ -2660,67 +2747,69 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				MarkWindowOutput();
 				break;
 			case CONDACT_MODE:
+				i->done = true;
 				i->win.flags = param0;
-				i->done = true;
+				if  (i->ddb->version == DDB_VERSION_PAWS)
+					i->flags[Flag_PAWMode] = param0;
 				break;
-			case CONDACT_GFX:		// GRAPHIC in old version
+			case CONDACT_GRAPHIC:
 				i->done = true;
-				if (i->ddb->version < 2)
+				i->flags[Flag_GraphicFlags] &= 0x87;
+				i->flags[Flag_GraphicFlags] |= ((param0 << 5) | (param1 << 3)) & 0x78;
+				break;
+			case CONDACT_CHARSET:
+				i->done = true;
+				DDB_SetCharset(i->ddb, param0);
+				break;
+			case CONDACT_GFX:
+				i->done = true;
+				switch (param1)
 				{
-					// Set bits 3 to 6 of graphic flags
-					i->flags[Flag_GraphicFlags] &= 0x87;
-					i->flags[Flag_GraphicFlags] |= ((param0 & 0x3) << 4) | ((param0 & 0x1) << 3);
-				}
-				else
-				{
-					switch (param1)
-					{
-						case 0:			// copy backbuffer --> physical screen
-							SCR_RestoreScreen();
-							break;
-						case 1:			// copy physical screen --> backbuffer
-							SCR_SaveScreen();
-							break;
-						case 2:			// swap physical screen <-> backbuffer
-							SCR_SwapScreen();
-							break;
-						case 3:			// set picture output to physical screen
-							SCR_SetOpBuffer(SCR_OP_DRAWPICTURE, true);
-							break;
-						case 4:			// set picture output to backbuffer
-							SCR_SetOpBuffer(SCR_OP_DRAWPICTURE, false);
-							break;
-						case 5:			// clear physical screen
-							SCR_ClearBuffer(true);
-							break;
-						case 6:			// clear backbuffer
-							SCR_ClearBuffer(false);
-							break;
-						case 7:			// set text output to physical screen
-							SCR_SetOpBuffer(SCR_OP_DRAWTEXT, true);
-							break;
-						case 8:			// set text output to backbuffer
-							SCR_SetOpBuffer(SCR_OP_DRAWTEXT, false);
-							break;
-						case 9:			// set palette color (param0: index of a 4-flag buffer with color#,R,G,B)
-							if (paletteChanges & (1 << i->flags[param0]))
-							{
-								// If this color was already changed this frame, wait
-								TRACE("\n\nPalette color %d already changed this frame, waiting\n", i->flags[param0]);
-								DDB_Flush(i);
-								i->state = DDB_VSYNC;
-								UpdatePos(i, process, entry, offset);
-								TRACE("\n");
-								return;
-							}
-							TRACE("\nSetting palette color %d to %d,%d,%d\n", i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
-							SCR_SetPaletteColor(i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
-							paletteChanges |= 1 << i->flags[param0];
-							break;
-						case 10:		// get palette color (param0: index of a 4-flag buffer with color#,R,G,B)
-							SCR_GetPaletteColor(i->flags[param0], &i->flags[param0+1], &i->flags[param0+2], &i->flags[param0+3]);
-							break;
-					}
+					case 0:			// copy backbuffer --> physical screen
+						SCR_RestoreScreen();
+						break;
+					case 1:			// copy physical screen --> backbuffer
+						SCR_SaveScreen();
+						break;
+					case 2:			// swap physical screen <-> backbuffer
+						SCR_SwapScreen();
+						break;
+					case 3:			// set picture output to physical screen
+						SCR_SetOpBuffer(SCR_OP_DRAWPICTURE, true);
+						break;
+					case 4:			// set picture output to backbuffer
+						SCR_SetOpBuffer(SCR_OP_DRAWPICTURE, false);
+						break;
+					case 5:			// clear physical screen
+						SCR_ClearBuffer(true);
+						break;
+					case 6:			// clear backbuffer
+						SCR_ClearBuffer(false);
+						break;
+					case 7:			// set text output to physical screen
+						SCR_SetOpBuffer(SCR_OP_DRAWTEXT, true);
+						break;
+					case 8:			// set text output to backbuffer
+						SCR_SetOpBuffer(SCR_OP_DRAWTEXT, false);
+						break;
+					case 9:			// set palette color (param0: index of a 4-flag buffer with color#,R,G,B)
+						if (paletteChanges & (1 << i->flags[param0]))
+						{
+							// If this color was already changed this frame, wait
+							TRACE("\n\nPalette color %d already changed this frame, waiting\n", i->flags[param0]);
+							DDB_Flush(i);
+							i->state = DDB_VSYNC;
+							UpdatePos(i, process, entry, offset);
+							TRACE("\n");
+							return;
+						}
+						TRACE("\nSetting palette color %d to %d,%d,%d\n", i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
+						SCR_SetPaletteColor(i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
+						paletteChanges |= 1 << i->flags[param0];
+						break;
+					case 10:		// get palette color (param0: index of a 4-flag buffer with color#,R,G,B)
+						SCR_GetPaletteColor(i->flags[param0], &i->flags[param0+1], &i->flags[param0+2], &i->flags[param0+3]);
+						break;
 				}
 				break;
 			case CONDACT_INKEY:
@@ -2780,6 +2869,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						return;
 					}
 				}
+				break;
+			case CONDACT_SCORE:
+				DDB_OutputMessage(i, DDB_SYSMSG, 21);		// Your score is
+				LongToChar(i->flags[Flag_Score], output, 10);
+				DDB_OutputText(i, output);
+				DDB_OutputMessage(i, DDB_SYSMSG, 22);		// %
+				i->done = true;
 				break;
 			case CONDACT_TURNS:
 				DDB_OutputMessage(i, DDB_SYSMSG, 17);		// You have taken

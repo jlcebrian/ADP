@@ -102,7 +102,7 @@ static DDB_CondactMap version1Condacts[128] = {
 	{ CONDACT_PICTURE,		  1 },		// 0x54
 	{ CONDACT_DOALL,  		  1 },		// 0x55
 	{ CONDACT_PROMPT,  		  1 },		// 0x56
-	{ CONDACT_GRAPHIC, 		  1 },		// 0x57
+	{ CONDACT_GRAPHIC, 		  2 },		// 0x57
 	{ CONDACT_ISNOTAT,		  2 },		// 0x58
 	{ CONDACT_WEIGH,  		  2 },		// 0x59
 	{ CONDACT_PUTIN,  		  2 },		// 0x5A
@@ -363,7 +363,7 @@ static DDB_CondactMap pawsCondacts[128] = {
 	{ CONDACT_CHARSET, 		  1 },		// 0x4E
 	{ CONDACT_NOTEQ,  		  2 },		// 0x4F
 	{ CONDACT_NOTSAME,		  2 },		// 0x50
-	{ CONDACT_MODE,   		  1 },		// 0x51
+	{ CONDACT_MODE,   		  2 },		// 0x51
 	{ CONDACT_LINE,  		  1 },		// 0x52
 	{ CONDACT_TIME,   		  2 },		// 0x53
 	{ CONDACT_PICTURE,		  1 },		// 0x54
@@ -479,13 +479,13 @@ const char* DDB_GetDebugMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId)
 	return buffer;
 }
 
-void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize)
+const char* DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize)
 {
 	uint16_t* table;
 	uint8_t entries;
 
 	if (bufferSize == 0 || buffer == 0)
-		return;
+		return buffer;
 	switch (type)
 	{
 		case DDB_MSG:
@@ -506,14 +506,16 @@ void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, si
 			break;
 		default:
 			DDB_Warning("Invalid message type %d", type);
-			return;
+			if (bufferSize > 0)
+				*buffer = 0;
+			return buffer;
 	}
 
 	if (msgId >= entries)
 	{
 		if (bufferSize > 0)
 			*buffer = 0;
-		return;
+		return buffer;
 	}
 
 	uint8_t* ptr = ddb->data + table[msgId];
@@ -521,17 +523,17 @@ void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, si
 	{
 		if (buffer && bufferSize > 0)
 			*buffer = 0;
-		return;
+		return buffer;
 	}
 
 	bufferSize--;
 	while (bufferSize > 0)
 	{
 		uint8_t c = *ptr++ ^ 0xFF;
-		if (c == 0x0A)
+		if (c == 0x0A || c == 0x1F)
 		{
 			*buffer = 0;
-			return;
+			return buffer;
 		}
 		if (c >= ddb->firstToken)
 		{
@@ -561,8 +563,9 @@ void DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, si
 			bufferSize--;
 		}
 	}
-	if (bufferSize == 0)
+	if (bufferSize > 0)
 		*buffer = 0;
+	return buffer;
 }
 
 /* ───────────────────────────────────────────────────────────────────────── */
@@ -645,6 +648,15 @@ void DDB_FixOffsets (DDB* ddb)
 			if (ptr[-2] == 0) 
 				break;
 			
+			#if HAS_PAWS
+			if (ddb->version == DDB_VERSION_PAWS)
+			{
+				// Convert '*' entries to '_'
+				if (ptr[-1] == 1) ptr[-1] = 255;
+				if (ptr[-2] == 1) ptr[-2] = 255;
+			}
+			#endif
+			
 			uint16_t entryOffset = read16(ptr, ddb->littleEndian) - ddb->baseOffset;
 			if (entryOffset >= ddb->dataSize || entryOffset < 32)
 			{
@@ -655,15 +667,6 @@ void DDB_FixOffsets (DDB* ddb)
 				break;
 			}
 			*(uint16_t*)ptr = entryOffset;
-			
-			#if HAS_PAWS
-			if (ddb->version == DDB_VERSION_PAWS)
-			{
-				// Convert '*' entries to '_'
-				if (ptr[2] == 1) ptr[2] = 255;
-				if (ptr[3] == 1) ptr[3] = 255;
-			}
-			#endif
 
 			ptr += 4;
 			entryIndex++;
@@ -873,10 +876,12 @@ DDB* DDB_Load(const char* filename)
 		#if HAS_PAWS
 		if (LoadPAWS(ddb, memory, ramSize))
 		{
+			if (DDB_LoadPAWSGraphics(memory))
+				ddb->drawString = true;
+
 			DDB_FixOffsets(ddb);
 			DDB_FillTokenPointers(ddb);
 			ddb->oldMainLoop = true;
-			ddb->drawString = true;
 			return ddb;
 		}
 		#endif

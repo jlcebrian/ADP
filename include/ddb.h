@@ -31,7 +31,16 @@ enum DDB_Flag
 	Flag_Darkness 		= 0,	
 	Flag_NumCarried		= 1,			// 01  Numbers of objects currently carried by the player
 
-	// Flags 2 to 28 are unused
+	// Flags 2 to 10 are used only in PAWS and Version 1 DDB
+
+	Flag_AutoDecDesc       = 2,			// 02 decrements by 1 during DESC
+	Flag_AutoDecDescDark   = 3,			// 03 decrements by 1 during DESC in dark locations
+	Flag_AutoDecDescDarkNL = 4,			// 04 decrements by 1 during DESC in dark locations without lantern
+	Flag_AutoDec           = 5,			// 05 to 08 decrements by 1 every turn
+	Flag_AutoDecDark       = 9,			// 09 to 12 decrements by 1 every turn in dark locations
+	Flag_AutoDecDarkNL     = 10,			// 0D to 16 decrements by 1 every turn in dark locations without lantern
+
+	// Flags 11 to 28 are unused
 
 	Flag_GraphicFlags	= 29,			// 1D  Graphic flags (can be checked with HASAT):
 
@@ -51,25 +60,37 @@ enum DDB_Flag
 	Flag_Noun1     		= 34,			// 22
 	Flag_Adjective1 	= 35,			// 23
 	Flag_Adverb    		= 36,			// 24
+
+	Flag_MaxCarried		= 37,			// 25  Maximum number of objects to be carried (ABILITY)
+	Flag_Locno     		= 38,			// 26  Current player location
+
+	// Flags 39 and 40 are used only in PAWS, flag 41 has a differnt meaning in PAW
+
+	Flag_TopLine        = 39,			// 27  Top line of the text window (PAWS only)
+	Flag_PAWMode        = 40,			// 28  Graphics mode (PAWS only)
+
+			// ^ Bit 1: 1 to supress More... message
+			//   Bit 0: 0 to clear the screen every DESC
+
+	Flag_SplitLine      = 41,			// 29  Split line of the text window (PAWS only)
+
+	Flag_InputStream    = 41,			// 29  Input stream (window 1-7, 0 = current)
+	Flag_Prompt    		= 42,			// 2A  System message for prompt (0 = random)
+
 	Flag_Preposition    = 43,			// 2B
 	Flag_Noun2     		= 44,			// 2C
 	Flag_Adjective2     = 45,			// 2D
 	Flag_CPNoun    		= 46,			// 2E  Current pronoun noun ("IT")
 	Flag_CPAdjective    = 47,			// 2F  Current pronoun adjective ("IT")
 
-	Flag_MaxCarried		= 37,			// 25  Maximum number of objects to be carried (ABILITY)
-	Flag_Locno     		= 38,			// 26  Current player location
-
-	// Flags 39 and 40 are unused
-
-	Flag_InputStream    = 41,			// 29  Input stream (window 1-7, 0 = current)
-	Flag_Prompt    		= 42,			// 2A  System message for prompt (0 = random)
 	Flag_Timeout   		= 48,			// 30  Timeout in seconds
 	Flag_TimeoutFlags	= 49,			// 31  Timeout control flags
 
 			// ^ Bit 0: 1 to enable timeout during input
 			//   Bit 1: 1 to enable timeout during the "More..." prompt
 			//   Bit 2: 1 to enable timeout during the ANYKEY action
+			//   Bit 5: 1 to recall INPUT in timeout (PAWS)
+			//   Bit 6: 1 if there is RAMSAVE data present
 			//   Bit 7: 1 if there was a timeout last frame
 
 	Flag_DoAllObjNo		= 50,			// 32  Object number for DOALL
@@ -80,6 +101,10 @@ enum DDB_Flag
 	Flag_ObjWeight    	= 55,			// 37  Weight of the currently referenced object
 	Flag_ObjContainer   = 56,			// 38  128 is current object is a container
 	Flag_ObjWearable 	= 57,			// 39  128 if current object is wearable
+
+	// The following flag has this meaning only in PAWS A16
+
+	Flag_MatchPhrase    = 58,			// 3A  128 to perform verb/noun match in processes (PAWS A16 only)
 
 	// The following flags are version 2 only
 
@@ -564,7 +589,7 @@ extern bool             DDB_Check                (const char* filename, DDB_Mach
 extern DDB*             DDB_Create               ();
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);
-extern void 			DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
+extern const char*		DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
 extern void				DDB_Dump				 (DDB* ddb, DDB_PrintFunc print);
 extern void				DDB_DumpMetrics			 (DDB* ddb, DDB_PrintFunc print);
 extern void 			DDB_DumpProcess			 (DDB* ddb, uint8_t process, DDB_PrintFunc print);
@@ -629,6 +654,10 @@ extern bool             DDB_HasVectorPicture     (uint8_t picno);
 extern bool             DDB_DrawVectorPicture    (uint8_t picno);
 extern bool             DDB_HasVectorDatabase    ();
 extern bool             DDB_WriteVectorDatabase  (const char* filename);
+
+#if HAS_PAWS
+extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data);
+#endif
 #endif
 
 #endif
