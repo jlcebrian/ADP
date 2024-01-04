@@ -189,12 +189,19 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 				break;
 			}
 		}
-		if (*ptr == '\r')
+		if (*ptr == 7 && maxLength == 0)
+			print("\n");
+		else if (*ptr == '\r')
 			print("\\n");
 		else if (*ptr == '\t')
 			print("\\t");
-		else if (*ptr < 16 || *ptr >= 127)
-			print("\\x%02X", (uint8_t)*ptr);
+		else if (*ptr < 31 || *ptr >= 127 || *ptr == '{' || *ptr == '}')
+		{
+			if (maxLength == 0)
+				print("{%d}", (uint8_t)*ptr);
+			else
+				print(".");
+		}
 		else
 			print("%c", DDB_Char2ISO[*ptr]);
 	}
@@ -282,12 +289,12 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 				if (condact == CONDACT_MES || condact == CONDACT_MESSAGE)
 				{
 					print("\t\t; ");
-					DDB_DumpMessage(ddb, DDB_MSG, code[-1], print, 50);
+					DDB_DumpMessage(ddb, DDB_MSG, code[-1], print, 47);
 				}
 				else if (condact == CONDACT_SYSMESS)
 				{
 					print("\t\t; ");
-					DDB_DumpMessage(ddb, DDB_SYSMSG, code[-1], print, 50);
+					DDB_DumpMessage(ddb, DDB_SYSMSG, code[-1], print, 47);
 				}
 			}
 			print("\n");
@@ -365,12 +372,11 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 	print("/CON\n");
 	for (int n = 0; n < ddb->numLocations; n++)
 	{
-		uint16_t offset = ddb->connections[n];
+		uint8_t* ptr = ddb->locConnections[n];
+		if (ptr == 0)
+			continue;
 
 		print("/%d\n", n);
-		if (offset == 0)
-			continue;
-		uint8_t* ptr = ddb->data + offset;
 		while (*ptr != 0xFF && ptr < ddb->data + ddb->dataSize)
 		{
 			print("    ");
@@ -429,6 +435,29 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 		DDB_DumpProcess(ddb, n, print);
 }
 
+int DDB_DumpMessageMetrics (DDB* ddb, uint8_t** pointers, const char* name, DDB_PrintFunc print)
+{
+	int count = 0;
+	int total = 0;
+
+	uint8_t endMarker = (ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A) ^ 0xFF;
+
+	for (int n = 0; n < 256; n++)
+	{
+		uint8_t* ptr = pointers[n];
+		if (ptr == 0) continue;
+		count++;
+		while (ptr < ddb->data + ddb->dataSize && *ptr != endMarker)
+		{
+			ptr++;
+			total++;
+		}
+	}
+	print("%5d bytes in %d %s\n", total, count, name);
+	return total;
+
+}
+
 int DDB_DumpMessageTableMetrics (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print)
 {
 	int count;
@@ -439,20 +468,14 @@ int DDB_DumpMessageTableMetrics (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print
 	switch (type)
 	{
 		case DDB_LOCDESC: 
-			table = ddb->msgTable;
-			count = ddb->numLocations; 
-			name = "location descriptions";
-			break;
+			return DDB_DumpMessageMetrics(ddb, ddb->locDescriptions, "location descriptions", print);
 		case DDB_OBJNAME: 
 			table = ddb->objNamTable;
 			count = ddb->numObjects; 
 			name = "object names";
 			break;
 		case DDB_MSG:     
-			table = ddb->msgTable;
-			count = ddb->numMessages; 
-			name = "messages";
-			break;
+			return DDB_DumpMessageMetrics(ddb, ddb->messages, "messages", print);
 		case DDB_SYSMSG:  
 			table = ddb->sysMsgTable;
 			count = ddb->numSystemMessages; 
@@ -515,9 +538,8 @@ void DDB_DumpMetrics (DDB* ddb, DDB_PrintFunc print)
 	count = 0;
 	for (int n = 0; n < ddb->numLocations; n++)
 	{
-		uint16_t offset = ddb->connections[n];
-		if (offset == 0) continue;
-		uint8_t* ptr = ddb->data + offset;
+		uint8_t* ptr = ddb->locConnections[n];
+		if (ptr == 0) continue;
 		while (*ptr != 0xFF && ptr < ddb->data + ddb->dataSize)
 			ptr++, count++;
 		count++;

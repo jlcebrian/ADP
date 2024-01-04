@@ -402,10 +402,14 @@ struct DDB
 	uint16_t*		objExAttrTable;
 	uint8_t*		objLocTable;
 	uint16_t*		locDescTable;
-	uint16_t*		connections;
+	uint16_t*		conTable;
 	uint8_t*		vocabulary;
 	uint8_t*        externData;
 	uint8_t*        charsets;
+
+	uint8_t*		messages[256];
+	uint8_t*		locConnections[256];
+	uint8_t*		locDescriptions[256];
 	
 	// Data storage: all pointers above are required to point to this block
 

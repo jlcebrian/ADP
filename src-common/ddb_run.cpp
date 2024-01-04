@@ -707,36 +707,31 @@ void DDB_OutputText (DDB_Interpreter* i, const char* text)
 bool DDB_OutputMessageWin (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, DDB_Window* w)
 {
 	DDB* ddb = i->ddb;
-
-	uint16_t* table;
-	uint8_t entries;
+	uint8_t* ptr;
 
 	switch (type)
 	{
 		case DDB_MSG:
-			table = ddb->msgTable;
-			entries = ddb->numMessages;
+			ptr = ddb->messages[msgId];
 			break;
 		case DDB_SYSMSG:
-			table = ddb->sysMsgTable;
-			entries = ddb->numSystemMessages;
+			if (msgId >= ddb->numSystemMessages)
+				return false;
+			ptr = ddb->data + ddb->sysMsgTable[msgId];
 			break;
 		case DDB_OBJNAME:
-			table = ddb->objNamTable;
-			entries = ddb->numObjects;
+			if (msgId >= ddb->numObjects)
+				return false;
+			ptr = ddb->data + ddb->objNamTable[msgId];
 			break;
 		case DDB_LOCDESC:
-			table = ddb->locDescTable;
-			entries = ddb->numLocations;
+			ptr = ddb->locDescriptions[msgId];
 			break;
 		default:
 			DDB_Warning("Invalid message type %d", type);
 			return false;
 	}
 
-	if (msgId >= entries)
-		return false;
-	uint8_t* ptr = ddb->data + table[msgId];
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
 		return false;
 
@@ -1184,11 +1179,10 @@ static bool MovePlayer (DDB_Interpreter* i, uint8_t flag)
 	uint8_t locno = i->flags[Flag_Locno];
 	if (locno >= i->ddb->numLocations)
 		return false;
-	uint16_t offset = i->ddb->connections[locno];
-	if (offset == 0)
-		return false;
-	uint8_t* ptr = i->ddb->data + offset;
+	uint8_t* ptr = i->ddb->locConnections[locno];
 	uint8_t* end = i->ddb->data + i->ddb->dataSize;
+	if (ptr == 0)
+		return false;
 	while (*ptr != 0xFF && ptr < end)
 	{
 		if (ptr[0] == i->flags[Flag_Verb])

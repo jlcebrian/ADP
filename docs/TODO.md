@@ -10,12 +10,7 @@
 
 PAWS
 
-[ ] 128K support (!)
-
-    Connections, messages & descriptions can be stored outside
-    the 64K boundary, so int16 tables won't be enough. Will
-    need to store pointers to each.
-
+[x] 128K support
 [ ] INVEN
 [ ] MODE: More... toggle
 [ ] DESC: Clear screen, LINE
@@ -23,6 +18,7 @@ PAWS
 [ ] Optional verb/noun match (PAWS A16)
 [ ] FLASH support (!)
 [ ] Fancy cursor support in INPUT
+[ ] Detect language (English/Spanish)
 
 Drawstring support
 
@@ -32,7 +28,7 @@ Drawstring support
 [ ]	Spectrum: Clear issue after dragon scene (AO2)
 [ ]	CPC: Support TEXT command
 [ ]	CPC: Support BLOCK command
-[ ]	CPC: Wierd differences in SHADE and INK (Chichen vs editor)
+[ ]	CPC: Weird differences in SHADE and INK (Chichen vs editor)
 
 [ ] Add support for multiple sentence conversations to PSI (Hobbit, PAWS A16)
 [ ] Honor palette range as it appears in .DAT files (AD didn't use it?)

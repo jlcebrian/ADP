@@ -16,7 +16,7 @@ void DDB_RestoreOffsets (DDB* ddb)
 		ddb->objNamTable,
 		ddb->locDescTable,
 		ddb->processTable,
-		ddb->connections
+		ddb->conTable
 	};
 	uint8_t counts[] = {
 		ddb->numMessages,
@@ -101,6 +101,18 @@ bool DDB_Write(DDB* ddb, const char* filename)
 {
 	if (ddb->data == 0)
 	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	if (ddb->msgTable == 0 || ddb->locDescTable == 0 || ddb->conTable == 0)
+	{
+		// PAWS 128K databases do not have unified locations & message tables
+		// and rely on internal DDB pointers instead.
+
+		// TODO: Add support to write those databases to DDB files.
+		// It may not be feasible since DDBs are limited to 64K (!)
+		
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
 		return false;
 	}

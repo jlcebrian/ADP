@@ -481,56 +481,46 @@ const char* DDB_GetDebugMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId)
 
 const char* DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize)
 {
-	uint16_t* table;
-	uint8_t entries;
+	uint8_t* ptr;
 
 	if (bufferSize == 0 || buffer == 0)
 		return buffer;
+
+	*buffer = 0;
+
 	switch (type)
 	{
 		case DDB_MSG:
-			table = ddb->msgTable;
-			entries = ddb->numMessages;
+			ptr = ddb->messages[msgId];
 			break;
 		case DDB_SYSMSG:
-			table = ddb->sysMsgTable;
-			entries = ddb->numSystemMessages;
+			if (msgId >= ddb->numSystemMessages)
+				return buffer;
+			ptr = ddb->data + ddb->sysMsgTable[msgId];
 			break;
 		case DDB_OBJNAME:
-			table = ddb->objNamTable;
-			entries = ddb->numObjects;
+			if (msgId >= ddb->numObjects)
+				return buffer;
+			ptr = ddb->data + ddb->objNamTable[msgId];
 			break;
 		case DDB_LOCDESC:
-			table = ddb->locDescTable;
-			entries = ddb->numLocations;
+			ptr = ddb->locDescriptions[msgId];
 			break;
 		default:
 			DDB_Warning("Invalid message type %d", type);
-			if (bufferSize > 0)
-				*buffer = 0;
 			return buffer;
 	}
 
-	if (msgId >= entries)
-	{
-		if (bufferSize > 0)
-			*buffer = 0;
-		return buffer;
-	}
-
-	uint8_t* ptr = ddb->data + table[msgId];
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
-	{
-		if (buffer && bufferSize > 0)
-			*buffer = 0;
 		return buffer;
-	}
+
+	uint8_t endMarker = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
 
 	bufferSize--;
 	while (bufferSize > 0)
 	{
 		uint8_t c = *ptr++ ^ 0xFF;
-		if (c == 0x0A || c == 0x1F)
+		if (c == endMarker)
 		{
 			*buffer = 0;
 			return buffer;
@@ -591,7 +581,7 @@ void DDB_FixOffsets (DDB* ddb)
 		ddb->objNamTable,
 		ddb->locDescTable,
 		ddb->processTable,
-		ddb->connections
+		ddb->conTable
 	};
 	uint8_t counts[] = {
 		ddb->numMessages,
@@ -770,6 +760,19 @@ static void DDB_FillTokenPointers(DDB* ddb)
 	}
 }
 
+static void DDB_FillMsgPointers(DDB* ddb)
+{
+	for (int i = 0; i < ddb->numLocations; i++)
+	{
+		ddb->locConnections[i] = ddb->data + ddb->conTable[i];
+		ddb->locDescriptions[i] = ddb->data + ddb->locDescTable[i];
+	}
+	for (int i = 0; i < ddb->numMessages; i++)
+	{
+		ddb->messages[i] = ddb->data + ddb->msgTable[i];
+	}
+}
+
 #if HAS_PAWS
 
 static bool CheckPAWSignature(uint8_t* memory, uint16_t base, uint16_t attr)
@@ -818,11 +821,54 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		ddb->locDescTable	   = (uint16_t*)(memory + read16LE(memory + 65501));
 		ddb->msgTable		   = (uint16_t*)(memory + read16LE(memory + 65503));
 		ddb->sysMsgTable	   = (uint16_t*)(memory + read16LE(memory + 65505));
-		ddb->connections	   = (uint16_t*)(memory + read16LE(memory + 65507));
+		ddb->conTable	       = (uint16_t*)(memory + read16LE(memory + 65507));
 		ddb->vocabulary		   = memory + read16LE(memory + 65509);
 		ddb->objLocTable	   = memory + read16LE(memory + 65511);
 		ddb->objWordsTable	   = memory + read16LE(memory + 65513);
 		ddb->objAttrTable	   = memory + read16LE(memory + 65515);
+
+		if (size > 65536)
+		{
+			int from = 0;
+			for (int i = 0; i < 8 && from < ddb->numLocations ; i++)
+			{
+				uint8_t page = memory[base + 297 + i*2];
+				uint8_t to   = memory[base + 298 + i*2];
+				if (to == 255) to = ddb->numLocations;
+				DebugPrintf("Page %d contains locations from %d to %d\n", page, from, to-1);
+				uint8_t* base = ddb->data + (page > 0 ? 0x10000 + page * 0x4000 - 0xC000: 0);
+				uint16_t locDescTable = read16LE(base + 65501);
+				uint16_t locConnTable = read16LE(base + 65507);
+				for (int n = from; n < to; n++)
+				{
+					ddb->locConnections[n] = base + read16LE(base + locConnTable + (n-from)*2);
+					ddb->locDescriptions[n] = base + read16LE(base + locDescTable + (n-from)*2);
+				}
+				from = to;
+			}
+			from = 0;
+			for (int i = 0; i < 8 && from < ddb->numMessages; i++)
+			{
+				uint8_t page = memory[base + 283 + i*2];
+				uint8_t to   = memory[base + 284 + i*2];
+				if (to == 255) to = ddb->numMessages;
+				DebugPrintf("Page %d contains messages from %d to %d\n", page, from, to-1);
+				uint8_t* base = ddb->data + (page > 0 ? 0x10000 + page * 0x4000 - 0xC000 : 0);
+				uint16_t msgTable = read16LE(base + 65503);
+				for (int n = from; n < to; n++)
+					ddb->messages[n] = base + read16LE(base + msgTable + (n-from)*2);
+				from = to;
+			}
+
+			ddb->conTable = 0;
+			ddb->msgTable = 0;
+			ddb->locDescTable = 0;
+		}
+		else
+		{
+			DDB_FillMsgPointers(ddb);
+		}
+
 		return true;
 	}
 	if (CheckPAWSignature(memory, base = 26931, attr = 27908))
@@ -1034,7 +1080,7 @@ DDB* DDB_Load(const char* filename)
 	ddb->locDescTable      = (uint16_t*)(data + read16(data + 14, ddb->littleEndian) - ddb->baseOffset);
 	ddb->msgTable          = (uint16_t*)(data + read16(data + 16, ddb->littleEndian) - ddb->baseOffset);
 	ddb->sysMsgTable       = (uint16_t*)(data + read16(data + 18, ddb->littleEndian) - ddb->baseOffset);
-	ddb->connections       = (uint16_t*)(data + read16(data + 20, ddb->littleEndian) - ddb->baseOffset);
+	ddb->conTable          = (uint16_t*)(data + read16(data + 20, ddb->littleEndian) - ddb->baseOffset);
 	ddb->vocabulary        = data + read16(data + 22, ddb->littleEndian) - ddb->baseOffset;
 	ddb->objLocTable       = data + read16(data + 24, ddb->littleEndian) - ddb->baseOffset;
 	ddb->objWordsTable     = data + read16(data + 26, ddb->littleEndian) - ddb->baseOffset;
@@ -1055,6 +1101,7 @@ DDB* DDB_Load(const char* filename)
 	
 	DDB_FixOffsets(ddb);
 	DDB_FillTokenPointers(ddb);
+	DDB_FillMsgPointers(ddb);
 
 	// Old databases may need a PAWS style flow, try to
 	// detect if process table 0 is a responses table
