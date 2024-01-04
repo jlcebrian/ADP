@@ -549,7 +549,7 @@ const char* DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buf
 		}
 		else
 		{
-			*buffer++ = c & 0x7F;
+			*buffer++ = c;
 			bufferSize--;
 		}
 	}
@@ -806,6 +806,11 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		ddb->condactMap   = pawsCondacts;
 		ddb->littleEndian = true;
 		ddb->firstToken   = 164;
+
+		ddb->defaultBorder     = memory[base + 323];
+		ddb->defaultInk		   = memory[base + 312];
+		ddb->defaultPaper	   = memory[base + 314];
+		ddb->defaultCharset	   = memory[base + 281];
 
 		ddb->numObjects        = memory[base + 324];
 		ddb->numLocations      = memory[base + 325];

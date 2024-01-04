@@ -136,8 +136,10 @@ enum DDB_GraphicsFlags
 
 enum DDB_WindowFlags
 {
-	Win_ForceGraphics = 0x01,
-	Win_NoMorePrompt  = 0x02,
+	Win_ForceGraphics     = 0x01,
+	Win_NoMorePrompt      = 0x02,
+	Win_Inverse           = 0x10,
+	Win_ExpectingCodeByte = 0x20,
 };
 
 enum DDB_TimeoutFlags
@@ -363,6 +365,7 @@ enum DDB_Language
 
 enum DDB_Flow
 {
+	FLOW_STARTING,
 	FLOW_DESC,
 	FLOW_AFTER_TURN,
 	FLOW_INPUT,
@@ -410,6 +413,11 @@ struct DDB
 	uint8_t*		messages[256];
 	uint8_t*		locConnections[256];
 	uint8_t*		locDescriptions[256];
+
+	uint8_t         defaultBorder;
+	uint8_t         defaultInk;
+	uint8_t         defaultPaper;
+	uint8_t         defaultCharset;
 	
 	// Data storage: all pointers above are required to point to this block
 
@@ -661,7 +669,9 @@ extern bool             DDB_WriteVectorDatabase  (const char* filename);
 
 #if HAS_PAWS
 extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data);
+extern void             DDB_LoadUDGs             ();
 #endif
 #endif
+
 
 #endif

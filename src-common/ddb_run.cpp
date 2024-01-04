@@ -1,6 +1,7 @@
 #include <ddb.h>
 #include <ddb_scr.h>
 #include <ddb_pal.h>
+#include <ddb_data.h>
 #include <dmg.h>
 #include <os_char.h>
 #include <os_mem.h>
@@ -51,6 +52,7 @@ static const char* DDB_StateNames[] = {
 	"DDB_INPUT_LOAD"
 };
 static const char* DDB_FlowNames[] = {
+	"FLOW_STARTING",
 	"FLOW_DESC",
 	"FLOW_AFTER_TURN",
 	"FLOW_INPUT",
@@ -154,16 +156,47 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 
 void DDB_SetCharset (DDB* ddb, uint8_t c)
 {
-	if (ddb->numCharsets > c)
-		MemCopy(charset + 256, ddb->charsets + 768*c, 768);
+	if (c == 0)
+	{
+		MemCopy(charset + 256, DefaultCharset + 256, 768);
+	}
+	else if (ddb->numCharsets >= c)
+	{
+		MemCopy(charset + 256, ddb->charsets + 768*(c-1), 768);
+	}
+
+#if HAS_PAWS
+	DDB_LoadUDGs();
+#endif
+}
+
+void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
+{
+	if (i->ddb->version == DDB_VERSION_PAWS)
+	{
+		// TODO: Use proper default colors
+		w->flags &= ~Win_Inverse;
+		w->ink = i->ddb->defaultInk;
+		w->paper = i->ddb->defaultPaper;
+		DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
+	}
 }
 
 void DDB_ResetWindows (DDB_Interpreter* i)
 {
 	int defaultInk = 15;
+	int defaultPaper = 0;
+
+	// TODO: Store default colors in DDB
 	if (i->ddb->target == DDB_MACHINE_CPC ||
 	 	i->ddb->target == DDB_MACHINE_C64)
 		defaultInk = 1;
+
+	if (i->ddb->version == DDB_VERSION_PAWS)
+	{
+		defaultInk = i->ddb->defaultInk;
+		defaultPaper = i->ddb->defaultPaper;
+	}
 
 	for (int n = 0; n < 8; n++)
 	{
@@ -173,7 +206,7 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 		w->width       = screenWidth;
 		w->height      = screenHeight;
 		w->ink         = defaultInk;
-		w->paper       = 0;
+		w->paper       = defaultPaper;
 		w->posX        = w->x;
 		w->posY        = w->y;
 		w->scrollCount = 0;
@@ -182,7 +215,7 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 	i->win = i->windef[0];
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
 	DDB_SetupInkMap(i);
-	DDB_SetCharset(i->ddb, i->ddb->numCharsets > 1 ? 1 : 0);
+	DDB_ResetPAWSColors(i, &i->win);
 }
 
 void DDB_Reset (DDB_Interpreter* i)
@@ -217,11 +250,10 @@ void DDB_Reset (DDB_Interpreter* i)
 	{
 		i->flags[Flag_ScreenMode] = i->screenMode;
 	}
-
 	if (i->ddb->oldMainLoop)
 	{
-		i->oldMainLoopState = FLOW_DESC;
-		i->procstack[0].process = 1;
+		i->state = DDB_FINISHED;
+		i->oldMainLoopState = FLOW_STARTING;
 	}
 
 	for (n = 0; n < i->ddb->numObjects; n++)
@@ -514,7 +546,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 				break;
 			wordWidth += width;
 		}
-		if (w->posX + wordWidth >= maxX)
+		if (w->posX + wordWidth > maxX && w->posX > w->x)
 			DDB_NewLineAtWindow(i, w);
 	}
 
@@ -526,29 +558,50 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			switch (ch)
 			{
 				case 16:		// Ink
-					w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
+					if (w->flags & Win_Inverse)
+						w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
+					else
+						w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
 					n++;
 					continue;
 				case 17:		// Paper
-					w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
+					if (w->flags & Win_Inverse)
+						w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
+					else
+						w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
 					n++;
 					continue;
 				case 18:		// Flash
-					// TODO: Add flash support to Spectrum
-					w->paper = (w->paper & 0x07) | ((i->pending[n+1] & 0x01) << 3);
+					w->ink   = (w->ink   & 0xEF) | ((i->pending[n+1] & 0x01) << 4);
+					w->paper = (w->paper & 0xEF) | ((i->pending[n+1] & 0x01) << 4);
 					n++;
 					continue;
 				case 19:		// Bright
-					w->ink   = (w->ink   & 0x07) | ((i->pending[n+1] & 0x01) << 3);
+					w->ink   = (w->ink   & 0xF7) | ((i->pending[n+1] & 0x01) << 3);
+					w->paper = (w->paper & 0xF7) | ((i->pending[n+1] & 0x01) << 3);
 					n++;
 					continue;
+				case 20:		// Inverse
+				{
+					n++;
+					if (!(w->flags & Win_Inverse) && i->pending[n])
+						w->flags |= Win_Inverse;
+					else if ((w->flags & Win_Inverse) && !i->pending[n])
+						w->flags &= ~Win_Inverse;
+					else
+						continue;
+					uint8_t tmp = w->ink;
+					w->ink = w->paper;
+					w->paper = tmp;
+					continue;
+				}
 				case 1:
 				case 2:
 				case 3:
 				case 4:
 				case 5:
 				case 6:
-					DDB_SetCharset(i->ddb, ch - 1);
+					DDB_SetCharset(i->ddb, ch);
 					continue;
 				default:
 					DebugPrintf("Unknown PAWS control code %d\n", ch);
@@ -611,74 +664,135 @@ void DDB_ResetScrollCounts(DDB_Interpreter* i)
 
 static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 {
-	switch(c)
+	if ((w->flags & Win_ExpectingCodeByte) != 0)
 	{
-		case 7:
-		case '\x0D':		// Newline ('\n') 
-			DDB_FlushWindow(i, w);
-			DDB_NewLineAtWindow(i, w);
-			return;
-
-		case '@':
-			if (i->ddb->version == DDB_VERSION_PAWS)
-				break;
-
-		case '_':
+		w->flags &= ~Win_ExpectingCodeByte;
+	}
+	else
+	{
+		if (i->ddb->version == DDB_VERSION_PAWS)
 		{
-			int firstChar = 0;
-			const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
-			if (end == objNameBuffer)
-				return;
-			if (i->ddb->language == DDB_SPANISH)
+			switch(c)
 			{
-				if (objNameBuffer[1] == 'n') {
-					if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
-						if (objNameBuffer[3] == 's' && (objNameBuffer[2] == 'a' || objNameBuffer[2] == 'o')) {
-							firstChar++;
-						} else if (objNameBuffer[2] == 'a') {
-							firstChar++;
-							objNameBuffer[2] = 'a';
-						} else {
-							objNameBuffer[0] = 'e';
+				case 7:
+					DDB_FlushWindow(i, w);
+					DDB_NewLineAtWindow(i, w);
+					return;
+
+				case '_':
+				{
+					// TODO: Handle differences between PAWS & DAAD
+
+					int firstChar = 0;
+					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
+					if (end == objNameBuffer)
+						return;
+					if (i->ddb->language == DDB_SPANISH)
+					{
+						if (objNameBuffer[1] == 'n') {
+							if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
+								if (objNameBuffer[3] == 's' && (objNameBuffer[2] == 'a' || objNameBuffer[2] == 'o')) {
+									firstChar++;
+								} else if (objNameBuffer[2] == 'a') {
+									firstChar++;
+									objNameBuffer[2] = 'a';
+								} else {
+									objNameBuffer[0] = 'e';
+								}
+								objNameBuffer[1] = 'l';
+							}
 						}
-						objNameBuffer[1] = 'l';
 					}
+					objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
+					for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
+						if (*ptr == '.') break;
+						OutputCharToWindow(i, w, *ptr);
+					}
+					return;
 				}
+				
+				case 16:
+				case 17:
+				case 18:
+				case 19:
+				case 20:
+					w->flags |= Win_ExpectingCodeByte;
+					if (i->pendingPtr >= sizeof(i->pending)) {
+						DebugPrintf("Output buffer overflow\n", stderr);
+						DDB_FlushWindow(i, w);
+					}
+					i->pending[i->pendingPtr++] = c;
+					return;
 			}
-			if (c == '@')
-				objNameBuffer[firstChar] = ToUpper(objNameBuffer[firstChar]);
-			else
-				objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
-			for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
-				if (*ptr == '.') break;
-				OutputCharToWindow(i, w, *ptr);
-			}
-			return;
 		}
-
-		case '\x0B':		// Clear screen ('\b')
-			if (i->ddb->version != DDB_VERSION_PAWS)
+		else 
+		{
+			switch(c)
 			{
-				DDB_FlushWindow(i, w);
-				DDB_ClearWindow(i, w);
-				return;
-			}
-			break;
+				case '\x0D':		// Newline ('\n') 
+					DDB_FlushWindow(i, w);
+					DDB_NewLineAtWindow(i, w);
+					return;
 
-		case '\x0C':		// Wait for a keypress ('\k')
-			if (i->ddb->version != DDB_VERSION_PAWS)
-			{
-				DDB_FlushWindow(i, w);
-				SCR_WaitForKey();
-				DDB_ResetScrollCounts(i);
-				w->smooth = 1;
-				return;
+				case '@':
+				case '_':
+				{
+					int firstChar = 0;
+					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
+					if (end == objNameBuffer)
+						return;
+					if (i->ddb->language == DDB_SPANISH)
+					{
+						if (objNameBuffer[1] == 'n') {
+							if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
+								if (objNameBuffer[3] == 's' && (objNameBuffer[2] == 'a' || objNameBuffer[2] == 'o')) {
+									firstChar++;
+								} else if (objNameBuffer[2] == 'a') {
+									firstChar++;
+									objNameBuffer[2] = 'a';
+								} else {
+									objNameBuffer[0] = 'e';
+								}
+								objNameBuffer[1] = 'l';
+							}
+						}
+					}
+					if (c == '@')
+						objNameBuffer[firstChar] = ToUpper(objNameBuffer[firstChar]);
+					else
+						objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
+					for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
+						if (*ptr == '.') break;
+						OutputCharToWindow(i, w, *ptr);
+					}
+					return;
+				}
+
+				case '\x0B':		// Clear screen ('\b')
+					if (i->ddb->version != DDB_VERSION_PAWS)
+					{
+						DDB_FlushWindow(i, w);
+						DDB_ClearWindow(i, w);
+						return;
+					}
+					break;
+
+				case '\x0C':		// Wait for a keypress ('\k')
+					if (i->ddb->version != DDB_VERSION_PAWS)
+					{
+						DDB_FlushWindow(i, w);
+						SCR_WaitForKey();
+						DDB_ResetScrollCounts(i);
+						w->smooth = 1;
+						return;
+					}
+					break;
 			}
-			break;
+		}
 	}
 
 	if (i->pendingPtr >= sizeof(i->pending)) {
-		//fputs("Output buffer overflow\n", stderr);
+		DebugPrintf("Output buffer overflow\n", stderr);
 		DDB_FlushWindow(i, w);
 	}
 
@@ -1095,16 +1209,19 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		if (i->ddb->version < 2 && i->flags[4] > 0)
 			i->flags[4]--;
 
-
+		DDB_SetWindow(i, 1);
 		if (i->ddb->version < 2)
 		{
 			if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 			{
-				DDB_SetWindow(i, 1);
+				if (i->ddb->version == DDB_VERSION_PAWS)
+				{
+					WinAt(i, 0, 0);
+					WinSize(i, 24, 32);
+				}
 				DDB_ClearWindow(i, &i->win);
 			}
 		}
-		DDB_SetWindow(i, 1);
 		DDB_OutputMessage(i, DDB_SYSMSG, 0);
 	}
 	else
@@ -1117,8 +1234,15 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		{
 			DDB_ClearWindow(i, &i->win);
 			#if HAS_DRAWSTRING
-			if (DDB_DrawVectorPicture(i->flags[Flag_Locno]) && i->ddb->version > 1)
+			bool found = DDB_DrawVectorPicture(i->flags[Flag_Locno]);
+			if (found && i->ddb->version > 1)
 				i->flags[40] = 255;
+			if (!found && i->ddb->version == DDB_VERSION_PAWS)
+			{
+				DDB_SetWindow(i, 1);
+				WinAt(i, 0, 0);
+				WinSize(i, 24, 32);
+			}
 			#endif
 		}
 		else if (SCR_PictureExists(i->flags[Flag_Locno]))
@@ -1133,6 +1257,11 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		DDB_SetWindow(i, 1);
 		if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 		{
+			if (i->ddb->version == DDB_VERSION_PAWS)
+			{
+				WinAt(i, 0, 0);
+				WinSize(i, 24, 32);
+			}
 			DDB_Flush(i);
 			DDB_ClearWindow(i, &i->win);
 		}
@@ -1806,6 +1935,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_NEWLINE:
 				DDB_Flush(i);
 				DDB_NewLine(i);
+				DDB_ResetPAWSColors(i, &i->win);
 				i->done = true;
 				break;
 			case CONDACT_PRINT:
@@ -2016,8 +2146,23 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				return;
 
 			case CONDACT_ANYKEY:
-				DDB_OutputMessage(i, DDB_SYSMSG, 16);
-				DDB_Flush(i);
+				if (i->ddb->version == DDB_VERSION_PAWS)
+				{
+					int curwin = i->curwin;
+					DDB_Flush(i);
+					DDB_SetWindow(i, 2);
+					WinAt(i, 23, 0);
+					WinSize(i, 1, 32);
+					DDB_OutputMessage(i, DDB_SYSMSG, 16);
+					DDB_Flush(i);
+					DDB_SetWindow(i, curwin);
+					DDB_ResetPAWSColors(i, &i->win);
+				}
+				else
+				{
+					DDB_OutputMessage(i, DDB_SYSMSG, 16);
+					DDB_Flush(i);
+				}
 				i->state = DDB_WAITING_FOR_KEY;
 				UpdatePos(i, process, entry, offset + params + 1);
 				if (i->flags[Flag_TimeoutFlags] & Timeout_AnyKey)
@@ -3246,6 +3391,10 @@ static void StepFunction(int elapsed)
 
 				switch (i->oldMainLoopState)
 				{
+					case FLOW_STARTING:
+						DDB_Desc(i, i->flags[Flag_Locno]);
+						break;
+
 					case FLOW_RESPONSES:
 						if (i->flags[Flag_TimeoutFlags] & 0x80)
 							DDB_OutputMessage(i, DDB_SYSMSG, 35);		// Time passes...

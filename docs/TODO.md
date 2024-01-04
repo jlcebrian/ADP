@@ -11,6 +11,9 @@
 PAWS
 
 [x] 128K support
+[x] UDGs
+[x] INVERSE support
+[ ] ANYKEY shows message at bottom of screen
 [ ] INVEN
 [ ] MODE: More... toggle
 [ ] DESC: Clear screen, LINE
