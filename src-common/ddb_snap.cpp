@@ -246,6 +246,10 @@ static bool LoadSnapshotFromSNA (File* file)
 			if (i != page && i != 2 && i != 5)
 				File_Read(file, snapshotRAM + 0x10000 + i * 0x4000, 0x4000);
 		}
+
+		// Select page 0
+		MemCopy(snapshotRAM + 0xC000, snapshotRAM + 0x10000, 0x4000);
+
 		return true;
 	}
 
@@ -290,7 +294,7 @@ struct Z80SnapshotExtraHeader
 	uint16_t extraHeaderLength;
 	uint16_t PC;
 	uint8_t  mode;
-	uint8_t  _out7ffd;
+	uint8_t  out7ffd;
 	uint8_t  _if1paged;
 	uint8_t  flags;
 	
@@ -344,17 +348,16 @@ static uint8_t* GetZ80RAMPage (int version, int mode, int page)
 	}
 	else
 	{
-		// Consider that page 0 is selected
 		switch (page)
 		{
-			case 5: return snapshotRAM + 0x8000;
-			case 8: return snapshotRAM + 0x4000;
-			case 3: return snapshotRAM + 0xC000;
-			case 4: return snapshotRAM + 0x10000;
-			case 6: return snapshotRAM + 0x14000;
-			case 7: return snapshotRAM + 0x18000;
-			case 9: return snapshotRAM + 0x1C000;
-			case 10: return snapshotRAM + 0x20000;
+			case  3: return snapshotRAM + 0x10000;
+			case  4: return snapshotRAM + 0x14000;
+			case  5: return snapshotRAM + 0x18000;
+			case  6: return snapshotRAM + 0x1C000;
+			case  7: return snapshotRAM + 0x20000;
+			case  8: return snapshotRAM + 0x24000;
+			case  9: return snapshotRAM + 0x28000;
+			case 10: return snapshotRAM + 0x2C000;
 			default: return 0;
 		}
 	}
@@ -403,7 +406,7 @@ static bool LoadSnapshotFromZ80 (File* file)
 	}
 
 	// This allocates space for the ROM just for convenience
-	AllocateSnapshot((IsZ8048K(version, mode) ? 64 : 144) * 1024);
+	AllocateSnapshot((IsZ8048K(version, mode) ? 64 : 192) * 1024);
 
 	if (version == 1)
 	{
@@ -437,6 +440,14 @@ static bool LoadSnapshotFromZ80 (File* file)
 			}
 			ptr += length;
 		}
+	}
+
+	if (!IsZ8048K(version, mode))
+	{
+		// Copy the 128K pages into 48K address space
+		MemCopy(snapshotRAM + 0x4000, snapshotRAM + 0x24000, 0x4000);	// Page 5
+		MemCopy(snapshotRAM + 0x8000, snapshotRAM + 0x18000, 0x4000);	// Page 2
+		MemCopy(snapshotRAM + 0xC000, snapshotRAM + 0x10000, 0x4000);	// Page 0
 	}
 
 	Free(data);

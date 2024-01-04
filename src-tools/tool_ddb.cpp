@@ -152,7 +152,18 @@ static const char* DescribeMachine(DDB_Machine machine)
 		case DDB_MACHINE_PCW:      return "Amstrad PCW"; break;
 		case DDB_MACHINE_PLUS4:    return "Commodore Plus/4"; break;
 		case DDB_MACHINE_MSX2:     return "MSX2"; break;
-		default:                   return "Unknown"; break;
+		default:                   return "Unknown machine"; break;
+	}
+}
+
+static const char* DescribeVersion (DDB_Version version)
+{
+	switch (version)
+	{
+		case DDB_VERSION_PAWS: return "PAWS"; break;
+		case DDB_VERSION_1: return "DAAD v1"; break;
+		case DDB_VERSION_2: return "DAAD v2"; break;
+		default:            return "Unknown version"; break;
 	}
 }
 
@@ -215,8 +226,8 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	printf("DDB file loaded (%s, version %d, %s, %d bytes)\n", 
-		argv[1], ddb->version, 
+	printf("DDB file loaded (%s, %s, %s, %d bytes)\n", 
+		argv[1], DescribeVersion(ddb->version), 
 		ddb->littleEndian ? "little endian" : "big endian", 
 		ddb->dataSize);
 
@@ -231,10 +242,8 @@ int main (int argc, char *argv[])
 		printf("%5d processes\n", ddb->numProcesses);
 		if (ddb->objExAttrTable)
 			printf("    - Includes extra object attributes\n");
-		if (ddb->hasTokens)
+		if (ddb->hasTokens && ddb->tokenBlockSize > 1)
 			printf("    - Text is compressed (%d bytes in tokens)\n", (int)ddb->tokenBlockSize);
-		if (ddb->oldMainLoop)
-			printf("    - Uses PAWS style main loop (PRO 0 is a responses table)\n");	
 		DDB_DumpMetrics(ddb, printf);
 		return 0;
 	}

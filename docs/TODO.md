@@ -1,23 +1,40 @@
 
 # Interpreter
 
+[x] Snapshot support
 [ ] Scroll attributes
-[ ] Snapshot support
 [ ]	Fix 128K snapshot support (currently broken in CPC and Spectrum)
 [ ]	CPC: Support more snapshot formats 
 [ ]	Add C64 snapshot support
 [ ]	Add MSX snapshot support
-[ ] Drawstring support
-[ ]	C64
-[ ]	MSX
+
+PAWS
+
+[ ] 128K support (!)
+
+    Connections, messages & descriptions can be stored outside
+    the 64K boundary, so int16 tables won't be enough. Will
+    need to store pointers to each.
+
+[ ] INVEN
+[ ] MODE: More... toggle
+[ ] DESC: Clear screen, LINE
+[ ] PROTECT (change windows dynamically)
+[ ] Optional verb/noun match (PAWS A16)
+[ ] FLASH support (!)
+[ ] Fancy cursor support in INPUT
+
+Drawstring support
+
+[x] Spectrum: Support TEXT command
+[ ] Spectrum: Fill attribute overwrite on unmodified pixels (Firfurcio)
 [ ]	Spectrum: Paper/over issue in dwarf image (AO2)
 [ ]	Spectrum: Clear issue after dragon scene (AO2)
-[ ] 	Spectrum: Support TEXT command
 [ ]	CPC: Support TEXT command
 [ ]	CPC: Support BLOCK command
 [ ]	CPC: Wierd differences in SHADE and INK (Chichen vs editor)
 
-[ ] Add support for multiple sentence conversations to PSI (Hobbit)
+[ ] Add support for multiple sentence conversations to PSI (Hobbit, PAWS A16)
 [ ] Honor palette range as it appears in .DAT files (AD didn't use it?)
 [ ] Amiga/ST: Ask for disk # when there are multiple DDB files but no corresponding DATs
 [ ] DOS: use fast VRAM copy in scroll

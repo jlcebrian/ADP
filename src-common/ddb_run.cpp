@@ -2659,6 +2659,19 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				WinSize(i, 24 - param0, 32);
 				i->done = true;
 				break;
+			case CONDACT_PROTECT:
+			{
+				DDB_Flush(i);
+				DDB_Window* w = &i->windef[i->curwin];
+				int x = i->win.posX;
+				int y = i->win.posY;
+				WinAt(i, y, 0);
+				WinSize(i, 24 - y, 32);
+				PrintAt(i, w, x, y);
+				i->flags[Flag_SplitLine] = param0;
+				i->done = true;
+				break;
+			}
 			case CONDACT_CLS: 
 				DDB_Flush(i);
 				i->done = true;

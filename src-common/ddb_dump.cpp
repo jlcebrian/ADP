@@ -163,17 +163,23 @@ void DDB_DumpVocabularyWord (DDB* ddb, uint8_t type, uint8_t index, DDB_PrintFun
 		}
 		ptr += 7;
 	}
-	if (type == WordType_Verb && index < 40)
-		DDB_DumpVocabularyWord(ddb, WordType_Noun, index, print);
-	else
-		print("%-5d", index);
+	if (type == WordType_Verb)
+	{
+		const int convertibleNoun = ddb->version < 2 ? 20 : 40;
+		if (index < convertibleNoun)
+		{
+			DDB_DumpVocabularyWord(ddb, WordType_Noun, index, print);
+			return;
+		}
+	}
+	print("%-5d", index);
 }
 
 static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc print, int maxLength)
 {
-	DDB_GetMessage(ddb, type, n, (char *)buffer, sizeof(buffer));
+	const void* end = DDB_GetMessage(ddb, type, n, (char *)buffer, sizeof(buffer));
 	if (buffer[0] == 0) return false;
-	for (const unsigned char* ptr = buffer; *ptr; ptr++)
+	for (const unsigned char* ptr = buffer; ptr < end; ptr++)
 	{
 		if (maxLength > 0)
 		{
@@ -367,6 +373,7 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 		uint8_t* ptr = ddb->data + offset;
 		while (*ptr != 0xFF && ptr < ddb->data + ddb->dataSize)
 		{
+			print("    ");
 			DDB_DumpVocabularyWord(ddb, WordType_Verb, *ptr++, print);
 			print(" %d\n", *ptr++);
 		}
@@ -454,13 +461,15 @@ int DDB_DumpMessageTableMetrics (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print
 		default:          
 			return 0;
 	}
+
+	uint8_t endMarker = (ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A) ^ 0xFF;
 	
 	for (int n = 0 ; n < count; n++)
 	{
 		uint16_t offset = table[n];
 		if (offset == 0) continue;
 		uint8_t* ptr = ddb->data + offset;
-		while (*ptr != 0xF5 && ptr < ddb->data + ddb->dataSize)
+		while (*ptr != endMarker && ptr < ddb->data + ddb->dataSize)
 		{
 			ptr++;
 			total++;

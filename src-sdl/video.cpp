@@ -821,7 +821,7 @@ void VID_SaveDebugBitmap()
 			int checkboard = ((x & 1) ^ (y & 1));
 			grid[n] = checkboard ? color1: color0;
 		}
-		RenderSpectrumScreen(grid);
+		RenderSpectrumScreen(attributes);
 		Free(grid);
 	}
 
