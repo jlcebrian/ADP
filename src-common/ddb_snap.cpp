@@ -424,19 +424,20 @@ static bool LoadSnapshotFromZ80 (File* file)
 			bool compressed = true;
 
 			ptr += 3;
-			if (ptr + length > end)
-				break;
 			if (length == 0xFFFF)
 			{
 				compressed = false;
 				length = 16384;
 			}
+			if (ptr + length > end)
+				break;
 			if (out != 0)
 			{
 				if (compressed)
 					DecompressZ80Block(ptr, ptr + length, out, out + 16384);
 				else
-					MemCopy(out, ptr, length);
+					DecompressZ80Block(ptr, ptr + length, out, out + 16384);
+					// MemCopy(out, ptr, length);
 			}
 			ptr += length;
 		}
