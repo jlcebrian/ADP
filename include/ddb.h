@@ -139,7 +139,9 @@ enum DDB_WindowFlags
 	Win_ForceGraphics     = 0x01,
 	Win_NoMorePrompt      = 0x02,
 	Win_Inverse           = 0x10,
-	Win_ExpectingCodeByte = 0x20,
+	Win_Flash             = 0x20,
+	Win_Bright            = 0x40,
+	Win_ExpectingCodeByte = 0x80,
 };
 
 enum DDB_TimeoutFlags

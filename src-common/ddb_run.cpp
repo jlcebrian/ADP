@@ -77,7 +77,7 @@ static const char* TranslateChar(uint8_t c)
 	else if (c == '\x0F')
 		return "\\t";
 
-	if (c < 31)
+	if (c < 32 || c > 127)
 	{
 		buffer[0] = '{';
 		char* ptr = LongToChar(c, buffer + 1, 10);
@@ -175,7 +175,7 @@ void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
 		// TODO: Use proper default colors
-		w->flags &= ~Win_Inverse;
+		w->flags &= ~(Win_Inverse | Win_Flash | Win_Bright);
 		w->ink = i->ddb->defaultInk;
 		w->paper = i->ddb->defaultPaper;
 		DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
@@ -558,41 +558,25 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			switch (ch)
 			{
 				case 16:		// Ink
-					if (w->flags & Win_Inverse)
-						w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
-					else
-						w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
+					w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
 					n++;
 					continue;
 				case 17:		// Paper
-					if (w->flags & Win_Inverse)
-						w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
-					else
-						w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
+					w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
 					n++;
 					continue;
 				case 18:		// Flash
-					w->ink   = (w->ink   & 0xEF) | ((i->pending[n+1] & 0x01) << 4);
-					w->paper = (w->paper & 0xEF) | ((i->pending[n+1] & 0x01) << 4);
 					n++;
+					w->flags = (w->flags & ~Win_Flash) | ((i->pending[n] & 0x01) ? Win_Flash : 0);
 					continue;
 				case 19:		// Bright
-					w->ink   = (w->ink   & 0xF7) | ((i->pending[n+1] & 0x01) << 3);
-					w->paper = (w->paper & 0xF7) | ((i->pending[n+1] & 0x01) << 3);
 					n++;
+					w->flags = (w->flags & ~Win_Bright) | ((i->pending[n] & 0x01) ? Win_Bright : 0);
 					continue;
 				case 20:		// Inverse
 				{
 					n++;
-					if (!(w->flags & Win_Inverse) && i->pending[n])
-						w->flags |= Win_Inverse;
-					else if ((w->flags & Win_Inverse) && !i->pending[n])
-						w->flags &= ~Win_Inverse;
-					else
-						continue;
-					uint8_t tmp = w->ink;
-					w->ink = w->paper;
-					w->paper = tmp;
+					w->flags = (w->flags & ~Win_Inverse) | ((i->pending[n] & 0x01) ? Win_Inverse : 0);
 					continue;
 				}
 				case 1:
@@ -635,7 +619,27 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			}
 			DDB_NewLineAtWindow(i, w);
 		}
-		SCR_DrawCharacter(w->posX, w->posY, ch, w->ink, w->paper);
+
+		int ink = w->ink;
+		int paper = w->paper;
+		if (pawsMode)
+		{
+			if (w->flags & Win_Inverse)
+			{
+				uint8_t tmp = ink;
+				ink = paper;
+				paper = tmp;
+			}
+			if (paper == 9)
+			{
+				if (ink == 9) ink = 7;
+				paper = ink > 2 ? 0 : 7;
+			}
+			if (ink == 9)
+				ink = paper > 2 ? 0 : 7;
+		}
+
+		SCR_DrawCharacter(w->posX, w->posY, ch, ink, paper);
 		w->posX += width;
 	}
 	i->pendingPtr = 0;
@@ -3400,7 +3404,17 @@ static void StepFunction(int elapsed)
 							DDB_OutputMessage(i, DDB_SYSMSG, 35);		// Time passes...
 						else if (!i->done)
 						{
-							DDB_OutputMessage(i, DDB_SYSMSG, 8);		// I don't understand that.
+							if (i->flags[Flag_Verb] < 14 || (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < 14))
+							{
+								if (MovePlayer(i, Flag_Locno))
+								{
+									DDB_Desc(i, i->flags[Flag_Locno]);
+									break;
+								}
+								DDB_OutputMessage(i, DDB_SYSMSG, 7);		// I can't go that way
+							}
+							else
+								DDB_OutputMessage(i, DDB_SYSMSG, 8);		// I don't understand that.
 							DDB_NewText(i);
 						}
 						// Fall through
