@@ -1,5 +1,5 @@
 
-VERSION ?= BETA0.2
+VERSION ?= BETA0.3
 PREFIX   = m68k-atari-mint-
 CXX      = $(PREFIX)g++
 CC       = $(PREFIX)gcc

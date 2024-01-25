@@ -1,4 +1,4 @@
-VERSION ?= 0.2d
+VERSION ?= 0.3
 
 CPPFLAGS += -D_OSX -D_THREAD_SAFE
 CPPFLAGS += -arch x86_64 -arch arm64 -target macos10.12

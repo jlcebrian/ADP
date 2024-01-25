@@ -2,7 +2,7 @@
 # for better annotations add -dA -dP
 # to generate assembler source with LTO, add to LDFLAGS: -save-temps=cwd
 
-VERSION ?= BETA0.2
+VERSION ?= BETA0.3
 
 ifdef OS
 	WINDOWS = 1
