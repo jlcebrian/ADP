@@ -172,6 +172,7 @@ void DDB_SetCharset (DDB* ddb, uint8_t c)
 
 void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
 {
+	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
 		// TODO: Use proper default colors
@@ -180,6 +181,7 @@ void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
 		w->paper = i->ddb->defaultPaper;
 		DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
 	}
+	#endif
 }
 
 void DDB_ResetWindows (DDB_Interpreter* i)
@@ -192,11 +194,13 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 	 	i->ddb->target == DDB_MACHINE_C64)
 		defaultInk = 1;
 
+	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
 		defaultInk = i->ddb->defaultInk;
 		defaultPaper = i->ddb->defaultPaper;
 	}
+	#endif
 
 	for (int n = 0; n < 8; n++)
 	{
@@ -525,8 +529,12 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	// implementation sometimes writes garbage to the unintended window.
 	
 	int maxX = i->cellX*8 + i->cellW*8;
+	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
+
+#if HAS_PAWS
 	bool pawsMode = i->ddb->version == DDB_VERSION_PAWS;
-	bool forceGraphics = !pawsMode && (w->flags & Win_ForceGraphics) != 0;
+	if (pawsMode) forceGraphics = false;
+#endif
 
 	if (w != &i->win)
 	{
@@ -553,6 +561,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	for (int n = 0; n < i->pendingPtr ; n++)
 	{
 		uint8_t ch = i->pending[n];
+		#if HAS_PAWS
 		if (pawsMode && ch < 32)
 		{
 			switch (ch)
@@ -595,6 +604,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			continue;
 		}
 		else if (ch < 16)
+		#endif
 		{
 			switch (ch)
 			{
@@ -622,6 +632,8 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 
 		int ink = w->ink;
 		int paper = w->paper;
+		
+		#if HAS_PAWS
 		if (pawsMode)
 		{
 			if (w->flags & Win_Inverse)
@@ -638,6 +650,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			if (ink == 9)
 				ink = paper > 2 ? 0 : 7;
 		}
+		#endif
 
 		SCR_DrawCharacter(w->posX, w->posY, ch, ink, paper);
 		w->posX += width;
@@ -674,6 +687,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 	}
 	else
 	{
+		#if HAS_PAWS
 		if (i->ddb->version == DDB_VERSION_PAWS)
 		{
 			switch(c)
@@ -707,6 +721,12 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 							}
 						}
 					}
+					else if (i->ddb->language == DDB_ENGLISH)
+					{
+						if (objNameBuffer[0] == 'a' && objNameBuffer[1] == ' ') {
+							firstChar = 2;
+						}
+					}
 					objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
 					for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
 						if (*ptr == '.') break;
@@ -730,6 +750,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 			}
 		}
 		else 
+		#endif
 		{
 			switch(c)
 			{
@@ -759,6 +780,12 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 								}
 								objNameBuffer[1] = 'l';
 							}
+						}
+					}
+					else if (i->ddb->language == DDB_ENGLISH)
+					{
+						if (objNameBuffer[0] == 'a' && objNameBuffer[1] == ' ') {
+							firstChar = 2;
 						}
 					}
 					if (c == '@')
@@ -855,7 +882,11 @@ bool DDB_OutputMessageWin (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, 
 
 	TRACE("%s%d: \"", DDB_MessageTypeNames[type], msgId);
 
+	#if HAS_PAWS
 	uint8_t eof = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
+	#else
+	const uint8_t eof = 0x0A;
+	#endif
 
 	while (true)
 	{
@@ -1218,11 +1249,13 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		{
 			if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 			{
+				#if HAS_PAWS
 				if (i->ddb->version == DDB_VERSION_PAWS)
 				{
 					WinAt(i, 0, 0);
 					WinSize(i, 24, 32);
 				}
+				#endif
 				DDB_ClearWindow(i, &i->win);
 			}
 		}
@@ -1241,12 +1274,15 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			bool found = DDB_DrawVectorPicture(i->flags[Flag_Locno]);
 			if (found && i->ddb->version > 1)
 				i->flags[40] = 255;
+
+			#if HAS_PAWS
 			if (!found && i->ddb->version == DDB_VERSION_PAWS)
 			{
 				DDB_SetWindow(i, 1);
 				WinAt(i, 0, 0);
 				WinSize(i, 24, 32);
 			}
+			#endif
 			#endif
 		}
 		else if (SCR_PictureExists(i->flags[Flag_Locno]))
@@ -1261,11 +1297,13 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		DDB_SetWindow(i, 1);
 		if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 		{
+			#if HAS_PAWS
 			if (i->ddb->version == DDB_VERSION_PAWS)
 			{
 				WinAt(i, 0, 0);
 				WinSize(i, 24, 32);
 			}
+			#endif
 			DDB_Flush(i);
 			DDB_ClearWindow(i, &i->win);
 		}
@@ -1489,6 +1527,18 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 							i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 							i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
 						}
+					}
+					break;
+				case WordType_Pronoun:
+					if (i->flags[Flag_Noun1] == 255 && i->flags[Flag_CPNoun] != 255)
+					{
+						i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
+						i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
+					}
+					else if (i->flags[Flag_Noun2] == 255 && i->flags[Flag_CPNoun] != 255)
+					{
+						i->flags[Flag_Noun2] = i->flags[Flag_CPNoun];
+						i->flags[Flag_Adjective2] = i->flags[Flag_CPAdjective];
 					}
 					break;
 				case WordType_Noun:
@@ -2150,6 +2200,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				return;
 
 			case CONDACT_ANYKEY:
+				#if HAS_PAWS
 				if (i->ddb->version == DDB_VERSION_PAWS)
 				{
 					int curwin = i->curwin;
@@ -2163,6 +2214,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_ResetPAWSColors(i, &i->win);
 				}
 				else
+				#endif
 				{
 					DDB_OutputMessage(i, DDB_SYSMSG, 16);
 					DDB_Flush(i);
@@ -2259,7 +2311,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_COPYFO:
 				if (param1 < i->ddb->numObjects)
+				{
+					if (i->objloc[param1] == Loc_Carried && i->flags[Flag_NumCarried] > 0)
+						i->flags[Flag_NumCarried]--;
 					i->objloc[param1] = i->flags[param0];
+					if (i->objloc[param1] == Loc_Carried && i->flags[Flag_NumCarried] < 255)
+						i->flags[Flag_NumCarried]++;
+				}
 				i->done = true;
 				break;
 			case CONDACT_WHATO:
@@ -2548,6 +2606,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					goto case_DONE;
 				}
 				i->objloc[param0] = Loc_Carried;
+				i->flags[Flag_ObjLocno] = Loc_Carried;
 				i->flags[Flag_NumCarried]++;
 				DDB_OutputMessage(i, DDB_SYSMSG, 36);			// _ is in
 				i->done = true;
@@ -2597,6 +2656,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					goto case_DONE;
 				}
 				i->objloc[param0] = i->flags[Flag_Locno];
+				i->flags[Flag_ObjLocno] = i->flags[Flag_Locno];
 				if (i->flags[Flag_NumCarried] > 0)
 					i->flags[Flag_NumCarried]--;
 				DDB_OutputMessage(i, DDB_SYSMSG, 39);			// I dropped _
@@ -2655,6 +2715,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					goto case_DONE;
 				}
 				i->objloc[param0] = Loc_Carried;
+				i->flags[Flag_ObjLocno] = Loc_Carried;
 				i->flags[Flag_NumCarried]++;
 				DDB_OutputMessage(i, DDB_SYSMSG, 36);			// I now have _
 				i->done = true;
@@ -2703,6 +2764,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					goto case_DONE;
 				}
 				i->objloc[param0] = Loc_Worn;
+				i->flags[Flag_ObjLocno] = Loc_Worn;
 				if (i->flags[Flag_NumCarried] > 0)
 					i->flags[Flag_NumCarried]--;
 				DDB_OutputMessage(i, DDB_SYSMSG, 37);		// I'm now wearing _
@@ -2759,6 +2821,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					goto case_DONE;
 				}
 				i->objloc[param0] = Loc_Carried;
+				i->flags[Flag_ObjLocno] = Loc_Carried;
 				i->flags[Flag_NumCarried]++;
 				DDB_OutputMessage(i, DDB_SYSMSG, 38);		// I'm no longer wearing _
 				i->done = true;
@@ -2827,12 +2890,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("\n");
 					return;
                 }
+				#if HAS_PAWS
 				if (i->ddb->version == DDB_VERSION_PAWS)
 				{
 					DDB_SetWindow(i, 0);
 					WinAt(i, 0, 0);
 					WinSize(i, 24, 32);
 				}
+				#endif
 				DDB_ClearWindow(i, &i->win);
 				break;
 			case CONDACT_PICTURE:
@@ -2905,8 +2970,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_MODE:
 				i->done = true;
 				i->win.flags = param0;
+				#if HAS_PAWS
 				if  (i->ddb->version == DDB_VERSION_PAWS)
 					i->flags[Flag_PAWMode] = param0;
+				#endif
 				break;
 			case CONDACT_GRAPHIC:
 				i->done = true;
