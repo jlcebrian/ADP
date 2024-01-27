@@ -784,8 +784,15 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					}
 					else if (i->ddb->language == DDB_ENGLISH)
 					{
-						if (objNameBuffer[0] == 'a' && objNameBuffer[1] == ' ') {
-							firstChar = 2;
+						// Remove the first word
+						if (objNameBuffer[0] >= 'a' && objNameBuffer[1] <='z') {
+							firstChar = 1;
+							while (objNameBuffer[firstChar] && objNameBuffer[firstChar] != ' ')
+								firstChar++;
+							if (objNameBuffer[firstChar] == ' ')
+								firstChar++;
+							else
+								firstChar = 0;
 						}
 					}
 					if (c == '@')
