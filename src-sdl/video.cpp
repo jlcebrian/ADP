@@ -302,8 +302,29 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 					ptr[dx] = next[dx];
 			}
 
-			// TODO: Scroll attributes
-			w <<= 3;
+			if (lines >= 8 && w >= 8)
+			{
+				int row0 = y >> 3;
+				int row1 = (y + h - lines) >> 3;
+				int rows = h >> 3;
+				int cols = w;
+				int col0 = x >> 3;
+				int inc  = stride * (lines >> 3);
+				int attv = (paper << 3) | (curAttr & 0xC7);
+				for (int row = row0; row < row1; row++)
+				{
+					uint8_t* attr = attributes + row * stride + col0;
+					for (int col = 0; col < cols; col++)
+						attr[col] = attr[col + inc];
+				}
+				rows = lines >> 3;
+				for (int row = row1; row < row1 + rows; row++)
+				{
+					uint8_t* attr = attributes + row * stride + col0;
+					for (int col = 0; col < cols; col++)
+						attr[col] = attv;
+				}
+			}
 		}
 		else
 		{
