@@ -302,7 +302,7 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 					ptr[dx] = next[dx];
 			}
 
-			if (lines >= 8 && w >= 8)
+			if (lines >= 8 && w >= 1)
 			{
 				int row0 = y >> 3;
 				int row1 = (y + h - lines) >> 3;
@@ -328,7 +328,6 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 		}
 		else
 		{
-
 			for (; dy < h - lines; dy++)
 			{
 				uint8_t *ptr = textBuffer + (y + dy) * screenWidth + x;
