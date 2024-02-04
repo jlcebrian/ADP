@@ -456,6 +456,105 @@ static bool LoadSnapshotFromZ80 (File* file)
 }
 
 // ----------------------------------------------------------------------------
+//  TAP Tape file support
+// ----------------------------------------------------------------------------
+
+#pragma pack(push, 1)
+struct TAPBlockHeader
+{
+	uint8_t flag;
+	uint8_t type;
+	uint8_t name[10];
+	uint16_t length;
+	uint16_t param0;
+	uint16_t param1;
+	uint8_t checksum;
+};
+#pragma pack(pop)
+
+static bool LoadSnapshotFromTAP (File* file)
+{
+	uint64_t fileSize = File_GetSize(file);
+	uint64_t position = File_GetPosition(file);
+	int count = 0;
+
+	AllocateSnapshot(64 * 1024);
+
+	while (position < fileSize)
+	{
+		uint16_t headerSize;
+		if (File_Read(file, &headerSize, 2) != 2) 
+		{
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			return false;
+		}
+		fix16(headerSize, true);
+		position += headerSize + 2;
+		if (headerSize != sizeof(TAPBlockHeader))
+		{
+			File_Seek(file, position);
+			continue;
+		}
+
+		TAPBlockHeader header;
+		if (File_Read(file, &header, headerSize) != headerSize)
+		{
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			return false;
+		}
+		if (header.flag != 0)
+			continue;
+
+		const uint8_t* ptr = (const uint8_t*)&header;
+		uint8_t checksum = 0;
+		for (int i = 0; i < headerSize-1; i++)
+			checksum ^= ptr[i];
+		if (checksum != header.checksum)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
+		if (header.flag == 0 && header.type == 3)	// Header block for a CODE file
+		{
+			uint16_t dataAddress = fix16(header.param0, true);
+			uint16_t length = fix16(header.length, true);
+			if (dataAddress < 0x4000 || dataAddress + length > 65536)
+			{
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return false;
+			}
+
+			File_Seek(file, position);
+			uint16_t dataSize;
+			if (File_Read(file, &dataSize, 2) != 2) 
+			{
+				DDB_SetError(DDB_ERROR_READING_FILE);
+				return false;
+			}
+			fix16(dataSize, true);
+			if (dataSize != length + 2)
+			{
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return false;
+			}
+
+			File_Seek(file, position + 3);
+			if (File_Read(file, snapshotRAM + dataAddress, length) != length)
+			{
+				DDB_SetError(DDB_ERROR_READING_FILE);
+				return false;
+			}
+			position += dataSize + 2;
+			File_Seek(file, position);
+			count++;
+		}
+	}
+
+	return count > 0;
+}
+
+// ----------------------------------------------------------------------------
 //  TZX Tape file support
 // ----------------------------------------------------------------------------
 //
@@ -763,8 +862,20 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (size) *size = snapshotSize;
 		return true;
 	}
+	else if (CheckExtension(filename, "tap"))
+	{
+		if (!LoadSnapshotFromTAP(file))
+			return false;
+
+		if (machine) *machine = DDB_MACHINE_SPECTRUM;
+		if (ram) *ram = snapshotRAM;
+		if (size) *size = snapshotSize;
+		return true;
+	}
 	else if (CheckExtension(filename, "cas") ||
-			 CheckExtension(filename, "tap"))
+			 CheckExtension(filename, "bin") ||
+			 CheckExtension(filename, "rom") ||
+			 CheckExtension(filename, "raw"))
 	{
 		if (!LoadSnapshotFromRAW(file))
 			return false;
@@ -774,6 +885,11 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (size) *size = snapshotSize;
 
 		return true;
+	}
+	else
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
 	}
 
 	return false;
