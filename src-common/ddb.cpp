@@ -960,6 +960,8 @@ DDB* DDB_Load(const char* filename)
 	#endif
 
 	{
+		ddbError = DDB_ERROR_NONE;
+
 		if (fileSize > MAX_DDB_SIZE)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
@@ -1032,14 +1034,9 @@ DDB* DDB_Load(const char* filename)
 		Free(ddb);
 		return 0;
 	}
-	if (data[2] != 0x5F)
-	{
-		DDB_Warning("Invalid DDB header: unsupported wildcard character '%c'", data[2]);
-		ddbError = DDB_ERROR_INVALID_FILE;
-		Free(memory);
-		Free(ddb);
-		return 0;
-	}
+
+	// No longer output a warning in this case, as modern compilers seem to put something else in this field
+	// if (data[2] != 0x5F) DDB_Warning("Warning: unsupported wildcard character '%c' in DDB header", data[2]);
 
 	uint16_t headerSizeBE = read16(data + (ddb->version == 1 ? 30 : 32), false);
 	uint16_t headerSizeLE = read16(data + (ddb->version == 1 ? 30 : 32), true);
