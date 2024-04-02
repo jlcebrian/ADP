@@ -406,7 +406,7 @@ void VID_SwapScreen ()
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
 	uint8_t  width = charWidth[ch];
-
+	
 	if (attributes)
 	{
 		uint8_t* ptr = charset + (ch << 3);
@@ -1212,7 +1212,7 @@ bool VID_LoadDataFile(const char* fileName)
 
 bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 {
-	DebugPrintf("Initializing video subsystem\n");
+	DebugPrintf("Initializing video subsystem for %s\n", DDB_DescribeMachine(machine));
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 	VID_InitAudio();

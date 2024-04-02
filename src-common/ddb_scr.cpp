@@ -71,7 +71,7 @@ static SCR_CommandData* SCR_AddCommandToBuffer()
 
 void SCR_WaitForKey()
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_WAITFORKEY;
@@ -85,7 +85,7 @@ void SCR_WaitForKey()
 
 void SCR_DrawCharacter(int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_DRAWCHARACTER;
@@ -108,7 +108,7 @@ bool SCR_SampleExists(uint8_t sample)
 
 bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_LOADPICTURE;
@@ -125,7 +125,7 @@ bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 
 void SCR_DisplayPicture(int x, int y, int w, int h, DDB_ScreenMode mode)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_DISPLAYPICTURE;
@@ -153,7 +153,7 @@ void SCR_GetPictureInfo(bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t
 
 void SCR_Clear(int x, int y, int w, int h, uint8_t color)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_CLEAR;
@@ -173,7 +173,7 @@ void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t paper, bool smoot
 {
 	if(smoothScrolling && smooth)
 		buffering = true;
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_SCROLL;
@@ -275,7 +275,7 @@ void SCR_SetPaletteColor(uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 
 void SCR_SaveScreen()
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_SAVE;
@@ -288,7 +288,7 @@ void SCR_SaveScreen()
 
 void SCR_RestoreScreen()
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_RESTORE;
@@ -301,7 +301,7 @@ void SCR_RestoreScreen()
 
 void SCR_SwapScreen()
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_SWAP;
@@ -314,7 +314,7 @@ void SCR_SwapScreen()
 
 void SCR_SetOpBuffer(SCR_Operation op, bool front)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_SETOPBUFFER;
@@ -329,7 +329,7 @@ void SCR_SetOpBuffer(SCR_Operation op, bool front)
 
 void SCR_ClearBuffer(bool front)
 {
-	if(buffering)
+	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
 		c->type = SCR_COMMAND_CLEARBUFFER;

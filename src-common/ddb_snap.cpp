@@ -10,7 +10,7 @@
 #include <os_bito.h>
 
 static uint8_t* snapshotRAM = 0;
-static size_t   snapshotSize = 0;
+static uint32_t snapshotSize = 0;
 static uint8_t* snapshotDDB = 0;
 
 static bool CheckExtension(const char* filename, const char* ext)
@@ -20,7 +20,7 @@ static bool CheckExtension(const char* filename, const char* ext)
 	return StrIComp(p + 1, ext) == 0;
 }
 
-static bool AllocateSnapshot(size_t size)
+static bool AllocateSnapshot(uint32_t size)
 {
 	if (snapshotRAM != 0 && snapshotSize >= size)
 		return true;

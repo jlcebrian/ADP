@@ -15,6 +15,14 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 
+void TracePrintf(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+}
+
 extern bool quit;
 
 void VID_InnerLoop(void (*callback)(int elapsed));
@@ -76,6 +84,8 @@ static void getNextFile()
 			DebugPrintf("File name %s too long", fileName);
 			return;
 		}
+
+		DebugPrintf("Loading \'%s\'\n", fileName);
 
 		StrCopy(fileNameBuffer, 256, dataPath);
 		StrCat(fileNameBuffer, 256, fileName);

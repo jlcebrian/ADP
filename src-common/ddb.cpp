@@ -803,6 +803,7 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		ddb->version      = DDB_VERSION_PAWS;
 		ddb->language     = DDB_SPANISH;			// TODO: guess
 		ddb->target       = DDB_MACHINE_SPECTRUM;
+		ddb->machine      = DDB_MACHINE_SPECTRUM;
 		ddb->condactMap   = pawsCondacts;
 		ddb->littleEndian = true;
 		ddb->firstToken   = 164;
@@ -915,6 +916,7 @@ DDB* DDB_Load(const char* filename)
 		Free(memory);
 		return 0;
 	}
+	ddb->machine = DDB_MACHINE_IBMPC;
 
 	#if HAS_SNAPSHOTS
 
@@ -951,6 +953,7 @@ DDB* DDB_Load(const char* filename)
 		#endif
 
 		data = ddb->data;
+		ddb->machine = snapshotMachine;
 	}
 	else
 
@@ -1148,4 +1151,43 @@ void DDB_Close(DDB* ddb)
 	if (ddb->memory != 0)
 		Free(ddb->memory);
 	Free(ddb);
+}
+
+const char* DDB_DescribeLanguage(DDB_Language lang)
+{
+	switch (lang)
+	{
+		case DDB_ENGLISH: return "English"; break;
+		case DDB_SPANISH: return "Spanish"; break;
+		default:          return "Unknown"; break;
+	}
+}
+
+const char* DDB_DescribeMachine(DDB_Machine machine)
+{
+	switch (machine)
+	{
+		case DDB_MACHINE_IBMPC:    return "IBM PC"; break;
+		case DDB_MACHINE_SPECTRUM: return "ZX Spectrum"; break;
+		case DDB_MACHINE_C64:      return "Commodore 64"; break;
+		case DDB_MACHINE_CPC:      return "Amstrad CPC"; break;
+		case DDB_MACHINE_MSX:      return "MSX"; break;
+		case DDB_MACHINE_ATARIST:  return "Atari ST"; break;
+		case DDB_MACHINE_AMIGA:    return "Amiga"; break;
+		case DDB_MACHINE_PCW:      return "Amstrad PCW"; break;
+		case DDB_MACHINE_PLUS4:    return "Commodore Plus/4"; break;
+		case DDB_MACHINE_MSX2:     return "MSX2"; break;
+		default:                   return "Unknown machine"; break;
+	}
+}
+
+const char* DDB_DescribeVersion (DDB_Version version)
+{
+	switch (version)
+	{
+		case DDB_VERSION_PAWS: return "PAWS"; break;
+		case DDB_VERSION_1: return "DAAD v1"; break;
+		case DDB_VERSION_2: return "DAAD v2"; break;
+		default:            return "Unknown version"; break;
+	}
 }

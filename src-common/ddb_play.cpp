@@ -9,13 +9,28 @@
 #define MAX_FILES          64
 #define NAME_BUFFER_SIZE 2048
 
-static int         ddbCount = 1;
+static int         snapshotCount = 0;
+static int         ddbCount = 0;
 static int         scrCount = 0;
 static int         ddbSelected = 0;
 static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
+
+static const char* snapshotExtensions[] = {
+	".z80",
+	".sna",
+	".tzx",
+	".sta",
+	".vsf",
+	".tap",
+	".cas",
+	".bin",
+	".rom",
+	".raw",
+	0
+};
 
 static void EnumFiles(const char* pattern = "*")
 {
@@ -34,7 +49,6 @@ static void EnumFiles(const char* pattern = "*")
 				continue;
 			if (fileCount >= MAX_FILES)
 				break;
-			DebugPrintf("Found file %s\n", r.fileName);
 			files[fileCount] = ptr;
 			ptr += StrCopy(files[fileCount], end - ptr, r.fileName);
 			fileCount++;
@@ -79,6 +93,38 @@ static int CountFiles(const char* extension)
 			count++;
 	}
 	return count;
+}
+
+static int CountSnapshots()
+{
+	int count = 0;
+	for (int n = 0; snapshotExtensions[n]; n++)
+		count += CountFiles(snapshotExtensions[n]);
+	return count;
+}
+
+static const char* GetSnapshot(int index)
+{
+	int count = 0;
+	for (int m = 0; m < fileCount; m++)
+	{
+		const char* dot = StrRChr(files[m], '.');
+		if (dot == 0)
+			continue;
+
+		for (int n = 0; snapshotExtensions[n]; n++)
+		{
+			if (StrIComp(dot, snapshotExtensions[n]) == 0)
+			{
+				if (count == index)
+					return files[m];
+				count++;
+				break;
+			}
+		}
+	}
+	return "";
+
 }
 
 static const char* GetFile(const char* extension, int index)
@@ -240,12 +286,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	{
 		DDB_Machine machine = DDB_MACHINE_AMIGA;
 		DDB_Language language = DDB_SPANISH;
+		DDB_Version version = DDB_VERSION_2;
 
 		char path[FILE_MAX_PATH];
 		StrCopy(path, FILE_MAX_PATH, location);
 		StrCat(path, FILE_MAX_PATH, "*");
 		
 		EnumFiles(path);
+		snapshotCount = CountSnapshots();
 		ddbCount = CountFiles(".ddb");
 		scrCount = CountFiles(".scr");
 		const char* scrExtension = ".scr";
@@ -267,17 +315,34 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				screenMode = ScreenMode_VGA16;
 			}
 		}
-		DebugPrintf("Found %d DDBs and %d screens\n", ddbCount, scrCount);
-		if (ddbCount == 0)
+		DebugPrintf("Found %d DDBs, %d snapshots and %d screens\n", ddbCount, snapshotCount, scrCount);
+		if (ddbCount == 0 && snapshotCount == 0)
 		{
 			CloseEnum();
 			DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
 			return state = Player_Error;
 		}
 
-		StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-		DDB_Check(ddbFileName, &machine, &language, 0);
-		VID_Initialize(machine);
+		if (snapshotCount > 0)
+		{
+			StrCopy(ddbFileName, FILE_MAX_PATH, GetSnapshot(0));
+			ddb = DDB_Load(ddbFileName);
+			if (!ddb) 
+			{
+				DebugPrintf("Error loading snapshot from %s: %s\n", ddbFileName, DDB_GetErrorString());
+				VID_ShowError(DDB_GetErrorString());
+				return state = Player_Error;
+			}
+			DebugPrintf("Loaded snapshot from %s.\nVersion %s, machine %s\n", ddbFileName, DDB_DescribeVersion(ddb->version), DDB_DescribeMachine(ddb->machine));
+			VID_Initialize(ddb->machine, ddb->version);
+		}
+		else
+		{
+			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
+			DDB_Check(ddbFileName, &machine, &language, &version);
+			DebugPrintf("Checked %s\n", ddbFileName);
+			VID_Initialize(machine, version);
+		}
 		
 		if (scrCount > 0)
 		{

@@ -26,6 +26,8 @@
 #ifndef NOZIP_H
 #define NOZIP_H
 
+#include <time.h>
+
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>

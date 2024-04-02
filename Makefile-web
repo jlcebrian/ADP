@@ -9,8 +9,8 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap'] \
 	-sEXPORTED_FUNCTIONS=_main,_KeyPressed,_RunGame,_RunGameFromTXT,_RunGameFrom,_SaveFile,_malloc
 	
-CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT
-CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN -DHAS_VIRTUALFILESYSTEM
+CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT -DTRACE_ON
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN -DHAS_VIRTUALFILESYSTEM -DHAS_SNAPSHOTS -DHAS_DRAWSTRING -DHAS_PAWS
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 
@@ -30,6 +30,8 @@ SRCS := \
 	ddb_run.cpp \
 	ddb_scr.cpp \
 	ddb_vid.cpp \
+	ddb_draw.cpp \
+	ddb_snap.cpp \
 	dim.cpp \
 	dim_adf.cpp \
 	dim_cpc.cpp \

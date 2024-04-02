@@ -1355,6 +1355,9 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 			// VID_SaveDebugBitmap();
 			return result;
 		}
+
+		default:
+			break;
 	}
 
 	return false;

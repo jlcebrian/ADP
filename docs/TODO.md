@@ -2,7 +2,7 @@
 # Interpreter
 
 [x] Snapshot support
-[ ] Scroll attributes
+[x] Scroll attributes
 [ ]	Fix 128K snapshot support (currently broken in CPC and Spectrum)
 [ ]	CPC: Support more snapshot formats 
 [ ]	Add C64 snapshot support
@@ -14,13 +14,13 @@ PAWS
 [x] UDGs
 [x] INVERSE support
 [ ] ANYKEY shows message at bottom of screen
+[ ] Fancy cursor support in INPUT
 [ ] INVEN
 [ ] MODE: More... toggle
 [ ] DESC: Clear screen, LINE
 [ ] PROTECT (change windows dynamically)
 [ ] Optional verb/noun match (PAWS A16)
 [ ] FLASH support (!)
-[ ] Fancy cursor support in INPUT
 [ ] Detect language (English/Spanish)
 
 Drawstring support

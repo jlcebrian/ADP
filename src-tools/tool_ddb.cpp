@@ -128,45 +128,6 @@ static int printf_iso88591(const char* format, ...)
 	return result;
 }
 
-static const char* DescribeLanguage(DDB_Language lang)
-{
-	switch (lang)
-	{
-		case DDB_ENGLISH: return "English"; break;
-		case DDB_SPANISH: return "Spanish"; break;
-		default:          return "Unknown"; break;
-	}
-}
-
-static const char* DescribeMachine(DDB_Machine machine)
-{
-	switch (machine)
-	{
-		case DDB_MACHINE_IBMPC:    return "IBM PC"; break;
-		case DDB_MACHINE_SPECTRUM: return "ZX Spectrum"; break;
-		case DDB_MACHINE_C64:      return "Commodore 64"; break;
-		case DDB_MACHINE_CPC:      return "Amstrad CPC"; break;
-		case DDB_MACHINE_MSX:      return "MSX"; break;
-		case DDB_MACHINE_ATARIST:  return "Atari ST"; break;
-		case DDB_MACHINE_AMIGA:    return "Amiga"; break;
-		case DDB_MACHINE_PCW:      return "Amstrad PCW"; break;
-		case DDB_MACHINE_PLUS4:    return "Commodore Plus/4"; break;
-		case DDB_MACHINE_MSX2:     return "MSX2"; break;
-		default:                   return "Unknown machine"; break;
-	}
-}
-
-static const char* DescribeVersion (DDB_Version version)
-{
-	switch (version)
-	{
-		case DDB_VERSION_PAWS: return "PAWS"; break;
-		case DDB_VERSION_1: return "DAAD v1"; break;
-		case DDB_VERSION_2: return "DAAD v2"; break;
-		default:            return "Unknown version"; break;
-	}
-}
-
 int main (int argc, char *argv[])
 {
 	if (argc < 2)
@@ -227,14 +188,14 @@ int main (int argc, char *argv[])
 	}
 
 	printf("DDB file loaded (%s, %s, %s, %d bytes)\n", 
-		argv[1], DescribeVersion(ddb->version), 
+		argv[1], DDB_DescribeVersion(ddb->version), 
 		ddb->littleEndian ? "little endian" : "big endian", 
 		ddb->dataSize);
 
 	if (action == ACTION_LIST)
 	{
-		printf("Platform: %s\n", DescribeMachine(ddb->target));
-		printf("Language: %s\n", DescribeLanguage(ddb->language));
+		printf("Platform: %s\n", DDB_DescribeMachine(ddb->target));
+		printf("Language: %s\n", DDB_DescribeLanguage(ddb->language));
 		printf("\n%5d objects\n", ddb->numObjects);
 		printf("%5d locations\n", ddb->numLocations);
 		printf("%5d messages\n", ddb->numMessages);

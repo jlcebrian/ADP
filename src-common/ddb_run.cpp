@@ -561,6 +561,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	for (int n = 0; n < i->pendingPtr ; n++)
 	{
 		uint8_t ch = i->pending[n];
+
 		#if HAS_PAWS
 		if (pawsMode && ch < 32)
 		{
@@ -593,9 +594,20 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 				case 3:
 				case 4:
 				case 5:
-				case 6:
 					DDB_SetCharset(i->ddb, ch);
 					continue;
+				case 6:
+				{
+					int nextTab = (w->posX + 128) & ~127;
+					if (nextTab > maxX) 
+						nextTab = maxX;
+					if (nextTab > w->posX)
+					{
+						SCR_Clear(w->posX, w->posY, nextTab - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
+						w->posX = nextTab;
+					}
+					continue;
+				}
 				default:
 					DebugPrintf("Unknown PAWS control code %d\n", ch);
 					break;
@@ -603,8 +615,10 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			// TODO: Color & charset changes
 			continue;
 		}
-		else if (ch < 16)
+		else 
 		#endif
+		
+		if (ch < 16)
 		{
 			switch (ch)
 			{
@@ -1279,8 +1293,8 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			DDB_ClearWindow(i, &i->win);
 			#if HAS_DRAWSTRING
 			bool found = DDB_DrawVectorPicture(i->flags[Flag_Locno]);
-			if (found && i->ddb->version > 1)
-				i->flags[40] = 255;
+			if (found && i->ddb->version != DDB_VERSION_PAWS)
+				i->flags[Flag_HasPicture] = 255;
 
 			#if HAS_PAWS
 			if (!found && i->ddb->version == DDB_VERSION_PAWS)
@@ -2981,6 +2995,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				if  (i->ddb->version == DDB_VERSION_PAWS)
 					i->flags[Flag_PAWMode] = param0;
 				#endif
+				if (i->ddb->version == DDB_VERSION_1)
+					i->flags[40] = param0;
 				break;
 			case CONDACT_GRAPHIC:
 				i->done = true;

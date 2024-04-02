@@ -72,6 +72,8 @@ enum DDB_Flag
 			// ^ Bit 1: 1 to supress More... message
 			//   Bit 0: 0 to clear the screen every DESC
 
+	Flag_HasPicture     = 40,			// 28 128 if current location has a picture (DAAD only)
+
 	Flag_SplitLine      = 41,			// 29  Split line of the text window (PAWS only)
 
 	Flag_InputStream    = 41,			// 29  Input stream (window 1-7, 0 = current)
@@ -377,6 +379,7 @@ enum DDB_Flow
 struct DDB
 {
 	DDB_Version		version;			// 1: Original/Jabato - 2: Later
+	DDB_Machine     machine;            // Snapshot machine
 	DDB_Machine		target;				// Target machine
 	DDB_Language	language;			// Target language
 	DDB_CondactMap*	condactMap;			// maps 0-127 to condacts
@@ -675,5 +678,8 @@ extern void             DDB_LoadUDGs             ();
 #endif
 #endif
 
+extern const char*      DDB_DescribeLanguage     (DDB_Language lang);
+extern const char*      DDB_DescribeMachine      (DDB_Machine machine);
+extern const char*      DDB_DescribeVersion      (DDB_Version version);
 
 #endif
