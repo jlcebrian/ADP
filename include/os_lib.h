@@ -4,6 +4,17 @@
 
 // Debug functions
 
+#ifndef TRACE_ON
+#define TRACE_ON 0
+#endif
+
+#if TRACE_ON
+extern void TracePrintf(const char* format, ...);
+#define TRACE TracePrintf
+#else
+#define TRACE(...)
+#endif
+
 #ifdef _DEBUGPRINT
 #  ifdef _STDCLIB
 #    include <stdio.h>

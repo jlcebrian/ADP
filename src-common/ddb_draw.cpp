@@ -614,7 +614,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 	}
 
 	#ifdef TRACE_VECTOR
-	DebugPrintf("\nEntering subroutine %d\n", picno);
+	TRACE("\nEntering subroutine %d\n", picno);
 	#endif
 
 	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
@@ -635,7 +635,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 0:
 						// TODO: THIS IS GUESSWORK AND PROBABLY WRONG !!!!!
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X INK %d\n", ptr[0], ptr[0] >> 3);
+						TRACE("%02X INK %d\n", ptr[0], ptr[0] >> 3);
 						#endif
 						VID_SetInk(*ptr >> 3);
 						ptr += 1;
@@ -643,7 +643,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 					case 1:
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X PAPER %d\n", ptr[0], ptr[0] >> 3);
+						TRACE("%02X PAPER %d\n", ptr[0], ptr[0] >> 3);
 						#endif
 						VID_SetPaper(*ptr >> 3);
 						ptr += 1;
@@ -651,7 +651,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 					case 2:		// RETURN
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X RETURN\n\n", ptr[0]);
+						TRACE("%02X RETURN\n\n", ptr[0]);
 						#endif
 
 						depth--;
@@ -664,7 +664,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						bool sflipY = (*ptr & 0x40) != 0;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						TRACE("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
 						fflush(stdout);
 						#endif
 
@@ -683,7 +683,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						if (flipY) y = scrMaxY - y;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X PLOT    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						TRACE("%02X PLOT    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
 						VID_MoveTo(x, y);
 						switch (*ptr & 0xC0)		// Inverse + Over flags
@@ -704,9 +704,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 						#ifdef TRACE_VECTOR
 						if ((*ptr & 0xC0) == 0xC0)
-							DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							TRACE("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 						else
-							DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+							TRACE("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 						#endif
 						
 						if (*ptr & 0x20) x = -x;
@@ -717,7 +717,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						x = x * scale / 8;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("       (%d, %d)\n", x, y);
+						TRACE("       (%d, %d)\n", x, y);
 						#endif
 						switch (*ptr & 0xC0)		// Inverse + Over flags
 						{
@@ -742,9 +742,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 						#ifdef TRACE_VECTOR
 						if (p != -1)
-							DebugPrintf("%02X SHADE   %02X %02X %02X      (%d, %d, %d)\n", ptr[0], ptr[1], ptr[2], ptr[3], x, y, p);
+							TRACE("%02X SHADE   %02X %02X %02X      (%d, %d, %d)\n", ptr[0], ptr[1], ptr[2], ptr[3], x, y, p);
 						else
-							DebugPrintf("%02X FILL    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
+							TRACE("%02X FILL    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
 						VID_PatternFill(x, y, p);
 						ptr += p == -1 ? 3 : 4;
@@ -759,7 +759,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						uint8_t x1 = x0+ptr[4];
 						
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
+						TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
 						#endif
 						VID_AttributeFill(x0, y0, x1, y1);
 						ptr += 5;
@@ -779,7 +779,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						if ((*ptr & 0x40) != 0)
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X RETURN\n\n", ptr[0]);
+							TRACE("%02X RETURN\n\n", ptr[0]);
 							#endif
 							return true;
 						}
@@ -787,7 +787,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						{
 							int ink = ((ptr[0] >> 7) & 0x01) | ((ptr[0] << 1) & 0x02);
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X PEN     %02X            (ink set to %d)\n", *ptr, ptr[1], ink);
+							TRACE("%02X PEN     %02X            (ink set to %d)\n", *ptr, ptr[1], ink);
 							#endif
 							VID_SetInk(ink);
 							ptr++;
@@ -796,7 +796,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						{
 							// TODO: What to do in other cases?
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X ??\n\n", ptr[0]);
+							TRACE("%02X ??\n\n", ptr[0]);
 							#endif
 							int ink = ((ptr[0] >> 7) & 0x01) | ((ptr[0] << 1) & 0x02);
 							VID_SetInk(ink);
@@ -811,7 +811,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						uint16_t c = ptr[3];
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X TEXT                  (char %d at %d,%d)\n\n", ptr[0], c, x, y);
+						TRACE("%02X TEXT                  (char %d at %d,%d)\n\n", ptr[0], c, x, y);
 						#endif
 						// TODO: Print character
 						ptr += 4;
@@ -825,7 +825,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						bool sflipY = (*ptr & 0x20) != 0;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						TRACE("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
 						#endif
 
 						if (flipX) sflipX = !sflipX;
@@ -845,7 +845,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						if (flipY) y = scrMaxY - y;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X PLOT    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						TRACE("%02X PLOT    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
 						VID_MoveTo(x, y);
 						if ((*ptr & 0x40) != 0)
@@ -864,9 +864,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 							#ifdef TRACE_VECTOR
 							if ((c & 0x40) != 0x40)
-								DebugPrintf("%02X MOVE    %02X     ", ptr[0], ptr[1]);
+								TRACE("%02X MOVE    %02X     ", ptr[0], ptr[1]);
 							else
-								DebugPrintf("%02X LINE    %02X     ", ptr[0], ptr[1]);
+								TRACE("%02X LINE    %02X     ", ptr[0], ptr[1]);
 							#endif
 							ptr += 2;
 						}
@@ -877,9 +877,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 							#ifdef TRACE_VECTOR
 							if ((c & 0x40) != 0x40)
-								DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+								TRACE("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 							else
-								DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+								TRACE("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 							#endif
 							ptr += 3;
 						}
@@ -891,7 +891,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						x = x * scale / 8;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("       (%d, %d)\n", x, y);
+						TRACE("       (%d, %d)\n", x, y);
 						#endif
 						switch (c & 0x40)
 						{
@@ -910,7 +910,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						if (*ptr & 0x10) y = -y;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X FILL    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
+						TRACE("%02X FILL    %02X %02X         (%d,%d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
 						VID_PatternFill(x, y, -1);
 						ptr += 3;
@@ -919,7 +919,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 6:		// SHADE
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+						TRACE("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 						#endif
 						
 						int cink  = ink;
@@ -963,7 +963,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 0:	// PLOT
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X PLOT    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
+						TRACE("%02X PLOT    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
 						#endif
 
 						VID_MoveTo(flipX ? scrMaxX - ptr[1] : ptr[1], flipY ? ptr[2] : scrMaxY - ptr[2]);
@@ -988,9 +988,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 							#ifdef TRACE_VECTOR
 							if ((c & 0x18) == 0x18)
-								DebugPrintf("%02X MOVE    %02X     ", ptr[0], ptr[1]);
+								TRACE("%02X MOVE    %02X     ", ptr[0], ptr[1]);
 							else
-								DebugPrintf("%02X LINE    %02X     ", ptr[0], ptr[1]);
+								TRACE("%02X LINE    %02X     ", ptr[0], ptr[1]);
 							#endif
 							ptr += 2;
 						}
@@ -1001,9 +1001,9 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 							#ifdef TRACE_VECTOR
 							if ((c & 0x18) == 0x18)
-								DebugPrintf("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+								TRACE("%02X MOVE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 							else
-								DebugPrintf("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
+								TRACE("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 							#endif
 							ptr += 3;
 						}
@@ -1015,7 +1015,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						x = x * scale / 8;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("       (%d, %d)\n", x, y);
+						TRACE("       (%d, %d)\n", x, y);
 						#endif
 						switch (c & 0x18)		// Inverse + Over flags
 						{
@@ -1035,7 +1035,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							uint8_t y1 = y0+ptr[1];
 							
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
+							TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
 							#endif
 							VID_AttributeFill(x0, y0, x1, y1);
 							ptr += 5;
@@ -1043,7 +1043,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else if ((*ptr & 0x20) != 0)	// SHADE
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+							TRACE("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 							#endif
 
 							int x = ptr[1];
@@ -1059,7 +1059,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else							// FILL
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
+							TRACE("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
 							#endif
 							
 							int x = ptr[1];
@@ -1079,7 +1079,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						bool sflipY = (*ptr & 0x80) != 0;
 
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
+						TRACE("%02X GOSUB   %02X            (scale: %d, flipX: %d, flipY: %d)\n", ptr[0], ptr[1], scale, sflipX, sflipY);
 						fflush(stdout);
 						#endif
 
@@ -1092,7 +1092,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 4: // TEXT
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X TEXT    %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
+						TRACE("%02X TEXT    %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 						#endif
 
 						int code = ptr[1];
@@ -1106,7 +1106,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 5: // PAPER
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X PAPER                 ", ptr[0]);
+						TRACE("%02X PAPER                 ", ptr[0]);
 						#endif
 
 						if (transparentColor == 8)
@@ -1114,14 +1114,14 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							if (*ptr & 0x80)
 							{
 								#ifdef TRACE_VECTOR
-								DebugPrintf("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
+								TRACE("(bright set to %d)\n", (*ptr >> 3) & 0x0F);
 								#endif
 								VID_SetBright((*ptr >> 3) & 0x0F);
 							}
 							else
 							{
 								#ifdef TRACE_VECTOR
-								DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
+								TRACE("(paper set to %d)\n", (*ptr >> 3) & 0x0F);
 								#endif
 								VID_SetPaper((*ptr >> 3) & 0x0F);
 							}
@@ -1129,7 +1129,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("(paper set to %d)\n", (*ptr >> 3) & 0x1F);
+							TRACE("(paper set to %d)\n", (*ptr >> 3) & 0x1F);
 							#endif
 							VID_SetPaper((*ptr >> 3) & 0x1F);
 						}
@@ -1139,7 +1139,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 6: // INK
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X INK                   ", ptr[0]);
+						TRACE("%02X INK                   ", ptr[0]);
 						#endif
 
 						if (transparentColor == 8)
@@ -1147,14 +1147,14 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							if (*ptr & 0x80)
 							{
 								#ifdef TRACE_VECTOR
-								DebugPrintf("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
+								TRACE("(flash set to %d)\n", (*ptr >> 3) & 0x0F);
 								#endif
 								VID_SetFlash((*ptr >> 3) & 0x0F);
 							}
 							else
 							{
 								#ifdef TRACE_VECTOR
-								DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
+								TRACE("(ink set to %d)\n", (*ptr >> 3) & 0x0F);
 								#endif
 								VID_SetInk((*ptr >> 3) & 0x0F);
 							}
@@ -1162,7 +1162,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else
 						{
 							#ifdef TRACE_VECTOR
-							DebugPrintf("(ink set to %d)\n", (*ptr >> 3) & 0x1F);
+							TRACE("(ink set to %d)\n", (*ptr >> 3) & 0x1F);
 							#endif
 							VID_SetInk((*ptr >> 3) & 0x1F);
 						}
@@ -1172,7 +1172,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					case 7:
 					{
 						#ifdef TRACE_VECTOR
-						DebugPrintf("%02X RETURN\n\n", ptr[0]);
+						TRACE("%02X RETURN\n\n", ptr[0]);
 						#endif
 
 						depth--;
@@ -1383,7 +1383,7 @@ bool DDB_WriteVectorDatabase(const char* filename)
 		return false;
 	}
 	
-	DebugPrintf("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
+	TRACE("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
 	if (File_Write(file, vectorGraphicsRAM + start, ending - start + 1) != ending - start + 1)
 	{
 		File_Close(file);

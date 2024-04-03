@@ -11,17 +11,6 @@
 #define PAUSE_ON_INKEY 0
 #define DEBUG_UNDO 0
 
-#ifndef TRACE_ON
-#define TRACE_ON 0
-#endif
-
-#if TRACE_ON
-extern void TracePrintf(const char* format, ...);
-#define TRACE TracePrintf
-#else
-#define TRACE(...)
-#endif
-
 static void MarkWindowOutput();
 
 static uint8_t objNameBuffer[256];
@@ -527,6 +516,10 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	// TODO: This logic is incorrect. The pending buffer should know which window
 	// it was written to, and the flush should only flush that window. The current
 	// implementation sometimes writes garbage to the unintended window.
+
+	// TODO: maxX calculations are wrong, as they only refer to the *current*
+	// window (!!!). We should either change DDB_FlushWindow, DDB_OutputCharToWindow
+	// etc. to write to the current window only, or save cellX/cellW for each window
 	
 	int maxX = i->cellX*8 + i->cellW*8;
 	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
@@ -550,6 +543,17 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		{
 			uint8_t ch = i->pending[n];
 			uint8_t width = charWidth[ch];
+			#if HAS_PAWS
+			if (pawsMode && ch < 32)
+			{
+				if (ch == 6)
+					break;
+				continue;
+			}
+			else 
+			#endif
+			if (ch < 16)
+				continue;
 			if (i->pending[n] == ' ')
 				break;
 			wordWidth += width;
@@ -596,18 +600,6 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 				case 5:
 					DDB_SetCharset(i->ddb, ch);
 					continue;
-				case 6:
-				{
-					int nextTab = (w->posX + 128) & ~127;
-					if (nextTab > maxX) 
-						nextTab = maxX;
-					if (nextTab > w->posX)
-					{
-						SCR_Clear(w->posX, w->posY, nextTab - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
-						w->posX = nextTab;
-					}
-					continue;
-				}
 				default:
 					DebugPrintf("Unknown PAWS control code %d\n", ch);
 					break;
@@ -706,6 +698,21 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 		{
 			switch(c)
 			{
+				case 6:
+				{
+					DDB_FlushWindow(i, w);
+					int maxX = i->cellX*8 + i->cellW*8;
+					int nextTab = (w->posX + 128) & ~127;
+					if (nextTab > maxX) 
+						nextTab = maxX;
+					if (nextTab > w->posX)
+					{
+						SCR_Clear(w->posX, w->posY, nextTab - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
+						w->posX = nextTab;
+					}
+					return;
+				}
+
 				case 7:
 					DDB_FlushWindow(i, w);
 					DDB_NewLineAtWindow(i, w);
