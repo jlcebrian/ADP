@@ -20,6 +20,42 @@ static void DumpUndoBuffer(DDB_Interpreter* i);
 static void AddInputHistoryLine (DDB_Interpreter* i);
 static void UpdateLastInputHistoryLine (DDB_Interpreter* i);
 
+// ------------------------------ Message-based cursor (PAWS) ------------------------------
+
+#if HAS_PAWS
+
+static int GetPAWSCursorWidth(DDB_Interpreter* i)
+{
+	uint8_t buffer[16];
+	int length = 0;
+	DDB_GetMessage(i->ddb, DDB_SYSMSG, 34, (char *)buffer, 16);
+	for (int n = 0; buffer[n] != 0; n++) {
+		if (buffer[n] >= 16 && buffer[n] <= 20) {
+			n++;
+		} else if (buffer[n] >= 32) {
+			length += charWidth[buffer[n]];
+		}
+	}
+	return length;
+}
+
+static void DrawPAWSCursor(DDB_Interpreter* i, int x, int y)
+{
+	DDB_Window* w = DDB_GetInputWindow(i);
+	uint8_t charset = i->ddb->curCharset;
+
+	int px = w->posX;
+	int py = w->posY;
+	w->posX = x;
+	w->posY = y;
+	DDB_OutputMessageToWindow(i, DDB_SYSMSG, 34, w);
+	DDB_FlushWindow(i, w);
+	w->posX = px;
+	w->posY = py;
+}
+
+#endif
+
 // ------------------------------ Start/End ------------------------------
 
 DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
@@ -63,6 +99,14 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 	int echoFlag = timeout ? Input_PrintAfterTimeout : Input_PrintAfterInput;
 
 	UpdateLastInputHistoryLine(i);
+
+	#if HAS_PAWS
+	if (i->ddb->version == DDB_VERSION_PAWS)
+	{
+		iw->ink = i->ddb->defaultInk;
+		iw->paper = i->ddb->defaultPaper;
+	}
+	#endif
 
 	if (i->inputFlags & Input_ClearWindow)
 		DDB_ClearWindow(i, iw);
@@ -517,13 +561,14 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	int maxX;
 	int n;
 
-	int ink = w->ink & 0x0F;
-	int paper = w->paper & 0x0F;
+	uint8_t ink, paper;
+	DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
 
 	// ST/Amiga have originally some weird combination here,
 	// but PC uses just the text colors and it looks better
 	int cursorPaper = paper;
 	int cursorInk = ink;
+	int cursorWidth = 0;
 
 	if (w != &i->win)
 		DDB_CalculateCells(i, w, &cellX, &cellW);
@@ -534,6 +579,10 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	if (withCursor)
 	{
 		int totalWidth = 0;
+		#if HAS_PAWS
+		if (i->ddb->version == DDB_VERSION_PAWS)
+			cursorWidth = GetPAWSCursorWidth(i);
+		#endif
 		for (n = 0; n < i->inputBufferLength; n++) 
 		{
 			if (n == i->inputCursorX)
@@ -545,7 +594,7 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 			cursorX = totalWidth;
 			totalWidth += charWidth['_'];
 		}
-		if (totalWidth > width)
+		if (totalWidth > width - cursorWidth)
 		{
 			for (n = 0; n < i->inputBufferLength; n++)
 			{
@@ -565,8 +614,20 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 			break;
 		if (n == i->inputCursorX && withCursor)
 		{
-			SCR_DrawCharacter(x, y, i->inputBuffer[n], cursorInk, cursorPaper);
-			SCR_DrawCharacter(x, y, '_', cursorInk, 255);
+			#if HAS_PAWS
+			if (i->ddb->version == DDB_VERSION_PAWS)
+			{
+				DrawPAWSCursor(i, x, y);
+				x += cursorWidth;
+				DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
+				SCR_DrawCharacter(x, y, i->inputBuffer[n], cursorInk, cursorPaper);
+			}
+			else
+			#endif
+			{
+				SCR_DrawCharacter(x, y, i->inputBuffer[n], cursorInk, cursorPaper);
+				SCR_DrawCharacter(x, y, '_', cursorInk, 255);
+			}
 		}
 		else
 		{
@@ -576,8 +637,18 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	}
 	if (n == i->inputCursorX && withCursor)
 	{
-		SCR_DrawCharacter(x, y, '_', cursorInk, cursorPaper);
-		x += charWidth['_'];
+		#if HAS_PAWS
+		if (i->ddb->version == DDB_VERSION_PAWS)
+		{
+			DrawPAWSCursor(i, x, y);
+			x += cursorWidth;
+		}
+		else
+		#endif
+		{
+			SCR_DrawCharacter(x, y, '_', cursorInk, cursorPaper);
+			x += charWidth['_'];
+		}
 	}
 
 	if (maxX > x)
@@ -863,6 +934,8 @@ void DDB_ProcessInputFrame()
 			}
 			if (ext == 0 && key >= 16 && key <= 127 && i->inputBufferLength < sizeof(i->inputBuffer)-1)
 			{
+				if (i->ddb->version == DDB_VERSION_PAWS)
+					key = ToUpper(key);
 				MemMove(i->inputBuffer + i->inputCursorX + 1, i->inputBuffer + i->inputCursorX, i->inputBufferLength - i->inputCursorX);
 				i->inputBuffer[i->inputCursorX] = key;
 				i->inputBufferLength++;

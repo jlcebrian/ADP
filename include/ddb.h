@@ -414,6 +414,7 @@ struct DDB
 	uint8_t*		vocabulary;
 	uint8_t*        externData;
 	uint8_t*        charsets;
+	uint8_t         curCharset;
 
 	uint8_t*		messages[256];
 	uint8_t*		locConnections[256];
@@ -634,6 +635,7 @@ extern void             DDB_OutputInputPrompt    (DDB_Interpreter* i);
 extern void             DDB_OutputChar           (DDB_Interpreter* i, const char c);
 extern void             DDB_OutputText           (DDB_Interpreter* i, const char* text);
 extern bool             DDB_OutputMessage        (DDB_Interpreter* i, DDB_MsgType type, uint8_t index);
+extern bool             DDB_OutputMessageToWindow(DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, DDB_Window* w);
 extern void             DDB_Desc                 (DDB_Interpreter* i, uint8_t locno);
 extern bool             DDB_NewLine              (DDB_Interpreter* i);
 extern bool             DDB_NewLineAtWindow      (DDB_Interpreter* i, DDB_Window* w);
@@ -676,6 +678,10 @@ extern bool             DDB_WriteVectorDatabase  (const char* filename);
 extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data);
 extern void             DDB_LoadUDGs             ();
 #endif
+
+extern void 			DDB_SetCharset           (DDB* ddb, uint8_t c);
+extern void             DDB_GetCurrentColors     (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper);
+
 #endif
 
 extern const char*      DDB_DescribeLanguage     (DDB_Language lang);

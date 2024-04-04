@@ -157,6 +157,8 @@ void DDB_SetCharset (DDB* ddb, uint8_t c)
 #if HAS_PAWS
 	DDB_LoadUDGs();
 #endif
+
+	ddb->curCharset = c;
 }
 
 void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
@@ -511,6 +513,32 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 	SCR_DisplayPicture(x, w->y, width, w->height, i->screenMode);
 }
 
+void DDB_GetCurrentColors (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper)
+{
+	*ink = w->ink;
+	*paper = w->paper;
+	
+	#if HAS_PAWS
+	if (ddb->version == DDB_VERSION_PAWS)
+	{
+		if (w->flags & Win_Inverse)
+		{
+			uint8_t tmp = *ink;
+			*ink = *paper;
+			*paper = tmp;
+		}
+		if (*paper == 9)
+			*paper = *ink > 2 ? 0 : 7;
+		if (*ink == 9)
+			*ink = *paper > 2 ? 0 : 7;
+		if (w->flags & Win_Flash)
+			*ink |= 0x08;
+		if (w->flags & Win_Bright)
+			*ink |= 0x10;
+	}
+	#endif
+}
+
 void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 {
 	// TODO: This logic is incorrect. The pending buffer should know which window
@@ -636,28 +664,8 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			DDB_NewLineAtWindow(i, w);
 		}
 
-		int ink = w->ink;
-		int paper = w->paper;
-		
-		#if HAS_PAWS
-		if (pawsMode)
-		{
-			if (w->flags & Win_Inverse)
-			{
-				uint8_t tmp = ink;
-				ink = paper;
-				paper = tmp;
-			}
-			if (paper == 9)
-			{
-				if (ink == 9) ink = 7;
-				paper = ink > 2 ? 0 : 7;
-			}
-			if (ink == 9)
-				ink = paper > 2 ? 0 : 7;
-		}
-		#endif
-
+		uint8_t ink, paper;
+		DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
 		SCR_DrawCharacter(w->posX, w->posY, ch, ink, paper);
 		w->posX += width;
 	}
@@ -877,7 +885,7 @@ void DDB_OutputText (DDB_Interpreter* i, const char* text)
 	OutputTextToWindow(i, text, &i->win);
 }
 
-bool DDB_OutputMessageWin (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, DDB_Window* w)
+bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, DDB_Window* w)
 {
 	DDB* ddb = i->ddb;
 	uint8_t* ptr;
@@ -955,7 +963,7 @@ bool DDB_OutputMessageWin (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, 
 
 bool DDB_OutputMessage (DDB_Interpreter* i, DDB_MsgType type, uint8_t index)
 {
-	return DDB_OutputMessageWin(i, type, index, &i->win);
+	return DDB_OutputMessageToWindow(i, type, index, &i->win);
 }
 
 void DDB_OutputUserPrompt(DDB_Interpreter* i)
@@ -966,14 +974,14 @@ void DDB_OutputUserPrompt(DDB_Interpreter* i)
 		prompt = RandInt(2, 5);
 	TRACE("\n\n");
 	DDB_Flush(i);
-	DDB_OutputMessageWin(i, DDB_SYSMSG, prompt, iw);
+	DDB_OutputMessageToWindow(i, DDB_SYSMSG, prompt, iw);
 	DDB_FlushWindow(i, iw);
 }
 
 void DDB_OutputInputPrompt(DDB_Interpreter* i)
 {
 	DDB_Window *iw = DDB_GetInputWindow(i);
-	DDB_OutputMessageWin(i, DDB_SYSMSG, 33, iw);
+	DDB_OutputMessageToWindow(i, DDB_SYSMSG, 33, iw);
 }
 
 static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
@@ -2061,7 +2069,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Window* iw = DDB_GetInputWindow(i);
 				DDB_Flush(i);
 				DDB_NewText(i);
-				DDB_OutputMessageWin(i, DDB_SYSMSG, 13, iw);
+				DDB_OutputMessageToWindow(i, DDB_SYSMSG, 13, iw);
 				DDB_FlushWindow(i, iw);
 				DDB_StartInput(i, false);
 				i->state = DDB_INPUT_END;
@@ -2074,7 +2082,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Window* iw = DDB_GetInputWindow(i);
 				DDB_Flush(i);
 				DDB_NewText(i);
-				DDB_OutputMessageWin(i, DDB_SYSMSG, 12, iw);
+				DDB_OutputMessageToWindow(i, DDB_SYSMSG, 12, iw);
 				DDB_FlushWindow(i, iw);
 				DDB_StartInput(i, false);
 				i->state = DDB_INPUT_QUIT;
