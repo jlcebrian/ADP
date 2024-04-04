@@ -43,7 +43,6 @@ uint32_t   palette[256];
 // Specific for Spectrum
 uint8_t*   bitmap = NULL;
 uint8_t*   attributes = NULL;
-uint8_t    curAttr = 0;
 uint8_t    stride = 32;
 
 #if _WEB
@@ -263,7 +262,7 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 			}
 		}
 
-		color = ((color & 7) << 3) | (curAttr & 0xC7);
+		color = ((color & 7) << 3) | ((color & 0x18) << 3);
 
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
 		for (int dy = 0; dy < h; dy += 8)
@@ -310,7 +309,7 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 				int cols = w;
 				int col0 = x >> 3;
 				int inc  = stride * (lines >> 3);
-				int attv = (paper << 3) | (curAttr & 0xC7);
+				int attv = (paper << 3);
 				for (int row = row0; row < row1; row++)
 				{
 					uint8_t* attr = attributes + row * stride + col0;
@@ -418,7 +417,7 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 		if (screenMachine == DDB_MACHINE_SPECTRUM)
 		{
-			xattr = (ink & 0x30) << 2;			
+			xattr = (ink & 0x18) << 3;			
 			ink &= 7;
 			paper &= 7;
 			paperShift = 3;
@@ -433,8 +432,7 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		else
 		{
 			paper &= 7;
-			curAttr = ink | (paper << paperShift) | xattr;
-			*attr = curAttr;
+			*attr = ink | (paper << paperShift) | xattr;
 			if (rot > 8-width)
 				attr[1] = *attr;
 		}
@@ -782,7 +780,7 @@ static void	RenderSpectrumScreen(uint8_t* attributes)
 				if (attr & 0x40)
 				{
 					// Bright On
-					ink |= 0x08;
+					ink |= 0x8;
 					if (paper != 0)
 						paper |= 0x08;
 				}

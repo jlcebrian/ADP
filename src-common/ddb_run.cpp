@@ -532,9 +532,9 @@ void DDB_GetCurrentColors (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper
 		if (*ink == 9)
 			*ink = *paper > 2 ? 0 : 7;
 		if (w->flags & Win_Flash)
-			*ink |= 0x08;
-		if (w->flags & Win_Bright)
 			*ink |= 0x10;
+		if (w->flags & Win_Bright)
+			*ink |= 0x08;
 	}
 	#endif
 }
