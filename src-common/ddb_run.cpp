@@ -92,11 +92,13 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 
 		case DDB_MACHINE_SPECTRUM:
 			// TODO: Honor ink map from drawstring database
-			i->inkMap[0] = 0;
-			i->inkMap[1] = 7;
-			for (int n = 2; n < 16; n++)
+			for (int n = 0; n < 16; n++)
 				i->inkMap[n] = n;
-			i->inkMap[7] = 1;
+			if (i->ddb->version != DDB_VERSION_PAWS) {
+				i->inkMap[0] = 0;
+				i->inkMap[1] = 7;
+				i->inkMap[7] = 1;
+			}
 			break;
 
 		case DDB_MACHINE_C64:
@@ -728,36 +730,45 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 
 				case '_':
 				{
-					// TODO: Handle differences between PAWS & DAAD
-
 					int firstChar = 0;
 					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
-					if (end == objNameBuffer)
+					uint8_t* ptr = objNameBuffer;
+					if (ptr == end)
 						return;
+					while (*ptr != 0 && ptr < end) {
+						if (*ptr >= 16 && *ptr <= 20)
+							ptr += 2;
+						else if (*ptr <= 32)
+							ptr++;
+						else
+							break;
+					}
+					while (objNameBuffer[firstChar] == ' ')
+						firstChar++;
 					if (i->ddb->language == DDB_SPANISH)
 					{
-						if (objNameBuffer[1] == 'n') {
-							if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
-								if (objNameBuffer[3] == 's' && (objNameBuffer[2] == 'a' || objNameBuffer[2] == 'o')) {
+						if (ptr[1] == 'n') {
+							if (ptr[0] == 'u' || ptr[0] == 'U') {
+								if (ptr[3] == 's' && (ptr[2] == 'a' || ptr[2] == 'o')) {
 									firstChar++;
-								} else if (objNameBuffer[2] == 'a') {
+								} else if (ptr[2] == 'a') {
 									firstChar++;
-									objNameBuffer[2] = 'a';
+									ptr[2] = 'a';
 								} else {
-									objNameBuffer[0] = 'e';
+									ptr[0] = 'e';
 								}
-								objNameBuffer[1] = 'l';
+								ptr[1] = 'l';
 							}
 						}
 					}
 					else if (i->ddb->language == DDB_ENGLISH)
 					{
-						if (objNameBuffer[0] == 'a' && objNameBuffer[1] == ' ') {
-							firstChar = 2;
+						if (ptr[0] == 'a' && ptr[1] == ' ') {
+							firstChar += 2;
 						}
 					}
-					objNameBuffer[firstChar] = ToLower(objNameBuffer[firstChar]);
-					for (uint8_t* ptr = objNameBuffer + firstChar; ptr < end; ptr++) {
+					ptr[firstChar] = ToLower(ptr[firstChar]);
+					for (ptr += firstChar; ptr < end; ptr++) {
 						if (*ptr == '.') break;
 						OutputCharToWindow(i, w, *ptr);
 					}
@@ -987,6 +998,19 @@ void DDB_OutputInputPrompt(DDB_Interpreter* i)
 static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 {
 	DDB_Flush(i);
+
+	#if HAS_PAWS
+	if (i->ddb->version == DDB_VERSION_PAWS)
+	{
+		w->posY = line * lineHeight;
+		w->posX = col * columnWidth;
+		w->scrollCount = 0;
+		w->smooth = 0;
+		DebugPrintf("\nPrintAt(%d,%d) -> %d,%d\n", line, col, w->posX, w->posY);
+		return;
+	}
+	#endif
+
 	w->posY = w->y + line * lineHeight;
 	w->posX = w->x + col * columnWidth;
 	if (w->posX < w->x || w->posX > w->x + w->width ||
@@ -3262,6 +3286,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				i->win.posX = i->win.saveX;
 				i->win.posY = i->win.saveY;
+				if (i->ddb->version == DDB_VERSION_PAWS)
+				{
+					i->win.ink = i->ddb->defaultInk;
+					i->win.paper = i->ddb->defaultPaper;
+					DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
+				}
 				i->done = true;
 				break;
 
