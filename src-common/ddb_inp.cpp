@@ -61,8 +61,8 @@ static void DrawPAWSCursor(DDB_Interpreter* i, int x, int y)
 DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 {
 	int inputWindow = i->flags[Flag_InputStream] & 0x07;
-	return 
-		inputWindow == 0 || 
+	return
+		inputWindow == 0 ||
 		inputWindow == i->curwin ? &i->win : &i->windef[inputWindow];
 }
 
@@ -173,7 +173,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 	if (ToUpper(i->inputBuffer[0]) == ToUpper(buffer[0]))
 	{
 		DDB_NewText(i);
-		
+
 		if (i->ddb->version < 2)
 		{
 			DDB_Reset(i);
@@ -202,7 +202,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 			DDB_Flush(i);
 			SCR_GetMilliseconds(&i->quitStart);
 		}
-		
+
 		i->state = DDB_QUIT;
 	}
 }
@@ -210,7 +210,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 void DDB_ResolveInputQuit(DDB_Interpreter* i)
 {
 	char buffer[2];
-	
+
 	DDB_GetMessage(i->ddb, DDB_SYSMSG, 30, buffer, 2);
 	if (ToUpper(i->inputBuffer[0]) == ToUpper(buffer[0]))
 	{
@@ -234,7 +234,7 @@ void DDB_ResolveInputLoad(DDB_Interpreter* i)
 		i->state = DDB_RUNNING;
 		return;
 	}
-	
+
 	i->inputBuffer[i->inputBufferLength] = 0;
 
 	bool success = false;
@@ -343,7 +343,7 @@ static void UpdateLastInputHistoryLine (DDB_Interpreter* i)
 		if (i->inputHistoryLength + required > HISTORY_SIZE)
 			return;
 	}
-	MemCopy((char *)i->inputHistory + i->inputHistoryLastEntry, 
+	MemCopy((char *)i->inputHistory + i->inputHistoryLastEntry,
 	       i->inputBuffer, length);
 	i->inputHistoryLength = i->inputHistoryLastEntry + length + 1;
 	i->inputHistory[i->inputHistoryLength - 1] = 0;
@@ -360,7 +360,7 @@ static bool HistoryCompletion (DDB_Interpreter* i)
 		return false;
 	if (i->inputCompletionX > 0 && i->inputCompletionX < size)
 		size = i->inputCompletionX;
-	
+
 	for (;;)
 	{
 		if (ptr == i->inputHistory)
@@ -583,7 +583,7 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 		if (i->ddb->version == DDB_VERSION_PAWS)
 			cursorWidth = GetPAWSCursorWidth(i);
 		#endif
-		for (n = 0; n < i->inputBufferLength; n++) 
+		for (n = 0; n < i->inputBufferLength; n++)
 		{
 			if (n == i->inputCursorX)
 				cursorX = totalWidth;
@@ -664,13 +664,13 @@ void DDB_PlayClick(DDB_Interpreter* i, bool allowRepeats)
 	{
 		if (i->keyClick == 2)
 		{
-			SCR_PlaySampleBuffer(clickSample, clickSampleSize, 
-			                     RandInt(29000, 31000), 
+			SCR_PlaySampleBuffer(clickSample, clickSampleSize,
+			                     RandInt(29000, 31000),
 			                     RandInt(48, 80));
 		}
 		else if (i->keyClick == 1)
 		{
-			SCR_PlaySampleBuffer(beepSample, beepSampleSize, 
+			SCR_PlaySampleBuffer(beepSample, beepSampleSize,
 			                     30000, RandInt(48, 80));
 		}
 	}
@@ -693,7 +693,7 @@ void DDB_ProcessInputFrame()
 	if (key == 0x7F)
 		key = 0;
 	if (key != 0)
-		ext = 0;		
+		ext = 0;
 
 	if (ext == 0x73) // Alternative Left
 		ext = 0x4B;
@@ -703,7 +703,7 @@ void DDB_ProcessInputFrame()
 	switch (key | (ext << 8))
 	{
 		case 0x5300: // Delete
-			if (i->inputCursorX < i->inputBufferLength) 
+			if (i->inputCursorX < i->inputBufferLength)
 			{
 				if (mod & SCR_KEYMOD_CTRL)
 				{
@@ -947,6 +947,6 @@ void DDB_ProcessInputFrame()
 			}
 			break;
 	}
-	
+
 	DDB_PlayClick(i, true);
 }

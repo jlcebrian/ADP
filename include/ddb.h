@@ -28,7 +28,7 @@ enum DDB_WordType
 
 enum DDB_Flag
 {
-	Flag_Darkness 		= 0,	
+	Flag_Darkness 		= 0,
 	Flag_NumCarried		= 1,			// 01  Numbers of objects currently carried by the player
 
 	// Flags 2 to 10 are used only in PAWS and Version 1 DDB
@@ -424,7 +424,7 @@ struct DDB
 	uint8_t         defaultInk;
 	uint8_t         defaultPaper;
 	uint8_t         defaultCharset;
-	
+
 	// Data storage: all pointers above are required to point to this block
 
 	uint8_t*		memory;
@@ -612,7 +612,7 @@ extern void				DDB_Dump				 (DDB* ddb, DDB_PrintFunc print);
 extern void				DDB_DumpMetrics			 (DDB* ddb, DDB_PrintFunc print);
 extern void 			DDB_DumpProcess			 (DDB* ddb, uint8_t process, DDB_PrintFunc print);
 extern void				DDB_Close				 (DDB* ddb);
- 
+
 extern DDB_Interpreter* DDB_CreateInterpreter	 (DDB* ddb, DDB_ScreenMode mode);
 extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
@@ -679,10 +679,10 @@ extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data);
 extern void             DDB_LoadUDGs             ();
 #endif
 
+#endif
+
 extern void 			DDB_SetCharset           (DDB* ddb, uint8_t c);
 extern void             DDB_GetCurrentColors     (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper);
-
-#endif
 
 extern const char*      DDB_DescribeLanguage     (DDB_Language lang);
 extern const char*      DDB_DescribeMachine      (DDB_Machine machine);

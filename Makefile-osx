@@ -41,5 +41,5 @@ clean:
 
 $(OBJS) $(UNIX_OBJS) : obj/unix/%.o : %.cpp
 	$(info Compiling $<)
-	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(CPPFLAGS) -c -o "$@" "$(CURDIR)/$<"
 
