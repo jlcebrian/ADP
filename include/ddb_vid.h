@@ -52,16 +52,16 @@ inline  void  VID_SetPaletteColor32   (uint8_t color, uint32_t rgb)
 }
 
 #if HAS_DRAWSTRING
-extern void   VID_SetInk     		  (uint8_t color);
-extern void   VID_SetPaper     		  (uint8_t color);
-extern void   VID_SetPaper     		  (uint8_t color);
-extern void   VID_MoveTo			  (uint16_t x, uint16_t y);
-extern void   VID_MoveBy			  (int16_t x, int16_t y);
-extern void   VID_DrawPixel			  (uint8_t color);
-extern void   VID_DrawPixel           (int16_t x, int16_t y, uint8_t color);
-extern void   VID_DrawLine  		  (int16_t x, int16_t y, uint8_t color);
-extern void   VID_PatternFill         (int16_t x, int16_t y, int pattern);
-extern void   VID_AttributeFill		  (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+extern void    VID_SetInk     		  (uint8_t color);
+extern void    VID_SetPaper     	  (uint8_t color);
+extern void    VID_MoveTo			  (uint16_t x, uint16_t y);
+extern void    VID_MoveBy			  (int16_t x, int16_t y);
+extern void    VID_DrawPixel		  (uint8_t color);
+extern void    VID_DrawPixel          (int16_t x, int16_t y, uint8_t color);
+extern void    VID_DrawLine  		  (int16_t x, int16_t y, uint8_t color);
+extern void    VID_PatternFill        (int16_t x, int16_t y, int pattern);
+extern void    VID_AttributeFill	  (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+extern uint8_t VID_GetAttributes      ();
 #endif
 
 #if HAS_CLIPBOARD

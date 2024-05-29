@@ -155,7 +155,7 @@ EM_JS(void, RequestFullScreen, (), {
 
 __attribute__((used))
 extern "C" void KeyPressed(int key)
-{				
+{
 	if (((inputBufferHead + 1) & 0xFF) == inputBufferTail)
 		return;
 
@@ -230,17 +230,17 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 		w += x;
 		x = 0;
 	}
-	if (y >= screenHeight) 
+	if (y >= screenHeight)
 		return;
-	if (x >= screenWidth) 
+	if (x >= screenWidth)
 		return;
 	if (x + w > screenWidth)
 		w = screenWidth - x;
 	if (y + h > screenHeight)
 		h = screenHeight - y;
-	if (w <= 0) 
+	if (w <= 0)
 		return;
-	if (h <= 0) 
+	if (h <= 0)
 		return;
 
 	if (attributes)
@@ -262,15 +262,16 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 			}
 		}
 
-		color = ((color & 7) << 3) | ((color & 0x18) << 3);
-
+#		if HAS_DRAWSTRING
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
+		uint8_t  attrValue = VID_GetAttributes();
 		for (int dy = 0; dy < h; dy += 8)
 		{
 			for (int dx = 0; dx <= w; dx++)
-				attr[dx] = color;
+				attr[dx] = attrValue;
 			attr += stride;
 		}
+#		endif
 	}
 	else
 	{
@@ -405,7 +406,14 @@ void VID_SwapScreen ()
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
 	uint8_t  width = charWidth[ch];
-	
+
+#if HAS_DRAWSTRING
+	if (ink != 255)
+		VID_SetInk(ink);
+	if (paper != 255)
+		VID_SetPaper(paper);
+#endif
+
 	if (attributes)
 	{
 		uint8_t* ptr = charset + (ch << 3);
@@ -415,9 +423,12 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		uint8_t xattr = 0;
 		uint8_t paperShift = 4;
 
+		// TODO: Use DRAWSTRING routines to handle attributes,
+		// attributes shouldn't be supported without DRAWSTRING
+
 		if (screenMachine == DDB_MACHINE_SPECTRUM)
 		{
-			xattr = (ink & 0x18) << 3;			
+			xattr = (ink & 0x18) << 3;
 			ink &= 7;
 			paper &= 7;
 			paperShift = 3;
@@ -577,7 +588,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 		h = entry->height;
 	if (w > entry->width)
 		w = entry->width;
-	
+
 	uint8_t* srcPtr = (uint8_t*)pictureData;
 	uint8_t* dstPtr = graphicsBuffer + y * screenWidth + x;
 	uint32_t* filePalette = (uint32_t*)DMG_GetEntryPalette(dmg, bufferedIndex, ImageMode_RGBA32);
@@ -693,7 +704,7 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 			return;
 		}
 		if (keyCode == 13 && (modState & KMOD_ALT))
-		
+
 			VID_ToggleFullscreen();
 #endif
 
@@ -725,7 +736,7 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 		if (ext != NULL)
 			*ext = 0;
 	}
-} 
+}
 
 void VID_GetMilliseconds (uint32_t* ms)
 {
@@ -875,7 +886,7 @@ void VID_InnerLoop()
 		if (DM.h >= 1440) minBorderSize = 40;
 		if (DM.h >= 2000) minBorderSize = 100;
 	}
-	
+
 	if (ticks == 0)
 		ticks = SDL_GetTicks();
 	int elapsed = now - ticks;
@@ -911,7 +922,7 @@ void VID_InnerLoop()
 					break;
 				}
 				#endif
-				
+
 				for (int n = 0; keyMapping[n].key != 0; n++)
 				{
 					if (keyMapping[n].key == event.key.keysym.sym)
@@ -939,7 +950,7 @@ void VID_InnerLoop()
 				break;
 		}
 	}
-	
+
 	if (mainLoopCallback)
 		mainLoopCallback(elapsed);
 
@@ -968,7 +979,7 @@ void VID_InnerLoop()
 
 	SDL_FillRect(surface, NULL, palette[0]);
 
-	if (SDL_LockSurface(surface) != 0) 
+	if (SDL_LockSurface(surface) != 0)
 	{
 		DebugPrintf("Unable to lock window %p\n", window);
 		DebugPrintf("SDL_LockSurface(surface): %s\n", SDL_GetError());
@@ -980,7 +991,7 @@ void VID_InnerLoop()
 
 		int srcWidth = screenWidth;
 		int srcHeight = screenHeight;
-	
+
 		int scale = 1;
 		while (scale < (surface->w-minBorderSize) / srcWidth && scale < (surface->h-minBorderSize) / srcHeight)
 			scale++;
@@ -996,21 +1007,21 @@ void VID_InnerLoop()
 			uint8_t b = palette[c];
 			surfacePalette[c] = SDL_MapRGB(surface->format, r, g, b);
 		}
-	
+
 		uint8_t* srcPtr = frontBuffer;
 		uint32_t* dstPtr = (uint32_t*)surface->pixels + dstY * surface->pitch / 4 + dstX;
 		for (int dy = 0; dy < srcHeight; dy++, srcPtr += screenWidth)
 		{
 			uint32_t* dst = dstPtr;
 			uint8_t*  src = srcPtr;
-			for (int dx = 0; dx < srcWidth; dx++) 
+			for (int dx = 0; dx < srcWidth; dx++)
 			{
 				for (int n = 0; n < scale; n++)
 					*dst++ = surfacePalette[*src & 0x0F];
 					src++;
 			}
 			dstPtr += surface->pitch / 4;
-			for (int n = 1; n < scale; n++) 
+			for (int n = 1; n < scale; n++)
 			{
 				memcpy(dstPtr, dstPtr - surface->pitch / 4, srcWidth * 4 * scale);
 				dstPtr += surface->pitch / 4;
@@ -1043,7 +1054,7 @@ void VID_MainLoop (DDB_Interpreter* interpreter, void (*callback)(int elapsed))
 	{
 		// Delay for smooth scrolling
 		Uint32 now = SDL_GetTicks();
-		if (buffering || (interpreter != NULL && interpreter->state == DDB_VSYNC)) 
+		if (buffering || (interpreter != NULL && interpreter->state == DDB_VSYNC))
 		{
 			if (now - ticks < 20)
 				SDL_Delay(now + 20 - ticks);
@@ -1054,7 +1065,7 @@ void VID_MainLoop (DDB_Interpreter* interpreter, void (*callback)(int elapsed))
 	}
 	quit = false;
 #endif
-	
+
 }
 
 void SDLCALL VID_FillAudio (void *udata, Uint8 *stream, int len)
@@ -1141,7 +1152,7 @@ void VID_InitAudio ()
     wanted.userdata = NULL;
 
 	audioAvailable = false;
-    if (SDL_OpenAudio(&wanted, NULL) < 0) 
+    if (SDL_OpenAudio(&wanted, NULL) < 0)
 	{
         fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
         return;
@@ -1200,7 +1211,7 @@ bool VID_LoadDataFile(const char* fileName)
 			memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
 		}
 	}
-	
+
 	// Uncomment the following lines to test Atari/Amiga caches in desktop/web:
 	// DMG_SetupFileCache(dmg);
 	// DMG_SetupImageCache(dmg, 32768);
@@ -1220,7 +1231,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 	columnWidth = version == DDB_VERSION_PAWS ? 8 : 6;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = columnWidth;
-	
+
 	switch (machine)
 	{
 		case DDB_MACHINE_MSX:
@@ -1248,7 +1259,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 			screenHeight  = 200;
 			columnWidth   = 8;
 			for (int n = 0; n < 256; n++)
-				charWidth[n] = 8;	
+				charWidth[n] = 8;
 			break;
 		case DDB_MACHINE_C64:
 			memcpy(DefaultPalette, Commodore64Palette, sizeof(Commodore64Palette));
@@ -1260,7 +1271,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 			stride        = 40;
 			columnWidth   = 8;
 			for (int n = 0; n < 256; n++)
-				charWidth[n] = 8;	
+				charWidth[n] = 8;
 			break;
 		default:
 			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
@@ -1301,10 +1312,10 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 #else
 	int options = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
-	window = SDL_CreateWindow("ADP " VERSION_STR, 
-		SDL_WINDOWPOS_UNDEFINED, 
-		SDL_WINDOWPOS_UNDEFINED, 
-		360*scale, 224*scale, 
+	window = SDL_CreateWindow("ADP " VERSION_STR,
+		SDL_WINDOWPOS_UNDEFINED,
+		SDL_WINDOWPOS_UNDEFINED,
+		360*scale, 224*scale,
 		options);
 	if (window == NULL)
 	{
@@ -1377,7 +1388,7 @@ static uint32_t MeasureUTF8Conversion (const uint8_t* text, uint32_t length)
 		c = DDB_Char2ISO[c];
 		if (c <= 127)
 			size += 1;
-		else 
+		else
 			size += 2;
 	}
 	return size + 1;
@@ -1397,7 +1408,7 @@ static void ConvertToUTF8 (const uint8_t* text, uint32_t size, uint8_t* buffer, 
 		{
 			*dst++ = c;
 		}
-		else 
+		else
 		{
 			*dst++ = 0xC0 | ((c >> 6) & 0x1F);
 			if (dst < dstEnd)
@@ -1412,7 +1423,7 @@ bool VID_HasClipboardText(uint32_t *size)
 {
 	if (clipboard != 0)
 		SDL_free(clipboard);
-	
+
 	clipboard = SDL_GetClipboardText();
 	if (clipboard != 0)
 	{
@@ -1437,7 +1448,7 @@ void VID_GetClipboardText(uint8_t *buffer, uint32_t bufferSize)
 	uint32_t length = ConvertUTF8(clipboard);
 	if (length > bufferSize)
 		length = bufferSize;
-		
+
 	MemCopy(buffer, clipboard, length);
 	if (length < bufferSize)
 		buffer[length] = 0;
@@ -1452,7 +1463,7 @@ void VID_SetClipboardText(uint8_t *buffer, uint32_t bufferSize)
 		Free(clipboard);
 		clipboard = 0;
 	}
-	
+
 	uint32_t size = MeasureUTF8Conversion(buffer, bufferSize);
 	uint8_t* text = Allocate<uint8_t>("Clipboard text", size);
 	ConvertToUTF8(buffer, bufferSize, text, size);

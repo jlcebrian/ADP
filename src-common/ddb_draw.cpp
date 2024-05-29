@@ -95,6 +95,11 @@ void VID_SetPaper (uint8_t value)
 	}
 }
 
+uint8_t VID_GetAttributes()
+{
+	return attrValue;
+}
+
 void VID_SetBright (uint8_t value)
 {
 	bright = value;
@@ -499,7 +504,7 @@ void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
 		}
 		VID_DrawPixel(x, y, color);
 	}
-	
+
 	cursorX = x;
 	cursorY = y;
 }
@@ -556,7 +561,7 @@ void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 	if (screenMachine == DDB_MACHINE_SPECTRUM)
 	{
-		xattr = (ink & 0x30) << 2;			
+		xattr = (ink & 0x30) << 2;
 		ink &= 7;
 		paper &= 7;
 		paperShift = 3;
@@ -604,10 +609,10 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 	if (vectorGraphicsRAM == 0 || picno >= count)
 		return false;
 
-	if (scale == 0) 
+	if (scale == 0)
 		scale = 8;
 
-	if (++depth == 10) 
+	if (++depth == 10)
 	{
 		depth--;
 		return false;
@@ -708,7 +713,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else
 							TRACE("%02X LINE    %02X %02X  ", ptr[0], ptr[1], ptr[2]);
 						#endif
-						
+
 						if (*ptr & 0x20) x = -x;
 						if (*ptr & 0x10) y = -y;
 						if (flipX) x = -x;
@@ -750,14 +755,14 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						ptr += p == -1 ? 3 : 4;
 						break;
 					}
-						
+
 					case 7:		// BLOCK
 					{
 						uint8_t y0 = ptr[1];
 						uint8_t x0 = ptr[2];
 						uint8_t y1 = y0+ptr[3];
 						uint8_t x1 = x0+ptr[4];
-						
+
 						#ifdef TRACE_VECTOR
 						TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
 						#endif
@@ -901,7 +906,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						break;
 					}
 					case 5:		// FILL
-					{						
+					{
 						int x = ptr[1] | ((ptr[0] & 0x80) << 1);
 						int y = ptr[2];
 						if (flipX) x = -x;
@@ -921,7 +926,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						#ifdef TRACE_VECTOR
 						TRACE("%02X SHADE   %02X %02X %02X\n", ptr[0], ptr[1], ptr[2], ptr[3]);
 						#endif
-						
+
 						int cink  = ink;
 						int sink  = ink;
 						int spaper = ((ptr[0] & 0xC0) >> 6);
@@ -1033,7 +1038,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							uint8_t y0 = ptr[4];
 							uint8_t x1 = x0+ptr[2];
 							uint8_t y1 = y0+ptr[1];
-							
+
 							#ifdef TRACE_VECTOR
 							TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
 							#endif
@@ -1061,7 +1066,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							#ifdef TRACE_VECTOR
 							TRACE("%02X FILL    %02X %02X\n", ptr[0], ptr[1], ptr[2]);
 							#endif
-							
+
 							int x = ptr[1];
 							int y = ptr[2];
 							if (flipX) x = -x;
@@ -1294,7 +1299,7 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 				VID_SetPaper((win[1] >> 4) & 0x0F);
 				VID_SetBright(0);
 				VID_SetFlash(0);
-				
+
 				int row = win[2];
 				int col = win[3];
 				int height = win[4];
@@ -1328,7 +1333,7 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 					VID_SetPaper((win[0] >> 3) & 0x07);
 					VID_SetBright(0);
 					VID_SetFlash(0);
-					
+
 					int row = win[1];
 					int col = win[2];
 					int height = win[3];
@@ -1382,7 +1387,7 @@ bool DDB_WriteVectorDatabase(const char* filename)
 		DDB_SetError(DDB_ERROR_CREATING_FILE);
 		return false;
 	}
-	
+
 	TRACE("Writing vector RAM 0x%04X to 0x%04X\n", start, ending);
 	if (File_Write(file, vectorGraphicsRAM + start, ending - start + 1) != ending - start + 1)
 	{
@@ -1461,7 +1466,7 @@ void DDB_LoadUDGs()
 bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t size)
 {
 	vectorGraphicsMachine = target;
-	
+
 	mixShades = false;
 
 	switch (target)
@@ -1489,7 +1494,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 				return false;
 			if (ending != 0xFFFF)
 				return false;
-			
+
 			ending  = 0xCBFF;
 			scrMaxX = 319;
 			scrMaxY = 199;
@@ -1524,7 +1529,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 				return false;
 			if (ending != 0xFFFF)
 				return false;
-			
+
 			ending  = chset + 2048 - 1;
 			scrMaxX = 319;
 			scrMaxY = 183;
