@@ -430,7 +430,8 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		{
 			xattr = (ink & 0x18) << 3;
 			ink &= 7;
-			paper &= 7;
+			if (paper != 255)
+				paper &= 7;
 			paperShift = 3;
 		}
 
