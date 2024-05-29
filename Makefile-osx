@@ -1,22 +1,30 @@
 VERSION ?= 0.3
 
 CPPFLAGS += -D_OSX -D_THREAD_SAFE
-CPPFLAGS += -arch x86_64 -arch arm64 -target macos10.12
-LDFLAGS  += -target macos10.12 -arch x86_64 -arch arm64
+CPPFLAGS += -arch arm64 -target macos11.0
+LDFLAGS  += -target macos11.0 -arch arm64
 CPPFLAGS += -Ilib/sdl2/include
 LDFLAGS  += lib/osx/libSDL2.a lib/osx/libSDL2main.a
 LDFLAGS  += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
 
-CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -DTRACE_ON 
+CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON 
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
+CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_DRAWSTRING
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 CPPFLAGS += -O2
 
+CPPFLAGS += `libpng-config --cflags`
+LDFLAGS += `libpng-config --ldflags`
+
 DIRS = src-common/ 
-VPATH = $(DIRS) src-sdl/ src-unix/
+VPATH = $(DIRS) src-sdl/ src-unix/ src-tools/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
+TOOL_SRCS = dmg_edit img ddb_writ
+TOOL_MAIN_SRCS = $(wildcard src-tools/tool_*.cpp)
+TOOL_MAIN_OBJS = $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
 OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
+TOOL_OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(addsuffix .cpp,$(TOOL_SRCS))))
 
 OBJS += obj/unix/files.o
 OBJS += obj/unix/error.o
@@ -24,7 +32,7 @@ UNIX_OBJS = obj/unix/player.o
 
 -include $(OBJS:.o=.d)
 
-all: out/ADP.app
+all: out/ADP.app out/ddb
 
 out/ADP.app: out/player
 	mkdir -p out/ADP.app/Contents/MacOS
@@ -35,6 +43,8 @@ out/ADP.app: out/player
 
 out/player: $(OBJS) obj/unix/player.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
+out/ddb: $(OBJS) $(TOOL_OBJS) obj/unix/tool_ddb.o
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f obj/unix/*.o
@@ -43,3 +53,6 @@ $(OBJS) $(UNIX_OBJS) : obj/unix/%.o : %.cpp
 	$(info Compiling $<)
 	@$(CC) $(CPPFLAGS) -c -o "$@" "$(CURDIR)/$<"
 
+$(TOOL_OBJS) $(TOOL_MAIN_OBJS) : obj/unix/%.o : %.cpp
+	$(info Compiling $<)
+	@$(CC) $(CPPFLAGS) -Iinclude-tools -c -o $@ "$(CURDIR)/$<"

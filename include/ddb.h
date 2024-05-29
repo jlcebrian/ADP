@@ -518,6 +518,7 @@ struct DDB_Interpreter
 	bool			keyChecked;
 	bool			keyCheckInProgress;
 	bool			keyPressed;
+	bool            saveKeyToFlags;
 	uint32_t        lastClick;
 	uint8_t         keyReuseCount;
 	uint8_t			lastKey1;

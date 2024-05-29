@@ -123,7 +123,7 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 					i->inkMap[n+3] = 1;
 				}
 			}
-			else 
+			else
 			{
 				i->inkMap[0] = 0;
 				i->inkMap[1] = 15;
@@ -344,7 +344,7 @@ void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint
 
 	*cellX = cellsX;
 	*cellW = cellsW;
-}	
+}
 
 static void ShowMorePrompt (DDB_Interpreter* i)
 {
@@ -386,7 +386,7 @@ bool DDB_NextLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 	{
 		uint8_t cellX = i->cellX, cellW = i->cellW;
 		int scroll = w->posY - maxY;
-		if (w != &i->win) 
+		if (w != &i->win)
 			DDB_CalculateCells(i, w, &cellX, &cellW);
 		SCR_Scroll(cellX*8, w->y, cellW*8, w->height, scroll, paper, (w->flags & Win_NoMorePrompt) ? false : w->smooth);
 		w->posY -= scroll;
@@ -487,7 +487,7 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 	int16_t pich = 0;
 	SCR_GetPictureInfo(&fixed, &picx, &picy, &picw, &pich);
 
-	if (fixed) 
+	if (fixed)
 	{
 		x             = picx & ~7;
 		width         = (picw + 7) & ~7;
@@ -501,8 +501,8 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 		i->win.posY   = picy;
 
 		//fprintf(stderr, "Drawing fixed picture %d: %d,%d %dx%d (window set to %d,%d %dx%d)\n", i->currentPicture, picx, picy, picw, pich, i->win.x, i->win.y, i->win.width, i->win.height);
-	} 
-	else 
+	}
+	else
 	{
 		x  	          = i->cellX * 8;
 		width 		  = i->cellW * 8;
@@ -519,7 +519,7 @@ void DDB_GetCurrentColors (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper
 {
 	*ink = w->ink;
 	*paper = w->paper;
-	
+
 	#if HAS_PAWS
 	if (ddb->version == DDB_VERSION_PAWS)
 	{
@@ -550,7 +550,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	// TODO: maxX calculations are wrong, as they only refer to the *current*
 	// window (!!!). We should either change DDB_FlushWindow, DDB_OutputCharToWindow
 	// etc. to write to the current window only, or save cellX/cellW for each window
-	
+
 	int maxX = i->cellX*8 + i->cellW*8;
 	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
 
@@ -580,7 +580,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 					break;
 				continue;
 			}
-			else 
+			else
 			#endif
 			if (ch < 16)
 				continue;
@@ -637,19 +637,19 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			// TODO: Color & charset changes
 			continue;
 		}
-		else 
+		else
 		#endif
-		
+
 		if (ch < 16)
 		{
 			switch (ch)
 			{
 				case 0x0E:		// Graphics on ('\g')
-					w->graphics = true; 
+					w->graphics = true;
 					break;
 
 				case 0x0F:		// Graphics off ('\t')
-					w->graphics = false; 
+					w->graphics = false;
 					break;
 			}
 			continue;
@@ -713,7 +713,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					DDB_FlushWindow(i, w);
 					int maxX = i->cellX*8 + i->cellW*8;
 					int nextTab = (w->posX + 128) & ~127;
-					if (nextTab > maxX) 
+					if (nextTab > maxX)
 						nextTab = maxX;
 					if (nextTab > w->posX)
 					{
@@ -774,7 +774,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					}
 					return;
 				}
-				
+
 				case 16:
 				case 17:
 				case 18:
@@ -789,12 +789,12 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					return;
 			}
 		}
-		else 
+		else
 		#endif
 		{
 			switch(c)
 			{
-				case '\x0D':		// Newline ('\n') 
+				case '\x0D':		// Newline ('\n')
 					DDB_FlushWindow(i, w);
 					DDB_NewLineAtWindow(i, w);
 					return;
@@ -1062,7 +1062,7 @@ static void CenterWindow (DDB_Interpreter* i, DDB_Window* w)
 		w->x = 0;
 		w->width = screenWidth;
 	}
-	else 
+	else
 	{
 		w->x = (screenWidth - w->width) / 2;
 		w->x -= w->x % columnWidth;
@@ -1115,7 +1115,7 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 	if (locno == 255) locno = i->flags[Flag_Locno];
 
 	int count = CountObjectsAt(i, locno);
-	
+
 	i->flags[Flag_ListFlags] &= ~0x80;
 	for (int n = 0; n < i->ddb->numObjects; n++)
 	{
@@ -1180,13 +1180,13 @@ static void SetObjno (DDB_Interpreter* i, uint8_t objno)
 static uint8_t WhatoAt (DDB_Interpreter* i, uint8_t locno)
 {
 	uint8_t objno = 255;
-	
+
 	for (int n = 0; n < i->ddb->numObjects; n++)
 	{
 		uint8_t noun = i->ddb->objWordsTable[n * 2];
 		uint8_t adjective = i->ddb->objWordsTable[n * 2 + 1];
 
-		if (noun == 255) 
+		if (noun == 255)
 			continue;
 		if (i->flags[Flag_Noun1] == noun && (i->flags[Flag_Adjective1] == 255 || i->flags[Flag_Adjective1] == adjective))
 		{
@@ -1197,10 +1197,10 @@ static uint8_t WhatoAt (DDB_Interpreter* i, uint8_t locno)
 
 	// Enhancement: allow using a single adjective to refer to an object
 	// but only if no unknown words where present in the sentence.
-	
-	if (objno == 255 && locno != 255 && 
-		i->flags[Flag_Noun1] == 255  && 
-		i->flags[Flag_Adjective1] != 255 && 
+
+	if (objno == 255 && locno != 255 &&
+		i->flags[Flag_Noun1] == 255  &&
+		i->flags[Flag_Adjective1] != 255 &&
 		!(i->sentenceFlags & SentenceFlag_UnknownWord))
 	{
 		for (int n = 0; n < i->ddb->numObjects; n++)
@@ -1290,7 +1290,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 {
 	if (i->ddb->version > 1)
 	{
-		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);	
+		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);
 		return;
 	}
 
@@ -1298,7 +1298,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		i->flags[2]--;
 	if (i->flags[3] > 0 && i->flags[Flag_Darkness] != 0)
 		i->flags[3]--;
-		
+
 	if (i->flags[Flag_Darkness] != 0 && Absent(i, 0))
 	{
 		if (i->ddb->version < 2 && i->flags[4] > 0)
@@ -1325,7 +1325,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 	{
 		if (i->ddb->version >= 1)
 			i->flags[40] = 0;
-			
+
 		DDB_SetWindow(i, 0);
 		if (i->ddb->drawString)
 		{
@@ -1368,9 +1368,9 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			DDB_ClearWindow(i, &i->win);
 		}
 
-		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);	
+		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);
 	}
-	
+
 	i->procstack[0].entry   = 0;
 	i->procstack[0].process = 1;
 	i->procstack[0].offset  = 0;
@@ -1456,7 +1456,7 @@ static bool FindWord (DDB_Interpreter* i, const uint8_t** textPointer, const uin
 		}
 		if (found)
 		{
-			while (ptr < end && IsAlphaNumeric(*ptr)) 
+			while (ptr < end && IsAlphaNumeric(*ptr))
 				ptr++;
 			*textPointer = ptr;
 			*type = word[6];
@@ -1476,14 +1476,14 @@ static bool EndsWithPronoun (const char* word, int len)
 	{
 		// This hack prevents the parser from wrongly recognizing
 		// pronouns in words like HABLA or AFILA
-		
+
 		if (len > 2 && ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I')
 			return false;
 		return true;
 	}
 	if (len < 3 || ToUpper(word[len-1]) != 'S')
 		return false;
-	if (ToUpper(word[len-3]) == 'L' && (ToUpper(word[len-2]) == 'A' || ToUpper(word[len-2]) == 'O'))	
+	if (ToUpper(word[len-3]) == 'L' && (ToUpper(word[len-2]) == 'A' || ToUpper(word[len-2]) == 'O'))
 	{
 		if (len > 3 && ToUpper(word[len-4]) == 'B' || ToUpper(word[len-4]) == 'I')
 			return false;
@@ -1579,7 +1579,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 			switch (type)
 			{
 				case WordType_Verb:
-					if (i->flags[Flag_Verb] == 255)	
+					if (i->flags[Flag_Verb] == 255)
 					{
 						i->flags[Flag_Verb] = code;
 						if (EndsWithPronoun((const char*)word, ptr - word) && i->flags[Flag_Noun1] == 255 && i->flags[Flag_CPNoun] != 255)
@@ -1628,7 +1628,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 		else
 		{
 			i->sentenceFlags |= SentenceFlag_UnknownWord;
-			while(ptr < end && IsAlphaNumeric(*ptr)) 
+			while(ptr < end && IsAlphaNumeric(*ptr))
 				ptr++;
 			continue;
 		}
@@ -1683,9 +1683,9 @@ static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 {
 	for (int n = 0; n < windowClearCount; n++)
 	{
-		if (   windowClears[n].x < i->win.x + i->win.width       
-			&& windowClears[n].x + windowClears[n].width > i->win.x 
-			&& windowClears[n].y < i->win.y + i->win.height      
+		if (   windowClears[n].x < i->win.x + i->win.width
+			&& windowClears[n].x + windowClears[n].width > i->win.x
+			&& windowClears[n].y < i->win.y + i->win.height
 			&& windowClears[n].y + windowClears[n].height > i->win.y
 			&& windowClears[n].hasOutput)
 		{
@@ -1758,7 +1758,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						process  = i->doallProcess;
 						entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
 						code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
-						continue;						
+						continue;
 					}
 					else
 					{
@@ -1771,7 +1771,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					i->state = DDB_FINISHED;
 					return;
 				}
-				
+
 				TRACE("\nLeaving process %d\n\n", process);
 
 				i->procstackptr--;
@@ -2055,7 +2055,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_PRINT:
 				LongToChar(i->flags[param0], output, 10);
 				DDB_OutputText(i, output);
-				break;			
+				break;
 			case CONDACT_DPRINT:
 				LongToChar(i->flags[param0] + 256*i->flags[param0+1], output, 10);
 				DDB_OutputText(i, output);
@@ -2132,7 +2132,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				// For now, we perform a complete reset (which is not
 				// available by default in DAAD v2). The original interpreters
 				// just did a RESTART in this case.
-				
+
 				DDB_Reset(i);
 				process = 0;
 				entry = 0;
@@ -2158,7 +2158,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				offset = 0;
 				entryPtr = i->ddb->data + i->ddb->processTable[process];
 				code = i->ddb->data + *(uint16_t *)(entryPtr + 2);
-				if (i->doall) 
+				if (i->doall)
 					i->doallDepth++;
 				i->done = false;
 				TRACE("\n");
@@ -2188,7 +2188,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						process  = i->doallProcess;
 						entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
 						code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
-						continue;						
+						continue;
 					}
 					else
 					{
@@ -2243,9 +2243,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				offset = 0;
 				entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
 				TRACE("\n");
-				continue;			
+				continue;
 			}
-				
+
 			case CONDACT_PAUSE:
 				DDB_Flush(i);
 				while (SCR_AnyKey())
@@ -2293,8 +2293,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				TRACE("\n");
 				return;
 
-			// Flag manipulation actions 
-			
+			// Flag manipulation actions
+
 			case CONDACT_SET:
 				i->flags[param0] = 255;
 				i->done = true;
@@ -2361,7 +2361,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_COPYOO:
 				SetObjno(i, param0);
-				if (param0 < i->ddb->numObjects && 
+				if (param0 < i->ddb->numObjects &&
 				    param1 < i->ddb->numObjects)
 				{
 					i->objloc[param1] = i->objloc[param0];
@@ -2442,13 +2442,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_WEIGH:
 				i->flags[param1] = CalculateWeight(i, param0, 0);
 				i->done = true;
-				break;	
+				break;
 			case CONDACT_WEIGHT:
 				i->flags[param0] = CalculateCarriedWeight(i);
 				i->done = true;
 				break;
 			case CONDACT_RESET:
-				if (i->ddb->version < 2) 
+				if (i->ddb->version < 2)
 				{
 					for (int n = 0; n < i->ddb->numObjects; n++)
 					{
@@ -2598,7 +2598,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->objloc[param0] = param1;
 				if (i->flags[Flag_NumCarried] > 0)
 					i->flags[Flag_NumCarried]--;
-				DDB_OutputMessage(i, DDB_SYSMSG, 44);			// _ is in 
+				DDB_OutputMessage(i, DDB_SYSMSG, 44);			// _ is in
 				SetObjno(i, param1);
 				DDB_OutputText(i, "_");
 				SetObjno(i, param0);
@@ -2688,7 +2688,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_NewText(i);
 					goto case_DONE;
 				}
-				// Fall through				
+				// Fall through
 			case CONDACT_DROP:
 				SetObjno(i, param0);
 				if (param0 >= i->ddb->numObjects)
@@ -2938,7 +2938,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			}
-			case CONDACT_CLS: 
+			case CONDACT_CLS:
 				DDB_Flush(i);
 				i->done = true;
                 if (AnyWindowOverlapsCurrent(i))
@@ -2982,7 +2982,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					{
 						#if HAS_DRAWSTRING
 						ok = DDB_HasVectorPicture(param0);
-						if (ok) 
+						if (ok)
 							i->currentPicture = param0;
 						#endif
 					}
@@ -3108,6 +3108,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				{
 					DDB_Flush(i);
 					i->state = DDB_WAITING_FOR_KEY;
+					i->saveKeyToFlags = true;
 					UpdatePos(i, process, entry, offset + params + 1);
 					TRACE("\n");
 					return;
@@ -3119,14 +3120,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				// INKEY status is reset by a DDB_Flush command (essentially, printing text).
 				//
 				// In addition, checking for a key requires waiting a frame since the system
-				// is event driven. 
+				// is event driven.
 				if (i->keyChecked && i->keyPressed && i->keyReuseCount < 16)
 				{
 					ok = true;
 					i->flags[Flag_Key1] = i->lastKey1;
 					i->flags[Flag_Key2] = i->lastKey2;
 					i->keyReuseCount++;
-				}			
+				}
 				else
 				{
 					if (i->keyCheckInProgress)
@@ -3149,7 +3150,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						DDB_Flush(i);
 						i->keyCheckInProgress = true;
 						i->state = DDB_CHECKING_KEY;
-						UpdatePos(i, process, entry, offset);			
+						UpdatePos(i, process, entry, offset);
 						TRACE("\n");
 						return;
 					}
@@ -3254,7 +3255,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					return;
 				}
 				break;
-			
+
 			case CONDACT_RAMSAVE:
 				MemCopy(i->ramSaveArea, i->buffer, i->saveStateSize);
 				i->ramSaveAvailable = true;
@@ -3323,7 +3324,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_EXTERN:
-				
+
 				// This fixes Templos & Chichen, but it is hackish to say the least
 				// Unfortunately, the only way to improve it is to add a full blown
 				// Z80 CPU emulator to the interpreter, which is not going to happen
@@ -3465,7 +3466,7 @@ static void StepFunction(int elapsed)
 					break;
 				}
 			}
-			// Fall through			
+			// Fall through
 		case DDB_INPUT_QUIT:
 		case DDB_INPUT_END:
 		case DDB_INPUT_LOAD:
@@ -3477,19 +3478,20 @@ static void StepFunction(int elapsed)
 		{
 			uint32_t current = 0;
 			SCR_GetMilliseconds(&current);
-			
-			if (SCR_AnyKey()) 
+
+			if (SCR_AnyKey())
 			{
 				i->state = DDB_RUNNING;
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
 				DDB_PlayClick(i, false);
-				if (i->ddb->version > 1)
+				if (i->ddb->version > 1 && i->saveKeyToFlags)
 				{
 					i->flags[Flag_Key1] = i->lastKey1;
 					i->flags[Flag_Key2] = i->lastKey2;
+					i->saveKeyToFlags = false;
 				}
-			} 
-			else 
+			}
+			else
 			{
 				if (i->pauseFrames < 0 || current - i->pauseStart >= (uint32_t)i->pauseFrames * 16)
 					i->state = DDB_RUNNING;
@@ -3502,10 +3504,11 @@ static void StepFunction(int elapsed)
 			{
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
 				DDB_PlayClick(i, true);
-				if (i->ddb->version > 1)
+				if (i->ddb->version > 1 && i->saveKeyToFlags)
 				{
 					i->flags[Flag_Key1] = i->lastKey1;
 					i->flags[Flag_Key2] = i->lastKey2;
+					i->saveKeyToFlags = false;
 				}
 				i->state = DDB_RUNNING;
 				i->timeout = false;
@@ -3575,7 +3578,7 @@ static void StepFunction(int elapsed)
 						}
 						if (i->flags[Flag_Turns+1] == 255) {
 							i->flags[Flag_Turns+1] = 0;
-							if (i->flags[Flag_Turns] != 255) 
+							if (i->flags[Flag_Turns] != 255)
 								i->flags[Flag_Turns]++;
 						} else {
 							i->flags[Flag_Turns+1]++;
