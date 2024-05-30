@@ -856,7 +856,7 @@ void VID_SaveDebugBitmap()
 	}
 
 	char name[64];
-	sprintf(name, "debug%04d.bmp", n++);
+	snprintf(name, 63, "debug%04d.bmp", n++);
 	printf("\nSaving debug bitmap: %s\n", name);
 
 	SDL_Color colors[16];

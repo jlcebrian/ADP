@@ -93,10 +93,10 @@ static int printf_iso88591(const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	static char*  buffer = NULL;
+	static char*  buffer = 0;
 	static size_t bufferSize = 0;
 
-	if (buffer == NULL)
+	if (buffer == 0)
 	{
 		bufferSize = 1024;
 		buffer = Allocate<char>("printf buffer", bufferSize);
@@ -187,9 +187,9 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	printf("DDB file loaded (%s, %s, %s, %d bytes)\n", 
-		argv[1], DDB_DescribeVersion(ddb->version), 
-		ddb->littleEndian ? "little endian" : "big endian", 
+	printf("DDB file loaded (%s, %s, %s, %d bytes)\n",
+		argv[1], DDB_DescribeVersion(ddb->version),
+		ddb->littleEndian ? "little endian" : "big endian",
 		ddb->dataSize);
 
 	if (action == ACTION_LIST)
@@ -235,7 +235,7 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 		printf("DDB file written to '%s'\n", outputFileName);
-		
+
 		#if HAS_DRAWSTRING
 		if (DDB_HasVectorDatabase())
 		{
@@ -257,7 +257,7 @@ int main (int argc, char *argv[])
 			printf("Vector database written to '%s'\n", outputFileName);
 		}
 		#endif
-		
+
 		return 0;
 	}
 
