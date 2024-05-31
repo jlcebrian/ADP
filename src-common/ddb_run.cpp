@@ -150,6 +150,10 @@ void DDB_SetCharset (DDB* ddb, uint8_t c)
 	if (c == 0)
 	{
 		MemCopy(charset + 256, DefaultCharset + 256, 768);
+		#if HAS_PAWS
+		if (ddb->version == DDB_VERSION_PAWS)
+			MemCopy(charset+256, ZXSpectrumCharacterSet, 768);
+		#endif
 	}
 	else if (ddb->numCharsets >= c)
 	{
