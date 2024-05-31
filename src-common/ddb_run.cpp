@@ -1010,7 +1010,9 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 		w->posX = col * columnWidth;
 		w->scrollCount = 0;
 		w->smooth = 0;
-		DebugPrintf("\nPrintAt(%d,%d) -> %d,%d\n", line, col, w->posX, w->posY);
+		if (w->y > 0)
+			w->posY += w->y;
+		DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, (int)(w - i->windef), w->posY, w->posX, w->posY);
 		return;
 	}
 	#endif
@@ -1055,7 +1057,7 @@ static void WinAt (DDB_Interpreter* i, int line, int col)
 
 	DDB_CalculateCells(i, w, &i->cellX, &i->cellW);
 
-	// fprintf(stderr, "Window %d repositioned: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
+	DebugPrintf("Window %d repositioned: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
 }
 
 static void CenterWindow (DDB_Interpreter* i, DDB_Window* w)
