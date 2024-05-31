@@ -1010,8 +1010,6 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 		w->posX = col * columnWidth;
 		w->scrollCount = 0;
 		w->smooth = 0;
-		if (w->y > 0)
-			w->posY += w->y;
 		DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, (int)(w - i->windef), w->posY, w->posX, w->posY);
 		return;
 	}
@@ -2272,8 +2270,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					int curwin = i->curwin;
 					DDB_Flush(i);
 					DDB_SetWindow(i, 2);
-					WinAt(i, 23, 0);
-					WinSize(i, 1, 32);
+					WinAt(i, 0, 0);
+					WinSize(i, 24, 32);
+					PrintAt(i, &i->win, 23, 0);
 					DDB_OutputMessage(i, DDB_SYSMSG, 16);
 					DDB_Flush(i);
 					DDB_SetWindow(i, curwin);
