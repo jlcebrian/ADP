@@ -343,7 +343,7 @@ static DDB_CondactMap pawsCondacts[128] = {
 	{ CONDACT_COPYFO,  		  2 },		// 0x3A
 	{ CONDACT_COPYFF, 		  2 },		// 0x3B
 	{ CONDACT_LISTOBJ,		  0 },		// 0x3C
-	{ CONDACT_EXTERN, 		  2 },		// 0x3D
+	{ CONDACT_EXTERN, 		  1 },		// 0x3D
 	{ CONDACT_RAMSAVE,		  0 },		// 0x3E
 	{ CONDACT_RAMLOAD,		  1 },		// 0x3F
 	{ CONDACT_BEEP,   		  2 },		// 0x40

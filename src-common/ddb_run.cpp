@@ -2303,20 +2303,24 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_SET:
 				i->flags[param0] = 255;
 				i->done = true;
+				TRACE("Flag %d := 255", param0);
 				break;
 			case CONDACT_CLEAR:
 				i->flags[param0] = 0;
 				i->done = true;
+				TRACE("Flag %d := 0", param0);
 				break;
 			case CONDACT_LET:
 				i->flags[param0] = param1;
 				i->done = true;
+				TRACE("Flag %d := %d", param0, param1);
 				break;
 			case CONDACT_PLUS:
 				if (param1 > 255 - i->flags[param0])
 					i->flags[param0] = 255;
 				else
 					i->flags[param0] += param1;
+				TRACE("Flag %d := %d", param0, i->flags[param0]);
 				i->done = true;
 				break;
 			case CONDACT_MINUS:
@@ -2324,6 +2328,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					i->flags[param0] = 0;
 				else
 					i->flags[param0] -= param1;
+				i->done = true;
+				TRACE("Flag %d := %d", param0, i->flags[param0]);
 				break;
 			case CONDACT_ADD:
 				if (i->flags[param0] > 255 - i->flags[param1])
@@ -2331,6 +2337,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				else
 					i->flags[param1] += i->flags[param0];
 				i->done = true;
+				TRACE("Flag %d := %d", param1, i->flags[param1]);
 				break;
 			case CONDACT_SUB:
 				if (i->flags[param0] > i->flags[param1])
@@ -2338,14 +2345,17 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				else
 					i->flags[param1] -= i->flags[param0];
 				i->done = true;
+				TRACE("Flag %d := %d", param1, i->flags[param1]);
 				break;
 			case CONDACT_COPYFF:
 				i->flags[param1] = i->flags[param0];
 				i->done = true;
+				TRACE("Flag %d := Flag %d (%d)", param1, param0, i->flags[param0]);
 				break;
 			case CONDACT_COPYBF:
 				i->flags[param0] = i->flags[param1];
 				i->done = true;
+				TRACE("Flag %d := Flag %d (%d)", param0, param1, i->flags[param1]);
 				break;
 			case CONDACT_SYNONYM:
 				if (param0 != 255)
@@ -2353,6 +2363,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				if (param1 != 255)
 					i->flags[Flag_Noun1] = param1;
 				i->done = true;
+				if (param0 == 255)
+					TRACE("_    ");
+				else
+					TraceVocabularyWord(i->ddb, WordType_Verb, param0);
+				TRACE(" ");
+				if (param1 == 255)
+					TRACE("_    ");
+				else
+					TraceVocabularyWord(i->ddb, WordType_Noun, param1);
 				break;
 
 			// Objects
@@ -2363,6 +2382,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				else
 					i->flags[param1] = 255;
 				i->done = true;
+				TRACE("Flag %d := %d", param0, i->flags[param0]);
 				break;
 			case CONDACT_COPYOO:
 				SetObjno(i, param0);
@@ -2393,6 +2413,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_SETCO:
 				SetObjno(i, param0);
 				i->done = true;
+				TRACE("Obj#%d (at %d, weight %d)", i->flags[Flag_Objno], i->flags[Flag_ObjLocno], i->flags[Flag_ObjWeight]);
 				break;
 			case CONDACT_CREATE:
 				SetObjno(i, param0);
