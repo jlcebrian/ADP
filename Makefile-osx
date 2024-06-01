@@ -7,7 +7,7 @@ CPPFLAGS += -Ilib/sdl2/include
 LDFLAGS  += lib/osx/libSDL2.a lib/osx/libSDL2main.a
 LDFLAGS  += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
 
-CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON
+CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON -D_DEBUGPRINT
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_DRAWSTRING
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
@@ -32,7 +32,7 @@ UNIX_OBJS = obj/unix/player.o
 
 -include $(OBJS:.o=.d)
 
-all: out/ADP.app out/ddb
+all: out/ADP.app out/ddb out/dsk
 
 out/ADP.app: out/player
 	@mkdir -p out/ADP.app/Contents/MacOS
@@ -45,6 +45,9 @@ out/player: $(OBJS) obj/unix/player.o
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 out/ddb: $(OBJS) $(TOOL_OBJS) obj/unix/tool_ddb.o
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(LDFLAGS)
+out/dsk: $(OBJS) $(TOOL_OBJS) obj/unix/tool_dsk.o
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 

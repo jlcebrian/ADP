@@ -26,7 +26,7 @@ extern void TracePrintf(const char* format, ...);
 #    define DebugPrintf(...)
 #  endif
 #else
-#  define DebugPrintf(...) 
+#  define DebugPrintf(...)
 #endif
 
 // Misc functions
@@ -48,6 +48,7 @@ extern void     OSFree     (void* mem);
 extern void*       MemClear   (void* mem, size_t size);
 extern void*       MemMove    (void* dst, const void* src, size_t size);
 extern void*       MemCopy    (void* dst, const void* src, size_t size);
+extern int         MemComp    (void* dst, const void* src, size_t size);
 
 extern char*       LongToChar (long value, char *buffer, int radix);
 
@@ -57,7 +58,7 @@ extern size_t      StrCat     (char* dst, uint32_t dstSize, const char* src);
 extern int         StrComp    (const char* dst, const char* src);
 extern int         StrIComp   (const char* dst, const char* src);
 extern int         StrComp    (const char* dst, const char* src, size_t maxSize);
-   
+
 // Convenience inline versions for uint8_t string buffers
 
 static inline size_t StrCopy (uint8_t* dst, uint32_t dstSize, const uint8_t* src)

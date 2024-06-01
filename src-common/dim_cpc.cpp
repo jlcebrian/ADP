@@ -246,8 +246,8 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 		DIM_SetError(DIMError_ReadError);
 		return NULL;
 	}
-	if (memcmp(buffer, CPC_EXTENDED_SIGNATURE, 8) != 0 &&
-        memcmp(buffer, CPC_INFO_SIGNATURE, 8) != 0)
+	if (MemComp(buffer, CPC_EXTENDED_SIGNATURE, 8) != 0 &&
+        MemComp(buffer, CPC_INFO_SIGNATURE, 8) != 0)
 	{
 		File_Close(file);
 		DIM_SetError(DIMError_InvalidFile);
@@ -266,8 +266,8 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 	disk->size = (uint32_t)File_GetSize(file);
 	disk->file = file;
 	disk->extended = buffer[0] == 'E';
-	
-	memcpy(&disk->header, buffer, 256);
+
+	MemCopy(&disk->header, buffer, 256);
 
 	bool ok = true;
 
@@ -281,14 +281,14 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 	}
 
 	CPC_TrackInfoBlock* firstTrackInfo = (CPC_TrackInfoBlock*)buffer;
-	if (memcmp(firstTrackInfo->signature, CPC_TRACKINFO_SIGNATURE, 12) != 0)
+	if (MemComp(firstTrackInfo->signature, CPC_TRACKINFO_SIGNATURE, 12) != 0)
 	{
 		DIM_SetError(DIMError_InvalidDisk);
 		File_Close(disk->file);
 		Free(disk);
 		return NULL;
 	}
-	
+
 	if (firstTrackInfo->sectors[0].id == 0x41 ||
 		firstTrackInfo->sectors[0].id == 0xC1)
 	{
@@ -349,8 +349,8 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 		disk->directory = Allocate<CPC_DirEntry>("CPC Disk directory", disk->directoryEntries);
 		if (disk->directory != NULL)
 		{
-			CPC_ReadTrack(disk, disk->reservedTracks, 0, 
-			              (uint8_t*)disk->directory, 
+			CPC_ReadTrack(disk, disk->reservedTracks, 0,
+			              (uint8_t*)disk->directory,
 			              disk->directoryEntries * 32);
 			return disk;
 		}
@@ -384,7 +384,7 @@ bool CPC_FindFirstFile (CPC_Disk* disk, CPC_FindResults* result, const char* pat
 
 bool CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 {
-	if (memcmp(header, "PLUS3DOS", 8) == 0)
+	if (MemComp(header, "PLUS3DOS", 8) == 0)
 	{
 		uint8_t checksum = 0;
 		for (int n = 0; n < 127; n++)
@@ -434,34 +434,34 @@ bool CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 	uint16_t v1 = header[26] + (header[27] << 8);
 	switch (header[18])
 	{
-		case 0: 
+		case 0:
 			snprintf(result->description, 32, "BASIC");
 			break;
-		case 1: 
+		case 1:
 			snprintf(result->description, 32, "BASIC(P)");
 			break;
-		case 2: 
+		case 2:
 			if (v1)
 				snprintf(result->description, 32, "BINARY %d EXEC %d", v0, v1);
 			else
 				snprintf(result->description, 32, "BINARY %d", v0);
 			break;
-		case 3: 
+		case 3:
 			if (v1)
 				snprintf(result->description, 32, "BINARY(P) %d EXEC %d", v0, v1);
 			else
 				snprintf(result->description, 32, "BINARY(P) %d", v0);
 			break;
-		case 4: 
+		case 4:
 			snprintf(result->description, 32, "SCREEN");
 			break;
-		case 5: 
+		case 5:
 			snprintf(result->description, 32, "SCREEN(P)");
 			break;
-		case 6: 
+		case 6:
 			snprintf(result->description, 32, "ASCII");
 			break;
-		case 7: 
+		case 7:
 			snprintf(result->description, 32, "ASCII [protected]");
 			break;
 	}
@@ -471,61 +471,94 @@ bool CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 {
 	bool found = false;
+	uint8_t extent;
 	uint8_t header[128];
+	uint8_t name[8];
+	uint8_t extension[3];
 
-	do
+	uint16_t offset = result->offset;
+
+	for (;;)
 	{
-		result->offset += result->entries;
-		if (result->offset >= disk->directoryEntries)
+		offset++;
+		if (offset >= disk->directoryEntries)
 			break;
-		
-		CPC_DirEntry* entry = disk->directory + result->offset;
 
-		result->entries = 1;
+		CPC_DirEntry* entry = disk->directory + offset;
 
-		if (entry->user < 16 && entry->fileName[0] != 0)
+		if (entry->user >= 16 || entry->fileName[0] == 0)
+			continue;
+
+		if (!found)
 		{
-			int remaining = (2048 - result->offset) / 32;
-			while (result->entries < remaining && entry[result->entries-1].recordCount == 0x80)
-				result->entries++;
-
-			if (DIM_MatchWildcards(entry->fileName, 8, result->matchName, 8) &&
-				DIM_MatchWildcards(entry->extension, 3, result->matchExtension, 3))
+			if (entry->extentLow != 0)
+				continue;
+			if (!DIM_MatchWildcards(entry->fileName, 8, result->matchName, 8) ||
+				!DIM_MatchWildcards(entry->extension, 3, result->matchExtension, 3))
 			{
-				result->fileSize = 0;
-				for (int n = 0; n < 16; n++)
-				{
-					if (entry->allocation[n] != 0)
-						result->fileSize += 1024;
-				}
-				
-				char* out = result->fileName;
-				char* in  = entry->fileName;
-				for (int n = 0; n < 8 && *in != ' '; n++)
-					*out++ = *in++;
-				in = entry->extension;
-				if ((*in & 0x7F) != ' ')
-				{
-					*out++ = '.';
-					for (int n = 0; n < 3 && *in != ' '; n++)
-						*out++ = *in++ & 0x7F;
-				}
-				*out = 0;
-
-				result->description[0] = 0;
-				if (entry->allocation[0] != 0 &&
-					CPC_ReadBlock(disk, entry->allocation[0], header, 128) == 128)
-				{
-					CPC_CheckOSHeader(result, header);
-				}
-
-				found = true;
+				continue;
 			}
+
+			char* out = result->fileName;
+			char* in  = entry->fileName;
+			for (int n = 0; n < 8 && *in != ' '; n++)
+				*out++ = *in++;
+			in = entry->extension;
+			if ((*in & 0x7F) != ' ')
+			{
+				*out++ = '.';
+				for (int n = 0; n < 3 && *in != ' '; n++)
+					*out++ = *in++ & 0x7F;
+			}
+			*out = 0;
+			result->fileSize = 0;
+
+			MemCopy(name, entry->fileName, 8);
+			MemCopy(extension, entry->extension, 3);
+
+			result->description[0] = 0;
+			if (entry->allocation[0] != 0 &&
+				CPC_ReadBlock(disk, entry->allocation[0], header, 128) == 128)
+			{
+				CPC_CheckOSHeader(result, header);
+			}
+
+			result->offset = offset;
+			result->entries = 1;
+			found = true;
 		}
+		else
+		{
+			if (MemComp(entry->fileName, name, 8) != 0 ||
+				MemComp(entry->extension, extension, 3) != 0)
+				continue;
+			if (entry->extentLow != extent)
+				continue;
+			result->entries++;
+		}
+
+		for (int n = 0; n < 16; n++)
+		{
+			if (entry->allocation[n] != 0)
+				result->fileSize += 1024;
+		}
+		extent = entry->extentLow + 1;
 	}
-	while (!found);
 
 	return found;
+}
+
+CPC_DirEntry* CPC_NextFileEntry (CPC_Disk* disk, CPC_DirEntry* current)
+{
+	CPC_DirEntry* end = disk->directory + disk->directoryEntries;
+	for (CPC_DirEntry* entry = current + 1; entry < end; entry++)
+	{
+		if (MemComp(entry->fileName, current->fileName, 8) == 0 &&
+			MemComp(entry->extension, current->extension, 3) == 0 &&
+			entry->extentLow == current->extentLow + 1)
+			return entry;
+	}
+	return NULL;
 }
 
 uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32_t bufferSize)
@@ -537,7 +570,7 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 	uint32_t totalRead = 0;
 
 	CPC_DirEntry* entry = disk->directory + results.offset;
-	for (int n = 0; n < results.entries; n++, entry++)
+	for (int n = 0; n < results.entries; n++)
 	{
 		for (int i = 0; i < 16; i++)
 		{
@@ -559,7 +592,7 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 				if (read == 0)
 					return 0;
 
-				printf("Read %d bytes from block %d\n", read, entry->allocation[i]);
+				// printf("Read %d bytes from block %d\n", read, entry->allocation[i]);
 
 				buffer += read;
 				totalRead += read;
@@ -567,6 +600,13 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 				if (bufferSize == 0)
 					return totalRead;
 			}
+		}
+		entry = CPC_NextFileEntry(disk, entry);
+		if (entry == NULL)
+		{
+			if (n + 1 < results.entries)
+				printf("File %s: truncated file, missing extent %d\n", name, n + 1);
+			break;
 		}
 	}
 	printf("Total read: %d\n", totalRead);
@@ -614,13 +654,13 @@ void CPC_DumpInfo (CPC_Disk* disk)
 	uint32_t totalSize = tracks * disk->sectorSize * disk->sectorsPerTrack;
 
 	printf("Disk size:           %7dK\n", (totalSize + 1023)/1024);
-	printf("Disk format:     %12s\n", 
+	printf("Disk format:     %12s\n",
 	       disk->diskType == CPC_FORMAT_SPECTRUM   ? "Spectrum+3" :
 	       disk->diskType == CPC_FORMAT_CPC_DATA   ? "CPC Data" :
 	       disk->diskType == CPC_FORMAT_CPC_SYSTEM ? "CPC System" : "PCW DD");
 	printf("-----------------------------\n");
-	printf("Tracks:              %8d%s\n", 
-	       disk->tracksPerSide * (disk->doubleSide ? 2 : 1), 
+	printf("Tracks:              %8d%s\n",
+	       disk->tracksPerSide * (disk->doubleSide ? 2 : 1),
 	       disk->doubleSide ? " (Double sided)" : "");
 	printf("Sectors per track:   %8d\n", disk->sectorsPerTrack);
 	printf("Bytes per sector:    %8d\n", disk->sectorSize);

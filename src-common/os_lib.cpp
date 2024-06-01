@@ -1,7 +1,7 @@
 #include <os_lib.h>
 #include <os_file.h>
- 
-static char const digits[16] = 
+
+static char const digits[16] =
 {
 	'0','1','2','3','4','5','6','7','8','9',
 	'A','B','C','D','E','F',
@@ -21,10 +21,10 @@ char *LongToChar(long value, char *buffer, int radix)
 		neg = 1;
 		value = -value;
 	}
-	do 
+	do
 	{
 		tmpbuf[i++] = digits[value % radix];
-	} 
+	}
 	while ((value /= radix) != 0);
 	if (neg)
 	{
@@ -72,6 +72,11 @@ void *MemMove(void *dst, const void *src, size_t size)
 void *MemCopy(void *dst, const void *src, size_t size)
 {
 	return memcpy(dst, src, size);
+}
+
+int MemComp(void *dst, const void *src, size_t size)
+{
+	return memcmp(dst, src, size);
 }
 
 size_t StrCopy(char *dst, uint32_t dstSize, const char *src)
