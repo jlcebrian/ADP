@@ -95,9 +95,32 @@ void VID_SetPaper (uint8_t value)
 	}
 }
 
+uint8_t VID_GetInk()
+{
+	return ink;
+}
+
+uint8_t VID_GetPaper()
+{
+	return paper;
+}
+
 uint8_t VID_GetAttributes()
 {
 	return attrValue;
+}
+
+void VID_SetAttributes(uint8_t value)
+{
+	attrValue = value;
+
+	uint8_t shift = transparentColor == 8 ? 3 : 4;
+	uint8_t pmask = (transparentColor - 1) << shift;
+	uint8_t imask = transparentColor - 1;
+	paper  = (value & pmask) >> shift;
+	ink    = value & imask;
+	bright = (value & 0x40) ? 1 : 0;
+	flash  = (value & 0x80) ? 1 : 0;
 }
 
 void VID_SetBright (uint8_t value)

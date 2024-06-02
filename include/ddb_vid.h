@@ -62,6 +62,9 @@ extern void    VID_DrawLine  		  (int16_t x, int16_t y, uint8_t color);
 extern void    VID_PatternFill        (int16_t x, int16_t y, int pattern);
 extern void    VID_AttributeFill	  (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
 extern uint8_t VID_GetAttributes      ();
+extern void    VID_SetAttributes      (uint8_t attributes);
+extern uint8_t VID_GetInk             ();
+extern uint8_t VID_GetPaper           ();
 #endif
 
 #if HAS_CLIPBOARD

@@ -2,6 +2,7 @@
 #include <ddb_scr.h>
 #include <ddb_pal.h>
 #include <ddb_data.h>
+#include <ddb_vid.h>
 #include <dmg.h>
 #include <os_char.h>
 #include <os_mem.h>
@@ -353,6 +354,14 @@ void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint
 static void ShowMorePrompt (DDB_Interpreter* i)
 {
 	static char more[128];
+
+	#if HAS_PAWS
+	if (i->ddb->version == DDB_VERSION_PAWS && (i->flags[Flag_PAWMode] & 0x40) == 0)
+	{
+		// No more prompt in PAWS when flag 40 has bit 6 set
+		return;
+	}
+	#endif
 
 	DDB_Window* w = &i->win;
 	int x = w->x;
@@ -1010,7 +1019,7 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 		w->posX = col * columnWidth;
 		w->scrollCount = 0;
 		w->smooth = 0;
-		DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, (int)(w - i->windef), w->posY, w->posX, w->posY);
+		DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
 		return;
 	}
 	#endif
@@ -1044,6 +1053,9 @@ static void WinAt (DDB_Interpreter* i, int line, int col)
 	if (w->width + w->x > screenWidth)
 		w->width = w->x >= screenWidth ? 0 : screenWidth - w->x;
 
+	#if HAS_PAWS
+	if (i->ddb->version != DDB_VERSION_PAWS)
+	#endif
 	PrintAt(i, w, 0, 0);
 
 	i->win.posX = w->posX;
@@ -1087,6 +1099,9 @@ static void WinSize (DDB_Interpreter* i, int lines, int columns)
 	if (w->width + w->x > screenWidth)
 		w->width = w->x >= screenWidth ? 0 : screenWidth - w->x;
 
+	#if HAS_PAWS
+	if (i->ddb->version != DDB_VERSION_PAWS)
+	#endif
 	PrintAt(i, w, 0, 0);
 
 	i->win.posX = w->posX;
@@ -1292,9 +1307,11 @@ static bool Absent(DDB_Interpreter* i, uint8_t objno)
 
 void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 {
+	if (locno == 255)
+		locno = i->flags[Flag_Locno];
 	if (i->ddb->version > 1)
 	{
-		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);
+		DDB_OutputMessage(i, DDB_LOCDESC, locno);
 		return;
 	}
 
@@ -1331,25 +1348,80 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			i->flags[40] = 0;
 
 		DDB_SetWindow(i, 0);
+		#if HAS_DRAWSTRING
 		if (i->ddb->drawString)
 		{
-			DDB_ClearWindow(i, &i->win);
-			#if HAS_DRAWSTRING
-			bool found = DDB_DrawVectorPicture(i->flags[Flag_Locno]);
-			if (found && i->ddb->version != DDB_VERSION_PAWS)
-				i->flags[Flag_HasPicture] = 255;
-
 			#if HAS_PAWS
-			if (!found && i->ddb->version == DDB_VERSION_PAWS)
+			if (i->ddb->version == DDB_VERSION_PAWS)
 			{
-				DDB_SetWindow(i, 1);
-				WinAt(i, 0, 0);
-				WinSize(i, 24, 32);
+				// TODO: Honor GRAPHICS flag (29)
+				//	- 0: Draw graphics only first time
+				//	- 1: Do not draw graphics
+				//	- 2: Draw graphics every time
+
+				switch (i->flags[Flag_PAWMode] & 0x0F)
+				{
+					case 0:
+						// Full screen graphics with pause						
+						if (DDB_HasVectorPicture(locno))
+						{
+							uint8_t attributes = VID_GetAttributes();
+							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
+							SCR_ConsumeBuffer();
+							bool found = DDB_DrawVectorPicture(locno);	
+							if (found && i->ddb->version != DDB_VERSION_PAWS)
+								i->flags[Flag_HasPicture] = 255;
+							SCR_WaitForKey();
+							VID_SetAttributes(attributes);
+						}
+						SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
+						PrintAt(i, &i->win, 0, 0);
+						break;
+					
+					case 1:
+						// Text only, no graphics
+						break;
+
+					default:
+						// Picture over text. In mode 2, text scrolls from flag 41
+						if (DDB_HasVectorPicture(locno))
+						{
+							uint8_t attributes = VID_GetAttributes();
+							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
+							DDB_DrawVectorPicture(locno);	
+							i->flags[Flag_HasPicture] = 255;
+							VID_SetAttributes(attributes);
+							int line = i->flags[41];
+							SCR_Clear(0, 8*line, screenWidth, screenHeight - 8*line, VID_GetPaper());
+							PrintAt(i, &i->win, line, 0);
+							if ((i->flags[Flag_PAWMode] & 0x0F) == 2)
+							{
+								WinAt(i, line, 0);
+								WinSize(i, 24 - line, 32);
+							}
+						}
+						else
+						{
+							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
+							PrintAt(i, &i->win, 0, 0);
+						}
+						break;
+				}
 			}
+			else
 			#endif
-			#endif
+			{
+				DDB_ClearWindow(i, &i->win);
+				uint8_t attributes = VID_GetAttributes();
+				bool found = DDB_DrawVectorPicture(locno);	
+				if (found)
+					i->flags[Flag_HasPicture] = 128;
+				VID_SetAttributes(attributes);
+			}
 		}
-		else if (SCR_PictureExists(i->flags[Flag_Locno]))
+		else 
+		#endif
+		if (SCR_PictureExists(i->flags[Flag_Locno]))
 		{
 			if (i->ddb->version > 1)
 				i->flags[40] = 255;
@@ -1357,19 +1429,14 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			BufferPicture(i, i->flags[Flag_Locno]);
 			DrawBufferedPicture(i);
 		}
-
-		DDB_SetWindow(i, 1);
-		if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
+		if (i->ddb->version != DDB_VERSION_PAWS)
 		{
-			#if HAS_PAWS
-			if (i->ddb->version == DDB_VERSION_PAWS)
+			DDB_SetWindow(i, 1);
+			if ((i->flags[Flag_GraphicFlags] & Graphics_NoClsBeforeDesc) == 0)
 			{
-				WinAt(i, 0, 0);
-				WinSize(i, 24, 32);
+				DDB_Flush(i);
+				DDB_ClearWindow(i, &i->win);
 			}
-			#endif
-			DDB_Flush(i);
-			DDB_ClearWindow(i, &i->win);
 		}
 
 		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);
@@ -1400,6 +1467,8 @@ void DDB_SetWindow(DDB_Interpreter* i, int winno)
 	i->flags[Flag_Window] = winno;
 
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
+
+	DebugPrintf("Window %d selected\n", i->curwin);
 }
 
 static void UpdatePos (DDB_Interpreter* i, int process, int entry, int offset)
@@ -2088,6 +2157,34 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			}
+			case CONDACT_INVEN:
+			{
+				DDB_OutputMessage(i, DDB_SYSMSG, 9); 	// I have
+				int countWorn = CountObjectsAt(i, Loc_Worn);
+				int countCarried = CountObjectsAt(i, Loc_Carried);
+				if (countWorn == 0 && countCarried == 0) 
+				{
+					DDB_OutputMessage(i, DDB_SYSMSG, 11);	// Nothing.
+				}
+				else
+				{
+					DDB_Flush(i);
+					DDB_NewLine(i);
+					for (int n = 0; n < i->ddb->numObjects; n++)
+					{
+						if (i->objloc[n] == Loc_Worn || i->objloc[n] == Loc_Carried)
+						{
+							DDB_OutputMessage(i, DDB_OBJNAME, n);
+							if (i->objloc[n] == Loc_Worn)
+								DDB_OutputMessage(i, DDB_SYSMSG, 10);	// (worn)
+							DDB_Flush(i);
+							DDB_NewLine(i);
+						}
+					}
+				}
+				i->done = true;
+				break;
+			}
 			case CONDACT_INPUT:
 				i->flags[Flag_InputStream] = param0;
 				i->inputFlags = param1;
@@ -2268,15 +2365,16 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				if (i->ddb->version == DDB_VERSION_PAWS)
 				{
 					int curwin = i->curwin;
+					uint8_t attributes = VID_GetAttributes();
 					DDB_Flush(i);
 					DDB_SetWindow(i, 2);
-					WinAt(i, 0, 0);
-					WinSize(i, 24, 32);
+					WinAt(i, 23, 0);
+					WinSize(i, 1, 32);
 					PrintAt(i, &i->win, 23, 0);
 					DDB_OutputMessage(i, DDB_SYSMSG, 16);
 					DDB_Flush(i);
 					DDB_SetWindow(i, curwin);
-					DDB_ResetPAWSColors(i, &i->win);
+					VID_SetAttributes(attributes);
 				}
 				else
 				#endif
@@ -2382,7 +2480,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				else
 					i->flags[param1] = 255;
 				i->done = true;
-				TRACE("Flag %d := %d", param0, i->flags[param0]);
+				TRACE("Flag %d := %d", param1, i->flags[param1]);
 				break;
 			case CONDACT_COPYOO:
 				SetObjno(i, param0);
@@ -2992,7 +3090,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
+						uint8_t attributes = VID_GetAttributes();
 						DDB_DrawVectorPicture(param0);
+						VID_SetAttributes(attributes);
 						#endif
 
 						// TODO: Did Original do this? Check
@@ -3038,7 +3138,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
+						uint8_t attributes = VID_GetAttributes();
 						DDB_DrawVectorPicture(i->currentPicture);
+						VID_SetAttributes(attributes);
 						#endif
 					}
 					else
@@ -3058,7 +3160,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->win.flags = param0;
 				#if HAS_PAWS
 				if  (i->ddb->version == DDB_VERSION_PAWS)
-					i->flags[Flag_PAWMode] = param0;
+					i->flags[Flag_PAWMode] = param0 | (param1 << 6);
 				#endif
 				if (i->ddb->version == DDB_VERSION_1)
 					i->flags[40] = param0;

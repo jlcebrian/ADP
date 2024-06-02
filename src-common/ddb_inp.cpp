@@ -60,6 +60,11 @@ static void DrawPAWSCursor(DDB_Interpreter* i, int x, int y)
 
 DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 {
+	#if HAS_PAWS
+	if (i->ddb->version == DDB_VERSION_PAWS)
+		return &i->win;
+	#endif
+
 	int inputWindow = i->flags[Flag_InputStream] & 0x07;
 	return
 		inputWindow == 0 ||

@@ -300,7 +300,7 @@ static DDB_CondactMap pawsCondacts[128] = {
 	{ CONDACT_LT,     		  2 },		// 0x0F
 	{ CONDACT_ADJECT1,		  1 },		// 0x10
 	{ CONDACT_ADVERB, 		  1 },		// 0x11
-	{ CONDACT_INVEN,   		  1 },		// 0x12
+	{ CONDACT_INVEN,   		  0 },		// 0x12
 	{ CONDACT_DESC,   		  1 },		// 0x13
 	{ CONDACT_QUIT,   		  0 },		// 0x14
 	{ CONDACT_END,    		  0 },		// 0x15
@@ -378,7 +378,7 @@ static DDB_CondactMap pawsCondacts[128] = {
 	{ CONDACT_ABILITY,		  2 },		// 0x5D
 	{ CONDACT_WEIGHT, 		  1 },		// 0x5E
 	{ CONDACT_RANDOM, 		  1 },		// 0x5F
-	{ CONDACT_INPUT,  		  2 },		// 0x60
+	{ CONDACT_INPUT,  		  1 },		// 0x60
 	{ CONDACT_SAVEAT, 		  0 },		// 0x61
 	{ CONDACT_BACKAT, 		  0 },		// 0x62
 	{ CONDACT_PRINTAT,		  2 },		// 0x63

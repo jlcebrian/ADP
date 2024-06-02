@@ -220,7 +220,7 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 
 void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
-	//fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
+	fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
 
 	if (y < 0) {
 		h += y;
@@ -265,12 +265,15 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 #		if HAS_DRAWSTRING
 		uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
 		uint8_t  attrValue = VID_GetAttributes();
+		VID_SetPaper(color);
+		uint8_t  attrSet = VID_GetAttributes();
 		for (int dy = 0; dy < h; dy += 8)
 		{
 			for (int dx = 0; dx <= w; dx++)
-				attr[dx] = attrValue;
+				attr[dx] = attrSet;
 			attr += stride;
 		}
+		VID_SetAttributes(attrValue);
 #		endif
 	}
 	else
