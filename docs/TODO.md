@@ -8,27 +8,28 @@
 [ ]	Add C64 snapshot support
 [ ]	Add MSX snapshot support
 
-PAWS
+## PAWS
 
 [x] 128K support
 [x] UDGs
 [x] INVERSE support
-[ ] ANYKEY shows message at bottom of screen
-[ ] Fancy cursor support in INPUT
-[ ] INVEN
+[x] ANYKEY shows message at bottom of screen
+[x] Fancy cursor support in INPUT
+[x] INVEN
+[x] DESC: Clear screen, LINE
+[x] DESC: Honor GRAPHIC mode, add visited flag
 [ ] MODE: More... toggle
-[ ] DESC: Clear screen, LINE
 [ ] PROTECT (change windows dynamically)
 [ ] Optional verb/noun match (PAWS A16)
 [ ] FLASH support (!)
 [ ] Detect language (English/Spanish)
 
-Drawstring support
+## Drawstring support
 
 [x] Spectrum: Support TEXT command
 [ ] Spectrum: Fill attribute overwrite on unmodified pixels (Firfurcio)
-[ ]	Spectrum: Paper/over issue in dwarf image (AO2)
-[ ]	Spectrum: Clear issue after dragon scene (AO2)
+[ ]	Spectrum: Paper/over issue in dwarf image (AO part2)
+[ ]	Spectrum: Clear issue after dragon scene (AO part2)
 [ ]	CPC: Support TEXT command
 [ ]	CPC: Support BLOCK command
 [ ]	CPC: Weird differences in SHADE and INK (Chichen vs editor)

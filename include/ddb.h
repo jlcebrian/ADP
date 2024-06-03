@@ -52,6 +52,8 @@ enum DDB_Flag
 			//   Bit 0: 1 if mouse is present
 			//
 			// Old condact GRAPHIC [0-3] [0-1] sets bits 3-6 of this flag
+			//
+			// In PAWS, only bit 5-7 are used
 
 	Flag_Score     		= 30,			// 1E  User score
 	Flag_Turns     		= 31,			// 1F  Turn count (2 bytes) incremented by PARSE 0
@@ -134,6 +136,13 @@ enum DDB_GraphicsFlags
 	Graphics_PicturesOff     = 0x20,
 	Graphics_NoClsBeforeDesc = 0x40,
 	Graphics_Available       = 0x80,
+
+	// PAWS
+
+	Graphics_Once            = 0x80,
+	Graphics_On              = 0x40,
+	Graphics_Off             = 0x20,
+
 };
 
 enum DDB_WindowFlags
@@ -531,6 +540,7 @@ struct DDB_Interpreter
 
 	uint8_t*	 	flags;			// Guaranteed to be equal to buffer
 	uint8_t*		objloc;
+	uint8_t*        visited;		// 32 bytes, one bit per location
 	uint8_t*		ramSaveArea;
 	bool            ramSaveAvailable;
 

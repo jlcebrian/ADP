@@ -1217,6 +1217,13 @@ bool DDB_HasVectorPicture (uint8_t picno)
 	if (picno >= count)
 		return false;
 
+	if (attribs)
+	{
+		// Check if picture is a picture (attribute bit 7 set) instead of a subroutine
+		const uint8_t* att = vectorGraphicsRAM + attribs + picno;
+		return (*att & 0x80) != 0;
+	}
+
 	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
 	const uint8_t *ptr = vectorGraphicsRAM + offset;
 

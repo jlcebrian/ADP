@@ -220,7 +220,7 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 
 void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
-	fprintf(stderr, "Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
+	// DebugPrintf("Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
 
 	if (y < 0) {
 		h += y;

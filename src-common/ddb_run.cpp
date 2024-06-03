@@ -265,6 +265,9 @@ void DDB_Reset (DDB_Interpreter* i)
 			i->flags[Flag_NumCarried]++;
 	}
 
+	if (i->ddb->version == DDB_VERSION_PAWS)
+		MemClear(i->visited, 32);
+
 	// SCR_Clear(0, 0, screenWidth, screenHeight, 0);
 }
 
@@ -1019,7 +1022,7 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 		w->posX = col * columnWidth;
 		w->scrollCount = 0;
 		w->smooth = 0;
-		DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
+		// DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
 		return;
 	}
 	#endif
@@ -1354,16 +1357,25 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			#if HAS_PAWS
 			if (i->ddb->version == DDB_VERSION_PAWS)
 			{
-				// TODO: Honor GRAPHICS flag (29)
-				//	- 0: Draw graphics only first time
-				//	- 1: Do not draw graphics
-				//	- 2: Draw graphics every time
+				bool visited = (i->visited[locno >> 3] & (1 << (locno & 7))) != 0;
+				bool useGraphics = !visited;
+				if (i->flags[Flag_GraphicFlags] & Graphics_Off)
+					useGraphics = false;
+				else if (i->flags[Flag_GraphicFlags] & Graphics_On)
+					useGraphics = true;
+				else if (i->flags[Flag_GraphicFlags] & Graphics_Once)
+				{
+					useGraphics = true;
+					i->flags[Flag_GraphicFlags] &= ~Graphics_Once;
+				}
+
+				i->visited[locno >> 3] |= 1 << (locno & 7);
 
 				switch (i->flags[Flag_PAWMode] & 0x0F)
 				{
 					case 0:
 						// Full screen graphics with pause						
-						if (DDB_HasVectorPicture(locno))
+						if (useGraphics && DDB_HasVectorPicture(locno))
 						{
 							uint8_t attributes = VID_GetAttributes();
 							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
@@ -1379,19 +1391,22 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 						break;
 					
 					case 1:
-						// Text only, no graphics
+					case 4:
+						// Text only, no graphics. In mode 4, text scrolls from 
+						// flag 41 (Flag_SplitLine) as set by PROTECT
 						break;
 
 					default:
-						// Picture over text. In mode 2, text scrolls from flag 41
-						if (DDB_HasVectorPicture(locno))
+						// Picture over text. In mode 2, text scrolls from flag 41 (Flag_SplitLine)
+						if (useGraphics && DDB_HasVectorPicture(locno))
 						{
 							uint8_t attributes = VID_GetAttributes();
 							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
 							DDB_DrawVectorPicture(locno);	
 							i->flags[Flag_HasPicture] = 255;
 							VID_SetAttributes(attributes);
-							int line = i->flags[41];
+							int line = i->flags[Flag_SplitLine];
+							if (line < 4 || line > 23) line = 12;
 							SCR_Clear(0, 8*line, screenWidth, screenHeight - 8*line, VID_GetPaper());
 							PrintAt(i, &i->win, line, 0);
 							if ((i->flags[Flag_PAWMode] & 0x0F) == 2)
@@ -1543,8 +1558,11 @@ static bool FindWord (DDB_Interpreter* i, const uint8_t** textPointer, const uin
 
 static bool EndsWithPronoun (const char* word, int len)
 {
-	if (len < 2)
+	// Short verbs are ignored. This is probably wrong, but it is what PAWS does, and
+	// fixes some words such as SOLO being used as verbs in the default database.
+	if (len < 5)
 		return false;
+
 	if (ToUpper(word[len-2]) == 'L' && (ToUpper(word[len-1]) == 'A' || ToUpper(word[len-1]) == 'O'))
 	{
 		// This hack prevents the parser from wrongly recognizing
@@ -3058,7 +3076,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				WinAt(i, y, 0);
 				WinSize(i, 24 - y, 32);
 				PrintAt(i, w, x, y);
-				i->flags[Flag_SplitLine] = param0;
+				i->flags[Flag_SplitLine] = y/lineHeight;
 				i->done = true;
 				break;
 			}
@@ -3796,6 +3814,8 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 	i->ddb = ddb;
 	i->screenMode = mode;
 	i->saveStateSize = 256 + ddb->numObjects;
+	if (i->ddb->version == DDB_VERSION_PAWS)
+		i->bufferSize += 32;
 	i->bufferSize = i->saveStateSize * 2;
 	i->buffer = Allocate<uint8_t>("DDB Savestate", i->bufferSize);
 	if (!i->buffer)
@@ -3810,6 +3830,8 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 	i->objloc = i->buffer + 256;
 	i->ramSaveArea = i->buffer + i->saveStateSize;
 	i->keyClick = 2;
+	if (i->ddb->version == DDB_VERSION_PAWS)
+		i->visited = i->buffer + 256 + ddb->numObjects;
 
 	DDB_Reset(i);
 	DDB_ResetWindows(i);
