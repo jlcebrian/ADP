@@ -18,10 +18,10 @@
 [x] INVEN
 [x] DESC: Clear screen, LINE
 [x] DESC: Honor GRAPHIC mode, add visited flag
+[x] FLASH support
+[x] Optional verb/noun match (PAWS A16)
 [ ] MODE: More... toggle
 [ ] PROTECT (change windows dynamically)
-[ ] Optional verb/noun match (PAWS A16)
-[ ] FLASH support (!)
 [ ] Detect language (English/Spanish)
 
 ## Drawstring support

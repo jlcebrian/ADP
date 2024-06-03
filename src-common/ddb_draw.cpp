@@ -24,7 +24,7 @@ static DDB_Machine vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 
 static uint16_t start;				// Start of picture data
 static uint16_t spare;				// End of picture data
-static uint16_t attribs;			// Table of picture attributes (PAWS)
+static uint16_t locattr;			// Table of picture attributes (PAWS)
 static uint16_t table;				// Table of picture addresses
 static uint16_t windefs;			// Pointer to a table of windows definitions (entry size platform-dependant)
 static uint16_t unknown;			// TODO: Find out what this is
@@ -48,10 +48,14 @@ static uint16_t cursorX;
 static uint16_t cursorY;
 static uint8_t ink;
 static uint8_t paper;
+static uint8_t border;
 static uint8_t bright;
 static uint8_t flash;
 static uint8_t attrValue = 7;
 static uint8_t attrMask = 0xFF;
+static uint8_t defaultPaper = 0;
+static uint8_t defaultInk = 7;
+static uint8_t defaultBorder = 0;
 static uint8_t depth = 0;
 
 static uint16_t scrMaxX = 255;
@@ -1217,10 +1221,10 @@ bool DDB_HasVectorPicture (uint8_t picno)
 	if (picno >= count)
 		return false;
 
-	if (attribs)
+	if (locattr)
 	{
 		// Check if picture is a picture (attribute bit 7 set) instead of a subroutine
-		const uint8_t* att = vectorGraphicsRAM + attribs + picno;
+		const uint8_t* att = vectorGraphicsRAM + locattr + picno;
 		return (*att & 0x80) != 0;
 	}
 
@@ -1374,13 +1378,16 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 					VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
 				}
 			}
-			else if (attribs != 0)
+			else if (locattr != 0)
 			{
-				const uint8_t attr = vectorGraphicsRAM[attribs + picno];
-				VID_SetInk(attr & 0x07);
-				VID_SetPaper((attr >> 3) & 0x07);
-				VID_SetBright(0);
-				VID_SetFlash(0);
+				const uint8_t attr = vectorGraphicsRAM[locattr + picno];
+				if ((attr & 0x80) == 0x80)
+				{
+					VID_SetInk(attr & 0x07);
+					VID_SetPaper((attr >> 3) & 0x07);
+					VID_SetBright(0);
+					VID_SetFlash(0);
+				}
 			}
 
 			cursorX = 0;
@@ -1456,17 +1463,17 @@ bool DDB_LoadPAWSGraphics (const uint8_t* data)
 	vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 	vectorGraphicsRAM     = data;
 
-	start   = read16LE(data + 65533);		// 9300
-	table   = read16LE(data + 65521);
-	attribs = read16LE(data + 65523);
+	start   = read16LE(data + 65533);		// FFFD
+	table   = read16LE(data + 65521);		// FFF1
+	locattr = read16LE(data + 65523);		// FFF3
 	windefs = 0;
 	chset   = 0;
 	coltab  = 0;
 	ending  = 0;
-	count   = (attribs - table) / 2;
+	count   = (locattr - table) / 2;
 	ending  = 0xFFFF;
 
-	if (start != 0x9300 || table < attribs - 512 || table >= attribs)
+	if (start != 0x9300 || table < locattr - 512 || table >= locattr)
 		return false;
 
 	scrMaxX          = 255;
@@ -1476,6 +1483,13 @@ bool DDB_LoadPAWSGraphics (const uint8_t* data)
 	udgs             = data + start;
 	shades           = data + start + 19*8;
 	mixShades        = true;
+
+	defaultInk       = data[start + 39*8]     & 0x0F;
+	defaultBorder    = data[start + 39*8 + 1] & 0x0F;
+	defaultPaper     = data[start + 39*8 + 2] & 0x0F;
+
+	VID_SetPaper(defaultPaper);
+	VID_SetInk(defaultInk);
 
 	MemCopy(charset + 0x80*8, systemUDGs, 16*8);
 	MemCopy(charset + 0x90*8, udgs, 21*8);
