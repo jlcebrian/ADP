@@ -1,4 +1,5 @@
 #include <ddb.h>
+#include <ddb_vid.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -929,8 +930,14 @@ DDB* DDB_Load(const char* filename)
 		#if HAS_PAWS
 		if (LoadPAWS(ddb, memory, ramSize))
 		{
+			#if HAS_DRAWSTRING
 			if (DDB_LoadPAWSGraphics(memory))
+			{
 				ddb->drawString = true;
+				ddb->defaultInk = VID_GetInk();
+				ddb->defaultPaper = VID_GetPaper();
+			}
+			#endif
 
 			DDB_FixOffsets(ddb);
 			DDB_FillTokenPointers(ddb);

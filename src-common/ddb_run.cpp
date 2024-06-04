@@ -1405,10 +1405,12 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 							DDB_DrawVectorPicture(locno);	
 							i->flags[Flag_HasPicture] = 255;
 							VID_SetAttributes(attributes);
-							int line = i->flags[Flag_SplitLine];
+							int line = i->flags[Flag_TopLine];
 							if (line < 4 || line > 23) line = 12;
 							SCR_Clear(0, 8*line, screenWidth, screenHeight - 8*line, VID_GetPaper());
 							PrintAt(i, &i->win, line, 0);
+							if (i->flags[Flag_SplitLine] >= 4 && i->flags[Flag_SplitLine] <= 23)
+								line = i->flags[Flag_SplitLine];
 							if ((i->flags[Flag_PAWMode] & 0x0F) == 2)
 							{
 								WinAt(i, line, 0);
@@ -3062,9 +3064,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_LINE:
 				DDB_Flush(i);
 				i->flags[Flag_TopLine] = param0;			// LINE
-				DDB_SetWindow(i, 1);
-				WinAt(i, param0, 0);
-				WinSize(i, 24 - param0, 32);
+				if (param0 >= 4 && param0 <= 23)
+				{
+					DDB_SetWindow(i, 0);
+					if (i->flags[Flag_SplitLine] < 4 || i->flags[Flag_SplitLine] > 23)
+					{
+						WinAt(i, param0, 0);
+						WinSize(i, 24 - param0, 32);
+					}
+				}
 				i->done = true;
 				break;
 			case CONDACT_PROTECT:
