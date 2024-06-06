@@ -396,7 +396,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return state = Player_Error;
 	}
-	VID_LoadDataFile(ddbFileName);
+	if (DDB_SupportsDataFile(ddb))
+		VID_LoadDataFile(ddbFileName);
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 	{
@@ -519,7 +520,8 @@ bool DDB_RunPlayer()
 	}
 	VID_ShowProgressBar(64);
 
-	VID_LoadDataFile(ddbFileName);
+	if (DDB_SupportsDataFile(ddb))
+		VID_LoadDataFile(ddbFileName);
 
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)

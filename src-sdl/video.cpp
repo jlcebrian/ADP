@@ -38,6 +38,7 @@ bool       quit;
 bool       exitGame = false;
 bool       textInput;
 bool	   charsetInitialized = false;
+bool       videoInitialized = false;
 uint32_t   palette[256];
 
 // Specific for Spectrum
@@ -641,7 +642,11 @@ void VID_Quit ()
 
 void VID_Finish()
 {
-	DebugPrintf("Closing video subsystem\n");
+	if (videoInitialized)
+	{
+		DebugPrintf("Closing video subsystem\n");
+		videoInitialized = false;
+	}
 	if (window != NULL)
 	{
 		SDL_DestroyWindow(window);
@@ -1225,7 +1230,11 @@ bool VID_LoadDataFile(const char* fileName)
 
 bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 {
-	DebugPrintf("Initializing video subsystem for %s\n", DDB_DescribeMachine(machine));
+	if (!videoInitialized)
+		DebugPrintf("Initializing video subsystem for %s\n", DDB_DescribeMachine(machine));
+	else
+		DebugPrintf("Reinitializing video subsystem for %s\n", DDB_DescribeMachine(machine));
+	videoInitialized = true;
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 	VID_InitAudio();

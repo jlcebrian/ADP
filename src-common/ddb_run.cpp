@@ -1022,7 +1022,7 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 		w->posX = col * columnWidth;
 		w->scrollCount = 0;
 		w->smooth = 0;
-		// DebugPrintf("\nPrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
+		// DebugPrintf("PrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
 		return;
 	}
 	#endif
@@ -1070,7 +1070,7 @@ static void WinAt (DDB_Interpreter* i, int line, int col)
 
 	DDB_CalculateCells(i, w, &i->cellX, &i->cellW);
 
-	DebugPrintf("Window %d repositioned: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
+	// DebugPrintf("Window %d repositioned: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
 }
 
 static void CenterWindow (DDB_Interpreter* i, DDB_Window* w)
@@ -1116,7 +1116,7 @@ static void WinSize (DDB_Interpreter* i, int lines, int columns)
 
 	DDB_CalculateCells(i, w, &i->cellX, &i->cellW);
 
-	// fprintf(stderr, "Window %d resized: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
+	// DebugPrintf("Window %d resized: %d,%d %dx%d\n", i->curwin, w->x, w->y, w->width, w->height);
 }
 
 static int CountObjectsAt (DDB_Interpreter* i, uint8_t locno)
@@ -1485,7 +1485,7 @@ void DDB_SetWindow(DDB_Interpreter* i, int winno)
 
 	DDB_CalculateCells(i, &i->win, &i->cellX, &i->cellW);
 
-	DebugPrintf("Window %d selected\n", i->curwin);
+	// DebugPrintf("Window %d selected\n", i->curwin);
 }
 
 static void UpdatePos (DDB_Interpreter* i, int process, int entry, int offset)
@@ -1782,7 +1782,7 @@ static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 			&& windowClears[n].y + windowClears[n].height > i->win.y
 			&& windowClears[n].hasOutput)
 		{
-			// fprintf(stderr, "Window %d (%d,%d %dx%d) overlaps previously cleared window %d (%d,%d %dx%d)\n", i->curwin,
+			// DebugPrintf("Window %d (%d,%d %dx%d) overlaps previously cleared window %d (%d,%d %dx%d)\n", i->curwin,
 			// 	i->win.x, i->win.y, i->win.width, i->win.height,
 			// 	n, windowClears[n].x, windowClears[n].y, windowClears[n].width, windowClears[n].height);
 			return true;

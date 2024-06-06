@@ -687,6 +687,19 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	return true;
 }
 
+bool DDB_SupportsDataFile(DDB* ddb)
+{
+	#if HAS_PAWS
+	if (ddb->version == DDB_VERSION_PAWS)
+		return false;
+	#endif
+
+	return 
+		ddb->target == DDB_MACHINE_AMIGA ||
+		ddb->target == DDB_MACHINE_ATARIST ||
+		ddb->target == DDB_MACHINE_IBMPC;
+}
+
 static uint32_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
 {
 	uint32_t offset = 0;

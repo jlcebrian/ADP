@@ -616,6 +616,7 @@ typedef int (*DDB_PrintFunc)(const char* format, ...);
 extern DDB*				DDB_Load				 (const char* filename);
 extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version);
 extern DDB*             DDB_Create               ();
+extern bool             DDB_SupportsDataFile         (DDB* ddb);
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);
 extern const char*		DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);

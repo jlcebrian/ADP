@@ -262,7 +262,8 @@ int main (int argc, char *argv[])
 	}
 
 	VID_Initialize(ddb->target, ddb->version);
-	VID_LoadDataFile(argv[1]);
+	if (DDB_SupportsDataFile(ddb))
+		VID_LoadDataFile(argv[1]);
 
 	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
 	if (interpreter == NULL)
