@@ -293,7 +293,7 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 		firstTrackInfo->sectors[0].id == 0xC1)
 	{
 		// CPC System or Data disk
-		bool system = firstTrackInfo->sectors[0].id == 0x4;
+		bool system = firstTrackInfo->sectors[0].id == 0x41;
 		disk->diskType = system ? CPC_FORMAT_CPC_SYSTEM : CPC_FORMAT_CPC_DATA;
 		disk->tracksPerSide = 40;
 		disk->sectorsPerTrack = 9;
@@ -377,7 +377,7 @@ bool CPC_FindFile (CPC_Disk* disk, CPC_FindResults* result, const char* name)
 bool CPC_FindFirstFile (CPC_Disk* disk, CPC_FindResults* result, const char* pattern)
 {
 	DIM_CopyPatternTo8D3(pattern, result->matchName, result->matchExtension);
-	result->offset = 0;
+	result->offset = -1;
 	result->entries = 0;
 	return CPC_FindNextFile (disk, result);
 }
