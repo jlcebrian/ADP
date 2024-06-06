@@ -949,6 +949,7 @@ DDB* DDB_Load(const char* filename)
 				ddb->drawString = true;
 				ddb->defaultInk = VID_GetInk();
 				ddb->defaultPaper = VID_GetPaper();
+				DebugPrintf("Default Ink: %d, Paper: %d\n", ddb->defaultInk, ddb->defaultPaper);
 			}
 			#endif
 

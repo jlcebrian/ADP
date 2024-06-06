@@ -173,7 +173,6 @@ void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
 	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
-		// TODO: Use proper default colors
 		w->flags &= ~(Win_Inverse | Win_Flash | Win_Bright);
 		w->ink = i->ddb->defaultInk;
 		w->paper = i->ddb->defaultPaper;
@@ -3106,6 +3105,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_SetWindow(i, 0);
 					WinAt(i, 0, 0);
 					WinSize(i, 24, 32);
+					DDB_ResetPAWSColors(i, &i->win);
 				}
 				#endif
 				DDB_ClearWindow(i, &i->win);

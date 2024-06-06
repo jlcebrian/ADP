@@ -27,7 +27,7 @@
 ## Drawstring support
 
 [x] Spectrum: Support TEXT command
-[ ] Spectrum: Fill attribute overwrite on unmodified pixels (Firfurcio)
+[x] Spectrum: Fill attribute overwrite on unmodified pixels (Firfurcio)
 [ ]	Spectrum: Paper/over issue in dwarf image (AO part2)
 [ ]	Spectrum: Clear issue after dragon scene (AO part2)
 [ ]	CPC: Support TEXT command

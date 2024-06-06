@@ -104,9 +104,20 @@ uint8_t VID_GetInk()
 	return ink;
 }
 
+uint8_t VID_GetDefaultInk()
+{
+	return defaultInk;
+}
+
 uint8_t VID_GetPaper()
 {
 	return paper;
+}
+
+uint8_t VID_GetDefaultPaper()
+{
+	return defaultPaper;
+
 }
 
 uint8_t VID_GetAttributes()
@@ -358,19 +369,17 @@ static void SpectrumInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* p
 		}
 	}
 
-	*attr = (*attr & attrMask) | attrValue;
-
 	// Fill to the right
 	while ((*ptr & mask) == 0)
 	{
 		*ptr |= (pattern[cy] & mask);
+		*attr = (*attr & attrMask) | attrValue;
 		x++;
 		if (x > scrMaxX) break;
 		mask >>= 1;
 		if (mask == 0)
 		{
 			attr++;
-			*attr = (*attr & attrMask) | attrValue;
 			mask = 0x80;
 			ptr++;
 		}
