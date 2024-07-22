@@ -57,7 +57,9 @@ DMG
 DSK
 
 [ ] Add interactive mode
-[ ] Generic FindFile/FindFirstFile/FindNext
+[ ] Add help text for every subcommand
+[ ] mkdisk: Allow selection of disk type
+[ ] Rename CPC to CPM
 [ ] FAT: Test & fix write support and mkdir/rmdir
 [ ] FAT: Fix adding multiple files to disk (overwrites existing!)
 [ ] ADF: Disk creation support (w/special DSK tool syntax)

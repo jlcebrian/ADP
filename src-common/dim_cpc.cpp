@@ -338,6 +338,9 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 			disk->reservedTracks = spec->reservedTracks;
 			disk->directoryBlocks = spec->directoryBlocks;
 			disk->blockSize = (0x80 << spec->blockShift);
+			disk->sectorSize = 128 << spec->sectorSizeLog;
+			disk->sectorsPerTrack = spec->sectorsPerTrack;
+			disk->tracksPerSide = spec->tracksPerSide;
 
 			ok = spec->diskType < 4;
 		}
