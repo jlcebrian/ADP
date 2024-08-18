@@ -9,7 +9,6 @@
 #define MAX_FILES          64
 #define NAME_BUFFER_SIZE 2048
 
-static int         snapshotCount = 0;
 static int         ddbCount = 0;
 static int         scrCount = 0;
 static int         ddbSelected = 0;
@@ -17,20 +16,6 @@ static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
-
-static const char* snapshotExtensions[] = {
-	".z80",
-	".sna",
-	".tzx",
-	".sta",
-	".vsf",
-	".tap",
-	".cas",
-	".bin",
-	".rom",
-	".raw",
-	0
-};
 
 static void EnumFiles(const char* pattern = "*")
 {
@@ -93,38 +78,6 @@ static int CountFiles(const char* extension)
 			count++;
 	}
 	return count;
-}
-
-static int CountSnapshots()
-{
-	int count = 0;
-	for (int n = 0; snapshotExtensions[n]; n++)
-		count += CountFiles(snapshotExtensions[n]);
-	return count;
-}
-
-static const char* GetSnapshot(int index)
-{
-	int count = 0;
-	for (int m = 0; m < fileCount; m++)
-	{
-		const char* dot = StrRChr(files[m], '.');
-		if (dot == 0)
-			continue;
-
-		for (int n = 0; snapshotExtensions[n]; n++)
-		{
-			if (StrIComp(dot, snapshotExtensions[n]) == 0)
-			{
-				if (count == index)
-					return files[m];
-				count++;
-				break;
-			}
-		}
-	}
-	return "";
-
 }
 
 static const char* GetFile(const char* extension, int index)
@@ -203,6 +156,53 @@ static uint8_t r[16], g[16], b[16];
 
 static PlayerState state = Player_Starting;
 static DDB*        ddb;
+
+static const char* snapshotExtensions[] = {
+	".z80",
+	".sna",
+	".tzx",
+	".sta",
+	".vsf",
+	".tap",
+	".cas",
+	".bin",
+	".rom",
+	".raw",
+	0
+};
+
+static int         snapshotCount = 0;
+
+static int CountSnapshots()
+{
+	int count = 0;
+	for (int n = 0; snapshotExtensions[n]; n++)
+		count += CountFiles(snapshotExtensions[n]);
+	return count;
+}
+
+static const char* GetSnapshot(int index)
+{
+	int count = 0;
+	for (int m = 0; m < fileCount; m++)
+	{
+		const char* dot = StrRChr(files[m], '.');
+		if (dot == 0)
+			continue;
+
+		for (int n = 0; snapshotExtensions[n]; n++)
+		{
+			if (StrIComp(dot, snapshotExtensions[n]) == 0)
+			{
+				if (count == index)
+					return files[m];
+				count++;
+				break;
+			}
+		}
+	}
+	return "";
+}
 
 static void FadeOutStep(int elapsed)
 {

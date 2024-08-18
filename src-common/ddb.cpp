@@ -700,7 +700,8 @@ bool DDB_SupportsDataFile(DDB* ddb)
 		ddb->target == DDB_MACHINE_IBMPC;
 }
 
-static uint32_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
+#if HAS_SNAPSHOTS
+static uint32_t GuessDDBOffsetFromSnapshot(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb)
 {
 	uint32_t offset = 0;
 
@@ -742,6 +743,7 @@ static uint32_t GuessDDBOffset(uint8_t* memory, size_t size, DDB_Machine target,
 	}
 	return 0;
 }
+#endif
 
 static void DDB_FillTokenPointers(DDB* ddb)
 {
@@ -960,7 +962,7 @@ DDB* DDB_Load(const char* filename)
 		}
 		#endif
 
-		if (GuessDDBOffset(memory, ramSize, snapshotMachine, ddb) == false)
+		if (GuessDDBOffsetFromSnapshot(memory, ramSize, snapshotMachine, ddb) == false)
 		{
 			ddbError = DDB_ERROR_FILE_NOT_SUPPORTED;
 			Free(memory);

@@ -144,8 +144,6 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 	uint8_t color = 0;
 	uint8_t repetitions;
 	const uint8_t* start = data;
-	const uint8_t* end = data + dataLength;
-	int totalPixels = pixels;
 	int nibbleCount = 0;
 
 	uint8_t outc = 0;

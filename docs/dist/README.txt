@@ -326,8 +326,12 @@ You'll need to install at least the following packages:
 
 You'll also need a working VASM assembler (http://sun.hasenbraten.de/vasm/),
 and libcmini 0.54. The included Makefile assumes LIBCMINI to be installed
-in /opt/atarist, but you can set a LIBCMINI environment variable to the
-proper path if that's not the case.
+in $HOME/libcmini, but you can set a LIBCMINI environment variable to the
+proper path if that's not the case. Note that ADP is C++ code, and libcmini
+may expect their headers to be included into pure C code only, so if you
+find linker errors you can either recompile libcmini to have the proper
+symbols, or hack a few extern "C" {} in its headers. The VASM executable
+is expected to be named vasmm68k_mot (make sure it's in your PATH).
 
 Once all requirements are met, compile with
 

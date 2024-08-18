@@ -89,7 +89,7 @@ int main (int argc, char *argv[])
 	if (!ddb)
 		error(DDB_GetErrorString());
 
-	if (!VID_Initialize(ddb->target))
+	if (!VID_Initialize(ddb->target, ddb->version))
 		error(DDB_GetErrorString());
 
 	if (DDB_SupportsDataFile(ddb))

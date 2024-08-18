@@ -50,7 +50,8 @@ static const char* DDB_FlowNames[] = {
 };
 #endif
 
-static const char* TranslateChar(uint8_t c)
+#if TRACE_ON
+static const char* TranslateCharForTrace(uint8_t c)
 {
 	static char buffer[16] = { 32, 0 };
 
@@ -81,6 +82,7 @@ static const char* TranslateChar(uint8_t c)
 	}
 	return buffer;
 }
+#endif
 
 void DDB_SetupInkMap (DDB_Interpreter* i)
 {
@@ -971,7 +973,7 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 			for (;;)
 			{
 				OutputCharToWindow(i, w, *token & 0x7F);
-				TRACE(TranslateChar(*token & 0x7F));
+				TRACE(TranslateCharForTrace(*token & 0x7F));
 				if (*token >= 128)
 					break;
 				token++;
@@ -980,7 +982,7 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 		else
 		{
 			OutputCharToWindow(i, w, c);
-			TRACE(TranslateChar(c));
+			TRACE(TranslateCharForTrace(c));
 		}
 	}
 	TRACE("\" ");
@@ -1569,7 +1571,7 @@ static bool EndsWithPronoun (const char* word, int len)
 		// This hack prevents the parser from wrongly recognizing
 		// pronouns in words like HABLA or AFILA
 
-		if (len > 2 && ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I')
+		if (len > 2 && (ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I'))
 			return false;
 		return true;
 	}
@@ -1577,7 +1579,7 @@ static bool EndsWithPronoun (const char* word, int len)
 		return false;
 	if (ToUpper(word[len-3]) == 'L' && (ToUpper(word[len-2]) == 'A' || ToUpper(word[len-2]) == 'O'))
 	{
-		if (len > 3 && ToUpper(word[len-4]) == 'B' || ToUpper(word[len-4]) == 'I')
+		if (len > 3 && (ToUpper(word[len-4]) == 'B' || ToUpper(word[len-4]) == 'I'))
 			return false;
 		return true;
 	}

@@ -253,10 +253,10 @@ bool File_FindNext (FindFileResults* results)
 #elif _STDCLIB
 
 #ifdef _UNIX
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#  include <unistd.h>
+#  include <fcntl.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
 #endif
 
 #include <stdlib.h>

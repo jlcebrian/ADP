@@ -7,16 +7,16 @@ STRIP    = $(PREFIX)strip
 OBJDUMP  = $(PREFIX)objdump
 NM       = $(PREFIX)nm
 VASM     = vasmm68k_mot
-LIBCMINI ?= /opt/atarist/libcmini
+LIBCMINI ?= $(HOME)/libcmini
 
 CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -Os -fomit-frame-pointer -fno-rtti -fno-exceptions
-CPPFLAGS += -I$(LIBCMINI)/include -nostdlib 
+CPPFLAGS += -I$(LIBCMINI)/include -nostdlib
 CPPFLAGS += -Wall -Wno-unused-value
 LDFLAGS += -nostdlib $(LIBCMINI)/lib/crt0.o
-LIBS += -lgcc -lstdc++ -L$(LIBCMINI)/lib -lcmini -lgcc -lgem
+LIBS += -L$(LIBCMINI)/lib -lcmini -lgcc -lgem
 
 VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -quiet -x 
 
@@ -69,10 +69,10 @@ out/ad.prg: $(CPPOBJS) $(ASMOBJS)
 	$(NM) --print-size --size-sort --radix=d $@ >> out/player.dump
 	$(STRIP) $@
 	upx -q $@ >/dev/null
-	@cd out && dsk /mnt/f/templos.st add ad.prg
-	@cd out && dsk /mnt/f/cozumel.st add ad.prg
-	@cd out && dsk /mnt/f/original.st add ad.prg
-	@cd out && dsk /mnt/f/chichen.st add ad.prg
+	#@cd out && dsk /mnt/f/templos.st add ad.prg
+	#@cd out && dsk /mnt/f/cozumel.st add ad.prg
+	#@cd out && dsk /mnt/f/original.st add ad.prg
+	#@cd out && dsk /mnt/f/chichen.st add ad.prg
 
 clean:
 	rm -f obj/atarist/*.o out/ad.prg

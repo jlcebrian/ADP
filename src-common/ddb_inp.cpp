@@ -122,12 +122,12 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 
 	if ((i->inputFlags & echoFlag) != 0 && i->inputBufferLength > 0 && i->curwin != (i->flags[Flag_InputStream] & 7))
 	{
-		char buffer[64] = { 0, 0 };
 
 		DDB_Flush(i);
 		#if REPRODUCE_ECHO_BUG
 		if (i->ddb->target == DDB_MACHINE_ATARIST)
 		{
+			char buffer[64] = { 0, 0 };
 			int newlineCount = 0;
 			const char* end = DDB_GetMessage(i->ddb, DDB_SYSMSG, 33, buffer, 64);
 			for (int n = 0; buffer+n < end; n++)

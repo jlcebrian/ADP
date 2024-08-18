@@ -982,7 +982,7 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 	quit = false;
 }
 
-bool VID_Initialize()
+bool VID_Initialize(DDB_Machine machine, DDB_Version version)
 {
 	screenWidth  = 320;
 	screenHeight = 200;
