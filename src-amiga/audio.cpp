@@ -15,38 +15,22 @@
 #include "audio.h"
 #include "video.h"
 
-static MsgPort* port = 0;
-static IOAudio* req = 0;
 static bool     soundOpen = false;
 static bool     playing = false;
+static IOAudio  req;
 
 bool OpenAudio()
 {
 	if (!soundOpen)
 	{
-		port = CreateMsgPort();
-		if (port == 0)
-		{
-			DebugPrintf("Error creating audio message port\n");
-			return false;
-		}
-		AddPort(port);
-
-		req = (IOAudio*)CreateIORequest(port, sizeof(IOAudio));
-		if (req == 0)
-		{
-			DebugPrintf("Error creating audio IO request\n");
-			return false;
-		}
-
 		static UBYTE channels[] = {1,2,4,8};
-   		req->ioa_Request.io_Command = ADCMD_ALLOCATE;
-   		req->ioa_Request.io_Flags = ADIOF_NOWAIT;
-   		req->ioa_AllocKey = 0;
-   		req->ioa_Data = channels;
-   		req->ioa_Length = sizeof(channels);
+   		req.ioa_Request.io_Command = ADCMD_ALLOCATE;
+   		req.ioa_Request.io_Flags = ADIOF_NOWAIT;
+   		req.ioa_AllocKey = 0;
+   		req.ioa_Data = channels;
+   		req.ioa_Length = sizeof(channels);
 
-		if (OpenDevice("audio.device",0,(IORequest *)req,0) != 0)
+		if (OpenDevice("audio.device",0,(IORequest *)&req,0) != 0)
 		{
 			DebugPrintf("Error opening audio.device: %ld\n", IoErr());
 			return false;
@@ -78,14 +62,14 @@ void PlaySample(uint8_t* sample, uint32_t length, uint32_t hz, uint32_t volume)
 	uint32_t period = (isPAL ? 3546895L : 3579545L) / hz;
 	if (period < 124) period = 124;
 
-	req->ioa_Request.io_Command = CMD_WRITE;
-	req->ioa_Request.io_Flags = ADIOF_PERVOL;
-	req->ioa_Data   = sample;
-	req->ioa_Length = length;
-	req->ioa_Period = period;
-	req->ioa_Volume = volume;
-	req->ioa_Cycles = 1;
-	BeginIO((struct IORequest *)req);
+	req.ioa_Request.io_Command = CMD_WRITE;
+	req.ioa_Request.io_Flags = ADIOF_PERVOL;
+	req.ioa_Data   = sample;
+	req.ioa_Length = length;
+	req.ioa_Period = period;
+	req.ioa_Volume = volume;
+	req.ioa_Cycles = 1;
+	BeginIO((struct IORequest *)&req);
 	playing = true;
 
 	DebugPrintf("Playing sample at %p: %ld bytes, %ld hz, %ld period, %ld volume\n", sample, length, hz, period, volume);
@@ -98,10 +82,10 @@ void StopSample()
 
 	if (playing)
 	{
-		if (CheckIO((IORequest *)req))
+		if (CheckIO((IORequest *)&req))
 		{
 			DebugPrintf("Aborting audio playback\n");
-			AbortIO((IORequest *)req);
+			AbortIO((IORequest *)&req);
 		}
 		playing = false;
 	}
@@ -114,12 +98,7 @@ void CloseAudio()
 		StopSample();
 
 		DebugPrintf("Closing audio.device\n");
-		CloseDevice((IORequest *)req);
-
-		if (port && port->mp_Node.ln_Name != NULL)
-			RemPort(port);
-		DeleteMsgPort(port);
-		DeleteIORequest((IORequest *)req);
+		CloseDevice((IORequest *)&req);
 
 		soundOpen = false;
 	}

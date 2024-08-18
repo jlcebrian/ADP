@@ -29,8 +29,7 @@ bool     kbOpen = false;
 extern "C" void KeyboardHandler();
 
 static Interrupt handler;
-static MsgPort*  port = 0;
-static IOStdReq* req = 0;
+static IOStdReq  req;
 
 uint16_t Keymap[128] =
 {
@@ -244,22 +243,7 @@ void OpenKeyboard()
 {
 	if (!kbOpen)
 	{
-		port = CreateMsgPort();
-		if (port == 0)
-		{
-			DebugPrintf("Error creating keyboard message port\n");
-			return;
-		}
-		AddPort(port);
-
-		req = (IOStdReq*)CreateIORequest(port, sizeof(IOStdReq));
-		if (req == 0)
-		{
-			DebugPrintf("Error creating keyboard IO request\n");
-			return;
-		}
-
-		if (OpenDevice("input.device",0,(IORequest *)req,0) != 0)
+		if (OpenDevice("input.device",0,(IORequest *)&req,0) != 0)
 		{
 			DebugPrintf("Error opening input.device: %ld\n", IoErr());
 			Delay(50);
@@ -270,11 +254,11 @@ void OpenKeyboard()
 		handler.is_Data = (APTR)KeyFound;
 		handler.is_Node.ln_Type = NT_USER;
 		handler.is_Node.ln_Pri  = 60; /* above intuition's handler */
-		req->io_Data = (APTR)&handler;
-		req->io_Command = IND_ADDHANDLER;
-		SendIO ((IORequest *)req);
-		if (CheckIO((IORequest *)req) != 0)
-			WaitIO((IORequest *)req);
+		req.io_Data = (APTR)&handler;
+		req.io_Command = IND_ADDHANDLER;
+		SendIO ((IORequest *)&req);
+		if (CheckIO((IORequest *)&req) != 0)
+			WaitIO((IORequest *)&req);
 
 		kbOpen = true;
 	}
@@ -284,17 +268,12 @@ void CloseKeyboard()
 {
 	if (kbOpen)
 	{
-		req->io_Data = (APTR)&handler;
-		req->io_Command = IND_REMHANDLER;
-		SendIO ((IORequest *)req);
-		if (CheckIO((IORequest *)req) != 0)
-			WaitIO((IORequest *)req);
-		CloseDevice((IORequest *)req);
-
-		if (port && port->mp_Node.ln_Name != NULL)
-			RemPort(port);
-		DeleteMsgPort(port);
-		DeleteIORequest((IORequest *)req);
+		req.io_Data = (APTR)&handler;
+		req.io_Command = IND_REMHANDLER;
+		SendIO ((IORequest *)&req);
+		if (CheckIO((IORequest *)&req) != 0)
+			WaitIO((IORequest *)&req);
+		CloseDevice((IORequest *)&req);
 	}
 }
 

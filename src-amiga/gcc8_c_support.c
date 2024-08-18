@@ -108,19 +108,22 @@ void* memmove(void *dest, const void *src, unsigned long len) {
 void KPutCharX();
 void PutChar();
 
-	#ifdef _DEBUGPRINT
+#ifdef _DEBUGPRINT
 __attribute__((noinline)) __attribute__((optimize("O1")))
 void KPrintF(const char* fmt, ...) {
+	va_list vl;
+	va_start(vl, fmt);
+	char temp[128];
+	int ln = vsnprintf_(temp, 128, fmt, vl);
+
 	long(*UaeDbgLog)(long mode, const char* string) = (long(*)(long, const char*))0xf0ff60;
 	if(*((UWORD *)UaeDbgLog) == 0x4eb9 || *((UWORD *)UaeDbgLog) == 0xa00e) {
-		va_list vl;
-		va_start(vl, fmt);
-		char temp[128];
-		int ln = vsnprintf_(temp, 128, fmt, vl);
 		UaeDbgLog(86, temp);
+	} else {
+		Write(Output(), (APTR)temp, ln);
 	}
 }
-	#endif
+#endif
 
 int main();
 

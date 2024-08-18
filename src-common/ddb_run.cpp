@@ -887,7 +887,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 	}
 
 	if (i->pendingPtr >= sizeof(i->pending)) {
-		DebugPrintf("Output buffer overflow\n", stderr);
+		DebugPrintf("Output buffer overflow\n");
 		DDB_FlushWindow(i, w);
 	}
 

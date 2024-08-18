@@ -36,8 +36,9 @@ else
 	SDKDIR = $(abspath $(dir $(shell which $(CC)))../m68k-amiga-elf/sys-include)
 endif
 
-CCFLAGS += -DVERSION=$(VERSION) -Os
-#CCFLAGS += -D_DEBUGPRINT -O0
+CCFLAGS += -DVERSION=$(VERSION) 
+CCFLAGS += -Os
+# CCFLAGS += -D_DEBUGPRINT -O0
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
 CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
@@ -46,7 +47,7 @@ CCFLAGS += -fno-tree-loop-distribution -fno-exceptions -fomit-frame-pointer
 CCFLAGS += -Iinclude -Isupport -D_AMIGA
 CPPFLAGS= $(CCFLAGS) -fno-rtti -fcoroutines -fno-use-cxa-atexit
 ASFLAGS = -Wa,-g,--register-prefix-optional,-I$(SDKDIR),-D
-LDFLAGS = -Wl,--emit-relocs,-Ttext=0,-Map=$(OUT).map
+LDFLAGS = -Wl,--emit-relocs,-Ttext=0,-Map=$(OUT).map 
 VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -dwarf=3 -quiet -x -I. -I$(SDKDIR)
 
 all: $(OUT).exe
