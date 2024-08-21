@@ -820,7 +820,7 @@ void ProgramDisplay()
 	RunCopperProgram(copper1, copPtr);
 }
 
-bool VID_Initialize(DDB_Machine machine, DDB_Version)
+bool VID_Initialize(DDB_Machine machine, DDB_Version version)
 {
 	if (initialized)
 		return true;
@@ -869,6 +869,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version)
 	RunCopperProgram(copper1, copPtr);
 
 	VID_SetPalette(DefaultPalette);
+	VID_ActivatePalette();
 
 	return true;
 }

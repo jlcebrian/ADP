@@ -8,6 +8,7 @@
 #include "gcc8_c_support.h"
 #include "keyboard.h"
 
+#include <exec/execbase.h>
 #include <exec/devices.h>
 #include <exec/interrupts.h>
 #include <devices/input.h>
@@ -29,7 +30,8 @@ bool     kbOpen = false;
 extern "C" void KeyboardHandler();
 
 static Interrupt handler;
-static IOStdReq  req;
+static IOStdReq* req;
+static MsgPort*  port;
 
 uint16_t Keymap[128] =
 {
@@ -239,13 +241,42 @@ void Handler()
 	);
 }
 
+extern void PrintToOutput(const char* msg);
+
 void OpenKeyboard()
 {
 	if (!kbOpen)
 	{
-		if (OpenDevice("input.device",0,(IORequest *)&req,0) != 0)
+		if (SysBase->SoftVer >= 39)
 		{
-			DebugPrintf("Error opening input.device: %ld\n", IoErr());
+			port = CreateMsgPort();
+			if (port == 0)
+			{
+				DebugPrintf("Error creating keyboard message port\n");
+				return;
+			}
+
+			req = (IOStdReq*)CreateIORequest(port, sizeof(IOStdReq));
+			if (req == 0)
+			{
+				DebugPrintf("Error creating keyboard IO request\n");
+				return;
+			}
+		}
+		else
+		{
+			req = (struct IOStdReq*)AllocMem(sizeof(IOStdReq), MEMF_ANY | MEMF_PUBLIC | MEMF_CLEAR);
+			if (req == 0)
+			{
+				PrintToOutput("Error allocating keyboard IO request\n");
+				return;
+			}
+			memset(req, 0, sizeof(IOStdReq));
+		}
+
+		if (OpenDevice("input.device",0,(IORequest *)req,0) != 0)
+		{
+			PrintToOutput("Error opening input.device\n");
 			Delay(50);
 			Exit(0);
 		}
@@ -254,11 +285,11 @@ void OpenKeyboard()
 		handler.is_Data = (APTR)KeyFound;
 		handler.is_Node.ln_Type = NT_USER;
 		handler.is_Node.ln_Pri  = 60; /* above intuition's handler */
-		req.io_Data = (APTR)&handler;
-		req.io_Command = IND_ADDHANDLER;
-		SendIO ((IORequest *)&req);
-		if (CheckIO((IORequest *)&req) != 0)
-			WaitIO((IORequest *)&req);
+		req->io_Data = (APTR)&handler;
+		req->io_Command = IND_ADDHANDLER;
+		SendIO ((IORequest *)req);
+		if (CheckIO((IORequest *)req) != 0)
+			WaitIO((IORequest *)req);
 
 		kbOpen = true;
 	}
@@ -268,12 +299,24 @@ void CloseKeyboard()
 {
 	if (kbOpen)
 	{
-		req.io_Data = (APTR)&handler;
-		req.io_Command = IND_REMHANDLER;
-		SendIO ((IORequest *)&req);
-		if (CheckIO((IORequest *)&req) != 0)
-			WaitIO((IORequest *)&req);
-		CloseDevice((IORequest *)&req);
+		req->io_Data = (APTR)&handler;
+		req->io_Command = IND_REMHANDLER;
+		
+		SendIO ((IORequest *)req);
+		if (CheckIO((IORequest *)req) != 0)
+			WaitIO((IORequest *)req);
+		
+		CloseDevice((IORequest *)req);
+
+		if (SysBase->SoftVer < 39)
+		{
+			FreeMem(req, sizeof(IOStdReq));
+		}
+		else
+		{
+			DeleteIORequest((IORequest *)req);
+			DeleteMsgPort(port);
+		}
 	}
 }
 
