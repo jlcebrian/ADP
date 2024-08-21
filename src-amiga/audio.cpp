@@ -19,10 +19,38 @@ static bool     soundOpen = false;
 static bool     playing = false;
 static IOAudio  req;
 
+extern void PrintToOutput(const char* msg);
+
 bool OpenAudio()
 {
 	if (!soundOpen)
 	{
+		if (SysBase->SoftVer >= 39)
+		{
+			port = CreateMsgPort();
+			if (port == 0)
+			{
+				DebugPrintf("Error creating audio message port\n");
+				return false;
+			}
+
+			req = (IOAudio*)CreateIORequest(port, sizeof(IOAudio));
+			if (req == 0)
+			{
+				PrintToOutput("Error creating audio IO request\n");
+				return false;
+			}
+		}
+		else
+		{
+			req = (IOAudio*)AllocMem(sizeof(IOAudio), MEMF_ANY | MEMF_PUBLIC | MEMF_CLEAR);
+			if (req == 0)
+			{
+				PrintToOutput("Error allocating audio IO request\n");
+				return false;
+			}
+		}
+
 		static UBYTE channels[] = {1,2,4,8};
    		req.ioa_Request.io_Command = ADCMD_ALLOCATE;
    		req.ioa_Request.io_Flags = ADIOF_NOWAIT;
@@ -32,7 +60,7 @@ bool OpenAudio()
 
 		if (OpenDevice("audio.device",0,(IORequest *)&req,0) != 0)
 		{
-			DebugPrintf("Error opening audio.device: %ld\n", IoErr());
+			PrintToOutput("Error opening audio.device\n"); //, IoErr());
 			return false;
 		}
 
@@ -96,9 +124,25 @@ void CloseAudio()
 	if (soundOpen)
 	{
 		StopSample();
+		
+		if (CheckIO((IORequest *)req))
+		{
+			AbortIO((IORequest *)req);
+			WaitIO((IORequest *)req);
+		}
 
 		DebugPrintf("Closing audio.device\n");
-		CloseDevice((IORequest *)&req);
+		CloseDevice((IORequest *)req);
+
+		if (SysBase->SoftVer < 39)
+		{
+			FreeMem(req, sizeof(IOAudio));
+		}
+		else
+		{
+			DeleteIORequest((IORequest *)req);
+			DeleteMsgPort(port);
+		}
 
 		soundOpen = false;
 	}

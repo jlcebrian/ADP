@@ -39,11 +39,11 @@ extern volatile Custom *custom;
 
 static inline void WaitForBlitter() 
 {
-  // Give blitter priority while we're waiting.
-  // Also takes care of dummy DMACON access to work around Agnus bug.
-  custom->dmacon = DMAF_SETCLR | DMAF_BLITHOG | DMAF_DISK;
-  while (custom->dmaconr & DMAF_BLTDONE);
-  custom->dmacon = DMAF_BLITHOG;
+	// Give blitter priority while we're waiting.
+	// Also takes care of dummy DMACON access to work around Agnus bug.
+	custom->dmacon = DMAF_SETCLR | DMAF_BLITHOG | DMAF_DISK;
+	while (custom->dmaconr & DMAF_BLTDONE);
+	custom->dmacon = DMAF_BLITHOG;
 }
 
 void BlitterCopy (

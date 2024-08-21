@@ -37,6 +37,11 @@ struct View *ActiView;
 
 static uint16_t savedColors[32];
 
+void PrintToOutput(const char* msg)
+{
+	Write(Output(), (APTR)msg, strlen(msg));
+}
+
 void TakeSystem() 
 {
 	DebugPrintf("TakeSystem\n");
@@ -105,7 +110,7 @@ void FreeSystem()
 int main ()
 {
 	const char* msg = "ADP " VERSION_STR "\n";
-	const size_t msgLen = StrLen(msg);
+
 
 	SysBase       = *((struct ExecBase**)4UL);
 	custom        = (Custom*)0xdff000;			// ?? Shouldn't be dynamic?
@@ -113,18 +118,13 @@ int main ()
 	DOSBase       = (struct DosLibrary*)OpenLibrary((CONST_STRPTR)"dos.library", 0);
 	IntuitionBase = (struct IntuitionBase*)OpenLibrary((CONST_STRPTR)"intuition.library", 0);
 
-	if (!GfxBase || !DOSBase)
-	{
-		Write(Output(), (APTR)"Failed to open libraries\n", 25);
-		Exit(0);
-	}
+	PrintToOutput(msg);
 
 	WORD savedDMACON = custom->dmacon;
 
 	ConvertSample(beepSample, beepSampleSize);
 	ConvertSample(clickSample, clickSampleSize);
 
-	Write(Output(), (APTR)msg, msgLen);
 	OpenKeyboard();
 	OpenAudio();
 
@@ -135,9 +135,9 @@ int main ()
 		Write(Output(), (APTR)"\n", 1);
 	}
 
-	custom->dmacon = (savedDMACON & 0x3FF) | DMAF_SETCLR;
-	Delay(5);
-	custom->dmacon = (~savedDMACON & 0x3FF);
+	// custom->dmacon = (savedDMACON & 0x3FF) | DMAF_SETCLR;
+	// while (custom->dmaconr & DMAF_BLTDONE);
+	// custom->dmacon = (~savedDMACON & 0x3FF);
 
 	CloseAudio();
 	CloseKeyboard();

@@ -8,6 +8,7 @@
 #include "gcc8_c_support.h"
 #include "keyboard.h"
 
+#include <exec/execbase.h>
 #include <exec/devices.h>
 #include <exec/interrupts.h>
 #include <devices/input.h>
@@ -243,7 +244,34 @@ void OpenKeyboard()
 {
 	if (!kbOpen)
 	{
-		if (OpenDevice("input.device",0,(IORequest *)&req,0) != 0)
+		if (SysBase->SoftVer >= 39)
+		{
+			port = CreateMsgPort();
+			if (port == 0)
+			{
+				DebugPrintf("Error creating keyboard message port\n");
+				return;
+			}
+
+			req = (IOStdReq*)CreateIORequest(port, sizeof(IOStdReq));
+			if (req == 0)
+			{
+				DebugPrintf("Error creating keyboard IO request\n");
+				return;
+			}
+		}
+		else
+		{
+			req = (struct IOStdReq*)AllocMem(sizeof(IOStdReq), MEMF_ANY | MEMF_PUBLIC);
+			if (req == 0)
+			{
+				DebugPrintf("Error allocating keyboard IO request\n");
+				return;
+			}
+			memset(req, 0, sizeof(IOStdReq));
+		}
+
+		if (OpenDevice("input.device",0,(IORequest *)req,0) != 0)
 		{
 			DebugPrintf("Error opening input.device: %ld\n", IoErr());
 			Delay(50);
@@ -268,12 +296,24 @@ void CloseKeyboard()
 {
 	if (kbOpen)
 	{
-		req.io_Data = (APTR)&handler;
-		req.io_Command = IND_REMHANDLER;
-		SendIO ((IORequest *)&req);
-		if (CheckIO((IORequest *)&req) != 0)
-			WaitIO((IORequest *)&req);
-		CloseDevice((IORequest *)&req);
+		req->io_Data = (APTR)&handler;
+		req->io_Command = IND_REMHANDLER;
+		
+		SendIO ((IORequest *)req);
+		if (CheckIO((IORequest *)req) != 0)
+			WaitIO((IORequest *)req);
+		
+		CloseDevice((IORequest *)req);
+
+		if (SysBase->SoftVer < 39)
+		{
+			FreeMem(req, sizeof(IOStdReq));
+		}
+		else
+		{
+			DeleteIORequest((IORequest *)req);
+			DeleteMsgPort(port);
+		}
 	}
 }
 
