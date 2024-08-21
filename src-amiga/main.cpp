@@ -111,7 +111,6 @@ int main ()
 {
 	const char* msg = "ADP " VERSION_STR "\n";
 
-
 	SysBase       = *((struct ExecBase**)4UL);
 	custom        = (Custom*)0xdff000;			// ?? Shouldn't be dynamic?
 	GfxBase       = (struct GfxBase *)OpenLibrary((CONST_STRPTR)"graphics.library",0);
@@ -120,7 +119,7 @@ int main ()
 
 	PrintToOutput(msg);
 
-	WORD savedDMACON = custom->dmacon;
+	// WORD savedDMACON = custom->dmacon;
 
 	ConvertSample(beepSample, beepSampleSize);
 	ConvertSample(clickSample, clickSampleSize);

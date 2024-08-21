@@ -30,7 +30,8 @@ bool     kbOpen = false;
 extern "C" void KeyboardHandler();
 
 static Interrupt handler;
-static IOStdReq  req;
+static IOStdReq* req;
+static MsgPort*  port;
 
 uint16_t Keymap[128] =
 {
@@ -240,6 +241,8 @@ void Handler()
 	);
 }
 
+extern void PrintToOutput(const char* msg);
+
 void OpenKeyboard()
 {
 	if (!kbOpen)
@@ -262,10 +265,10 @@ void OpenKeyboard()
 		}
 		else
 		{
-			req = (struct IOStdReq*)AllocMem(sizeof(IOStdReq), MEMF_ANY | MEMF_PUBLIC);
+			req = (struct IOStdReq*)AllocMem(sizeof(IOStdReq), MEMF_ANY | MEMF_PUBLIC | MEMF_CLEAR);
 			if (req == 0)
 			{
-				DebugPrintf("Error allocating keyboard IO request\n");
+				PrintToOutput("Error allocating keyboard IO request\n");
 				return;
 			}
 			memset(req, 0, sizeof(IOStdReq));
@@ -273,7 +276,7 @@ void OpenKeyboard()
 
 		if (OpenDevice("input.device",0,(IORequest *)req,0) != 0)
 		{
-			DebugPrintf("Error opening input.device: %ld\n", IoErr());
+			PrintToOutput("Error opening input.device\n");
 			Delay(50);
 			Exit(0);
 		}
@@ -282,11 +285,11 @@ void OpenKeyboard()
 		handler.is_Data = (APTR)KeyFound;
 		handler.is_Node.ln_Type = NT_USER;
 		handler.is_Node.ln_Pri  = 60; /* above intuition's handler */
-		req.io_Data = (APTR)&handler;
-		req.io_Command = IND_ADDHANDLER;
-		SendIO ((IORequest *)&req);
-		if (CheckIO((IORequest *)&req) != 0)
-			WaitIO((IORequest *)&req);
+		req->io_Data = (APTR)&handler;
+		req->io_Command = IND_ADDHANDLER;
+		SendIO ((IORequest *)req);
+		if (CheckIO((IORequest *)req) != 0)
+			WaitIO((IORequest *)req);
 
 		kbOpen = true;
 	}
