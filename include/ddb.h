@@ -38,7 +38,7 @@ enum DDB_Flag
 	Flag_AutoDecDescDarkNL = 4,			// 04 decrements by 1 during DESC in dark locations without lantern
 	Flag_AutoDec           = 5,			// 05 to 08 decrements by 1 every turn
 	Flag_AutoDecDark       = 9,			// 09 to 12 decrements by 1 every turn in dark locations
-	Flag_AutoDecDarkNL     = 10,			// 0D to 16 decrements by 1 every turn in dark locations without lantern
+	Flag_AutoDecDarkNL     = 10,		// 0D to 16 decrements by 1 every turn in dark locations without lantern
 
 	// Flags 11 to 28 are unused
 

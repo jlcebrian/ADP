@@ -302,7 +302,7 @@ static DDB_CondactMap pawsCondacts[128] = {
 	{ CONDACT_ADJECT1,		  1 },		// 0x10
 	{ CONDACT_ADVERB, 		  1 },		// 0x11
 	{ CONDACT_INVEN,   		  0 },		// 0x12
-	{ CONDACT_DESC,   		  1 },		// 0x13
+	{ CONDACT_DESC,   		  0 },		// 0x13
 	{ CONDACT_QUIT,   		  0 },		// 0x14
 	{ CONDACT_END,    		  0 },		// 0x15
 	{ CONDACT_DONE,   		  0 },		// 0x16
@@ -568,7 +568,7 @@ void DDB_FixOffsets (DDB* ddb)
 #ifndef _WEB
 #ifdef _BIG_ENDIAN
 	if (!ddb->littleEndian)
-		return;	
+		return;
 #endif
 #ifdef _LITTLE_ENDIAN
 	if (ddb->littleEndian)
@@ -636,9 +636,9 @@ void DDB_FixOffsets (DDB* ddb)
 		while (offset < ddb->dataSize)
 		{
 			// End of process marker
-			if (ptr[-2] == 0) 
+			if (ptr[-2] == 0)
 				break;
-			
+
 			#if HAS_PAWS
 			if (ddb->version == DDB_VERSION_PAWS)
 			{
@@ -647,7 +647,7 @@ void DDB_FixOffsets (DDB* ddb)
 				if (ptr[-2] == 1) ptr[-2] = 255;
 			}
 			#endif
-			
+
 			uint16_t entryOffset = read16(ptr, ddb->littleEndian) - ddb->baseOffset;
 			if (entryOffset >= ddb->dataSize || entryOffset < 32)
 			{
@@ -694,7 +694,7 @@ bool DDB_SupportsDataFile(DDB* ddb)
 		return false;
 	#endif
 
-	return 
+	return
 		ddb->target == DDB_MACHINE_AMIGA ||
 		ddb->target == DDB_MACHINE_ATARIST ||
 		ddb->target == DDB_MACHINE_IBMPC;
@@ -760,12 +760,13 @@ static void DDB_FillTokenPointers(DDB* ddb)
 		int n;
 		uint8_t* ptr = ddb->tokens + 1;
 		uint8_t* end = ddb->data + ddb->dataSize;
+        uint8_t  eof = ddb->version == DDB_VERSION_PAWS ? 0xFF : 0x00;
 		for (n = ddb->firstToken; n <= 255; n++)
 		{
 			ddb->tokensPtr[n - ddb->firstToken] = ptr;
 			while ((*ptr & 0x80) == 0 && *ptr != 0 && ptr < end)
 				ptr++;
-			if (*ptr == 0 || ptr == end)
+			if (*ptr == eof || ptr == end)
 				break;
 			ptr++;
 		}
@@ -794,13 +795,13 @@ static void DDB_FillMsgPointers(DDB* ddb)
 static bool CheckPAWSignature(uint8_t* memory, uint16_t base, uint16_t attr)
 {
 	return (
-		base < 65535-321 && 
-		base > 16384-311 && 
-		memory[attr]    == 16 && 
-		memory[attr+2]  == 17 && 
-		memory[attr+4]  == 18 && 
-		memory[attr+6]  == 19 && 
-		memory[attr+8]  == 20 && 
+		base < 65535-321 &&
+		base > 16384-311 &&
+		memory[attr]    == 16 &&
+		memory[attr+2]  == 17 &&
+		memory[attr+4]  == 18 &&
+		memory[attr+6]  == 19 &&
+		memory[attr+8]  == 20 &&
 		memory[attr+10] == 21
 	);
 }
@@ -941,7 +942,7 @@ DDB* DDB_Load(const char* filename)
 	if (DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
 	{
 		File_Close(file);
-		
+
 		#if HAS_PAWS
 		if (LoadPAWS(ddb, memory, ramSize))
 		{
@@ -951,7 +952,7 @@ DDB* DDB_Load(const char* filename)
 				ddb->drawString = true;
 				ddb->defaultInk = VID_GetInk();
 				ddb->defaultPaper = VID_GetPaper();
-				DebugPrintf("Default Ink: %d, Paper: %d\n", ddb->defaultInk, ddb->defaultPaper);
+				// DebugPrintf("Default Ink: %d, Paper: %d\n", ddb->defaultInk, ddb->defaultPaper);
 			}
 			#endif
 
@@ -1126,7 +1127,7 @@ DDB* DDB_Load(const char* filename)
 	uint16_t externOffset = read16(data + (ddb->version == 2 ? 34 : 32), ddb->littleEndian);
 	if (externOffset != 0 && externOffset > ddb->baseOffset)
 		ddb->externData   = (uint8_t*)(data + externOffset - ddb->baseOffset);
-	
+
 	DDB_FixOffsets(ddb);
 	DDB_FillTokenPointers(ddb);
 	DDB_FillMsgPointers(ddb);
@@ -1153,7 +1154,7 @@ DDB* DDB_Load(const char* filename)
 			if (entriesWithVerb > 10)
 				ddb->oldMainLoop = true;
 		}
-	}	
+	}
 
 	if (ddbError != DDB_ERROR_NONE)
 	{
