@@ -1138,13 +1138,14 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 	if (locno == 255) locno = i->flags[Flag_Locno];
 
 	int count = CountObjectsAt(i, locno);
+    bool newLineAtEnd = false;
 
 	i->flags[Flag_ListFlags] &= ~0x80;
 	for (int n = 0; n < i->ddb->numObjects; n++)
 	{
 		if (i->objloc[n] == locno)
 		{
-			i->flags[Flag_ListFlags] |= ~0x80;
+			i->flags[Flag_ListFlags] |= 0x80;
 			const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, n, (char *)objNameBuffer, sizeof(objNameBuffer));
 			if (i->flags[Flag_ListFlags] & 0x40)		// Continuous listing
 			{
@@ -1160,12 +1161,19 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 			}
 			else
 			{
+                DDB_Flush(i);
+				DDB_NewLine(i);
 				DDB_OutputText(i, (const char *)objNameBuffer);
-				DDB_OutputChar(i, '\r');
+                newLineAtEnd = true;
 			}
 			count--;
 		}
 	}
+    if (newLineAtEnd)
+    {
+        DDB_Flush(i);
+        DDB_NewLine(i);
+    }
 }
 
 static void SetObjno (DDB_Interpreter* i, uint8_t objno)
@@ -1375,13 +1383,13 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 				switch (i->flags[Flag_PAWMode] & 0x0F)
 				{
 					case 0:
-						// Full screen graphics with pause						
+						// Full screen graphics with pause
 						if (useGraphics && DDB_HasVectorPicture(locno))
 						{
 							uint8_t attributes = VID_GetAttributes();
 							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
 							SCR_ConsumeBuffer();
-							bool found = DDB_DrawVectorPicture(locno);	
+							bool found = DDB_DrawVectorPicture(locno);
 							if (found && i->ddb->version != DDB_VERSION_PAWS)
 								i->flags[Flag_HasPicture] = 255;
 							SCR_WaitForKey();
@@ -1390,10 +1398,10 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 						SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
 						PrintAt(i, &i->win, 0, 0);
 						break;
-					
+
 					case 1:
 					case 4:
-						// Text only, no graphics. In mode 4, text scrolls from 
+						// Text only, no graphics. In mode 4, text scrolls from
 						// flag 41 (Flag_SplitLine) as set by PROTECT
 						break;
 
@@ -1403,7 +1411,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 						{
 							uint8_t attributes = VID_GetAttributes();
 							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
-							DDB_DrawVectorPicture(locno);	
+							DDB_DrawVectorPicture(locno);
 							i->flags[Flag_HasPicture] = 255;
 							VID_SetAttributes(attributes);
 							int line = i->flags[Flag_TopLine];
@@ -1431,13 +1439,13 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			{
 				DDB_ClearWindow(i, &i->win);
 				uint8_t attributes = VID_GetAttributes();
-				bool found = DDB_DrawVectorPicture(locno);	
+				bool found = DDB_DrawVectorPicture(locno);
 				if (found)
 					i->flags[Flag_HasPicture] = 128;
 				VID_SetAttributes(attributes);
 			}
 		}
-		else 
+		else
 		#endif
 		if (SCR_PictureExists(i->flags[Flag_Locno]))
 		{
@@ -2183,7 +2191,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_OutputMessage(i, DDB_SYSMSG, 9); 	// I have
 				int countWorn = CountObjectsAt(i, Loc_Worn);
 				int countCarried = CountObjectsAt(i, Loc_Carried);
-				if (countWorn == 0 && countCarried == 0) 
+				if (countWorn == 0 && countCarried == 0)
 				{
 					DDB_OutputMessage(i, DDB_SYSMSG, 11);	// Nothing.
 				}
