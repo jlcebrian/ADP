@@ -70,7 +70,7 @@ IF %ERRORLEVEL% NEQ 0 call vcvars64.bat
 :WINBUILD
 SET VERSION=/DVERSION=%VERSION%
 SET TRACE=/DTRACE_ON=1
-SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE 
+SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
 SET TOOLOPTS=/Iinclude-tools /Ilib/libpng
 SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib\libpng /Ilib\sdl2\include /Iinclude /D_STDCLIB /DNO_CACHE ^
 	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING /D_DEBUGPRINT /DHAS_PAWS
@@ -81,7 +81,7 @@ IF "%2"=="Release" SET OPTIM=/O2 /GR- /EHsc /MP8 /GL
 IF "%2"=="Release" SET LINK=/DEBUG:NONE
 
 SET LIBS=lib\sdl2\%WIN%\SDL2-static.lib lib\sdl2\%WIN%\SDL2main.lib user32.lib gdi32.lib comdlg32.lib ole32.lib shell32.lib setupapi.lib winmm.lib imm32.lib version.lib advapi32.lib oleaut32.lib
-SET TOOLLIBS=lib\libpng\%WIN%\libpng16.lib lib\zlib\%WIN%\zlib.lib
+SET TOOLLIBS=%LIBS% lib\libpng\%WIN%\libpng16.lib lib\zlib\%WIN%\zlib.lib
 
 taskkill /F /IM ddb.exe /T >NUL 2>&1
 taskkill /F /IM adp.exe /T >NUL 2>&1
