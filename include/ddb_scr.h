@@ -135,5 +135,6 @@ extern void SCR_SetPaletteColor  (uint8_t color, uint8_t r, uint8_t g, uint8_t b
 extern void SCR_SetTextInputMode (bool enabled);
 extern void SCR_SwapScreen       ();
 extern void SCR_WaitForKey       ();
+extern void SCR_UseInputFile     (const char* filename);
 
 #endif

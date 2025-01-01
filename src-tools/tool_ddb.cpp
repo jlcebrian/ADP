@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_vid.h>
+#include <ddb_scr.h>
 #include <os_mem.h>
 #include <os_file.h>
 
@@ -74,13 +75,15 @@ void ShowHelp()
 	printf("Usage: ddb [action] [options] <input.ddb>\n");
 	printf("Usage: ddb [action] [options] <input.adf/.st/.dsk> [output.ddb]\n\n");
 	printf("Actions:\n\n");
-	printf("    l     Show game information\n");
-	printf("    r     Runs the game (default action)\n");
-	printf("    x     Extracts game database (useful for images & snapshots)\n");
-	// printf("    t     Runs the game in test/debug mode\n");
-	printf("    d     Decompiles/dumps the database in .SCE text format\n");
+	printf("    l         Show game information\n");
+	printf("    r         Runs the game (default action)\n");
+	printf("    x         Extracts game database (useful for images & snapshots)\n");
+	printf("    d         Decompiles/dumps the database in .SCE text format\n");
 	printf("\nOptions:\n\n");
-	printf("   -v     Show a trace of the program's execution\n\n");
+	printf("   -v         Show a trace of the program's execution\n");
+    printf("   -f         Force overwrite of output file in extract commands\n");
+    printf("   -o n.txt   Use n.txt as transcript output file for the game\n");
+    printf("   -i n.txt   Use n.txt as input file for the game\n\n");
 }
 
 static void PrintWarning(const char* message)
@@ -151,10 +154,49 @@ int main (int argc, char *argv[])
 			case 'd':	action = ACTION_DUMP; break;
 			case '-':
 				actionFound = false;
-				if (argv[1][1] == 'v')
-					trace = true;
-				if (argv[1][1] == 'f')
-					force = true;
+                for (int n = 1; argv[1][n]; n++)
+                {
+    				if (argv[1][n] == 'v')
+    					trace = true;
+    				if (argv[1][n] == 'f')
+    					force = true;
+                    if (argv[1][n] == 'o')
+                    {
+                        if (argv[1][n+1])
+                        {
+                            DDB_UseTranscriptFile(argv[1]+n+1);
+                            break;
+                        }
+                        else
+                        {
+                            if (argc < 3) {
+                                fprintf(stderr, "Error: No output file specified\n");
+                                return 1;
+                            }
+                            DDB_UseTranscriptFile(argv[2]);
+                            argv++, argc--;
+                            break;
+                        }
+                    }
+                    if (argv[1][n] == 'i')
+                    {
+                        if (argv[1][n+1])
+                        {
+                            SCR_UseInputFile(argv[1]+n+1);
+                            break;
+                        }
+                        else
+                        {
+                            if (argc < 3) {
+                                fprintf(stderr, "Error: No input file specified\n");
+                                return 1;
+                            }
+                            SCR_UseInputFile(argv[2]);
+                            argv++, argc--;
+                            break;
+                        }
+                    }
+                }
 				break;
 			default:
 				ShowHelp();

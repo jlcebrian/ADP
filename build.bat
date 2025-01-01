@@ -2,6 +2,15 @@
 SETLOCAL
 SET VERSION=BETA0.3
 
+SET DDB_ONLY=0
+
+:CHECK_OPTIONS
+IF "%1"=="-ddb" (
+    SET DDB_ONLY=1
+    SHIFT
+    GOTO :CHECK_OPTIONS
+)
+
 IF "%1"=="Windows" GOTO :WINDOWS64
 IF "%1"=="Windows32" GOTO :WINDOWS32
 IF "%1"=="Windows64" GOTO :WINDOWS64
@@ -15,7 +24,10 @@ IF "%2"=="" GOTO :ERROR
 GOTO :EOF
 
 :ERROR
-echo Usage: build.bat [Windows] [Release]
+echo Usage: build.bat [options] [Windows] [Release]
+echo
+echo Options:
+echo   -ddb  Build only the DDB executable
 GOTO :EOF
 
 REM -----------------------------------------------------------------
@@ -127,6 +139,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-windows\files.cpp ^
 	%LIBS% lib\ddb.res /link %LINK% /SUBSYSTEM:CONSOLE
 IF %ERRORLEVEL% NEQ 0 GOTO :EOF
+IF %DDB_ONLY% EQU 1 GOTO :EOF
 
 echo ---- Compiling PLAYER
 cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^

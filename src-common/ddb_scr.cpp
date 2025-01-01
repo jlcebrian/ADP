@@ -1,6 +1,7 @@
 #include <ddb_scr.h>
 #include <ddb_vid.h>
 #include <os_mem.h>
+#include <os_file.h>
 
 #if !defined(NO_BUFFERING)
 
@@ -15,6 +16,10 @@ SCR_CommandData  firstCommandBlock[COMMANDS_PER_BLOCK];
 SCR_CommandData	*commandBufferBlocks[MAX_BLOCKS] = { firstCommandBlock };
 size_t			 commandBufferIndex = 0;
 size_t			 commandBufferReadIndex = 0;
+
+const char*      inputFile = 0;
+const char*      inputFileBegin = 0;
+const char*      inputFileEnd = 0;
 
 static inline int IndexBlock (size_t index)
 {
@@ -47,7 +52,7 @@ static SCR_CommandData* SCR_AddCommandToBuffer()
 		commandBufferReadIndex = 0;
 		commandBufferIndex = 0;
 	}
-	
+
 	int block = IndexBlock(commandBufferIndex);
 	if (commandBufferBlocks[block] == 0)
 	{
@@ -119,7 +124,7 @@ bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 	{
 		VID_LoadPicture(picno, screenMode);
 	}
-	
+
 	return VID_PictureExists(picno);
 }
 
@@ -253,11 +258,29 @@ bool SCR_Synchronized ()
 
 void SCR_GetKey(uint8_t* key, uint8_t* ext, uint8_t* mod)
 {
+    if (inputFile && inputFile < inputFileEnd && *inputFile == '\r')
+        inputFile++;
+    if (inputFile && inputFile < inputFileEnd)
+    {
+        if (key) {
+            *key = *inputFile++;
+            if (*key == '\n') *key = 0x0D;
+        }
+        if (ext)
+            *ext = 0;
+        if (mod)
+            *mod = 0;
+        return;
+    }
+
 	VID_GetKey(key, ext, mod);
 }
 
 bool SCR_AnyKey()
 {
+    if (inputFile && inputFile < inputFileEnd)
+        return true;
+
 	return VID_AnyKey();
 }
 
@@ -374,6 +397,25 @@ void SCR_OpenFileDialog(bool existing, char* filename, size_t bufferSize)
 void SCR_SetTextInputMode(bool enabled)
 {
 	VID_SetTextInputMode(enabled);
+}
+
+void SCR_UseInputFile(const char* filename)
+{
+    File* file = File_Open(filename, ReadOnly);
+    if (file == 0)
+    {
+        inputFile = 0;
+        inputFileBegin = 0;
+        inputFileEnd = 0;
+        return;
+    }
+
+    uint64_t fileSize = File_GetSize(file);
+    inputFileBegin = inputFile = (const char*)OSAlloc(fileSize);
+    inputFileEnd = inputFileBegin + File_Read(file, (uint8_t*)inputFile, fileSize);
+    File_Close(file);
+
+    inputFile = inputFileBegin;
 }
 
 #endif

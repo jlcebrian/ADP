@@ -12,6 +12,8 @@
 #define PAUSE_ON_INKEY 0
 #define DEBUG_UNDO 0
 
+File* transcriptFile = 0;
+
 static void MarkWindowOutput();
 
 static uint8_t objNameBuffer[256];
@@ -687,6 +689,26 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
 		SCR_DrawCharacter(w->posX, w->posY, ch, ink, paper);
 		w->posX += width;
+
+        if (transcriptFile)
+        {
+            if (ch < 16 || ch > 127)
+            {
+                char buffer[24] = "\\x";
+                char* ptr = LongToChar(ch, buffer + 2, 16);
+                File_Write(transcriptFile, buffer, ptr - buffer);
+            }
+            else if (ch < 32)
+            {
+                static char* spanishChars[] = { "º","¡","¿","«","»","á","é","í","ó","ú","ñ","Ñ","ç","Ç","ü","Ü" };
+                const char* ptr = spanishChars[ch - 16];
+                File_Write(transcriptFile, ptr, StrLen(ptr));
+            }
+            else
+            {
+                File_Write(transcriptFile, &ch, 1);
+            }
+        }
 	}
 	i->pendingPtr = 0;
 
@@ -814,6 +836,8 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case '\x0D':		// Newline ('\n')
 					DDB_FlushWindow(i, w);
 					DDB_NewLineAtWindow(i, w);
+                    if (transcriptFile)
+                        File_Write(transcriptFile, "\n", 1);
 					return;
 
 				case '@':
@@ -1012,6 +1036,11 @@ void DDB_OutputInputPrompt(DDB_Interpreter* i)
 	DDB_OutputMessageToWindow(i, DDB_SYSMSG, 33, iw);
 }
 
+void DDB_UseTranscriptFile(const char* fileName)
+{
+    transcriptFile = File_Create(fileName);
+}
+
 static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 {
 	DDB_Flush(i);
@@ -1038,6 +1067,9 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 	}
 	w->scrollCount = 0;
 	w->smooth = 0;
+
+    if (transcriptFile)
+        File_Write(transcriptFile, "\n", 1);
 }
 
 static void WinAt (DDB_Interpreter* i, int line, int col)
@@ -3801,11 +3833,21 @@ static void StepFunction(int elapsed)
 			SCR_GetMilliseconds(&time);
 			if (time < i->quitStart + 500)
 				break;
+            if (transcriptFile)
+            {
+                File_Close(transcriptFile);
+                transcriptFile = 0;
+            }
 			SCR_Quit();
 			break;
 		}
 
 		case DDB_FATAL_ERROR:
+            if (transcriptFile)
+            {
+                File_Close(transcriptFile);
+                transcriptFile = 0;
+            }
 			SCR_Quit();
 			break;
 	}

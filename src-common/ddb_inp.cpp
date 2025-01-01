@@ -8,6 +8,8 @@
 
 #define DDB_WRAPAROUND_HISTORY 0
 
+extern File* transcriptFile;
+
 // TODO: Move this to an OS-specific location
 
 enum UndoMode
@@ -612,6 +614,11 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 			}
 		}
 	}
+    else if (transcriptFile != 0)
+    {
+        File_Write(transcriptFile, i->inputBuffer, i->inputBufferLength);
+        File_Write(transcriptFile, "\n", 1);
+    }
 
 	for (n = first; n < i->inputBufferLength; n++)
 	{

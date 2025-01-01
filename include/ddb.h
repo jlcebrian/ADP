@@ -657,6 +657,7 @@ extern void             DDB_ClearWindow          (DDB_Interpreter* i, DDB_Window
 extern void             DDB_SetWindow            (DDB_Interpreter* i, int winno);
 extern void             DDB_PlayClick            (DDB_Interpreter* i, bool allowRepeats);
 extern void             DDB_CalculateCells       (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint8_t* cellW);
+extern void             DDB_UseTranscriptFile    (const char* fileName);
 
 extern void             DDB_ProcessInputFrame    ();
 extern void             DDB_StartInput           (DDB_Interpreter* i, bool withPrompt);
