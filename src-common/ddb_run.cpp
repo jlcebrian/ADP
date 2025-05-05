@@ -700,7 +700,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
             }
             else if (ch < 32)
             {
-                static char* spanishChars[] = { "º","¡","¿","«","»","á","é","í","ó","ú","ñ","Ñ","ç","Ç","ü","Ü" };
+                static const char* spanishChars[] = { "º","¡","¿","«","»","á","é","í","ó","ú","ñ","Ñ","ç","Ç","ü","Ü" };
                 const char* ptr = spanishChars[ch - 16];
                 File_Write(transcriptFile, ptr, StrLen(ptr));
             }
