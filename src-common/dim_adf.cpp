@@ -414,26 +414,67 @@ uint32_t ADF_GetCWD (ADF_Disk* disk, char* buffer, uint32_t bufferSize)
 
 bool ADF_ChangeDirectory (ADF_Disk* disk, const char* name)
 {
-	ADF_FindResults r;
-	if (!ADF_FindFile(disk, &r, name))
-		return false;
-	if (!r.directory)
-	{
-		DIM_SetError(DIMError_NotADirectory);
-		return false;
-	}
-	if (disk->cwdIndex == ADF_MAX_DEPTH-1)
-	{
-		DIM_SetError(DIMError_CommandNotSupported);
-		return false;
-	}
+    if (name == NULL || name[0] == 0)
+        return true;
 
-	int index = ++disk->cwdIndex;
-	memcpy(disk->cwd[index].name, r.fileName, 32);
-	disk->cwd[index].block = r.block;
-	disk->cwd[index].hashTableEntries = 72;
-	memcpy(disk->cwd[index].hashTable, disk->block.dataBlocks, 72*4);
-	return true;
+    const char* ptr = name;
+    char component[64];
+
+    if (*ptr == '/' || *ptr == '\\')
+    {
+        disk->cwdIndex = 0;
+        ptr++;
+    }
+
+    while (*ptr)
+    {
+        const char* sep = ptr;
+        while (*sep && *sep != '/' && *sep != '\\')
+            sep++;
+        size_t len = sep - ptr;
+        if (len >= sizeof(component))
+        {
+            DIM_SetError(DIMError_CommandNotSupported);
+            return false;
+        }
+        memcpy(component, ptr, len);
+        component[len] = 0;
+
+        if (strcmp(component, "") == 0 || strcmp(component, ".") == 0)
+        {
+            // no-op
+        }
+        else if (strcmp(component, "..") == 0)
+        {
+            if (disk->cwdIndex > 0)
+                disk->cwdIndex--;
+        }
+        else
+        {
+            ADF_FindResults r;
+            if (!ADF_FindFile(disk, &r, component))
+                return false;
+            if (!r.directory)
+            {
+                DIM_SetError(DIMError_NotADirectory);
+                return false;
+            }
+            if (disk->cwdIndex >= ADF_MAX_DEPTH-1)
+            {
+                DIM_SetError(DIMError_CommandNotSupported);
+                return false;
+            }
+            int index = ++disk->cwdIndex;
+            memcpy(disk->cwd[index].name, r.fileName, 32);
+            disk->cwd[index].block = r.block;
+            disk->cwd[index].hashTableEntries = 72;
+            memcpy(disk->cwd[index].hashTable, disk->block.dataBlocks, 72*4);
+        }
+
+        ptr = (*sep) ? sep + 1 : sep;
+    }
+
+    return true;
 }
 
 // ---------------------------------------------------------------------------

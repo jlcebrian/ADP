@@ -44,6 +44,8 @@ struct FindFileResults
 
 extern bool OS_FindFirstFile (const char* pattern, FindFileResults* results);
 extern bool OS_FindNextFile  (FindFileResults* results);
+extern bool OS_GetCurrentDirectory (char* buffer, size_t bufferSize);
+extern bool OS_ChangeDirectory     (const char* path);
 
 #ifdef HAS_VIRTUALFILESYSTEM
 

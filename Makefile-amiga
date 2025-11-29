@@ -55,6 +55,7 @@ all: $(OUT).exe
 $(OUT).exe: $(OUT).elf
 	$(info Elf2Hunk $(program).exe)
 	@elf2hunk $(OUT).elf $(OUT).exe -s
+	@shrinkler $(OUT).exe $(OUT).exe
 
 $(OUT).elf: $(objects)
 	$(info Linking $(program).elf)

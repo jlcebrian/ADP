@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
+
+#define INTERACTIVE_MAX_ARGS 64
 
 #ifndef VERSION
 #error Version not defined
@@ -31,6 +34,7 @@ typedef enum
 	ACTION_RMDIR,
 	ACTION_CAT,
 	ACTION_HEXCAT,
+	ACTION_INTERACTIVE,
 }
 Action;
 
@@ -84,8 +88,25 @@ commands[] =
 	{ "type",     ACTION_CAT,        MODE_EXISTING_DISK },
 	{ "hex",      ACTION_HEXCAT,     MODE_EXISTING_DISK },
 	{ "dump",     ACTION_HEXCAT,     MODE_EXISTING_DISK },
+	{ "shell",    ACTION_INTERACTIVE, MODE_EXISTING_DISK },
+	{ "i",        ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ NULL }
 };
+
+static bool RunInteractiveSession();
+static bool ExecuteInteractiveLine(char* line, bool* keepRunning);
+static int  TokenizeLine(char* line, char* argv[], int maxArgs);
+static void TrimLine(char* line);
+static bool HandleInteractiveBuiltins(int argc, char* argv[], bool* keepRunning);
+static bool RunInteractiveCommand(int argc, char* argv[]);
+static void HostPrintCurrentDirectory();
+static bool HostListDirectory(const char* pattern);
+static bool HostChangeDirectoryCommand(const char* path);
+static void ParseOptions (int *argc, char *argv[], const char* config);
+static bool RunCommand (Action action, int argc, char *argv[]);
+
+bool AddFiles (int argc, char *argv[]);
+bool Extract  (int argc, char *argv[]);
 
 static inline char ToUpper(char c)
 {
@@ -107,8 +128,94 @@ void TracePrintf(const char* format, ...)
 {
 }
 
-static void PrintHelp()
+static void PrintHelp(int argc, char *argv[])
 {
+    if (argc > 0)
+    {
+        const char* command = argv[0];
+        int n;
+
+        for (n = 0; commands[n].command != NULL; n++)
+        {
+            if (stricmp(command, commands[n].command) == 0)
+            {
+                switch (commands[n].action)
+                {
+                    case ACTION_HELP:
+                        break;
+                    case ACTION_LIST:
+                        printf("Usage: dsk [disk.img] dir [/B] [/L] [pattern]\n\n");
+                        printf("    /B    Brief listing\n");
+                        printf("    /L    Lowercase filenames\n");
+                        return;
+                    case ACTION_CREATEDISK:
+                        printf("Usage: dsk mkdisk disk.img\n\n");
+                        printf("    Create a new empty disk image\n");
+                        printf("    The disk format is chosen based on the file extension:\n");
+                        printf("      .adf  - Amiga Disk File (ADF)\n");
+                        printf("      .dsk  - FAT Disk Image (FAT12)\n");
+                        return;
+                    case ACTION_INFO:
+                        printf("Usage: dsk info disk.img\n\n");
+                        printf("    Show information about the given disk image\n");
+                        return;
+					case ACTION_ADD:
+						printf("Usage: dsk add disk.img hostfile [hostfile2 ...]\n\n");
+						printf("    Copy one or more host files into the disk image.\n");
+						printf("    Directory paths in hostfile are stripped inside the image.\n");
+						return;
+					case ACTION_DELETE:
+						printf("Usage: dsk del disk.img pattern [pattern2 ...]\n\n");
+						printf("    Delete files that match the supplied patterns. Wildcards are allowed.\n");
+						return;
+					case ACTION_EXTRACT:
+						printf("Usage: dsk extract disk.img [pattern]\n\n");
+						printf("    Copy files from the disk image to the host directory.\n");
+						printf("    If no pattern is provided all files are extracted.\n");
+						return;
+					case ACTION_CHDIR:
+						printf("Usage: dsk chdir disk.img path\n\n");
+						printf("    Change the current directory.\n");
+						return;
+					case ACTION_MKDIR:
+						printf("Usage: dsk mkdir disk.img dirname\n\n");
+						printf("    Create a directory inside the disk image.\n");
+						return;
+					case ACTION_RMDIR:
+						printf("Usage: dsk rmdir disk.img dirname\n\n");
+						printf("    Remove an empty directory from the disk image.\n");
+						return;
+					case ACTION_CAT:
+						printf("Usage: dsk cat disk.img pattern\n\n");
+						printf("    Print the contents of files that match the pattern to stdout.\n");
+						return;
+					case ACTION_HEXCAT:
+						printf("Usage: dsk hex disk.img pattern\n\n");
+						printf("    Dump matching files in a hexadecimal/ASCII view.\n");
+						return;
+					case ACTION_INTERACTIVE:
+						printf("Usage: dsk shell disk.img\n\n");
+						printf("    Open the disk image and enter an interactive shell.\n");
+						printf("    Additional shell-only commands:\n");
+						printf("      LDIR [pattern]    - List host files\n");
+						printf("      LCD path          - Change host directory\n");
+						printf("      PUT files         - Alias for ADD\n");
+						printf("      GET [pattern]     - Alias for EXTRACT\n");
+						printf("      EXIT              - Leave the session\n");
+						return;
+                    default:
+                        printf("%s: no extended help available\n\n", command);
+                        break;
+                }
+                break;
+            }
+        }
+        if (commands[n].command == NULL)
+        {
+            printf("Unknown command: %s\n\n", command);
+        }
+    }
+
 	printf("Disk file utility for DAAD " VERSION_STR "\n\n");
 	printf("Usage: dsk [disk.img] command [options]\n\n");
 	printf("Available commands:\n\n");
@@ -120,9 +227,232 @@ static void PrintHelp()
 	printf("    del       Delete files from disk image\n");
 	printf("    rmdir     Delete an empty directory from disk image\n");
 	printf("    mkdir     Make a directory in disk image\n");
-	printf("    chdir     Change current directory (interactive use)\n");
+	printf("    chdir     Change current directory\n");
+	printf("    shell     Open an interactive shell\n");
 	printf("    help      Show extended command help\n");
+	printf("\nAdditional interactive-only commands: LDIR, LCD/LCHDIR, PUT, GET, EXIT\n");
 	printf("\n");
+}
+
+static void TrimLine(char* line)
+{
+	size_t len = strlen(line);
+	while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+		line[--len] = 0;
+}
+
+static int TokenizeLine(char* line, char* argv[], int maxArgs)
+{
+	int argc = 0;
+	char* ptr = line;
+	while (*ptr != 0)
+	{
+		while (*ptr && isspace((unsigned char)*ptr))
+			ptr++;
+		if (!*ptr)
+			break;
+		if (argc >= maxArgs)
+			break;
+		char quote = 0;
+		if (*ptr == '"' || *ptr == '\'')
+		{
+			quote = *ptr++;
+		}
+		argv[argc++] = ptr;
+		while (*ptr)
+		{
+			if (quote)
+			{
+				if (*ptr == quote)
+				{
+					*ptr++ = 0;
+					break;
+				}
+			}
+			else if (isspace((unsigned char)*ptr))
+			{
+				*ptr++ = 0;
+				break;
+			}
+			ptr++;
+		}
+	}
+	return argc;
+}
+
+static bool HostGetCurrentDirectory(char* buffer, size_t bufferSize)
+{
+	return OS_GetCurrentDirectory(buffer, bufferSize);
+}
+
+static void HostPrintCurrentDirectory()
+{
+	char cwd[FILE_MAX_PATH];
+	if (HostGetCurrentDirectory(cwd, sizeof(cwd)))
+		printf("%s\n", cwd);
+	else
+		printf("Unable to determine host current directory\n");
+}
+
+static bool HostListDirectory(const char* pattern)
+{
+	const char* search = (pattern && pattern[0]) ? pattern : "*.*";
+	FindFileResults results;
+	if (!OS_FindFirstFile(search, &results))
+	{
+		printf("No host files match %s\n", search);
+		return false;
+	}
+	char cwd[FILE_MAX_PATH];
+	if (HostGetCurrentDirectory(cwd, sizeof(cwd)))
+		printf("\n  Host directory of %s\n\n", cwd);
+	int fileCount = 0;
+	int dirCount = 0;
+	do
+	{
+		if (results.attributes & FileAttribute_Directory)
+		{
+			printf("%-31s <DIR>\n", results.fileName);
+			dirCount++;
+		}
+		else
+		{
+			printf("%-31s %8u\n", results.fileName, results.fileSize);
+			fileCount++;
+		}
+	}
+	while (OS_FindNextFile(&results));
+	printf("\n%16d File(s)\n%16d Dir(s)\n", fileCount, dirCount);
+	return true;
+}
+
+static bool HostChangeDirectoryCommand(const char* path)
+{
+	if (path == NULL || path[0] == 0)
+	{
+		HostPrintCurrentDirectory();
+		return true;
+	}
+	if (OS_ChangeDirectory(path))
+	{
+		HostPrintCurrentDirectory();
+		return true;
+	}
+	printf("lcd: unable to change directory to %s\n", path);
+	return false;
+}
+
+static bool RunInteractiveCommand(int argc, char* argv[])
+{
+	if (argc == 0)
+		return true;
+	for (int n = 0; commands[n].command != NULL; n++)
+	{
+		if (stricmp(commands[n].command, argv[0]) == 0)
+		{
+			if (commands[n].action == ACTION_INTERACTIVE)
+			{
+				printf("Already in interactive mode\n");
+				return true;
+			}
+			if (commands[n].mode == MODE_NEW_DISK)
+			{
+				printf("%s: command unavailable during an active session\n", argv[0]);
+				return true;
+			}
+			int localArgc = argc;
+			char* localArgv[INTERACTIVE_MAX_ARGS];
+			for (int i = 0; i < argc && i < INTERACTIVE_MAX_ARGS; i++)
+				localArgv[i] = argv[i];
+			if (commands[n].options)
+				ParseOptions(&localArgc, localArgv, commands[n].options);
+			localArgc--;
+			if (localArgc < 0)
+				localArgc = 0;
+			return RunCommand(commands[n].action, localArgc, localArgv + 1);
+		}
+	}
+	printf("%s: Unknown command\n", argv[0]);
+	return true;
+}
+
+static bool HandleInteractiveBuiltins(int argc, char* argv[], bool* keepRunning)
+{
+	if (argc == 0)
+		return false;
+	const char* command = argv[0];
+	if (stricmp(command, "exit") == 0 || stricmp(command, "quit") == 0)
+	{
+		*keepRunning = false;
+		return true;
+	}
+	if (stricmp(command, "ldir") == 0)
+	{
+		HostListDirectory(argc > 1 ? argv[1] : "*.*");
+		return true;
+	}
+	if (stricmp(command, "lcd") == 0 || stricmp(command, "lchdir") == 0)
+	{
+		HostChangeDirectoryCommand(argc > 1 ? argv[1] : NULL);
+		return true;
+	}
+	if (stricmp(command, "put") == 0)
+	{
+		if (argc < 2)
+		{
+			printf("put: missing host file name\n");
+			return true;
+		}
+		AddFiles(argc - 1, argv + 1);
+		return true;
+	}
+	if (stricmp(command, "get") == 0)
+	{
+		Extract(argc - 1, argv + 1);
+		return true;
+	}
+	return false;
+}
+
+static bool ExecuteInteractiveLine(char* line, bool* keepRunning)
+{
+	char* argv[INTERACTIVE_MAX_ARGS];
+	int argc = TokenizeLine(line, argv, INTERACTIVE_MAX_ARGS);
+	if (argc == 0)
+		return true;
+	if (HandleInteractiveBuiltins(argc, argv, keepRunning))
+		return true;
+	return RunInteractiveCommand(argc, argv);
+}
+
+static bool RunInteractiveSession()
+{
+	if (disk == NULL || diskFileName == NULL)
+	{
+		printf("Interactive mode requires an open disk image\n");
+		return false;
+	}
+	printf("Entering interactive session for %s. Type HELP for commands, EXIT to quit.\n", diskFileName);
+	bool keepRunning = true;
+	char line[512];
+	while (keepRunning)
+	{
+		char cwd[FILE_MAX_PATH];
+		if (DIM_GetCWD(disk, cwd, sizeof(cwd)) == 0)
+			strcpy(cwd, "\\");
+		printf("%s%s> ", diskFileName, cwd);
+		fflush(stdout);
+		if (!fgets(line, sizeof(line), stdin))
+		{
+			printf("\n");
+			break;
+		}
+		TrimLine(line);
+		if (line[0] == 0)
+			continue;
+		ExecuteInteractiveLine(line, &keepRunning);
+	}
+	return true;
 }
 
 static bool CheckExtension(const char* filename, const char* ext)
@@ -133,7 +463,7 @@ static bool CheckExtension(const char* filename, const char* ext)
 	return stricmp(p + 1, ext) == 0;
 }
 
-void ParseOptions (int *argc, char *argv[], const char* config)
+static void ParseOptions (int *argc, char *argv[], const char* config)
 {
 	for (int n = 0; n < *argc; n++)
 	{
@@ -170,7 +500,7 @@ void ParseOptions (int *argc, char *argv[], const char* config)
 	}
 }
 
-bool MkDir (int argc, char *argv[])
+static bool MkDir (int argc, char *argv[])
 {
 	if (argc < 1)
 	{
@@ -185,7 +515,7 @@ bool MkDir (int argc, char *argv[])
 	return true;
 }
 
-bool ChDir (int argc, char *argv[])
+static bool ChDir (int argc, char *argv[])
 {
 	if (argc < 1)
 	{
@@ -200,7 +530,7 @@ bool ChDir (int argc, char *argv[])
 	return true;
 }
 
-bool RmDir (int argc, char *argv[])
+static bool RmDir (int argc, char *argv[])
 {
 	if (argc < 1)
 	{
@@ -221,7 +551,7 @@ bool RmDir (int argc, char *argv[])
 	return true;
 }
 
-bool Cat (int argc, char *argv[], bool hexMode)
+static bool Cat (int argc, char *argv[], bool hexMode)
 {
 	const char* pattern = NULL;
 	FindFileResults result;
@@ -341,7 +671,7 @@ bool Cat (int argc, char *argv[], bool hexMode)
 	return true;
 }
 
-bool Dir (int argc, char* argv[])
+static bool Dir (int argc, char* argv[])
 {
 	const char* pattern = NULL;
 	int dirCount = 0;
@@ -445,7 +775,7 @@ bool Dir (int argc, char* argv[])
 	return true;
 }
 
-bool CreateDisk(int argc, char *argv[])
+static bool CreateDisk(int argc, char *argv[])
 {
 	if (diskFileName == NULL && argc > 0)
 	{
@@ -469,7 +799,7 @@ bool CreateDisk(int argc, char *argv[])
 	return true;
 }
 
-bool DeleteFiles (int argc, char *argv[])
+static bool DeleteFiles (int argc, char *argv[])
 {
 	int fileCount = 0;
 	int errorCount = 0;
@@ -518,7 +848,7 @@ bool DeleteFiles (int argc, char *argv[])
 	return true;
 }
 
-bool AddFiles (int argc, char *argv[])
+static bool AddFiles (int argc, char *argv[])
 {
 	uint8_t* buffer = NULL;
 	size_t bufferSize = 0;
@@ -577,7 +907,7 @@ bool AddFiles (int argc, char *argv[])
 	return ok;
 }
 
-bool Extract (int argc, char *argv[])
+static bool Extract (int argc, char *argv[])
 {
 	uint8_t* buffer = NULL;
 	uint32_t bufferSize = 0;
@@ -650,12 +980,12 @@ bool Extract (int argc, char *argv[])
 	return true;
 }
 
-bool RunCommand (Action action, int argc, char *argv[])
+static bool RunCommand (Action action, int argc, char *argv[])
 {
 	switch (action)
 	{
 		case ACTION_HELP:
-			PrintHelp();
+			PrintHelp(argc, argv);
 			return true;
 		case ACTION_INFO:
 			printf("%s:\n\n", diskFileName);
@@ -681,16 +1011,18 @@ bool RunCommand (Action action, int argc, char *argv[])
 			return Cat(argc, argv, false);
 		case ACTION_HEXCAT:
 			return Cat(argc, argv, true);
+		case ACTION_INTERACTIVE:
+			return RunInteractiveSession();
 	}
 	printf("Action %d not implemented yet", action);
 	return false;
 }
 
-bool RunCommandLine (int argc, char *argv[])
+static bool RunCommandLine (int argc, char *argv[])
 {
 	if (argc < 1)
 	{
-		PrintHelp();
+		PrintHelp(argc, argv);
 		return true;
 	}
 

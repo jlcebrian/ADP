@@ -70,4 +70,19 @@ bool OS_FindNextFile(FindFileResults *results)
 	return true;
 }
 
+bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
+{
+	if (buffer == NULL || bufferSize == 0)
+		return false;
+	DWORD len = GetCurrentDirectory((DWORD)bufferSize, buffer);
+	return len > 0 && len < bufferSize;
+}
+
+bool OS_ChangeDirectory(const char* path)
+{
+	if (path == NULL)
+		return false;
+	return SetCurrentDirectory(path) != 0;
+}
+
 #endif

@@ -50,6 +50,20 @@ bool OS_FindNextFile(FindFileResults *results)
 	return false;
 }
 
+bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
+{
+	if (buffer == NULL || bufferSize == 0)
+		return false;
+	return getcwd(buffer, bufferSize) != 0;
+}
+
+bool OS_ChangeDirectory(const char* path)
+{
+	if (path == NULL)
+		return false;
+	return chdir(path) == 0;
+}
+
 void OSSyncFS()
 {
 }

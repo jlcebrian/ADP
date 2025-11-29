@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
 
 struct FindFileInternal
 {
@@ -72,6 +73,16 @@ bool OS_FindNextFile(FindFileResults *results)
 	closedir(i->dirp);
 	i->dirp = 0;
 	return false;
+}
+
+bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
+{
+	return buffer && bufferSize && getcwd(buffer, bufferSize) != 0;
+}
+
+bool OS_ChangeDirectory(const char* path)
+{
+	return path && chdir(path) == 0;
 }
 
 #endif

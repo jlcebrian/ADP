@@ -160,4 +160,24 @@ bool OS_FindNextFile(FindFileResults* info)
 	return true;
 }
 
+bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
+{
+	if (buffer == 0 || bufferSize == 0)
+		return false;
+	CallingDOS();
+	LONG result = GetCurrentDirName(buffer, (LONG)bufferSize);
+	AfterCallingDOS();
+	return result != 0;
+}
+
+bool OS_ChangeDirectory(const char* path)
+{
+	if (path == 0)
+		return false;
+	CallingDOS();
+	BOOL ok = SetCurrentDirName((STRPTR)path);
+	AfterCallingDOS();
+	return ok != 0;
+}
+
 #endif

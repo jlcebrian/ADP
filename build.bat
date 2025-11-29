@@ -47,7 +47,18 @@ REM -----------------------------------------------------------------
 :AMIGA
 SETLOCAL
 SET VSCODE=c:\Users\%USERNAME%\.vscode
-SET EXTENSION=extensions\bartmanabyss.amiga-debug-1.7.4
+SET EXTENSION=
+IF EXIST "%VSCODE%\extensions\bartmanabyss.amiga-debug-1.7.4" SET EXTENSION=extensions\bartmanabyss.amiga-debug-1.7.4
+IF NOT DEFINED EXTENSION (
+	FOR /F "delims=" %%E IN ('dir /b /ad /o-n "%VSCODE%\extensions\bartmanabyss.amiga-debug-*" 2^>NUL') DO (
+		IF NOT DEFINED EXTENSION SET EXTENSION=extensions\%%E
+	)
+)
+IF NOT DEFINED EXTENSION (
+	echo Could not locate bartmanabyss.amiga-debug extension under %VSCODE%\extensions
+	echo Please install it from VS Code marketplace or update build.bat with the correct path.
+	GOTO :EOF
+)
 SET OPTS=
 IF "%2"=="clean" SET OPTS=clean
 SET PATH=%VSCODE%\%EXTENSION%\bin\win32;%VSCODE%\%EXTENSION%\bin\win32\opt\bin;%PATH%
