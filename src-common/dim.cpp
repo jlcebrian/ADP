@@ -36,6 +36,7 @@ const char* DIM_GetErrorString ()
 		case DIMError_DirectoryNotFound:    return "Directory not found";
 		case DIMError_NotADirectory:        return "Not a directory";
 		case DIMError_CommandNotSupported:  return "Command not supported";
+        case DIMError_FormatNotSupported:   return "Disk format not supported";
 	}
 	return "Unknown error";
 }
@@ -152,20 +153,62 @@ const char* DIM_CheckPatternFolder (DIM_Disk* disk, const char* pattern)
 
 DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size)
 {
-	FAT_Disk* fatDisk = FAT_CreateDisk(fileName, size);
-	if (fatDisk == NULL)
-		return 0;
+    const char* extension = strrchr(fileName, '.');
+    if (extension == NULL)
+    {
+        DIM_SetError(DIMError_FormatNotSupported);
+        return NULL;
+    }
 
-	DIM_Disk* disk = Allocate<DIM_Disk>("DIM Disk");
-	if (disk == NULL)
-	{
-		DIM_SetError(DIMError_OutOfMemory);
-		return 0;
-	}
-	disk->fat = fatDisk;
-	disk->type = DIM_FAT;
-	disk->capabilities = DIMCaps_Directories;
-	return disk;
+    DIM_DiskType type = DIM_FAT;
+    if (StrIComp(extension, ".dsk") == 0)
+    {
+        type = DIM_CPC;
+    }
+    else if (StrIComp(extension, ".adf") == 0)
+    {
+        type = DIM_ADF;
+    }
+
+    switch (type)
+    {
+        case DIM_FAT:
+        {
+        	FAT_Disk* fatDisk = FAT_CreateDisk(fileName, size);
+        	if (fatDisk == NULL)
+        		return 0;
+
+        	DIM_Disk* disk = Allocate<DIM_Disk>("DIM Disk");
+        	if (disk == NULL)
+        	{
+        		DIM_SetError(DIMError_OutOfMemory);
+        		return 0;
+        	}
+        	disk->fat = fatDisk;
+        	disk->type = DIM_FAT;
+        	disk->capabilities = DIMCaps_Directories;
+        	return disk;
+        }
+        case DIM_ADF:
+        {
+            ADF_Disk* adfDisk = ADF_CreateDisk(fileName, size);
+            if (adfDisk == NULL)
+                return 0;
+            DIM_Disk* disk = Allocate<DIM_Disk>("DIM Disk");
+            if (disk == NULL)
+            {
+                DIM_SetError(DIMError_OutOfMemory);
+                return 0;
+            }
+            disk->adf = adfDisk;
+            disk->type = DIM_ADF;
+            disk->capabilities = DIMCaps_Directories;
+            return disk;
+        }
+        default:
+            DIM_SetError(DIMError_FormatNotSupported);
+            return NULL;
+    }
 }
 
 DIM_Disk* DIM_OpenDisk (const char* fileName)
@@ -373,6 +416,8 @@ uint32_t DIM_WriteFile (DIM_Disk* disk, const char* path, const uint8_t* buffer,
 	{
 		case DIM_FAT:
 			return FAT_WriteFile(disk->fat, path, buffer, bufferSize);
+        case DIM_ADF:
+            return ADF_WriteFile(disk->adf, path, buffer, bufferSize);
 		default:
 			DIM_SetError(DIMError_CommandNotSupported);
 			return 0;
@@ -389,6 +434,8 @@ bool DIM_RemoveFile (DIM_Disk* disk, const char* name)
 	{
 		case DIM_FAT:
 			return FAT_RemoveFile(disk->fat, name);
+        case DIM_ADF:
+            return ADF_RemoveFile(disk->adf, name);
 		default:
 			DIM_SetError(DIMError_CommandNotSupported);
 			return false;
@@ -415,6 +462,8 @@ bool DIM_MakeDirectory (DIM_Disk* disk, const char* name)
 	{
 		case DIM_FAT:
 			return FAT_MakeDirectory(disk->fat, name);
+        case DIM_ADF:
+            return ADF_MakeDirectory(disk->adf, name);
 		default:
 			DIM_SetError(DIMError_CommandNotSupported);
 			return false;
@@ -427,6 +476,8 @@ bool DIM_RemoveDirectory (DIM_Disk* disk, const char* name)
 	{
 		case DIM_FAT:
 			return FAT_RemoveDirectory(disk->fat, name);
+        case DIM_ADF:
+            return ADF_RemoveDirectory(disk->adf, name);
 		default:
 			DIM_SetError(DIMError_CommandNotSupported);
 			return false;

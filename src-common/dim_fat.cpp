@@ -201,7 +201,7 @@ static inline int FAT_NextSector (FAT_Disk* disk, uint32_t sector)
 	if (nextCluster < 2 || nextCluster >= FAT_RESERVED)
 		return FAT_LAST;
 
-	return nextCluster;
+	return FAT_Cluster2Sector(disk, (uint32_t)nextCluster);
 }
 
 bool FAT_MatchPattern (const FAT_DirEntry* entry, const char* pattern)
@@ -352,6 +352,8 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 		DIM_SetError(DIMError_OutOfMemory);
 		return NULL;
 	}
+    if (size == 0)
+        size = DISK_SIZE_1440KB;
 
 	disk->file = File_Create(filename);
 	if (!disk->file)
@@ -597,7 +599,7 @@ uint32_t FAT_FindFreeCluster (FAT_Disk* disk)
 		if (FAT_GetClusterFATValue(disk, i) == 0)
 			return i;
 	}
-	return 0;
+	return FAT_LAST;
 }
 
 uint32_t FAT_CountFreeClusters(FAT_Disk* disk)
@@ -878,18 +880,21 @@ bool FAT_FindFreeDirectoryEntry(FAT_Disk* disk, FAT_FindResults* result, bool de
 	result->sector = disk->cwdFirstSector;
 	result->offset = 0;
 
-	if (result->sector != FAT_LAST && result->sector >= disk->firstDataSector)
+	if (result->sector == FAT_LAST)
 	{
-		if (!FAT_ReadSector(disk, result->sector))
-		{
-			DIM_SetError(DIMError_ReadError);
-			return false;
-		}
+		DIM_SetError(DIMError_InvalidFile);
+		return false;
 	}
 
-	while (result->sector == FAT_LAST || result->sector < disk->firstDataSector)
+	if (!FAT_ReadSector(disk, result->sector))
 	{
-		FAT_DirEntry* entry = (FAT_DirEntry*) (sectorData + result->offset);
+		DIM_SetError(DIMError_ReadError);
+		return false;
+	}
+
+	for (;;)
+	{
+		FAT_DirEntry* entry = (FAT_DirEntry*)(sectorData + result->offset);
 		if (entry->filename[0] == 0 || (deletedOk && (uint8_t)entry->filename[0] == 0xE5))
 		{
 			result->entry = *entry;
@@ -900,22 +905,26 @@ bool FAT_FindFreeDirectoryEntry(FAT_Disk* disk, FAT_FindResults* result, bool de
 		if (result->offset >= FAT_SECTOR_SIZE)
 		{
 			uint32_t nextSector = FAT_NextSector(disk, result->sector);
-			if (nextSector != FAT_LAST)
+			if (nextSector == FAT_LAST)
+				break;
+
+			result->sector = nextSector;
+			result->offset = 0;
+			if (!FAT_ReadSector(disk, result->sector))
 			{
-				result->sector = nextSector;
-				result->offset = 0;
-				if (!FAT_ReadSector(disk, result->sector))
-				{
-					DIM_SetError(DIMError_ReadError);
-					return false;
-				}
-				continue;
+				DIM_SetError(DIMError_ReadError);
+				return false;
 			}
-			break;
 		}
 	}
 
-	if (makeDirectoryBigger == false)
+	if (!makeDirectoryBigger)
+	{
+		DIM_SetError(DIMError_DirectoryFull);
+		return false;
+	}
+
+	if (disk->cwdDepth == 0 && disk->fatType != FAT_FAT32)
 	{
 		DIM_SetError(DIMError_DirectoryFull);
 		return false;
@@ -928,9 +937,14 @@ bool FAT_FindFreeDirectoryEntry(FAT_Disk* disk, FAT_FindResults* result, bool de
 		return false;
 	}
 
-	uint32_t cluster = FAT_Sector2Cluster(disk, result->sector);
-	if (cluster != FAT_LAST)
-		FAT_SetClusterFATValue(disk, cluster, nextCluster);
+	uint32_t currentCluster = FAT_Sector2Cluster(disk, result->sector);
+	if (currentCluster == FAT_LAST)
+	{
+		DIM_SetError(DIMError_InvalidFile);
+		return false;
+	}
+
+	FAT_SetClusterFATValue(disk, currentCluster, nextCluster);
 	FAT_SetClusterFATValue(disk, nextCluster, (unsigned)FAT_LAST);
 
 	result->sector = FAT_Cluster2Sector(disk, nextCluster);
@@ -981,8 +995,12 @@ bool FAT_MakeDirectory (FAT_Disk* disk, const char* filename)
 uint32_t FAT_WriteFile (FAT_Disk* disk, const char* filename, const uint8_t* buffer, uint32_t size)
 {
 	FAT_FindResults results;
+	bool existingEntry = false;
+	uint8_t preservedAttributes = 0;
 	if (FAT_FindFile(disk, &results, filename))
 	{
+		existingEntry = true;
+		preservedAttributes = results.entry.attributes;
 		if (!FAT_RemoveFileFromDE(disk, &results.entry, results.sector, results.offset))
 			return 0;
 	}
@@ -1003,7 +1021,7 @@ uint32_t FAT_WriteFile (FAT_Disk* disk, const char* filename, const uint8_t* buf
 	results.entry.fileSize = 0;
 	results.entry.fat32ClusterHigh = (uint16_t)(FAT_LAST >> 16);
 	results.entry.startingCluster = 0;
-	results.entry.attributes = 0;
+	results.entry.attributes = existingEntry ? preservedAttributes : 0;
 	results.entry.modifyTime = 0;
 	results.entry.modifyDate = 0;
 	

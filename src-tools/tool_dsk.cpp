@@ -385,8 +385,8 @@ bool Dir (int argc, char* argv[])
 			printf("\n  Directory of %s\n\n", cwd);
 			if (cwd[0] && cwd[1])
 			{
-				printf("%-13s <DIR>\n", ".");
-				printf("%-13s <DIR>\n", "..");
+				printf("%-31s <DIR>\n", ".");
+				printf("%-31s <DIR>\n", "..");
 				dirCount += 2;
 			}
 		}
@@ -411,7 +411,7 @@ bool Dir (int argc, char* argv[])
 				if (options & DIR_BRIEF)
 					printf("%s\\\n", result.fileName);
 				else
-					printf("%-13s <DIR>            %s\n", result.fileName, result.description);
+					printf("%-31s <DIR>            %s\n", result.fileName, result.description);
 				dirCount++;
 			}
 			else
@@ -419,7 +419,7 @@ bool Dir (int argc, char* argv[])
 				if (options & DIR_BRIEF)
 					printf("%s\n", result.fileName);
 				else
-					printf("%-13s        %8d  %s\n", result.fileName, result.fileSize, result.description);
+					printf("%-31s        %8d  %s\n", result.fileName, result.fileSize, result.description);
 				fileCount++;
 				totalSize += result.fileSize;
 			}
@@ -458,9 +458,7 @@ bool CreateDisk(int argc, char *argv[])
 		return false;
 	}
 
-	int size = DISK_SIZE_144MB;
-	if (CheckExtension(diskFileName, "st"))
-		size = DISK_SIZE_720KB;
+	int size = 0;
 	disk = DIM_CreateDisk(diskFileName, size);
 	if (!disk)
 	{

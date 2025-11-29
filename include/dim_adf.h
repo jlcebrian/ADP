@@ -14,9 +14,9 @@ struct ADF_RootBlock
 {
 	uint32_t    type;
 	uint32_t    headerKey;
-	uint32_t    highSeq;				// Unused
+	uint32_t    highSeq;				// Highest index in the block list table
 	uint32_t    hashTableEntries;
-	uint32_t    firstData;				// Unused
+	uint32_t    firstData;				// Block number of the first data block of a file
 	uint32_t    checksum;
 	uint32_t    hashTable[72];
 	int32_t     bitmapFlag;
@@ -84,6 +84,18 @@ enum ADF_FileSystem
 	ADF_FFS
 };
 
+
+enum ADF_BlockConstants
+{
+    ADF_ROOT_TYPE     =  2,
+    ADF_DIR_TYPE      =  2,
+    ADF_DATA_TYPE     =  8,
+    ADF_EXT_TYPE      = 16,
+    ADF_ST_ROOT       =  1,
+    ADF_ST_DIR        =  2,
+    ADF_ST_FILE       = -3,
+};
+
 struct ADF_Disk
 {
 	File*			file;
@@ -127,4 +139,10 @@ uint64_t   ADF_GetFreeSpace    (ADF_Disk* disk);
 uint32_t   ADF_GetVolumeLabel  (ADF_Disk* disk, char* buffer, uint32_t bufferSize);
 void       ADF_DumpInfo        (ADF_Disk* disk);
 void       ADF_CloseDisk       (ADF_Disk* disk);
-									 
+
+// Write support
+ADF_Disk*  ADF_CreateDisk      (const char* filename, uint32_t size);
+bool       ADF_RemoveFile      (ADF_Disk* disk, const char* path);
+bool       ADF_RemoveDirectory (ADF_Disk* disk, const char* path);
+bool       ADF_MakeDirectory   (ADF_Disk* disk, const char* path);
+bool       ADF_WriteFile       (ADF_Disk* disk, const char* path, const void* data, uint32_t dataSize);

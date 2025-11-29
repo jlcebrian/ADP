@@ -4,8 +4,8 @@
 #include <os_file.h>
 
 #define DISK_SIZE_720KB		737280
-#define DISK_SIZE_144MB		1474560
-#define DISK_SIZE_288MB		2949120
+#define DISK_SIZE_1440KB	1474560
+#define DISK_SIZE_2880KB	2949120
 
 struct FAT_Disk;
 struct CPC_Disk;
@@ -28,6 +28,7 @@ enum DIM_Error
 	DIMError_WriteError,
 	DIMError_FileExists,
 	DIMError_CommandNotSupported,
+    DIMError_FormatNotSupported,
 };
 
 enum DIM_DiskType

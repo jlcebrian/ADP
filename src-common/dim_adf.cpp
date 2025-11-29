@@ -2,6 +2,7 @@
 
 #include <dim_adf.h>
 #include <dim.h>
+#include <os_char.h>
 #include <os_file.h>
 #include <os_bito.h>
 #include <os_mem.h>
@@ -9,6 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+const int64_t AMIGA_EPOCH_OFFSET = 252460800;
+
+static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex);
 
 static void fix32(ADF_RootBlock* root)
 {
@@ -86,7 +91,8 @@ uint64_t ADF_GetFreeSpace (ADF_Disk* disk)
 	uint64_t count = 0;
 	uint32_t mask = 0x00000001;
 	uint32_t offset = 0;
-	for (unsigned i = 0; i < disk->numBlocks; i++)
+    uint32_t totalBitmapBits = (disk->numBlocks - 2);
+	for (unsigned i = 0; i < totalBitmapBits; i++)
 	{
 		if (disk->bitmap[offset] & mask)
 			count++;
@@ -109,7 +115,7 @@ ADF_Disk* ADF_OpenDisk (const char* filename)
 		return 0;
 	}
 
-	File* file = File_Open(filename);
+	File* file = File_Open(filename, ReadWrite);
 	if (file == 0)
 	{
 		DIM_SetError(DIMError_FileNotFound);
@@ -134,7 +140,17 @@ ADF_Disk* ADF_OpenDisk (const char* filename)
 	if (memcmp(disk->boot, "DOS", 3) == 0 && disk->boot[3] < 2 &&
 		disk->rootBlock < disk->numBlocks)
 	{
-		disk->fs = disk->boot[3] == 0 ? ADF_OFS : ADF_FFS;
+        uint8_t dosType = disk->boot[3];
+        switch (dosType) {
+            case 0: disk->fs = ADF_OFS; break;
+            case 1: disk->fs = ADF_FFS; break;
+            case 2: disk->fs = ADF_OFS; break;  // International OFS
+            case 3: disk->fs = ADF_FFS; break;  // International FFS
+            default:
+                DIM_SetError(DIMError_FormatNotSupported);
+    			ADF_CloseDisk(disk);
+                return 0;
+        }
 		File_Seek(file, 512*disk->rootBlock);
 		if (File_Read(file, &disk->root, 512) != 512)
 		{
@@ -261,7 +277,7 @@ uint32_t ADF_ReadFile (ADF_Disk* disk, const char* path, uint8_t* buffer, uint32
 	uint8_t  headerSize = disk->fs == ADF_OFS ? 24 : 0;
 	uint16_t dataSize = 512 - headerSize;
 	uint32_t block = disk->block.firstData;
-	uint32_t index = 71;
+	uint32_t index = disk->block.highSeq;
 	uint32_t total = 0;
 	if (disk->block.dataBlocks[index] != block)
 	{
@@ -319,6 +335,37 @@ uint32_t ADF_GetVolumeLabel(ADF_Disk* disk, char* buffer, uint32_t bufferSize)
 	return len;
 }
 
+static void ADF_GetCurrentAmigaTime(uint32_t* days, uint32_t* minutes, uint32_t* ticks)
+{
+    // 1. Get current system time (Unix Timestamp)
+    time_t t = time(NULL);
+    
+    // 2. Adjust for Amiga Epoch (Jan 1, 1978)
+    int64_t amigaSeconds = (int64_t)t - AMIGA_EPOCH_OFFSET;
+    
+    // Safety check for dates before 1978
+    if (amigaSeconds < 0) amigaSeconds = 0;
+
+    // 3. Calculate Components
+    *days    = (uint32_t)(amigaSeconds / 86400);
+    
+    uint32_t secondsInDay = (uint32_t)(amigaSeconds % 86400);
+    *minutes = secondsInDay / 60;
+    
+    uint32_t seconds = secondsInDay % 60;
+    *ticks   = seconds * 50;
+}
+
+static time_t ADF_AmigaDateToUnix(uint32_t days, uint32_t minutes, uint32_t ticks)
+{
+    int64_t seconds =
+        days * 86400LL +
+        minutes * 60LL +
+        ticks / 50;
+
+    return seconds + AMIGA_EPOCH_OFFSET;
+}
+
 void ADF_DumpInfo (ADF_Disk* disk)
 {
 	time_t     tc, ta;
@@ -327,12 +374,10 @@ void ADF_DumpInfo (ADF_Disk* disk)
 	char       access[80];
 
 	// Get current time
-
-	// Format time, "ddd yyyy-mm-dd hh:mm:ss zzz"
-	tc = disk->root.cDays * 3600 * 24;
+    tc = ADF_AmigaDateToUnix(disk->root.cDays, disk->root.cMinutes, disk->root.cTicks);
 	ts = *localtime(&tc);
 	strftime(creation, sizeof(creation), "%Y-%m-%d", &ts);
-	ta = disk->root.aDays * 3600 * 24;
+	ta = ADF_AmigaDateToUnix(disk->root.aDays, disk->root.aMinutes, disk->root.aTicks);
 	ts = *localtime(&ta);
 	strftime(access, sizeof(access), "%Y-%m-%d", &ts);
 
@@ -389,6 +434,752 @@ bool ADF_ChangeDirectory (ADF_Disk* disk, const char* name)
 	disk->cwd[index].hashTableEntries = 72;
 	memcpy(disk->cwd[index].hashTable, disk->block.dataBlocks, 72*4);
 	return true;
+}
+
+// ---------------------------------------------------------------------------
+//  Write support helpers
+// ---------------------------------------------------------------------------
+
+static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset)
+{
+    uint32_t sum = 0;
+    uint32_t* ptr = (uint32_t*)block;
+    
+    ptr[checksumOffset / 4] = 0;
+    for (int i = 0; i < 128; i++)
+        sum += fix32(ptr[i]); 
+    ptr[checksumOffset / 4] = fix32(-sum);
+}
+
+// Standard Amiga Int'l Hash function
+static uint32_t ADF_HashString(const char* name, int hashTableSize)
+{
+    uint32_t hash = strlen(name);
+    for(int i=0; name[i]; i++)
+    {
+        hash = hash * 13 + ToUpper(name[i]);
+        hash &= 0x7ff;
+    }
+    return hash % hashTableSize;
+}
+
+static uint32_t ADF_AllocBlock(ADF_Disk* disk)
+{
+    if (disk->bitmap == 0 && !ADF_LoadBitmapFromDisk(disk))
+        return ADF_INVALID_BLOCK;
+
+    uint32_t totalBlocks = disk->numBlocks - 2; // Exclude bootblocks
+    uint32_t mapSize = (totalBlocks + 31) / 32;
+
+    for (uint32_t i = 0; i < mapSize; i++)
+    {
+        if (disk->bitmap[i] != 0) 
+        {
+            uint32_t mask = 1;
+            for (int bit = 0; bit < 32; bit++)
+            {
+                if (disk->bitmap[i] & mask)
+                {
+                    disk->bitmap[i] &= ~mask; 
+                    
+                    uint32_t blockIndex = 2 + (i * 32) + bit; // +2 for bootblocks
+                    
+                    // We must write the modified bitmap block back to disk immediately
+                    // to prevent corruption if we crash later.
+                    // Calculate which bitmap page this belongs to.
+                    // (Assuming standard root block bitmap pointers for simplicity)
+                    // A bitmap block covers 127 longs * 32 = 4064 blocks.
+                    
+                    // Note: This simplified write-back assumes standard floppy layout
+                    // where bitmap pages are stored in the root block list.
+                    
+                    uint32_t wordsPerBlock = 127;
+                    uint32_t bitmapBlockIndex = i / wordsPerBlock;
+                    uint32_t offsetInBlock = i % wordsPerBlock;
+                    
+                    if (bitmapBlockIndex < 25)
+                    {
+                        uint32_t physBlock = disk->root.bitmapPage[bitmapBlockIndex];
+                        uint32_t buffer[128];
+                        
+                        // Read, Modify, Write
+                        if (File_Seek(disk->file, physBlock * 512) && 
+                            File_Read(disk->file, buffer, 512) == 512)
+                        {
+                            // Fix endianness for processing
+                            for(int k=0; k<128; k++) buffer[k] = fix32(buffer[k]);
+                            
+                            // Update the specific word
+                            buffer[offsetInBlock + 1] = disk->bitmap[i]; // +1 because first long is checksum
+                            
+                            // Re-checksum
+                            buffer[0] = 0; // Clear checksum
+                            uint32_t sum = 0;
+                            for(int k=0; k<128; k++) {
+                                // Convert back to BE for calculation/writing
+                                buffer[k] = fix32(buffer[k]); 
+                                sum += fix32(buffer[k]); // Sum logical values
+                            }
+                            // The sum loop above converted everything to BE. 
+                            // Now set checksum.
+                            buffer[0] = fix32(-sum); 
+                            
+                            File_Seek(disk->file, physBlock * 512);
+                            File_Write(disk->file, buffer, 512);
+                        }
+                    }
+                    return blockIndex;
+                }
+                mask <<= 1;
+            }
+        }
+    }
+    DIM_SetError(DIMError_DiskFull);
+    return ADF_INVALID_BLOCK;
+}
+
+static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex)
+{
+    // 1. Validate
+    if (blockIndex < 2 || blockIndex >= disk->numBlocks) return;
+
+    // 2. Calculate Bitmap Position
+    // The boot blocks (0,1) are not in the bitmap usually, but the bitmap index 
+    // is 0-based relative to the disk start.
+    uint32_t mapIndex = blockIndex - 2;
+    uint32_t wordIndex = mapIndex / 32;
+    uint32_t bitIndex  = mapIndex % 32;
+
+    // 3. Update Memory Copy (if loaded)
+    if (disk->bitmap)
+    {
+        disk->bitmap[wordIndex] |= (1 << bitIndex);
+    }
+
+    // 4. Update Disk (Read-Modify-Write)
+    // We must find which physical block holds this bitmap word.
+    // Standard OFS/FFS stores bitmap pointers in the Root Block (pages).
+    // Each bitmap block holds 127 uint32s of data (minus checksum).
+    
+    uint32_t longsPerBlock = 127;
+    uint32_t pageIndex = wordIndex / longsPerBlock;
+    uint32_t offsetInPage = wordIndex % longsPerBlock;
+
+    if (pageIndex < 25 && disk->root.bitmapPage[pageIndex] != 0)
+    {
+        uint32_t bitmapBlockNum = disk->root.bitmapPage[pageIndex];
+        uint32_t buffer[128];
+
+        if (File_Seek(disk->file, bitmapBlockNum * 512) &&
+            File_Read(disk->file, buffer, 512) == 512)
+        {
+            // The buffer is Big Endian. We need to handle it carefully.
+            // Data starts at index 1 (index 0 is checksum).
+            uint32_t* dataPtr = &buffer[1];
+            
+            // Read the specific word, fix endianness, set bit
+            uint32_t val = fix32(dataPtr[offsetInPage]);
+            val |= (1 << bitIndex);
+            
+            // Write back fixed
+            dataPtr[offsetInPage] = fix32(val);
+
+            // Recalculate Checksum for the whole block
+            ADF_UpdateChecksum((uint8_t*)buffer, 0);
+
+            File_Seek(disk->file, bitmapBlockNum * 512);
+            File_Write(disk->file, buffer, 512);
+        }
+    }
+}
+
+// Detaches a block (file or dir) from its parent's hash chain
+static bool ADF_UnlinkFromParent(ADF_Disk* disk, uint32_t parentBlock, uint32_t targetBlock, const char* name)
+{
+    // 1. Read Parent
+    ADF_HeaderBlock parent;
+    if (!File_Seek(disk->file, parentBlock * 512) || 
+        File_Read(disk->file, &parent, 512) != 512) return false;
+    
+    // 2. Calculate Hash
+    uint32_t hash = ADF_HashString(name, 72);
+    
+    // 3. Check Head of Chain
+    uint32_t headBlock = fix32(parent.dataBlocks[hash]);
+
+    if (headBlock == targetBlock)
+    {
+        // Target is the first link.
+        // We need to fetch the target to find *its* next link (hashChain).
+        ADF_HeaderBlock target;
+        File_Seek(disk->file, targetBlock * 512);
+        File_Read(disk->file, &target, 512);
+        
+        // Update Parent: parent.hashTable[hash] = target.hashChain
+        parent.dataBlocks[hash] = target.hashChain; // target.hashChain is already BE, safe to copy directly
+        
+        // Write Parent
+        ADF_UpdateChecksum((uint8_t*)&parent, 20);
+        File_Seek(disk->file, parentBlock * 512);
+        File_Write(disk->file, &parent, 512);
+
+        // Update Cache
+        for (int i = 0; i <= disk->cwdIndex; i++)
+        {
+            if (disk->cwd[i].block == parentBlock)
+            {
+                disk->cwd[i].hashTable[hash] = fix32(target.hashChain); // BE -> Native
+            }
+        }
+        return true;
+    }
+
+    // 4. Traverse Chain (Collision)
+    uint32_t currentBlockIdx = headBlock;
+    while(currentBlockIdx != 0)
+    {
+        ADF_HeaderBlock current;
+        if (!File_Seek(disk->file, currentBlockIdx * 512) ||
+            File_Read(disk->file, &current, 512) != 512) return false;
+        
+        uint32_t nextBlockIdx = fix32(current.hashChain);
+        
+        if (nextBlockIdx == targetBlock)
+        {
+            ADF_HeaderBlock target;
+            File_Seek(disk->file, targetBlock * 512);
+            File_Read(disk->file, &target, 512);
+
+            // Link Predecessor -> Successor
+            current.hashChain = target.hashChain; // Copy BE to BE
+            
+            // Write Predecessor
+            ADF_UpdateChecksum((uint8_t*)&current, 20);
+            File_Seek(disk->file, currentBlockIdx * 512);
+            File_Write(disk->file, &current, 512);
+            return true;
+        }
+        
+        currentBlockIdx = nextBlockIdx;
+    }
+
+    return false; // Not found in chain
+}
+
+static void ADF_MarkBlockUsed(uint32_t* bitmapData, uint32_t physBlock)
+{
+    if (physBlock < 2) return; // Bootblocks not in bitmap
+    uint32_t mapIndex = physBlock - 2;
+    uint32_t wordIdx  = 1 + (mapIndex / 32); // +1 because word 0 is checksum
+    uint32_t bitIdx   = mapIndex % 32;
+    bitmapData[wordIdx] &= ~(1 << bitIdx);
+}
+
+static bool ADF_UpdateOFSNextData(ADF_Disk* disk, uint32_t blockIndex, uint32_t nextBlock)
+{
+    uint8_t buffer[512];
+    if (!File_Seek(disk->file, blockIndex * 512) ||
+        File_Read(disk->file, buffer, 512) != 512)
+    {
+        DIM_SetError(DIMError_ReadError);
+        return false;
+    }
+
+    write32(buffer + 16, nextBlock, false);
+    ADF_UpdateChecksum(buffer, 20);
+
+    if (!File_Seek(disk->file, blockIndex * 512) ||
+        File_Write(disk->file, buffer, 512) != 512)
+    {
+        DIM_SetError(DIMError_WriteError);
+        return false;
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+//  Write support API
+// ---------------------------------------------------------------------------
+
+ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
+{
+    if (size == 0) size = 901120; // Default to 880KB (standard DD)
+    
+    File* f = File_Create(filename); 
+    if (!f)
+    { 
+        DIM_SetError(DIMError_CreatingFile);
+        return 0;
+    }
+
+    // 1. Setup Layout
+    uint32_t numBlocks   = size / 512;
+    uint32_t rootBlock   = numBlocks / 2; // 880
+    uint32_t bitmapBlock = rootBlock + 1; // 881
+
+    // 2. Erase Disk (Write Zeros)
+    // Writing a blank track buffer is faster than single sectors
+    uint8_t buffer[512];
+    memset(buffer, 0, 512);
+    for (uint32_t i = 0; i < numBlocks; i++)
+    {
+        File_Write(f, buffer, 512);
+    }
+
+    // 3. Create Boot Block (Block 0)
+    memset(buffer, 0, 512);
+    buffer[0] = 'D'; buffer[1] = 'O'; buffer[2] = 'S'; buffer[3] = 1; // DOS1 (FFS)
+
+    // CRITICAL FIX: Write the Root Block pointer at offset 8 (Big Endian)
+    // ADF_OpenDisk reads this to find the filesystem.
+    uint32_t* bootVals = (uint32_t*)buffer;
+    bootVals[2] = fix32(rootBlock); // Offset 8 = Index 2 of uint32 array
+
+    // Calculate Checksum (Amiga Bootblock checksum is over 1024 bytes usually, 
+    // but for non-bootable disks, a valid checksum on sector 0 is often sufficient/ignored,
+    // provided the DOS signature is present).
+    ADF_UpdateChecksum(buffer, 4); 
+
+    File_Seek(f, 0);
+    File_Write(f, buffer, 512);
+
+    // 4. Create Root Block
+    ADF_RootBlock root;
+    memset(&root, 0, sizeof(root));
+
+    root.type = fix32(ADF_ROOT_TYPE);
+    root.headerKey = 0;
+    root.highSeq = 0;
+    root.hashTableEntries = fix32(72);
+    root.bitmapFlag = fix32(-1); // VALID (-1)
+    root.bitmapPage[0] = fix32(bitmapBlock); // Pointer to bitmap block
+    
+    // Dates
+    uint32_t d, m, t;
+    ADF_GetCurrentAmigaTime(&d, &m, &t);
+
+    // Set Creation Date
+    root.cDays    = fix32(d);
+    root.cMinutes = fix32(m);
+    root.cTicks   = fix32(t);
+
+    // Set Last Access Date (same as creation for new disk)
+    root.aDays    = fix32(d);
+    root.aMinutes = fix32(m);
+    root.aTicks   = fix32(t);
+
+    root.nameLength = 5;
+    strcpy(root.name, "EMPTY");
+
+    // Write Root
+    ADF_UpdateChecksum((uint8_t*)&root, 20);
+    File_Seek(f, rootBlock * 512);
+    File_Write(f, &root, 512);
+
+    // 5. Create Bitmap Block
+    uint32_t bitmapData[128];
+    
+    // Fill with 1s (FREE)
+    // Note: We fill 128 longs. 128*32 = 4096 bits. 
+    // Disk is 1760 blocks. We have plenty of spare bits (ignored).
+    for(int i=0; i<128; i++) bitmapData[i] = 0xFFFFFFFF;
+    
+    // Helper to Mark Block as USED (0)
+    // Amiga Bitmap: Bit 0 of Long 0 is Block 2 (since Block 0/1 are Boot)
+    ADF_MarkBlockUsed(bitmapData, rootBlock);
+    ADF_MarkBlockUsed(bitmapData, bitmapBlock);
+
+    // Swap to Big Endian for Disk Storage
+    for(int i=1; i<128; i++) 
+    {
+        bitmapData[i] = fix32(bitmapData[i]);
+    }
+
+    // Checksum (Calculates over the Big Endian data)
+    ADF_UpdateChecksum((uint8_t*)bitmapData, 0);
+
+    File_Seek(f, bitmapBlock * 512);
+    File_Write(f, bitmapData, 512);
+
+    File_Close(f);
+
+    // 6. Return handle
+    return ADF_OpenDisk(filename);
+}
+
+static bool ADF_LinkToParent(ADF_Disk* disk, uint32_t parentBlock, uint32_t childBlock, const char* name)
+{
+    ADF_HeaderBlock parent;
+    if (!File_Seek(disk->file, parentBlock * 512) || 
+        File_Read(disk->file, &parent, 512) != 512) return false;
+    
+    uint32_t hash = ADF_HashString(name, 72);
+    uint32_t currentPtr = fix32(parent.dataBlocks[hash]); 
+
+    if (currentPtr == 0)
+    {
+        // Empty slot, insert here
+        parent.dataBlocks[hash] = fix32(childBlock);
+        
+        // Update Cache
+        for (int i = 0; i <= disk->cwdIndex; i++)
+        {
+            if (disk->cwd[i].block == parentBlock)
+            {
+                disk->cwd[i].hashTable[hash] = childBlock; // Native
+            }
+        }
+    }
+    else
+    {
+        // Collision: Traverse to end of chain
+        uint32_t currentBlockIdx = currentPtr;
+        while(true)
+        {
+            ADF_HeaderBlock currBlock;
+            File_Seek(disk->file, currentBlockIdx * 512);
+            File_Read(disk->file, &currBlock, 512);
+            
+            // The 'hashChain' field is at the same offset for Files and Dirs
+            // so we can safely read it from ADF_HeaderBlock
+            uint32_t nextBlockIdx = fix32(currBlock.hashChain);
+            
+            if (nextBlockIdx == 0)
+            {
+                // Found end of chain
+                currBlock.hashChain = fix32(childBlock);
+                
+                // Write back the modified link
+                ADF_UpdateChecksum((uint8_t*)&currBlock, 20);
+                File_Seek(disk->file, currentBlockIdx * 512);
+                File_Write(disk->file, &currBlock, 512);
+                break;
+            }
+            currentBlockIdx = nextBlockIdx;
+        }
+    }
+
+    // Write Parent
+    ADF_UpdateChecksum((uint8_t*)&parent, 20);
+    File_Seek(disk->file, parentBlock * 512);
+    File_Write(disk->file, &parent, 512);    
+    return true;
+}
+
+bool ADF_MakeDirectory(ADF_Disk* disk, const char* path)
+{
+    // 1. Check if exists
+    ADF_FindResults r;
+    if (ADF_FindFile(disk, &r, path)) 
+    {
+        DIM_SetError(DIMError_FileExists);
+        return false;
+    }
+
+    // 2. Resolve Parent
+    uint32_t parentBlock = disk->cwd[disk->cwdIndex].block;
+    const char* newName = path;
+
+    // 3. Allocate Block
+    uint32_t newBlock = ADF_AllocBlock(disk);
+    if (newBlock == ADF_INVALID_BLOCK)
+    {
+        DIM_SetError(DIMError_DiskFull);
+        return false;
+    }
+
+    // 4. Create Header (in NATIVE endianness)
+    ADF_HeaderBlock dir;
+    memset(&dir, 0, 512);
+    
+    dir.type = ADF_DIR_TYPE;                      
+    dir.headerKey = newBlock;                     
+    dir.protectionFlags = 0;
+    dir.nameLength = strlen(newName) > 30 ? 30 : strlen(newName);
+    strncpy(dir.name, newName, dir.nameLength);
+    dir.parent = parentBlock;                     
+    dir.secondaryType = ADF_ST_DIR;               
+    ADF_GetCurrentAmigaTime(&dir.aDays, &dir.aMinutes, &dir.aTicks);
+
+    fix32(&dir);
+    ADF_UpdateChecksum((uint8_t*)&dir, 20);
+    
+    // Write to disk
+    File_Seek(disk->file, newBlock * 512);
+    File_Write(disk->file, &dir, 512);
+
+    // 5. Link to Parent
+    return ADF_LinkToParent(disk, parentBlock, newBlock, newName);
+}
+
+bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t dataSize)
+{
+    ADF_FindResults r;
+    if (ADF_FindFile(disk, &r, path))
+    {
+        ADF_RemoveFile(disk, path);
+    }
+
+    uint32_t headerBlockIndex = ADF_AllocBlock(disk);
+    if (headerBlockIndex == ADF_INVALID_BLOCK)
+    {
+        DIM_SetError(DIMError_DiskFull);
+        return false;
+    }
+
+    ADF_HeaderBlock mainHeader;
+    ADF_HeaderBlock extBlock;
+    memset(&mainHeader, 0, sizeof(mainHeader));
+    memset(&extBlock, 0, sizeof(extBlock));
+
+    ADF_HeaderBlock* currentBlock = &mainHeader;
+    uint32_t currentBlockIndex = headerBlockIndex;
+
+    const uint8_t* byteData = (const uint8_t*)data;
+    uint32_t remaining = dataSize;
+    int tableIndex = 71; 
+    
+    uint32_t dataPayloadSize = (disk->fs == ADF_OFS) ? 488 : 512;
+    uint32_t headerSize      = (disk->fs == ADF_OFS) ? 24  : 0;
+    uint32_t ofsSequence     = 0;
+    uint32_t previousOfsDataBlock = 0;
+
+    while (remaining > 0)
+    {
+        uint32_t dataBlockIndex = ADF_AllocBlock(disk);
+        if (dataBlockIndex == ADF_INVALID_BLOCK) 
+        {
+            DIM_SetError(DIMError_DiskFull);
+            return false; 
+        }
+
+        if (disk->fs == ADF_OFS && previousOfsDataBlock != 0)
+        {
+            if (!ADF_UpdateOFSNextData(disk, previousOfsDataBlock, dataBlockIndex))
+            {
+                ADF_FreeBlock(disk, dataBlockIndex);
+                return false;
+            }
+        }
+
+        if (currentBlock->firstData == 0) 
+            currentBlock->firstData = dataBlockIndex; 
+        
+        currentBlock->dataBlocks[tableIndex] = dataBlockIndex;
+        tableIndex--;
+
+        if (tableIndex < 0)
+        {
+            uint32_t newExtIndex = ADF_AllocBlock(disk);
+            if (newExtIndex == ADF_INVALID_BLOCK)
+            {
+                DIM_SetError(DIMError_DiskFull);
+                return false;
+            }
+
+            currentBlock->extension = newExtIndex;
+            if (currentBlock != &mainHeader)
+            {
+                currentBlock->type = ADF_EXT_TYPE; 
+                currentBlock->headerKey = headerBlockIndex;
+                currentBlock->parent = headerBlockIndex;
+                currentBlock->secondaryType = ADF_ST_FILE;
+
+                ADF_HeaderBlock tempWrite = *currentBlock;
+                fix32(&tempWrite); 
+                ADF_UpdateChecksum((uint8_t*)&tempWrite, 20);
+                File_Seek(disk->file, currentBlockIndex * 512);
+                File_Write(disk->file, &tempWrite, 512);
+            }
+
+            memset(&extBlock, 0, sizeof(extBlock));
+            currentBlock = &extBlock;
+            currentBlockIndex = newExtIndex;
+            tableIndex = 71; 
+        }
+
+        uint32_t writeSize = remaining > dataPayloadSize ? dataPayloadSize : remaining;
+        uint8_t buffer[512];
+        memset(buffer, 0, 512); 
+
+        if (disk->fs == ADF_OFS)
+        {
+            write32(buffer + 0, ADF_DATA_TYPE, false);
+            write32(buffer + 4, headerBlockIndex, false);
+            write32(buffer + 8, ofsSequence, false);
+            write32(buffer + 12, writeSize, false);
+            write32(buffer + 16, 0, false); // next data filled when we know the block
+            write32(buffer + 20, 0, false);
+        }
+        memcpy(buffer + headerSize, byteData, writeSize);
+        if (disk->fs == ADF_OFS)
+            ADF_UpdateChecksum(buffer, 20);
+        
+        File_Seek(disk->file, dataBlockIndex * 512);
+        File_Write(disk->file, buffer, 512);
+        
+        byteData += writeSize;
+        remaining -= writeSize;
+
+        if (disk->fs == ADF_OFS)
+        {
+            previousOfsDataBlock = dataBlockIndex;
+            ofsSequence++;
+        }
+    }
+
+    if (currentBlock != &mainHeader)
+    {
+        currentBlock->type = ADF_EXT_TYPE;
+        currentBlock->headerKey = headerBlockIndex; 
+        currentBlock->secondaryType = ADF_ST_FILE;
+        
+        fix32(currentBlock); 
+        ADF_UpdateChecksum((uint8_t*)currentBlock, 20);
+        File_Seek(disk->file, currentBlockIndex * 512);
+        File_Write(disk->file, currentBlock, 512);
+    }
+
+    mainHeader.type = 2;
+    mainHeader.secondaryType = ADF_ST_FILE;
+    mainHeader.headerKey = headerBlockIndex;
+    mainHeader.highSeq = 0;
+    mainHeader.dataSize = 0; 
+    mainHeader.protectionFlags = 0;
+    mainHeader.fileSize = dataSize;
+    mainHeader.parent = disk->cwd[disk->cwdIndex].block;
+    
+    const char* filename = path;
+    mainHeader.nameLength = strlen(filename) > 30 ? 30 : strlen(filename);
+    strncpy(mainHeader.name, filename, mainHeader.nameLength);
+    
+    uint32_t d, m, t;
+    ADF_GetCurrentAmigaTime(&d, &m, &t);
+    mainHeader.aDays    = d; 
+    mainHeader.aMinutes = m; 
+    mainHeader.aTicks   = t;
+
+    fix32(&mainHeader);
+    ADF_UpdateChecksum((uint8_t*)&mainHeader, 20);
+    
+    File_Seek(disk->file, headerBlockIndex * 512);
+    File_Write(disk->file, &mainHeader, 512);
+    return ADF_LinkToParent(disk, disk->cwd[disk->cwdIndex].block, headerBlockIndex, filename);
+}
+
+bool ADF_RemoveFile(ADF_Disk* disk, const char* path)
+{
+    ADF_FindResults r;
+    if (!ADF_FindFile(disk, &r, path))
+    {
+        DIM_SetError(DIMError_FileNotFound);
+        return false;
+    }
+
+    if (r.directory)
+    {
+        DIM_SetError(DIMError_FileNotFound); // Must use RemoveDirectory
+        return false;
+    }
+
+    ADF_HeaderBlock header;
+    if (!File_Seek(disk->file, r.block * 512) ||
+        File_Read(disk->file, &header, 512) != 512)
+    {
+        DIM_SetError(DIMError_ReadError);
+        return false;
+    }
+
+    uint32_t parentBlock = fix32(header.parent);
+    if (!ADF_UnlinkFromParent(disk, parentBlock, r.block, r.fileName))
+    {
+        DIM_SetError(DIMError_WriteError);
+        return false;
+    }
+
+    uint32_t currentBlockIdx = r.block;
+    while (currentBlockIdx != 0)
+    {
+        ADF_HeaderBlock currentBlock;
+        if (!File_Seek(disk->file, currentBlockIdx * 512) ||
+            File_Read(disk->file, &currentBlock, 512) != 512)
+        {
+            // Blocks are leaked, but we can't safely continue.
+            DIM_SetError(DIMError_ReadError);
+            return false;
+        }
+
+        fix32(&currentBlock);
+
+        // AmigaDOS fills from the top (71) down, but we check all slots to be safe.
+        for (int i = 0; i < 72; i++)
+        {
+            if (currentBlock.dataBlocks[i] != 0)
+            {
+                ADF_FreeBlock(disk, currentBlock.dataBlocks[i]);
+            }
+        }
+
+        uint32_t nextExtension = currentBlock.extension;
+        ADF_FreeBlock(disk, currentBlockIdx);
+        currentBlockIdx = nextExtension;
+    }
+
+    return true;
+}
+
+bool ADF_RemoveDirectory(ADF_Disk* disk, const char* path)
+{
+    // 1. Locate the directory
+    ADF_FindResults r;
+    if (!ADF_FindFile(disk, &r, path)) 
+    {
+        DIM_SetError(DIMError_FileNotFound);
+        return false;
+    }
+
+    if (!r.directory)
+    {
+        DIM_SetError(DIMError_NotADirectory); // Cannot use RemoveDir on a file
+        return false;
+    }
+
+    // 2. Read the Directory Header Block
+    ADF_HeaderBlock dirBlock;
+    if (!File_Seek(disk->file, r.block * 512) ||
+        File_Read(disk->file, &dirBlock, 512) != 512)
+    {
+        DIM_SetError(DIMError_ReadError);
+        return false;
+    }
+
+    // 3. Check if Empty
+    // In AmigaDOS, the 'dataBlocks' array in the header is used as the HashTable for directories.
+    // We must ensure every entry is 0.
+    for (int i = 0; i < 72; i++)
+    {
+        if (dirBlock.dataBlocks[i] != 0)
+        {
+            DIM_SetError(DIMError_DirectoryNotEmpty);
+            return false;
+        }
+    }
+
+    // 4. Unlink from Parent
+    // We need the parent block ID (stored in the directory header)
+    uint32_t parentID = fix32(dirBlock.parent);
+    
+    // Note: r.fileName contains the "Leaf" name (e.g., "SubDir"), which is required for hashing
+    if (!ADF_UnlinkFromParent(disk, parentID, r.block, r.fileName))
+    {
+        DIM_SetError(DIMError_WriteError); // Should not happen if filesystem is consistent
+        return false;
+    }
+
+    // 5. Free the Header Block in Bitmap
+    ADF_FreeBlock(disk, r.block);
+
+    return true;
 }
 
 #endif
