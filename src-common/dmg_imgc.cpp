@@ -73,7 +73,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	if (entry->type == DMGEntry_Audio)
 		return fileData;
 
-	if (entry->compressed)
+	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
 		if (dmg->version == DMG_Version1_EGA)
 		{

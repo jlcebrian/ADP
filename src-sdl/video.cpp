@@ -41,6 +41,9 @@ bool	   charsetInitialized = false;
 bool       videoInitialized = false;
 uint32_t   palette[256];
 
+int        xCoordMultiplier = 1;
+int        yCoordMultiplier = 1;
+
 // Specific for Spectrum
 uint8_t*   bitmap = NULL;
 uint8_t*   attributes = NULL;
@@ -165,22 +168,6 @@ extern "C" void KeyPressed(int key)
 	inputBufferHead = (inputBufferHead + 1) & 255;
 }
 #endif
-
-static const char* ChangeExtension (const char* filename, const char* newExtension)
-{
-	static char buffer[2048];
-	size_t length = strlen(filename);
-	const char* ptr = strrchr(filename, '.');
-	if (ptr == NULL)
-	{
-		strcpy(buffer, filename);
-		strcat(buffer + length + 1, newExtension);
-		return buffer;
-	}
-	strncpy(buffer, filename, ptr - filename);
-	strcpy(buffer + (ptr - filename), newExtension);
-	return buffer;
-}
 
 void VID_SetCharset (const uint8_t* newCharset)
 {
@@ -556,7 +543,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 	else
 	{
 		if (fixed != NULL)
-			*fixed = bufferedEntry->fixed;
+			*fixed = (bufferedEntry->flags & DMG_FLAG_FIXED) != 0;
 		if (x != NULL)
 			*x = bufferedEntry->x;
 		if (y != NULL)
@@ -610,7 +597,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	{
 		default:
 		case ScreenMode_VGA16:
-			if (entry->fixed)
+			if (entry->flags & DMG_FLAG_FIXED)
 			{
 				for (int n = 0; n < 16; n++)
 					palette[n] = filePalette[n];
@@ -626,7 +613,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 
 		case ScreenMode_CGA:
 			for (int n = 0; n < 16; n++) {
-				palette[n] = entry->CGAMode == CGA_Red ? CGAPaletteRed[n] : CGAPaletteCyan[n];
+				palette[n] = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed[n] : CGAPaletteCyan[n];
 			}
 			break;
 	}
@@ -1135,13 +1122,15 @@ void VID_PlaySample (uint8_t picno, int* duration)
 	mixVolume = 256;
 	switch (entry->x)
 	{
-		case DMG_5KHZ:   inputHz =  5000; break;
-		case DMG_7KHZ:   inputHz =  7000; break;
-		case DMG_9_5KHZ: inputHz =  9500; break;
-		case DMG_15KHZ:  inputHz = 15000; break;
-		case DMG_20KHZ:  inputHz = 20000; break;
-		case DMG_30KHZ:  inputHz = 30000; break;
-		default:         inputHz = 11025; break;
+		case DMG_5KHZ:     inputHz =  5000; break;
+		case DMG_7KHZ:     inputHz =  7000; break;
+		case DMG_9_5KHZ:   inputHz =  9500; break;
+		case DMG_15KHZ:    inputHz = 15000; break;
+		case DMG_20KHZ:    inputHz = 20000; break;
+		case DMG_30KHZ:    inputHz = 30000; break;
+        case DMG_44_1KHZ:  inputHz = 44100; break;
+        case DMG_48KHZ:    inputHz = 48000; break;
+		default:           inputHz = 11025; break;
 	}
 	SDL_UnlockAudio();
 
@@ -1228,7 +1217,7 @@ bool VID_LoadDataFile(const char* fileName)
 	return true;
 }
 
-bool VID_Initialize (DDB_Machine machine, DDB_Version version)
+bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
 {
 	if (!videoInitialized)
 		DebugPrintf("Initializing video subsystem for %s\n", DDB_DescribeMachine(machine));
@@ -1289,8 +1278,24 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version)
 		default:
 			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
 			screenMachine = DDB_MACHINE_IBMPC;
-			screenWidth   = 320;
-			screenHeight  = 200;
+            switch (screenMode)
+            {
+                case ScreenMode_HiRes:
+                    screenWidth  = 640;
+                    screenHeight = 200;
+                    xCoordMultiplier = 2;
+                    break;
+                case ScreenMode_SHiRes:
+                    screenWidth  = 640;
+                    screenHeight = 400;
+                    xCoordMultiplier = 2;
+                    yCoordMultiplier = 2;
+                    break;
+                default:
+    	    		screenWidth  = 320;
+	    	    	screenHeight = 200;
+                    break;
+            }
 			break;
 	}
 

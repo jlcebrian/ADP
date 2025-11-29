@@ -40,6 +40,19 @@ char *LongToChar(long value, char *buffer, int radix)
 	return p;
 }
 
+const char* ChangeExtension(const char* fileName, const char* extension)
+{
+	static char newFileName[256];
+
+	StrCopy(newFileName, 256, fileName);
+	newFileName[256-1] = 0;
+	char* ptr = (char *)StrRChr(newFileName, '.');
+	if (ptr == 0)
+		ptr = newFileName + StrLen(newFileName);
+	StrCopy(ptr, newFileName+256-ptr, extension);
+	return newFileName;
+}
+
 #if _STDCLIB
 
 #ifdef _UNIX

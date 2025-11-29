@@ -1,5 +1,6 @@
 #include <img.h>
 #include <ddb.h>
+#include <os_lib.h>
 #include <os_file.h>
 
 #include <stdio.h>
@@ -7,8 +8,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
-
-static char newFileName[1024 + 16];
 
 static uint8_t charset[2048];
 static uint8_t indexed[128 * 128];
@@ -24,16 +23,6 @@ static void ShowHelp()
 	printf("Converts between DAAD character sets and PNG files.\n\n");
 	printf("Usage: chr <input.png> [<output.chr>]\n");
 	printf("       chr <input.chr> [<output.png>]\n");
-}
-
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	strncpy(newFileName, fileName, 1024);
-	char* ptr = strrchr(newFileName, '.');
-	if (ptr == NULL)
-		ptr = newFileName + strlen(newFileName);
-	strcpy(ptr, extension);
-	return newFileName;
 }
 
 void ConvertCharsetToIndexed (uint8_t* charset, uint8_t* pixels)

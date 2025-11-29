@@ -182,7 +182,7 @@ static void WritePalette(uint8_t* ptr, DMG_Entry* entry)
 		uint8_t g = (color >> 12) & 0x0F;
 		uint8_t b = (color >>  4) & 0x0F;
 
-		if (!entry->amigaPaletteHack)
+		if ((entry->flags & DMG_FLAG_AMIPALHACK) == 0)
 		{
 			b = (b >> 1) | ((b << 3) & 0x08);
 			g = (g >> 1) | ((g << 3) & 0x08);
@@ -230,18 +230,18 @@ bool DMG_UpdateEntry (DMG* dmg, uint8_t index)
 	uint16_t flags = 0x0000;
 	if (dmg->version == DMG_Version1)
 	{
-		if (entry->fixed)  
+		if (entry->flags & DMG_FLAG_FIXED)  
 			flags |= 0x01;
-		if (entry->buffer) 
+		if (entry->flags & DMG_FLAG_BUFFERED) 
 			flags |= 0x02;
 	}
 	else
 	{
-		if (entry->fixed)  
+		if (entry->flags & DMG_FLAG_FIXED)  
 			flags |= 0x04;
-		if (entry->buffer) 
+		if (entry->flags & DMG_FLAG_BUFFERED) 
 			flags |= 0x02;
-		if (entry->CGAMode == CGA_Red)
+		if (DMG_GetCGAMode(entry) == CGA_Red)
 			flags |= 0x01;	
 		if (entry->type == DMGEntry_Audio) 
 			flags |= 0x10;
@@ -257,7 +257,7 @@ bool DMG_UpdateEntry (DMG* dmg, uint8_t index)
 
 	if (dmg->version != DMG_Version1)
 	{
-		if (entry->amigaPaletteHack)
+		if ((entry->flags & DMG_FLAG_AMIPALHACK) != 0)
 		{
 			write32(buffer + 0x2C, 0xDAADDAAD, littleEndian);
 		}
@@ -368,7 +368,7 @@ bool DMG_SetEntryPalette (DMG* dmg, uint8_t index, uint32_t* palette)
 	return DMG_UpdateEntry(dmg, index);
 }
 
-bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq, uint8_t mode)
+bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq)
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	uint8_t header[6];
@@ -381,7 +381,7 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 
 	File_Seek(dmg->file, dmg->fileSize);
 	write16(header + 0x00, 0, dmg->littleEndian);
-	write16(header + 0x02, mode << 12, dmg->littleEndian);
+	write16(header + 0x02, 0x8000, dmg->littleEndian);
 	write16(header + 0x04, size, dmg->littleEndian);
 	
 	if (File_Write(dmg->file, header, 6) != 6)
@@ -396,7 +396,6 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 	}
 
 	entry->type = DMGEntry_Audio;
-	entry->audioMode = mode;
 	entry->fileOffset = dmg->fileSize;
 	entry->length = size;
 	entry->x = freq;
@@ -408,13 +407,15 @@ const char* DMG_DescribeFreq(DMG_KHZ freq)
 {
 	switch (freq)
 	{
-		case DMG_5KHZ:   return "5KHz";
-		case DMG_7KHZ:   return "7KHz";
-		case DMG_9_5KHZ: return "9.5KHz";
-		case DMG_15KHZ:  return "15KHz";
-		case DMG_20KHZ:  return "20KHz";
-		case DMG_30KHZ:  return "30KHz";
-		default: 		 return "Unknown frequency";
+		case DMG_5KHZ:    return "5KHz";
+		case DMG_7KHZ:    return "7KHz";
+		case DMG_9_5KHZ:  return "9.5KHz";
+		case DMG_15KHZ:   return "15KHz";
+		case DMG_20KHZ:   return "20KHz";
+		case DMG_30KHZ:   return "30KHz";
+        case DMG_44_1KHZ: return "44.1KHz";
+        case DMG_48KHZ:   return "48KHz";
+		default: 		  return "Unknown frequency";
 	}
 }
 

@@ -334,14 +334,17 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				return state = Player_Error;
 			}
 			DebugPrintf("Loaded snapshot from %s.\nVersion %s, machine %s\n", ddbFileName, DDB_DescribeVersion(ddb->version), DDB_DescribeMachine(ddb->machine));
-			VID_Initialize(ddb->machine, ddb->version);
+			VID_Initialize(ddb->machine, ddb->version, screenMode);
 		}
 		else
 		{
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 			DDB_Check(ddbFileName, &machine, &language, &version);
+            DDB_CheckVideoMode(ddbFileName, &screenMode);
 			DebugPrintf("Checked %s\n", ddbFileName);
-			VID_Initialize(machine, version);
+			VID_Initialize(machine, version, screenMode);
+            if (DDB_SupportsDataFile(version, machine))
+                VID_LoadDataFile(ddbFileName);
 		}
 		
 		if (scrCount > 0)
@@ -396,7 +399,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return state = Player_Error;
 	}
-	if (DDB_SupportsDataFile(ddb))
+	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(ddbFileName);
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
@@ -432,12 +435,40 @@ static void FadeOut()
 	VID_SetDefaultPalette();
 }
 
+// Checks for intro screen files and, if found, updates machine and screenMode accordingly
+static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine, DDB_ScreenMode* screenMode)
+{
+	scrCount = CountFiles(".scr");
+	if (scrCount > 0)
+	{
+		if (*machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
+			*machine = DDB_MACHINE_AMIGA;
+        *introScreen = GetFile(".scr", 0);
+	}
+	else if ((scrCount = CountFiles(".egs")) > 0)
+	{
+		*screenMode = ScreenMode_EGA;
+		*introScreen = GetFile(".egs", 0);
+	}
+	else if ((scrCount = CountFiles(".cgs")) > 0)
+	{
+		*screenMode = ScreenMode_CGA;
+		*introScreen = GetFile(".cgs", 0);
+	}
+	else if ((scrCount = CountFiles(".vgs")) > 0)
+	{
+		*screenMode = ScreenMode_VGA16;
+		*introScreen = GetFile(".vgs", 0);
+	}
+}
+
 bool DDB_RunPlayer()
 {
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;
 	DDB_ScreenMode screenMode = ScreenMode_VGA16;
 	DDB_Version version = DDB_VERSION_2;
+    const char* introScreen = 0;
 
 	EnumFiles();
 	
@@ -453,34 +484,14 @@ bool DDB_RunPlayer()
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 	DDB_Check(ddbFileName, &machine, &language, &version);
-	VID_Initialize(machine, version);
+	VID_Initialize(machine, version, screenMode);
 
-	scrCount = CountFiles(".scr");
-	if (scrCount > 0)
-	{
-		if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
-			machine = DDB_MACHINE_AMIGA;
-		if (!VID_DisplaySCRFile(GetFile(".scr", 0), machine))
-			VID_ShowError(DDB_GetErrorString());
-	}
-	else if ((scrCount = CountFiles(".egs")) > 0)
-	{
-		screenMode = ScreenMode_EGA;
-		if (!VID_DisplaySCRFile(GetFile(".egs", 0), machine))
-			VID_ShowError(DDB_GetErrorString());
-	}
-	else if ((scrCount = CountFiles(".cgs")) > 0)
-	{
-		screenMode = ScreenMode_CGA;
-		if (!VID_DisplaySCRFile(GetFile(".cgs", 0), machine))
-			VID_ShowError(DDB_GetErrorString());
-	}
-	else if ((scrCount = CountFiles(".vgs")) > 0)
-	{
-		screenMode = ScreenMode_VGA16;
-		if (!VID_DisplaySCRFile(GetFile(".vgs", 0), machine))
-			VID_ShowError(DDB_GetErrorString());
-	}
+    CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
+    if (introScreen != 0)
+    {
+        if (!VID_DisplaySCRFile(introScreen, machine))
+            VID_ShowError(DDB_GetErrorString());
+    }
 
 	if (ddbCount > 1)
 	{
@@ -520,7 +531,7 @@ bool DDB_RunPlayer()
 	}
 	VID_ShowProgressBar(64);
 
-	if (DDB_SupportsDataFile(ddb))
+	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(ddbFileName);
 
 	DDB_CreateInterpreter(ddb, screenMode);

@@ -73,7 +73,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	if (mode == ImageMode_Audio)
 		return fileData;
 
-	if (entry->compressed)
+	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
 		if (dmg->version == DMG_Version1_EGA)
 		{
@@ -108,6 +108,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	}
 	else
 	{
+        // TODO: Handle ImageMode_Planar
 		uint32_t expectedSize = DMG_CalculateRequiredSize(entry, ImageMode_Raw);
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		if (entry->length != expectedSize)
@@ -157,6 +158,11 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				DMG_ConvertChunkyToPlanar(buffer, requiredSize, entry->width);
 				break;
 			}
+            case ImageMode_Planar:
+            {
+                // TODO: Convert to independent plane bitmaps
+                break;
+            }
 			case ImageMode_RGBA32:
 			{
 				if (bufferSize < requiredSize * 8)
@@ -197,7 +203,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 					DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 					return 0;
 				}
-				colors = entry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+				colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
 				ptr = (uint32_t *)buffer + 2*requiredSize;
 				for (n = requiredSize - 1; n > 0; n--) 
 				{

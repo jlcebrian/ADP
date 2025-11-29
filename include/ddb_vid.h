@@ -5,7 +5,7 @@
 extern bool         exitGame;
 extern DDB_Machine  screenMachine;
 
-extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version);
+extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode);
 extern void   VID_Finish              ();
 
 extern bool   VID_AnyKey              ();

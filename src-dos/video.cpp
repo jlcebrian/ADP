@@ -34,19 +34,6 @@ bool supportsOpenFileDialog = false;
 #define MAX_PATH 256
 #endif
 
-static char newFileName[MAX_PATH];
-
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	strncpy(newFileName, fileName, MAX_PATH);
-	newFileName[MAX_PATH-1] = 0;
-	char* ptr = strrchr(newFileName, '.');
-	if (ptr == NULL)
-		ptr = newFileName + strlen(newFileName);
-	strcpy(ptr, extension);
-	return newFileName;
-}
-
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
 	FILE* file = fopen(filename, "rb");
@@ -907,13 +894,15 @@ void VID_PlaySample (uint8_t no, int* duration)
 	int sampleHz;
 	switch (entry->x)
 	{
-		case DMG_5KHZ:   sampleHz =  5000; break;
-		case DMG_7KHZ:   sampleHz =  7000; break;
-		case DMG_9_5KHZ: sampleHz =  9500; break;
-		case DMG_15KHZ:  sampleHz = 15000; break;
-		case DMG_20KHZ:  sampleHz = 20000; break;
-		case DMG_30KHZ:  sampleHz = 30000; break;
-		default:         sampleHz = 11025; break;
+		case DMG_5KHZ:     sampleHz =  5000; break;
+		case DMG_7KHZ:     sampleHz =  7000; break;
+		case DMG_9_5KHZ:   sampleHz =  9500; break;
+		case DMG_15KHZ:    sampleHz = 15000; break;
+		case DMG_20KHZ:    sampleHz = 20000; break;
+		case DMG_30KHZ:    sampleHz = 30000; break;
+        case DMG_44_1KHZ:  sampleHz = 44100; break;
+        case DMG_48KHZ:    sampleHz = 48000; break;
+		default:           sampleHz = 11025; break;
 	}
 	MIX_PlaySample(audioData, entry->length, sampleHz, 256);
 

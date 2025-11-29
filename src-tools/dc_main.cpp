@@ -9,19 +9,6 @@
 
 static DC_Error dcError = DCError_None;
 
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	static char newFileName[FILE_MAX_PATH];
-
-	StrCopy(newFileName, FILE_MAX_PATH, fileName);
-	newFileName[FILE_MAX_PATH-1] = 0;
-	char* ptr = (char *)StrRChr(newFileName, '.');
-	if (ptr == 0)
-		ptr = newFileName + StrLen(newFileName);
-	StrCopy(ptr, newFileName+FILE_MAX_PATH-ptr, extension);
-	return newFileName;
-}
-
 void DC_SetError(DC_Error error)
 {
 	dcError = error;

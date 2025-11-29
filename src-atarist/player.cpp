@@ -89,10 +89,10 @@ int main (int argc, char *argv[])
 	if (!ddb)
 		error(DDB_GetErrorString());
 
-	if (!VID_Initialize(ddb->target, ddb->version))
+	if (!VID_Initialize(ddb->target, ddb->version, ScreenMode_VGA16))
 		error(DDB_GetErrorString());
 
-	if (DDB_SupportsDataFile(ddb))
+	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(file);
 
 	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);

@@ -1,6 +1,7 @@
 #include <dmg.h>
 #include <img.h>
 #include <ddb.h>
+#include <os_lib.h>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -50,6 +51,8 @@ frequencies[] =
 	{ 15,    DMG_15KHZ },
 	{ 20,    DMG_20KHZ },
 	{ 30,    DMG_30KHZ },
+    { 44,    DMG_44_1KHZ },
+    { 48,    DMG_48KHZ },
 	{ 5000,  DMG_5KHZ },
 	{ 7000,  DMG_7KHZ },
 	{ 95,    DMG_9_5KHZ },
@@ -57,6 +60,8 @@ frequencies[] =
 	{ 15000, DMG_15KHZ },
 	{ 20000, DMG_20KHZ },
 	{ 30000, DMG_30KHZ },
+	{ 44100, DMG_44_1KHZ },
+    { 48000, DMG_48KHZ },
 	{ 0,     (DMG_KHZ)0 },
 };
 
@@ -177,13 +182,15 @@ static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ s
 	wav.channels = 1;
 	switch (sampleRate)
 	{
-		case DMG_5KHZ:   wav.samplesPerSec =  5000; break;
-		case DMG_7KHZ:   wav.samplesPerSec =  7000; break;
-		case DMG_9_5KHZ: wav.samplesPerSec =  9500; break;
-		case DMG_15KHZ:  wav.samplesPerSec = 15000; break;
-		case DMG_20KHZ:  wav.samplesPerSec = 20000; break;
-		case DMG_30KHZ:  wav.samplesPerSec = 30000; break;
-		default:         wav.samplesPerSec = 11025; break;
+		case DMG_5KHZ:    wav.samplesPerSec =  5000; break;
+		case DMG_7KHZ:    wav.samplesPerSec =  7000; break;
+		case DMG_9_5KHZ:  wav.samplesPerSec =  9500; break;
+		case DMG_15KHZ:   wav.samplesPerSec = 15000; break;
+		case DMG_20KHZ:   wav.samplesPerSec = 20000; break;
+		case DMG_30KHZ:   wav.samplesPerSec = 30000; break;
+        case DMG_44_1KHZ: wav.samplesPerSec = 44100; break;
+        case DMG_48KHZ:   wav.samplesPerSec = 48000; break;
+		default:          wav.samplesPerSec = 11025; break;
 	}
 	wav.avgBytesPerSec = wav.samplesPerSec;
 	wav.blockAlign = 1;
@@ -203,21 +210,6 @@ static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ s
 	}
 	File_Close(file);
 	return true;
-}
-
-const char* ChangeExtension(const char* original, const char* extension)
-{
-	char* ptr;
-
-	strcpy (newfilename, original);
-	ptr = strrchr(newfilename, '.');
-	if (ptr != NULL)
-		ptr++;
-	if (stricmp(ptr, extension) == 0)
-		strcat(newfilename, ".bak");
-	else
-		strcpy(ptr, extension);
-	return newfilename;
 }
 
 const char* MakeFileName(const char* original, int index, const char* extension)
@@ -406,7 +398,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					else
 					{
 						printf("%03d: (%dx%d image, %s) %d bytes ok.\n", n, entry->width, entry->height, 
-						       entry->compressed ? "compressed" : "uncompressed", entry->length);
+						       (entry->flags & DMG_FLAG_COMPRESSED) ? "compressed" : "uncompressed", entry->length);
 					}
 					break;
 				}
@@ -502,10 +494,10 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 						continue;
 					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes %s\n", 
 						n, entry->width, entry->height, 
-						entry->buffer     ? "buffer ":"       ",
-						entry->fixed      ? "fixed":"float", 
+						(entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
+						(entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float", 
 						entry->x, entry->y, entry->length,
-						entry->compressed ? " (compressed)":"");
+						(entry->flags & DMG_FLAG_COMPRESSED) ? " (compressed)":"");
 					if (verbose)
 					{
 						printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
@@ -523,7 +515,7 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 						printf("     CGA Palette:  ");
 						for (i = 0; i < 4; i++)
 							printf(" %02d ", entry->CGAPalette[i]);
-						printf (" (%s)", entry->CGAMode == CGA_Blue ? "blue" : "red");
+						printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
 						printf("\n");
 					}
 					break;
@@ -786,7 +778,10 @@ static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
 								success = false;
 								break;
 							}
-							entry->buffer = value;
+							if (value)
+                                entry->flags |= DMG_FLAG_BUFFERED;
+                            else
+                                entry->flags &= ~DMG_FLAG_BUFFERED;
 							printf("%03d: Buffer flag set to %s\n", currentIndex, value ? "true" : "false");
 							break;
 						case OPTION_FIXED:
@@ -796,7 +791,10 @@ static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
 								success = false;
 								break;
 							}
-							entry->fixed = value;
+							if (value)
+                                entry->flags |= DMG_FLAG_FIXED;
+                            else
+                                entry->flags &= ~DMG_FLAG_FIXED;
 							printf("%03d: Fixed flag set to %s\n", currentIndex, value ? "true" : "false");
 							break;
 						case OPTION_CGA:
@@ -806,7 +804,7 @@ static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
 								success = false;
 								break;
 							}
-							entry->CGAMode = (DMG_CGAMode)value;
+							DMG_SetCGAMode(entry, (DMG_CGAMode)value);
 							printf("%03d: CGA mode set to %s\n", currentIndex, value ? "blue" : "red");
 							break;
 						case OPTION_FREQ:
@@ -886,18 +884,14 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			continue;
 		}
 
-		outEntry->amigaPaletteHack = entry->amigaPaletteHack;
 		memcpy (outEntry->RGB32Palette, entry->RGB32Palette, sizeof(entry->RGB32Palette));
 		memcpy (outEntry->CGAPalette, entry->CGAPalette, sizeof(entry->CGAPalette));
 		memcpy (outEntry->EGAPalette, entry->EGAPalette, sizeof(entry->EGAPalette));
-		outEntry->CGAMode = entry->CGAMode;
-		outEntry->fixed = entry->fixed;
-		outEntry->buffer = entry->buffer;
+        outEntry->flags = entry->flags;
 		outEntry->x = entry->x;
 		outEntry->y = entry->y;
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
-		outEntry->CGAMode = entry->CGAMode;
 
 		if (entry->type == DMGEntry_Empty)
 			continue;
@@ -926,7 +920,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read audio entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
-			if (!DMG_SetAudioData(out, n, data, size, (DMG_KHZ)entry->x, entry->audioMode))
+			if (!DMG_SetAudioData(out, n, data, size, (DMG_KHZ)entry->x))
 			{
 				fprintf(stderr, "Error: Unable to set audio data: %s\n", DMG_GetErrorString());
 				DMG_Close(out);

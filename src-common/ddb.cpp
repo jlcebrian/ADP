@@ -665,6 +665,50 @@ void DDB_FixOffsets (DDB* ddb)
 	}
 }
 
+bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
+{
+	File* file = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
+	if (file == NULL)
+    {
+		file = File_Open(ChangeExtension(fileName, ".ega"), ReadOnly);
+        if (file != NULL)
+        {
+            *mode = ScreenMode_EGA;
+            File_Close(file);
+            return true;
+        }
+		file = File_Open(ChangeExtension(fileName, ".cga"), ReadOnly);
+        if (file != NULL)
+        {
+            *mode = ScreenMode_CGA;
+            File_Close(file);
+            return true;
+        }
+        return false;
+    }
+    
+    uint8_t header[16];
+    if (File_Read(file, header, sizeof(header)) != sizeof(header))
+    {
+        File_Close(file);
+        return false;
+    }
+    uint16_t width  = read16BE(header + 0x6);
+    uint16_t height = read16BE(header + 0x8);
+    uint16_t flags  = read16BE(header + 0xE);
+    DDB5_ColorMode colorMode = (DDB5_ColorMode)(flags & 0x000F);
+
+    if (width == 320 && height == 200)
+        *mode = ScreenMode_VGA;
+    else if (width == 640 && height == 200)
+        *mode = ScreenMode_HiRes;
+    else if (width == 640 && height == 400)
+        *mode = ScreenMode_SHiRes;
+
+    File_Close(file);
+    return true;
+}
+
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
 {
 	uint8_t buffer[32];
@@ -687,17 +731,17 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	return true;
 }
 
-bool DDB_SupportsDataFile(DDB* ddb)
+bool DDB_SupportsDataFile(DDB_Version version, DDB_Machine target)
 {
 	#if HAS_PAWS
-	if (ddb->version == DDB_VERSION_PAWS)
+	if (version == DDB_VERSION_PAWS)
 		return false;
 	#endif
 
 	return
-		ddb->target == DDB_MACHINE_AMIGA ||
-		ddb->target == DDB_MACHINE_ATARIST ||
-		ddb->target == DDB_MACHINE_IBMPC;
+		target == DDB_MACHINE_AMIGA ||
+		target == DDB_MACHINE_ATARIST ||
+		target == DDB_MACHINE_IBMPC;
 }
 
 #if HAS_SNAPSHOTS

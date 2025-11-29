@@ -107,19 +107,6 @@ INLINE void RunCopperProgram(uint16_t* program, uint16_t* end)
 	custom->dmacon  = DMAF_SETCLR | DMAF_MASTER | DMAF_RASTER | DMAF_COPPER | DMAF_BLITTER;
 }
 
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	static char newFileName[256];
-
-	StrCopy(newFileName, 256, fileName);
-	newFileName[256-1] = 0;
-	char* ptr = (char *)StrRChr(newFileName, '.');
-	if (ptr == 0)
-		ptr = newFileName + StrLen(newFileName);
-	StrCopy(ptr, newFileName+256-ptr, extension);
-	return newFileName;
-}
-
 void VID_ActivateCharset()
 {
 	if (charsetWords == 0)
@@ -608,13 +595,15 @@ void VID_PlaySample (uint8_t no, int* duration)
 	uint16_t inputHz;
 	switch (entry->x)
 	{
-		case DMG_5KHZ:   inputHz =  5000; break;
-		case DMG_7KHZ:   inputHz =  7000; break;
-		case DMG_9_5KHZ: inputHz =  9500; break;
-		case DMG_15KHZ:  inputHz = 15000; break;
-		case DMG_20KHZ:  inputHz = 20000; break;
-		case DMG_30KHZ:  inputHz = 30000; break;
-		default:         inputHz = 11025; break;
+		case DMG_5KHZ:    inputHz =  5000; break;
+		case DMG_7KHZ:    inputHz =  7000; break;
+		case DMG_9_5KHZ:  inputHz =  9500; break;
+		case DMG_15KHZ:   inputHz = 15000; break;
+		case DMG_20KHZ:   inputHz = 20000; break;
+		case DMG_30KHZ:   inputHz = 30000; break;
+        case DMG_44_1KHZ: inputHz = 44100; break;
+        case DMG_48KHZ:   inputHz = 48000; break;
+		default:          inputHz = 11025; break;
 	}
 
 	if (duration != NULL)
@@ -820,7 +809,7 @@ void ProgramDisplay()
 	RunCopperProgram(copper1, copPtr);
 }
 
-bool VID_Initialize(DDB_Machine machine, DDB_Version version)
+bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
 {
 	if (initialized)
 		return true;

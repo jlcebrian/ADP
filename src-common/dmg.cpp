@@ -393,7 +393,7 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 		return 0;
 	if (dmg->entries[n]->type == DMGEntry_Empty)
 		return dmg->entries[n];
-	if (dmg->entries[n]->processed)
+	if ((dmg->entries[n]->flags & DMG_FLAG_PROCESSED) != 0)
 		return dmg->entries[n];
 
 	if (DMG_ReadFromFile(dmg, dmg->entries[n]->fileOffset, header, 6) != 6)
@@ -404,14 +404,15 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 
 	v = read16(header, dmg->littleEndian);
 	dmg->entries[n]->width = v & 0x7FFF;
-	dmg->entries[n]->compressed = (v & 0x8000) != 0;
+    if ((v & 0x8000) != 0)
+	    dmg->entries[n]->flags |= DMG_FLAG_COMPRESSED;
 	v = read16(header + 2, dmg->littleEndian);
-	dmg->entries[n]->audioMode = (v & 0xC000) >> 12;
+    // if ((v & 0x8000) != 0)   // Should already be correctly set from flags
+    //     dmg->entries[n]->type = DMGEntry_Audio;
 	dmg->entries[n]->height = v & 0x7FFF;
 	dmg->entries[n]->length = read16(header + 4, dmg->littleEndian);
 
-	// Actual limits should be related to screen mode, but
-	// the meaning of that field is unknown
+	// Actual limits should be related to screen mode
 	if (dmg->entries[n]->type == DMGEntry_Image && (dmg->entries[n]->width > 1024 || dmg->entries[n]->height > 1024))
 	{
 		DMG_SetError(DMG_ERROR_IMAGE_TOO_BIG);
@@ -428,7 +429,7 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 		return 0;
 	}
 
-	dmg->entries[n]->processed = true;
+	dmg->entries[n]->flags |= DMG_FLAG_PROCESSED;
 	return dmg->entries[n];
 }
 
@@ -436,7 +437,7 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 /*  File management														     */
 /* ───────────────────────────────────────────────────────────────────────── */
 
-bool DMG_ReadDOSEntries(DMG* dmg, DMG_Version version)
+bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 {
 	int n, p;
 
@@ -475,13 +476,16 @@ bool DMG_ReadDOSEntries(DMG* dmg, DMG_Version version)
 			return false;
 		}
 		dmg->entries[n]->type = DMGEntry_Image;
-		dmg->entries[n]->flags = flags;
-		dmg->entries[n]->buffer = (flags & 0x0002) != 0;
-		dmg->entries[n]->fixed = (flags & 0x0001) == 0;
+		dmg->entries[n]->bitDepth = version == DMG_Version1_CGA ? 2 : 4;
+		dmg->entries[n]->flags = 0;
+        if ((flags & 0x0002) != 0)
+		    dmg->entries[n]->flags |= DMG_FLAG_BUFFERED;
+        if ((flags & 0x0001) == 0)
+            dmg->entries[n]->flags |= DMG_FLAG_FIXED;
 		dmg->entries[n]->x = x;
 		dmg->entries[n]->y = y;
 		dmg->entries[n]->fileOffset = offset;
-		dmg->entries[n]->processed = false;
+		dmg->entries[n]->flags &= ~DMG_FLAG_PROCESSED;
 
 		for (p = 0; p < 16; p++) {
 			if (version == DMG_Version1_EGA)
@@ -498,7 +502,7 @@ bool DMG_ReadDOSEntries(DMG* dmg, DMG_Version version)
 	return true;
 }
 
-bool DMG_ReadOldEntries(DMG* dmg)
+bool DMG_ReadV1Entries(DMG* dmg)
 {
 	int n, p;
 
@@ -540,15 +544,18 @@ bool DMG_ReadOldEntries(DMG* dmg)
 			return false;
 		}
 		dmg->entries[n]->type = DMGEntry_Image;
-		dmg->entries[n]->flags = flags;
-		dmg->entries[n]->buffer = (flags & 0x0002) != 0;
-		dmg->entries[n]->fixed = (flags & 0x0001) == 0;
+		dmg->entries[n]->bitDepth = 4;
+		dmg->entries[n]->flags = 0;
+        if ((flags & 0x0002) != 0)
+		    dmg->entries[n]->flags |= DMG_FLAG_BUFFERED;
+        if ((flags & 0x0001) == 0)
+            dmg->entries[n]->flags |= DMG_FLAG_FIXED;
 		dmg->entries[n]->firstColor = firstColor;
 		dmg->entries[n]->lastColor = lastColor;
 		dmg->entries[n]->x = x;
 		dmg->entries[n]->y = y;
 		dmg->entries[n]->fileOffset = offset;
-		dmg->entries[n]->processed = false;
+		dmg->entries[n]->flags &= ~DMG_FLAG_PROCESSED;
 
 		if (offset == 0)
 			dmg->entries[n]->type = DMGEntry_Empty;
@@ -564,7 +571,7 @@ bool DMG_ReadOldEntries(DMG* dmg)
 	return true;
 }
 
-bool DMG_ReadNewEntries(DMG* dmg)
+bool DMG_ReadV2Entries(DMG* dmg)
 {
 	int n, p;
 	uint8_t sizeBuffer[4];
@@ -617,15 +624,18 @@ bool DMG_ReadNewEntries(DMG* dmg)
 			return false;
 		}
 		dmg->entries[n]->type = (flags & 0x0010) ? DMGEntry_Audio : DMGEntry_Image;
-		dmg->entries[n]->flags = flags;
-		dmg->entries[n]->buffer = (flags & 0x0002) != 0;
-		dmg->entries[n]->fixed = (flags & 0x0001) == 0;
+		dmg->entries[n]->bitDepth = 4;
+		dmg->entries[n]->flags = 0;
+        if ((flags & 0x0002) != 0)
+            dmg->entries[n]->flags |= DMG_FLAG_BUFFERED;
+        if ((flags & 0x0001) == 0)
+            dmg->entries[n]->flags |= DMG_FLAG_FIXED;
 		dmg->entries[n]->firstColor = firstColor;
 		dmg->entries[n]->lastColor = lastColor;
 		dmg->entries[n]->x = x;
 		dmg->entries[n]->y = y;
 		dmg->entries[n]->fileOffset = offset;
-		dmg->entries[n]->processed = false;
+		dmg->entries[n]->flags &= ~DMG_FLAG_PROCESSED;
 
 		if (offset == 0)
 			dmg->entries[n]->type = DMGEntry_Empty;
@@ -637,8 +647,11 @@ bool DMG_ReadNewEntries(DMG* dmg)
 			dmg->entries[n]->EGAPalette[p] = amigaPaletteHack ? 0 : ((color >> 12) & 0x0F);
 			dmg->entries[n]->CGAPalette[p] = amigaPaletteHack ? 0 : ((CGAColors >> (2*p)) & 0x03);
 		}
-		dmg->entries[n]->amigaPaletteHack = amigaPaletteHack;
-		dmg->entries[n]->CGAMode = (flags & 0x0001) ? CGA_Red : CGA_Blue;
+        if (amigaPaletteHack)
+            dmg->entries[n]->flags |= DMG_FLAG_AMIPALHACK;
+        else
+            dmg->entries[n]->flags &= ~DMG_FLAG_AMIPALHACK;
+        DMG_SetCGAMode(dmg->entries[n], (flags & 0x0001) ? CGA_Red : CGA_Blue);
 	}
 
 	Free(buffer);
@@ -735,7 +748,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		case 0x0004:
 			// Old version DAT file, big endian
 			d->version = DMG_Version1;
-			success = DMG_ReadOldEntries(d);
+			success = DMG_ReadV1Entries(d);
 			break;
 
 		case 0x0300:
@@ -743,7 +756,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 			d->version = DMG_Version2;
 			d->littleEndian = false;
 			d->screenMode = read16BE(header + 2);
-			success = DMG_ReadNewEntries(d);
+			success = DMG_ReadV2Entries(d);
 			break;
 
 		case 0xFFFF:
@@ -751,7 +764,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 			d->version = DMG_Version2;
 			d->littleEndian = true;
 			d->screenMode = read16BE(header + 2);
-			success = DMG_ReadNewEntries(d);
+			success = DMG_ReadV2Entries(d);
 			break;
 
 		case 0x0000:
@@ -760,7 +773,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 				d->version = DMG_Version1_EGA;
 				d->littleEndian = true;
 				d->screenMode = ScreenMode_EGA;
-				success = DMG_ReadDOSEntries(d, DMG_Version1_EGA);
+				success = DMG_ReadV1DOSEntries(d, DMG_Version1_EGA);
 				break;
 			}
 			else if (StrIComp(extension, ".cga") == 0)
@@ -768,7 +781,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 				d->version = DMG_Version1_CGA;
 				d->littleEndian = true;
 				d->screenMode = ScreenMode_CGA;
-				success = DMG_ReadDOSEntries(d, DMG_Version1_CGA);
+				success = DMG_ReadV1DOSEntries(d, DMG_Version1_CGA);
 				break;
 			}
 			// Fall through
@@ -802,7 +815,7 @@ uint32_t* DMG_GetEntryPalette(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	if (entry == 0)
 		return 0;
 	if (DMG_IS_CGA(mode))
-		return entry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+		return DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
 	else if (DMG_IS_EGA(mode))
 		return EGAPalette;
 	else
@@ -874,6 +887,9 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 		case ImageMode_PackedEGA:
 		case ImageMode_PackedCGA:
 			return width * height / 2;
+
+		case ImageMode_Planar:
+            return ((width + 7) >> 3) * height * entry->bitDepth;
 
 		case ImageMode_PlanarST:
 			return ((width + 15) & ~15) * height / 2;

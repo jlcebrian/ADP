@@ -175,7 +175,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		}
 	}
 
-	if (entry->compressed)
+	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
 		if (dmg->version == DMG_Version1_EGA)
 		{

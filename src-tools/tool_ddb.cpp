@@ -15,19 +15,6 @@
 static bool trace = false;
 static bool force = false;
 
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	static char newFileName[256];
-
-	StrCopy(newFileName, 256, fileName);
-	newFileName[256-1] = 0;
-	char* ptr = (char *)StrRChr(newFileName, '.');
-	if (ptr == 0)
-		ptr = newFileName + StrLen(newFileName);
-	StrCopy(ptr, newFileName+256-ptr, extension);
-	return newFileName;
-}
-
 void TracePrintf(const char* format, ...)
 {
 	if (!trace)
@@ -303,8 +290,8 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	VID_Initialize(ddb->target, ddb->version);
-	if (DDB_SupportsDataFile(ddb))
+	VID_Initialize(ddb->target, ddb->version, ScreenMode_VGA16);
+	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(argv[1]);
 
 	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);

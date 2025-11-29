@@ -249,7 +249,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 			if (dmg->cacheFree > required)
 				break;
 		}
-		if (dmg->cacheFree < required && !force && entry->buffer)
+		if (dmg->cacheFree < required && !force && (entry->flags & DMG_FLAG_BUFFERED))
 		{
 			while (DMG_RemoveOlderCacheItem(dmg, true))
 			{
@@ -267,7 +267,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	item->size = size;
 	item->time = useCounter++;
 	item->index = index;
-	item->buffer = entry->buffer;
+	item->buffer = (entry->flags & DMG_FLAG_BUFFERED) != 0;
 	item->populated = false;
 
 	dmg->cacheFree -= required;

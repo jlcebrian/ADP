@@ -80,17 +80,6 @@ uint8_t DDB_Char2AtariST[16] =
 };
 #endif
 
-static const char* ChangeExtension(const char* fileName, const char* extension)
-{
-	strncpy(newFileName, fileName, MAX_PATH);
-	newFileName[MAX_PATH-1] = 0;
-	char* ptr = strrchr(newFileName, '.');
-	if (ptr == 0)
-		ptr = newFileName + strlen(newFileName);
-	strcpy(ptr, extension);
-	return newFileName;
-}
-
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
 	File* file = File_Open(filename);
@@ -982,7 +971,7 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 	quit = false;
 }
 
-bool VID_Initialize(DDB_Machine machine, DDB_Version version)
+bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
 {
 	screenWidth  = 320;
 	screenHeight = 200;

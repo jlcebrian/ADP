@@ -1,0 +1,213 @@
+───────────────────────────────────────────────────────────────────────────────
+  .DAT5     New Generation DAAD Image Database File Format Spec
+───────────────────────────────────────────────────────────────────────────────
+
+    This new file format defines a new generation of universal
+    image library files for DAAD. At the end of the file, the
+    rationale for the changes compared to previous DAT specs
+    is considered. However, the main DAT5 design goals are:
+
+    -   Add support for 32 color graphics (for Amiga OCS)
+        and 256 color graphics (VGA, Amiga AGA, Atari Falcon)
+    -   Add support for multi-disk games where a game has
+        multiple DAT files because they are too big for one
+    -   Keep and enhance downgrading graphics support (that is,
+        the ability to display graphics in EGA/CGA, or
+        display 256 color graphics in 32 or 16 color hardware)
+
+    NOTE: All data in a DAT 5+ is big endian, there is no little
+    endian version of the file. This includes 16 bit sample data.
+
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Contains a signature: 'D' 'A' 'T' \0
+    0x0004		1			High Version number (0)
+    0x0005		1			Low Version number  (5)
+    0x0006		2			Target screen width in pixels (usually 320 or 640)
+    0x0008      2           Target screen height in pixels (usually 200 or 400)
+    0x000A      2           Number of the first entry in the file (usually 0)
+    0x000C      2           Number of the last entry in the file (usually 255)
+    0x000E      2           Flags
+
+                Bits 0-4    Color mode
+
+                            0                   Universal (I256 + equivalence tables)
+                            1                   CGA:     All graphics data is chunky 2bpp, fixed palette
+                            2                   EGA:     All graphics data is chunky 16bpp, fixed palette
+                            3                   I16:     All images are 4bpp deep (no color equivalence tables)
+                            4                   I32:     All images are 5bpp deep (no color equivalence tables)
+                            5                   I256:    All images are 8bpp deep (no color equivalence tables)
+
+    0x0010		N * 32	    Entry headers (amount defined by indexes: last-first+1)
+        		...			Data area
+
+    All entries have a 32 bytes header and must always start with a pointer to
+    the entry's data in file (direct file seek offset), the data size, and one
+    byte to identify the entry's content and the format of the header itself.
+
+    The screen resolution is currently limited to 320x200, 640x200 and 640x400.
+
+    ───────────────────────
+     Entry Header: Graphic
+    ───────────────────────
+    
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Offset of data in file, 0 if empty
+    0x0004		4			Size of data in file
+    0x0008		1			Entry Type: must be 0 for graphics and empty entries
+    0x0009		1			Bit depth (number of planes stored in data). Can be 4, 5 or 8.
+    0x000A		2			Flags
+
+                Bit 3       Compression         0: None, 1: ZX0 
+                Bit 4		Floating Flag       0: draw the graphic in the position specified in file
+                Bit 5		Buffer Flag         1: hints the interpreter to keep graphic in RAM
+                Bit 6       CGA Mode            0: Red, 1: Blue
+
+    0x000C		2			X offset
+    0x000E		2			Y offset
+    0x0010		2			Graphic width in pixels
+    0x0012		2			Graphic height in pixels
+    0x0014		1			First color (usually 0)
+    0x0015		1			Last color (usually 15)
+    0x0016		4			Offset of palette data in file
+    0x001A		4			Size of palette data in file
+    0x001E      2           CRC value (naive XOR of data & palette info)
+
+    Palette data is stored in the following way:
+
+        *   COLOR PALETTE            (number of entries equal to last-first+1 according to header)
+        *   32C EQUIVALENCE TABLES   (if graphic has bit depth 8)
+        *   16C EQUIVALENCE TABLES   (if graphic has bit depth 5 or 8)
+        *   EGA EQUIVALENCE TABLE
+        *   CGA EQUIVALENCE TABLE
+
+    The color palette is stored as three bytes per color in R, G, B order with a 0 to 255 range.
+
+    If the file is not in universal mode, the equivalence tables will be missing from the
+    palette data and only the color triples will be stored there.
+
+    If present, every equivalence table contain the following parts:
+
+        M*2 bytes       Conversion map table, as many entries as colors in the original graphic
+        1 BYTE          Index of the first color used (in the reduced palette)
+        1 BYTE          Index of the last color used (in the reduced palette)
+        N*3 bytes       The reduced palette color values in RGB byte triplet format
+
+    The CGA/EGA equivalence tables use a fixed palette, so only the conversion map
+    table is present. The color indexes and palette color values will be missing.
+
+    Every entry in the conversion map contains the following data:
+
+        *   Bit 0-4     Index of the first color    (0-31)
+        *   Bit 5-9     Index of the second color   (0-31)
+        *   Bit 10-15   Distance between colors     (0-63)
+
+    The conversion table maps every color in the original graphic to two
+    color indexes in the reduced color palette and offers a distance
+    factor so the loader can apply dithering to the colors.
+
+    The distance is already adjusted for linear space and perceptuality,
+    so the loader can assume a 50% distance (value 31) is well served
+    with a 50% coverage pattern, for example.
+
+    If the file is CGA or EGA specific, palette data is not present,
+    bit depth is 0, and the graphic data is a single ZX0 or binary
+    stream containing chunky pixels (either 2bpp or 4bpp). If the
+    file is normal, bit depth can be 4, 5 or 8, and the graphic
+    data contains as many ZX0 or binary streams as bit planes.
+
+    Note that the interpreter will need to scramble or reorganize
+    the data as needed. DAAD always keeps the last loaded graphic
+    entirely in RAM, so the scrambling is expected to be made
+    in that buffer. Keeping the bit planes separate is intended
+    to improve the ZX0 compression (the conversion tool will
+    reorganize the graphic palette to keep close appearing colors
+    together and minimize change in the more significant bits).
+
+    ─────────────────────
+     Entry Header: Audio
+    ─────────────────────
+    
+    OFFSET		SIZE		DESCRIPTION
+
+    0x0000		4			Offset of data in file
+    0x0004		4			Size of data in file
+    0x0008		1			Entry Type: must be 1 for audio
+    0x0009		1			Frequency
+
+                0		 5000   Hz
+                1		 7000   Hz
+                2		 9500   Hz
+                3		15000   Hz
+                4		20000   Hz
+                5		30000   Hz
+                6       44100   Hz
+                7       48000   Hz
+
+    0x000A		2			Flags
+
+                Bit 0       0: 8 bits (1 byte per sample), 1: 16 bits (2 bytes per sample)
+                Bit 1       0: pause the game while playing, 1: play sound in background
+                Bit 2       0: sound has no loop, 1: loop sound indefinitely
+
+    0x000C		2			Offset of right channel data in file, if present
+    0x0010		4			Size of data in file
+
+    0x0014		4			Unused
+    0x001E      2           CRC value (naive XOR of both channel data, if present)
+
+    Stereo samples contain a second stream in offset 8 of the header,
+    mono samples have a single data stream and this value is 0.
+
+───────────────────────────────────────────────────────────────────────────────
+
+    DAAD was originally designed with multiple graphic data files for
+    CGA, EGA and Amiga/ST. For V2 of the program, those data files were
+    unified in a single data files where the ST format was given top
+    priority, and CGA/EGA LUTs were stored in file in order to display
+    the same images in the PC. This simplified game development, as
+    only one version of the graphics (with 4 bits color depth and a
+    custom palette) had to be considered, even if the CGA/EGA conversion
+    was less than perfect.
+
+    This files tried to take a guess at what could have been the next
+    evolution of the file format if backwards compatibility were still
+    being considered. At that time, VGA (and even SuperVGA) had become
+    common, and both Amiga and Atari had evolved with the Amiga 1200
+    and the Atari Falcon to competitive specs. The early 90s were
+    tumultuous for developers, as the installed base of older computers
+    (Amiga 500, plain Atari ST and even EGA/CGA PCs) was still
+    significant enough many games had to offer full compatibility.
+
+    It's no secret that DAAD v2 targetted the Atari ST as main platform, 
+    to the detriment of the more capable Amiga/PC. Graphics were designed
+    for a 320x200 resolution and 16 colors, while the Amiga supported
+    32 at the same resolution (a significant upgrade for digitalized
+    graphics). Even the PC VGA interpreter, which came late to the
+    party, was limited to a 320x200x16 colors mode.
+
+    Amiga text adventures commonly targetted its 640x200 mode (640x256
+    in PAL, but most games ignored the extra lines) which supported
+    16 color graphics and 80 columns text. In recent times, the DAAD
+    community is pivoting towards 640x400 as a target resolution, as
+    it's good enough to preserve details of high resolution images and
+    provides an easy conversion path for DAAD's windowing system.
+
+    This file format has been designed to support this path. In
+    practice, I expect DAT 5 files to be created as follows:
+
+    1) 640x400 files with 256 color graphics, for a PC SVGA interpreter,
+       or an Amiga AGA interpreter. An Amiga OCS could play the same
+       file in 640x200 by skipping every other row of a graphic,
+       and a ST/VGA interpreter could shrink them to 320x200, both
+       of them using the precalculated color reduction tables.
+
+    2) 320x200 files with 256 graphics, for a PC VGA interpreter. An
+       Amiga AGA would also play those with no issues in 320x200 mode.
+       OCS/ST/EGA/CGA interpreters will display them with color
+       reduction using those precalculated tables and no shrinking.
+
+    3) Special purpose files for each platform. Those include chunky
+       CGA/EGA modes and platform-specific files.
+       

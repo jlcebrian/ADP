@@ -59,6 +59,10 @@ extern int         StrComp    (const char* dst, const char* src);
 extern int         StrIComp   (const char* dst, const char* src);
 extern int         StrComp    (const char* dst, const char* src, size_t maxSize);
 
+// Widely used, uses static buffer
+
+extern const char* ChangeExtension (const char* filename, const char* newExtension);
+
 // Convenience inline versions for uint8_t string buffers
 
 static inline size_t StrCopy (uint8_t* dst, uint32_t dstSize, const uint8_t* src)

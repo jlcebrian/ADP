@@ -61,7 +61,8 @@ enum DMG_ImageMode
 	ImageMode_RGBA32	  = 0x10,		// 4 bytes per pixel, little endian, 0xAARRGGBB format
 	ImageMode_RGBA32EGA	  = 0x11,
 	ImageMode_RGBA32CGA	  = 0x12,
-	ImageMode_PlanarST    = 0x20,
+	ImageMode_PlanarST    = 0x20,       // Atari ST format (P0P0P1P1P2P2P3P3...)
+    ImageMode_Planar      = 0x24,       // One complete bitmap per plane 
 	ImageMode_Indexed	  = 0x40,		// 1 byte per pixel, regardless of color depth
 	ImageMode_IndexedEGA  = 0x41,
 	ImageMode_IndexedCGA  = 0x42,
@@ -93,7 +94,8 @@ typedef enum
 	DMG_Version1_CGA,
 	DMG_Version1_EGA,
 	DMG_Version1,
-	DMG_Version2
+	DMG_Version2,
+    DMG_Version5
 }
 DMG_Version;
 
@@ -105,33 +107,41 @@ typedef enum
 	DMG_15KHZ			= 3,
 	DMG_20KHZ			= 4,
 	DMG_30KHZ			= 5,
+    DMG_44_1KHZ         = 6,        // Version 5+
+    DMG_48KHZ           = 7,        // Version 5+
 }
 DMG_KHZ;
+
+typedef enum
+{
+    DMG_FLAG_COMPRESSED    = 0x0001,
+    DMG_FLAG_BUFFERED      = 0x0002,
+    DMG_FLAG_FIXED         = 0x0004,
+    DMG_FLAG_ZX0           = 0x0008,
+    DMG_FLAG_PROCESSED     = 0x0010,
+    DMG_FLAG_AMIPALHACK    = 0x0020,
+    DMG_FLAG_CGAMODE       = 0x0040,
+}
+DMG_FLAGS;
 
 struct DMG_Entry
 {
 	DMG_EntryType	type;
 
-	bool            amigaPaletteHack;
 	uint32_t		RGB32Palette[16];
 	uint8_t			CGAPalette[16];
 	uint8_t			EGAPalette[16];
-	DMG_CGAMode		CGAMode;
 
-	uint16_t		flags;
-	bool			fixed;
-	bool			buffer;
+	uint8_t		    flags;
+    uint8_t         bitDepth;       // Number of planes, only used if ImageMode_Planar
 	int16_t			x;
 	int16_t			y;
+	uint16_t		width;
+	uint16_t		height;
 	uint8_t         firstColor;
 	uint8_t         lastColor;
 
 	uint32_t		fileOffset;
-	bool			processed;
-	bool			compressed;
-	uint8_t         audioMode;
-	uint16_t		width;
-	uint16_t		height;
 	uint32_t		length;
 };
 
@@ -189,7 +199,7 @@ uint32_t*   DMG_GetEntryPalette    (DMG* dmg, uint8_t index, DMG_ImageMode mode)
 bool        DMG_RemoveEntry	 	   (DMG* dmg, uint8_t index);
 bool        DMG_SetEntryPalette    (DMG* dmg, uint8_t index, uint32_t* palette);
 bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed);
-bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq, uint8_t mode);
+bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
 bool        DMG_ReuseEntryData     (DMG* dmg, uint8_t index, uint8_t originalIndex);
 int         DMG_GetEntryCount      (DMG* dmg);
 uint8_t     DMG_FindFreeEntry      (DMG* dmg);
@@ -230,3 +240,16 @@ bool        DMG_Planar8ToPacked        (const uint8_t* data, uint16_t length, ui
 void        DMG_ConvertChunkyToPlanar  (uint8_t *buffer, uint32_t bufferSize, uint32_t width);
 
 uint32_t    DMG_CalculateRequiredSize  (DMG_Entry* entry, DMG_ImageMode mode);
+
+static inline DMG_CGAMode DMG_GetCGAMode(DMG_Entry* entry)
+{
+    return (entry->flags & DMG_FLAG_CGAMODE) ? CGA_Red : CGA_Blue;
+}
+
+static inline void DMG_SetCGAMode(DMG_Entry* entry, DMG_CGAMode mode)
+{
+    if (mode == CGA_Red)
+        entry->flags |= DMG_FLAG_CGAMODE;
+    else
+        entry->flags &= ~DMG_FLAG_CGAMODE;
+}

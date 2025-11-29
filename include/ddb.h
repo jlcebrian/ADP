@@ -180,10 +180,14 @@ enum DDB_Location
 
 enum DDB_ScreenMode
 {
-	ScreenMode_Text   = 0x02,
-	ScreenMode_CGA    = 0x04,
-	ScreenMode_EGA    = 0x0D,
-	ScreenMode_VGA16  = 0x8D,
+    ScreenMode_Default = 0x00,
+	ScreenMode_Text    = 0x02,
+	ScreenMode_CGA     = 0x04,
+	ScreenMode_EGA     = 0x0D,
+	ScreenMode_VGA16   = 0x8D,
+	ScreenMode_VGA     = 0x9D,       // 320x200 256c
+    ScreenMode_HiRes   = 0x90,       // 640x200 256c
+    ScreenMode_SHiRes  = 0x91,       // 640x400 256c
 };
 
 enum DDB_Error
@@ -199,6 +203,16 @@ enum DDB_Error
 	DDB_ERROR_FILE_NOT_SUPPORTED,
 	DDB_ERROR_SDL,
 	DDB_ERROR_NO_DDBS_FOUND,
+};
+
+enum DDB5_ColorMode
+{
+    DDB5_COLORMODE_UNIVERSAL = 0,
+    DDB5_COLORMODE_CGA  = 1,
+    DDB5_COLORMODE_EGA  = 2,
+    DDB5_COLORMODE_I16  = 3,
+    DDB5_COLORMODE_I32  = 4,
+    DDB5_COLORMODE_I256 = 5,
 };
 
 enum DDB_Condact
@@ -615,8 +629,9 @@ typedef int (*DDB_PrintFunc)(const char* format, ...);
 
 extern DDB*				DDB_Load				 (const char* filename);
 extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version);
+extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_ScreenMode* mode);
 extern DDB*             DDB_Create               ();
-extern bool             DDB_SupportsDataFile         (DDB* ddb);
+extern bool             DDB_SupportsDataFile     (DDB_Version ddb, DDB_Machine target);
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);
 extern const char*		DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
