@@ -445,13 +445,14 @@ bool DMG_SetImageData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width,
 		DMG_SetError(DMG_ERROR_WRITING_FILE);
 		return false;
 	}
+	dmg->fileSize += size + 6;
 
 	entry->type = DMGEntry_Image;
+    entry->bitDepth = 4;
 	entry->fileOffset = dmg->fileSize;
 	entry->width = width;
 	entry->height = height;
 	entry->length = size;
-	dmg->fileSize += size + 6;
 	return DMG_UpdateEntry(dmg, index);
 }
 

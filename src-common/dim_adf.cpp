@@ -14,6 +14,7 @@
 const int64_t AMIGA_EPOCH_OFFSET = 252460800;
 
 static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex);
+static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset);
 
 static void fix32(ADF_RootBlock* root)
 {
@@ -333,6 +334,36 @@ uint32_t ADF_GetVolumeLabel(ADF_Disk* disk, char* buffer, uint32_t bufferSize)
 	memcpy(buffer, disk->root.name, len);
 	buffer[len] = 0;
 	return len;
+}
+
+bool ADF_SetVolumeLabel(ADF_Disk* disk, const char* label)
+{
+	// Calculate the label length (max 30 characters)
+	uint32_t len = 0;
+	if (label != NULL)
+	{
+		while (len < 30 && label[len] != 0)
+			len++;
+	}
+	
+	// Update the root block in memory
+	disk->root.nameLength = (uint8_t)len;
+	memset(disk->root.name, 0, 30);
+	if (len > 0)
+		memcpy(disk->root.name, label, len);
+	
+	// Update checksum
+	ADF_UpdateChecksum((uint8_t*)&disk->root, 20);
+	
+	// Write the root block back to disk
+	File_Seek(disk->file, disk->rootBlock * 512);
+	if (File_Write(disk->file, &disk->root, 512) != 512)
+	{
+		DIM_SetError(DIMError_WriteError);
+		return false;
+	}
+	
+	return true;
 }
 
 static void ADF_GetCurrentAmigaTime(uint32_t* days, uint32_t* minutes, uint32_t* ticks)

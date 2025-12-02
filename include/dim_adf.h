@@ -137,6 +137,7 @@ uint32_t   ADF_GetCWD 		   (ADF_Disk* disk, char* buffer, uint32_t bufferSize);
 bool 	   ADF_ChangeDirectory (ADF_Disk* disk, const char* name);
 uint64_t   ADF_GetFreeSpace    (ADF_Disk* disk);
 uint32_t   ADF_GetVolumeLabel  (ADF_Disk* disk, char* buffer, uint32_t bufferSize);
+bool       ADF_SetVolumeLabel  (ADF_Disk* disk, const char* label);
 void       ADF_DumpInfo        (ADF_Disk* disk);
 void       ADF_CloseDisk       (ADF_Disk* disk);
 

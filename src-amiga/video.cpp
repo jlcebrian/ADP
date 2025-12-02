@@ -335,7 +335,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		case ScreenMode_VGA16:
 			if (pictureEntry->fixed && plane[0] == frontBuffer)
 			{
-				// TODO: This is a hack to fix the palette for the old version of the game
+				// TODO: This is a hack to fix the palette for V1
 				if (dmg->version == DMG_Version1)
 					pictureEntry->RGB32Palette[15] = 0xFFFFFFFF;
 				VID_SetPalette(palette);

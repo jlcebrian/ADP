@@ -58,6 +58,7 @@ extern bool 	 FAT_MakeDirectory     (FAT_Disk* disk, const char* name);
 extern bool 	 FAT_RemoveDirectory   (FAT_Disk* disk, const char* name);
 extern void		 FAT_CloseDisk         (FAT_Disk* disk);
 extern uint32_t  FAT_GetVolumeLabel    (FAT_Disk* disk, char* buffer, uint32_t bufferSize);
+extern bool      FAT_SetVolumeLabel    (FAT_Disk* disk, const char* label);
 extern uint64_t  FAT_GetFreeSpace      (FAT_Disk* disk);
 extern uint32_t  FAT_GetFileName       (FAT_DirEntry* entry, char* buffer, uint32_t bufferSize);
 extern void      FAT_DumpInfo          (FAT_Disk* disk);

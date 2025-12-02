@@ -89,6 +89,7 @@ uint32_t  FAT_CountFreeClusters     (FAT_Disk* disk);
 uint32_t  FAT_FindFreeCluster       (FAT_Disk* disk);
 bool      FAT_WriteSectorToDisk     (FAT_Disk* disk, uint32_t sector, const uint8_t* data);
 bool      FAT_UpdateDirectoryEntry  (FAT_Disk* disk, FAT_DirEntry* entry, uint32_t sector, uint32_t offset);
+bool      FAT_ReadSector            (FAT_Disk* disk, uint32_t sector);
 
 static inline uint32_t FAT_Sector2Cluster (FAT_Disk* disk, uint32_t sector)
 {
@@ -375,10 +376,66 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 	}
 	memset(disk->bootSector, 0, FAT_SECTOR_SIZE);
 
-	// Calculate sectors per cluster in order to fit the disk in 12 bits
-	uint8_t sectorsPerCluster = 1;
-	while (disk->numSectors / sectorsPerCluster > 4085)
+	// Determine FAT type and cluster size based on disk size
+	// FAT12: up to 4085 clusters, FAT16: 4086-65525 clusters
+	uint8_t sectorsPerCluster;
+	uint32_t maxRootEntries;
+	FAT_FATType fatType;
+	bool isFloppy = (disk->numSectors <= 2880);
+	
+	// Standard floppy uses 112 root entries, larger disks use 512
+	maxRootEntries = isFloppy ? 112 : 512;
+	
+	// Calculate initial sectors per cluster based on disk size
+	if (disk->numSectors <= 2880)          // <= 1.44MB: floppy, use 2 sectors/cluster
+		sectorsPerCluster = 2;
+	else if (disk->numSectors <= 32680)    // <= 16MB: 4 sectors/cluster  
+		sectorsPerCluster = 4;
+	else if (disk->numSectors <= 262144)   // <= 128MB: 8 sectors/cluster
+		sectorsPerCluster = 8;
+	else if (disk->numSectors <= 524288)   // <= 256MB: 16 sectors/cluster
+		sectorsPerCluster = 16;
+	else if (disk->numSectors <= 1048576)  // <= 512MB: 32 sectors/cluster
+		sectorsPerCluster = 32;
+	else                                    // > 512MB: 64 sectors/cluster
+		sectorsPerCluster = 64;
+	
+	uint32_t rootDirSectors = (maxRootEntries * FAT_DIRECTORY_ENTRY_SIZE + FAT_SECTOR_SIZE - 1) / FAT_SECTOR_SIZE;
+	uint32_t sectorsPerFAT = 0;
+	uint32_t actualClusters = 0;
+	
+	// Iterate to find appropriate cluster size for FAT12 or FAT16
+	for (;;)
 	{
+		uint32_t estimatedClusters = disk->numSectors / sectorsPerCluster;
+		
+		// Try FAT12 first
+		uint32_t bytesPerFat = (estimatedClusters * 3 + 1) / 2;
+		sectorsPerFAT = (bytesPerFat + FAT_SECTOR_SIZE - 1) / FAT_SECTOR_SIZE;
+		uint32_t overhead = 1 + (2 * sectorsPerFAT) + rootDirSectors;
+		uint32_t dataSectors = disk->numSectors - overhead;
+		actualClusters = dataSectors / sectorsPerCluster;
+		
+		if (actualClusters <= 4085)
+		{
+			fatType = FAT_FAT12;
+			break;
+		}
+		
+		// Try FAT16
+		bytesPerFat = estimatedClusters * 2;
+		sectorsPerFAT = (bytesPerFat + FAT_SECTOR_SIZE - 1) / FAT_SECTOR_SIZE;
+		overhead = 1 + (2 * sectorsPerFAT) + rootDirSectors;
+		dataSectors = disk->numSectors - overhead;
+		actualClusters = dataSectors / sectorsPerCluster;
+		
+		if (actualClusters >= 4086 && actualClusters < 65525)
+		{
+			fatType = FAT_FAT16;
+			break;
+		}
+		
+		// Need more sectors per cluster
 		if (sectorsPerCluster >= 128)
 		{
 			DIM_SetError(DIMError_InvalidFile);
@@ -390,20 +447,76 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 		sectorsPerCluster *= 2;
 	}
 
-	// Calculate FAT size
-	uint32_t totalClusters = disk->numSectors / sectorsPerCluster;
-	uint32_t bytesPerFat = (totalClusters * 3 + 1) / 2;
-	uint32_t sectorsPerFAT = (bytesPerFat + FAT_SECTOR_SIZE - 1) / FAT_SECTOR_SIZE;
-
 	FAT_BootSector* boot = disk->bootSector;
-	memcpy(boot->fileSystemType, "FAT12   ", 8);
+	
+	// Jump instruction (x86 JMP SHORT + NOP)
+	boot->jmpBoot[0] = 0xEB;
+	boot->jmpBoot[1] = 0x3C;
+	boot->jmpBoot[2] = 0x90;
+	
+	// OEM Name
+	memcpy(boot->OEMName, "MSDOS5.0", 8);
+	
+	// BPB (BIOS Parameter Block)
 	boot->bytesPerSector = FAT_SECTOR_SIZE;
 	boot->sectorsPerCluster = sectorsPerCluster;
-	boot->sectorsPerFAT = (uint16_t)sectorsPerFAT; 
-	boot->totalSectorsFAT16 = (uint16_t)(disk->numSectors / 2);
+	boot->reservedSectorCount = 1;
 	boot->numFATs = 2;
-	boot->maxRootEntries = 112;
-
+	boot->maxRootEntries = (uint16_t)maxRootEntries;
+	boot->totalSectorsFAT16 = (disk->numSectors < 65536) ? (uint16_t)disk->numSectors : 0;
+	
+	// Media descriptor: 0xF8 for hard disk, 0xF0 for removable, 0xFD for 360K
+	if (disk->numSectors == 720)
+		boot->mediaType = 0xFD;  // 360K 5.25"
+	else if (isFloppy)
+		boot->mediaType = 0xF0;  // Other floppies
+	else
+		boot->mediaType = 0xF8;  // Hard disk
+	
+	boot->sectorsPerFAT = (uint16_t)sectorsPerFAT;
+	
+	// Disk geometry - sensible defaults based on disk type
+	if (disk->numSectors == 720)       // 360K 5.25"
+	{
+		boot->sectorsPerTrack = 9;
+		boot->numHeads = 2;
+	}
+	else if (disk->numSectors == 1440) // 720K 3.5"
+	{
+		boot->sectorsPerTrack = 9;
+		boot->numHeads = 2;
+	}
+	else if (disk->numSectors == 2880) // 1.44M 3.5"
+	{
+		boot->sectorsPerTrack = 18;
+		boot->numHeads = 2;
+	}
+	else if (isFloppy) // Other floppy sizes
+	{
+		boot->sectorsPerTrack = 18;
+		boot->numHeads = 2;
+	}
+	else // Hard disk - use reasonable geometry
+	{
+		boot->sectorsPerTrack = 63;
+		boot->numHeads = 255;
+	}
+	
+	boot->hiddenSectors = 0;
+	boot->totalSectorsFAT32 = (disk->numSectors >= 65536) ? disk->numSectors : 0;
+	
+	// Extended boot record fields
+	boot->driveNumber = isFloppy ? 0x00 : 0x80;  // 0x00 for floppy, 0x80 for hard disk
+	boot->reserved = 0;
+	boot->bootSignature = 0x29;
+	boot->volumeID = 0x12345678;
+	memset(boot->volumeLabel, ' ', 11);
+	memcpy(boot->fileSystemType, (fatType == FAT_FAT12) ? "FAT12   " : "FAT16   ", 8);
+	
+	// Boot sector signature
+	boot->signature = 0xAA55;
+	
+	disk->fatType = fatType;
 	disk->rootFolderSector = 1 + boot->sectorsPerFAT * boot->numFATs;
 	disk->firstDataSector  = disk->rootFolderSector + boot->maxRootEntries * FAT_DIRECTORY_ENTRY_SIZE / FAT_SECTOR_SIZE;
 	disk->numClusters	   = (disk->numSectors - disk->firstDataSector) / boot->sectorsPerCluster;
@@ -419,6 +532,13 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 		Free(disk);
 		return NULL;
 	}
+	
+	// Initialize FAT with media descriptor
+	memset(disk->fat, 0, boot->sectorsPerFAT * FAT_SECTOR_SIZE * boot->numFATs);
+	disk->fat[0] = boot->mediaType;
+	disk->fat[1] = 0xFF;
+	disk->fat[2] = 0xFF;
+	disk->fatModified = false;
 
 	uint32_t fatSize = boot->sectorsPerFAT * FAT_SECTOR_SIZE * boot->numFATs;
 	bool ok = File_Write(disk->file, disk->bootSector, FAT_SECTOR_SIZE) == FAT_SECTOR_SIZE;
@@ -444,6 +564,61 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 
 uint32_t FAT_GetVolumeLabel (FAT_Disk* disk, char* buffer, uint32_t bufferSize)
 {
+	if (bufferSize == 0)
+		return 0;
+	
+	// First, search for volume label in root directory (set by MS-DOS LABEL command)
+	uint32_t sector = disk->rootFolderSector;
+	uint32_t maxRootSectors = disk->firstDataSector - disk->rootFolderSector;
+	
+	for (uint32_t s = 0; s < maxRootSectors; s++, sector++)
+	{
+		if (!FAT_ReadSector(disk, sector))
+			break;
+		
+		for (uint32_t offset = 0; offset < FAT_SECTOR_SIZE; offset += FAT_DIRECTORY_ENTRY_SIZE)
+		{
+			FAT_DirEntry* entry = (FAT_DirEntry*)(sectorData + offset);
+			
+			// End of directory
+			if (entry->filename[0] == 0)
+				goto check_boot_sector;
+			
+			// Deleted entry
+			if ((uint8_t)entry->filename[0] == 0xE5)
+				continue;
+			
+			// Check for volume label attribute
+			if ((entry->attributes & FAT_VOLUMEID) && !(entry->attributes & FAT_DIRECTORY))
+			{
+				// Found volume label in directory
+				// Volume labels use all 11 characters (filename+extension) as one field
+				char* out = buffer;
+				char* end = buffer + bufferSize - 1;
+				
+				// Copy all 11 characters, trimming trailing spaces
+				int lastNonSpace = -1;
+				for (int i = 0; i < 11 && out < end; i++)
+				{
+					char c = (i < 8) ? entry->filename[i] : entry->extension[i - 8];
+					*out++ = c;
+					if (c != ' ')
+						lastNonSpace = (int)(out - buffer) - 1;
+				}
+				
+				// Trim trailing spaces
+				if (lastNonSpace >= 0)
+					buffer[lastNonSpace + 1] = 0;
+				else
+					buffer[0] = 0;
+				
+				return (uint32_t)(lastNonSpace + 1);
+			}
+		}
+	}
+	
+check_boot_sector:
+	// Fall back to boot sector volume label
 	if (disk->bootSector->bootSignature != FAT_BOOT_SIGNATURE)
 		return 0;
 
@@ -452,7 +627,156 @@ uint32_t FAT_GetVolumeLabel (FAT_Disk* disk, char* buffer, uint32_t bufferSize)
 	char* ptr = (char *)disk->bootSector->volumeLabel;
 	while (out < end && *ptr && *ptr != ' ')
 		*out++ = *ptr++;
+	*out = 0;
 	return (uint32_t)(out - buffer);
+}
+
+bool FAT_SetVolumeLabel (FAT_Disk* disk, const char* label)
+{
+	FAT_BootSector* boot = disk->bootSector;
+	uint32_t labelLen = 0;
+	
+	if (label != NULL)
+	{
+		while (labelLen < 11 && label[labelLen] != 0)
+			labelLen++;
+	}
+	
+	// First, find and update/delete existing volume label in root directory
+	uint32_t sector = disk->rootFolderSector;
+	uint32_t maxRootSectors = disk->firstDataSector - disk->rootFolderSector;
+	uint32_t existingLabelSector = 0;
+	uint32_t existingLabelOffset = 0;
+	bool foundExisting = false;
+	
+	for (uint32_t s = 0; s < maxRootSectors && !foundExisting; s++, sector++)
+	{
+		if (!FAT_ReadSector(disk, sector))
+			continue;
+		
+		for (uint32_t offset = 0; offset < FAT_SECTOR_SIZE; offset += FAT_DIRECTORY_ENTRY_SIZE)
+		{
+			FAT_DirEntry* entry = (FAT_DirEntry*)(sectorData + offset);
+			
+			if (entry->filename[0] == 0)
+				break;
+			
+			if ((uint8_t)entry->filename[0] == 0xE5)
+				continue;
+			
+			if ((entry->attributes & FAT_VOLUMEID) && !(entry->attributes & FAT_DIRECTORY))
+			{
+				foundExisting = true;
+				existingLabelSector = sector;
+				existingLabelOffset = offset;
+				break;
+			}
+		}
+	}
+	
+	if (labelLen == 0)
+	{
+		// Delete existing label
+		if (foundExisting)
+		{
+			if (!FAT_ReadSector(disk, existingLabelSector))
+				return false;
+			FAT_DirEntry* entry = (FAT_DirEntry*)(sectorData + existingLabelOffset);
+			entry->filename[0] = (char)0xE5;  // Mark as deleted
+			if (!FAT_WriteSectorToDisk(disk, existingLabelSector, sectorData))
+			{
+				DIM_SetError(DIMError_WriteError);
+				return false;
+			}
+		}
+	}
+	else
+	{
+		// Create/update volume label entry in root directory
+		FAT_DirEntry labelEntry;
+		memset(&labelEntry, 0, sizeof(FAT_DirEntry));
+		
+		// Fill in the 11-character label (filename + extension as one field)
+		// Volume labels use all 11 characters continuously, not split at 8.3
+		memset(labelEntry.filename, ' ', 8);
+		memset(labelEntry.extension, ' ', 3);
+		
+		for (uint32_t i = 0; i < labelLen && i < 11; i++)
+		{
+			char c = (char)toupper(label[i]);
+			if (i < 8)
+				labelEntry.filename[i] = c;
+			else
+				labelEntry.extension[i - 8] = c;
+		}
+		
+		labelEntry.attributes = FAT_VOLUMEID;
+		
+		if (foundExisting)
+		{
+			// Update existing entry
+			if (!FAT_UpdateDirectoryEntry(disk, &labelEntry, existingLabelSector, existingLabelOffset))
+			{
+				DIM_SetError(DIMError_WriteError);
+				return false;
+			}
+		}
+		else
+		{
+			// Find free entry in root directory
+			sector = disk->rootFolderSector;
+			bool foundFree = false;
+			
+			for (uint32_t s = 0; s < maxRootSectors; s++, sector++)
+			{
+				if (!FAT_ReadSector(disk, sector))
+					continue;
+				
+				for (uint32_t offset = 0; offset < FAT_SECTOR_SIZE; offset += FAT_DIRECTORY_ENTRY_SIZE)
+				{
+					FAT_DirEntry* entry = (FAT_DirEntry*)(sectorData + offset);
+					
+					if (entry->filename[0] == 0 || (uint8_t)entry->filename[0] == 0xE5)
+					{
+						if (!FAT_UpdateDirectoryEntry(disk, &labelEntry, sector, offset))
+						{
+							DIM_SetError(DIMError_WriteError);
+							return false;
+						}
+						foundFree = true;
+						break;
+					}
+				}
+				if (foundFree)
+					break;
+			}
+			
+			if (!foundFree)
+			{
+				DIM_SetError(DIMError_DirectoryFull);
+				return false;
+			}
+		}
+	}
+	
+	// Also update boot sector volume label for compatibility
+	if (boot->bootSignature != FAT_BOOT_SIGNATURE)
+	{
+		boot->bootSignature = FAT_BOOT_SIGNATURE;
+		boot->volumeID = 0x12345678;
+	}
+	
+	memset(boot->volumeLabel, ' ', 11);
+	for (uint32_t i = 0; i < 11 && i < labelLen; i++)
+		boot->volumeLabel[i] = (uint8_t)toupper(label[i]);
+	
+	if (!FAT_WriteSectorToDisk(disk, 0, (uint8_t*)boot))
+	{
+		DIM_SetError(DIMError_WriteError);
+		return false;
+	}
+	
+	return true;
 }
 
 void FAT_DumpInfo (FAT_Disk* disk)
@@ -461,9 +785,10 @@ void FAT_DumpInfo (FAT_Disk* disk)
 
 	printf("Disk size:           %7dK\n", (disk->size + 1023) / 1024);
 	printf("Disk format:         %8s\n", disk->fatType == FAT_FAT12 ? "FAT12" : disk->fatType == FAT_FAT16 ? "FAT16" : "FAT32");
-	if (disk->bootSector->bootSignature == FAT_BOOT_SIGNATURE &&
-		boot->volumeLabel[0] != 0 && boot->volumeLabel[0] != ' ')
-		printf("Volume label:     %.*s\n", 11, boot->volumeLabel);
+	
+	char volumeLabel[12];
+	if (FAT_GetVolumeLabel(disk, volumeLabel, sizeof(volumeLabel)) > 0)
+		printf("Volume label:     %11s\n", volumeLabel);
 
 	printf("-----------------------------\n");
 	printf("Bytes per sector:    %8d\n", boot->bytesPerSector);

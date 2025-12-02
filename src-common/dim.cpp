@@ -527,6 +527,20 @@ uint32_t DIM_GetVolumeLabel(DIM_Disk* disk, char* buffer, uint32_t bufferSize)
 	}
 }
 
+bool DIM_SetVolumeLabel(DIM_Disk* disk, const char* label)
+{
+	switch (disk->type)
+	{
+		case DIM_FAT:
+			return FAT_SetVolumeLabel(disk->fat, label);
+		case DIM_ADF:
+			return ADF_SetVolumeLabel(disk->adf, label);
+		default:
+			DIM_SetError(DIMError_CommandNotSupported);
+			return false;
+	}
+}
+
 void DIM_DumpInfo (DIM_Disk* disk)
 {
 	switch (disk->type)

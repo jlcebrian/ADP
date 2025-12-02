@@ -34,6 +34,7 @@ typedef enum
 	ACTION_RMDIR,
 	ACTION_CAT,
 	ACTION_HEXCAT,
+	ACTION_SETVOL,
 	ACTION_INTERACTIVE,
 }
 Action;
@@ -88,6 +89,8 @@ commands[] =
 	{ "type",     ACTION_CAT,        MODE_EXISTING_DISK },
 	{ "hex",      ACTION_HEXCAT,     MODE_EXISTING_DISK },
 	{ "dump",     ACTION_HEXCAT,     MODE_EXISTING_DISK },
+	{ "setvol",   ACTION_SETVOL,     MODE_EXISTING_DISK },
+	{ "label",    ACTION_SETVOL,     MODE_EXISTING_DISK },
 	{ "shell",    ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ "i",        ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ NULL }
@@ -193,6 +196,12 @@ static void PrintHelp(int argc, char *argv[])
 						printf("Usage: dsk hex disk.img pattern\n\n");
 						printf("    Dump matching files in a hexadecimal/ASCII view.\n");
 						return;
+					case ACTION_SETVOL:
+						printf("Usage: dsk setvol disk.img [label]\n\n");
+						printf("    Set or clear the volume label of the disk image.\n");
+						printf("    If no label is provided, the volume label will be cleared.\n");
+						printf("    Not all disk formats support volume labels.\n");
+						return;
 					case ACTION_INTERACTIVE:
 						printf("Usage: dsk shell disk.img\n\n");
 						printf("    Open the disk image and enter an interactive shell.\n");
@@ -228,6 +237,7 @@ static void PrintHelp(int argc, char *argv[])
 	printf("    rmdir     Delete an empty directory from disk image\n");
 	printf("    mkdir     Make a directory in disk image\n");
 	printf("    chdir     Change current directory\n");
+	printf("    setvol    Set or clear the volume label\n");
 	printf("    shell     Open an interactive shell\n");
 	printf("    help      Show extended command help\n");
 	printf("\nAdditional interactive-only commands: LDIR, LCD/LCHDIR, PUT, GET, EXIT\n");
@@ -551,6 +561,25 @@ static bool RmDir (int argc, char *argv[])
 	return true;
 }
 
+static bool SetVol (int argc, char *argv[])
+{
+	const char* label = (argc > 0) ? argv[0] : "";
+	
+	// TODO: DIM_SetVolumeLabel doesn't exist yet - needs to be implemented
+	// in the DIM library for FAT and ADF disk formats
+	if (!DIM_SetVolumeLabel(disk, label))
+	{
+		printf("%s\n", DIM_GetErrorString());
+		return false;
+	}
+	
+	if (label[0] == 0)
+		printf("Volume label cleared\n");
+	else
+		printf("Volume label set to: %s\n", label);
+	return true;
+}
+
 static bool Cat (int argc, char *argv[], bool hexMode)
 {
 	const char* pattern = NULL;
@@ -777,6 +806,32 @@ static bool Dir (int argc, char* argv[])
 
 static bool CreateDisk(int argc, char *argv[])
 {
+	int size = 0;
+    int n;
+    for (n = 0; n < argc; n++)
+    {
+        const char* command = argv[n];
+        if (stricmp(command, "/?") == 0 || stricmp(command, "/h") == 0 || stricmp(command, "/help") == 0)
+        {
+            PrintHelp(1, argv);
+            return true;
+        }
+        if (diskFileName == NULL)
+        {
+            diskFileName = command;
+        }
+        else if (isdigit(argv[n][0]))
+        {
+            int sizeKB = atoi(argv[n]);
+            char lastChar = argv[n][strlen(argv[n]) - 1];
+            if (sizeKB > 0)
+            {
+                if (lastChar == 'm' || lastChar == 'M')
+                    sizeKB *= 1024;
+            }
+            size = sizeKB * 1024;
+        }
+    }
 	if (diskFileName == NULL && argc > 0)
 	{
 		diskFileName = argv[0];
@@ -788,7 +843,6 @@ static bool CreateDisk(int argc, char *argv[])
 		return false;
 	}
 
-	int size = 0;
 	disk = DIM_CreateDisk(diskFileName, size);
 	if (!disk)
 	{
@@ -848,61 +902,108 @@ static bool DeleteFiles (int argc, char *argv[])
 	return true;
 }
 
+static bool AddFile (const char* filename)
+{
+	static size_t bufferSize = 0;
+	static uint8_t* buffer = NULL;
+
+	File* file = File_Open(filename);
+	if (file == NULL)
+	{
+		printf("%s: file not found\n", filename);
+		return false;
+	}
+	uint64_t size = File_GetSize(file);
+	uint64_t freeSpace = DIM_GetFreeSpace(disk);
+	if (freeSpace < size)
+	{
+		printf("%s: no enough space left on disk\n", filename);
+		File_Close(file);
+		return false;
+	}
+	if (bufferSize < size)
+	{
+		bufferSize = size;
+		buffer = (uint8_t*)realloc(buffer, bufferSize);
+		if (buffer == NULL)
+		{
+			printf("Out of memory\n");
+			File_Close(file);
+			return false;
+		}
+	}
+	if (File_Read(file, buffer, size) != size)
+	{
+		printf("%s: error reading file\n", filename);
+		File_Close(file);
+		return false;
+	}
+	File_Close(file);
+
+	const char* ptr = filename;
+	const char* base = ptr;
+	while (*ptr != 0)
+	{
+		if (*ptr == '/' || *ptr == '\\' || *ptr == ':')
+			base = ptr + 1;
+		ptr++;
+	}
+	if (!DIM_WriteFile(disk, base, buffer, (uint32_t)size))
+    {
+		printf("%s: %s\n", base, DIM_GetErrorString());
+        return false;
+    }
+	else
+    {
+		printf("%s: %d bytes written\n", base, (uint32_t)size);
+        return true;
+    }
+}
+
 static bool AddFiles (int argc, char *argv[])
 {
-	uint8_t* buffer = NULL;
-	size_t bufferSize = 0;
 	bool ok = true;
 
 	for (; argc > 0; argc--, argv++)
 	{
-		File* file = File_Open(argv[0]);
-		if (file == NULL)
-		{
-			printf("%s: file not found\n", argv[0]);
-			ok = false;
-			continue;
-		}
-		uint64_t size = File_GetSize(file);
-		uint64_t freeSpace = DIM_GetFreeSpace(disk);
-		if (freeSpace < size)
-		{
-			printf("%s: no enough space left on disk\n", argv[0]);
-			File_Close(file);
-			ok = false;
-			continue;
-		}
-		if (bufferSize < size)
-		{
-			bufferSize = size;
-			buffer = (uint8_t*)realloc(buffer, bufferSize);
-			if (buffer == NULL)
-			{
-				printf("Out of memory\n");
-				File_Close(file);
-				return false;
-			}
-		}
-		if (File_Read(file, buffer, size) != size)
-		{
-			printf("%s: error reading file\n", argv[0]);
-			File_Close(file);
-			continue;
-		}
-		File_Close(file);
+        if (strchr(argv[0], '*') != NULL || strchr(argv[0], '?') != NULL)
+        {
+            FindFileResults results;
+            char *dirSep = strrchr(argv[0], '/');
+            if (!dirSep)
+                dirSep = strrchr(argv[0], '\\');
+            if (dirSep)
+            {
+                char savedChar = *dirSep;
+                *dirSep = 0;
+                if (!OS_ChangeDirectory(argv[0]))
+                {
+                    printf("%s: directory not found\n", argv[0]);
+                    ok = false;
+                    *dirSep = savedChar;
+                    continue;
+                }
+                *dirSep = savedChar;
+                argv[0] = dirSep + 1;
+            }
+            if (OS_FindFirstFile(argv[0], &results))
+            {
+                do
+                {
+                    if (!AddFile(results.fileName))
+                        ok = false;
+                }
+                while (OS_FindNextFile(&results));
+            }
+            else
+            {
+                printf("%s: file not found\n", argv[0]);
+                ok = false;
+            }
+            continue;
+        }
 
-		const char* ptr = argv[0];
-		const char* base = ptr;
-		while (*ptr != 0)
-		{
-			if (*ptr == '/' || *ptr == '\\' || *ptr == ':')
-				base = ptr + 1;
-			ptr++;
-		}
-		if (!DIM_WriteFile(disk, base, buffer, (uint32_t)size))
-			printf("%s: %s\n", base, DIM_GetErrorString());
-		else
-			printf("%s: %d bytes written\n", base, (uint32_t)size);
+        AddFile(argv[0]);
 	}
 	return ok;
 }
@@ -1011,6 +1112,8 @@ static bool RunCommand (Action action, int argc, char *argv[])
 			return Cat(argc, argv, false);
 		case ACTION_HEXCAT:
 			return Cat(argc, argv, true);
+		case ACTION_SETVOL:
+			return SetVol(argc, argv);
 		case ACTION_INTERACTIVE:
 			return RunInteractiveSession();
 	}

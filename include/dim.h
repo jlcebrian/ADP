@@ -72,6 +72,7 @@ extern uint32_t				DIM_GetCWD 		      (DIM_Disk* disk, char* buffer, uint32_t bu
 extern uint64_t             DIM_GetFreeSpace      (DIM_Disk* disk);
 extern void                 DIM_DumpInfo          (DIM_Disk* disk);
 extern uint32_t             DIM_GetVolumeLabel    (DIM_Disk* disk, char* buffer, uint32_t bufferSize);
+extern bool                 DIM_SetVolumeLabel    (DIM_Disk* disk, const char* label);
 extern void					DIM_CloseDisk         (DIM_Disk* disk);
 
 extern DIM_Error			DIM_GetError          (void);
