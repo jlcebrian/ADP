@@ -556,7 +556,7 @@ DMG* DMG_Create(const char* filename)
 /* ───────────────────────────────────────────────────────────────────────── */
 
 bool CompressImage (uint8_t* pixels, int pixelCount,
-	uint8_t* buffer, size_t bufferSize, bool* compressed, uint16_t* size)
+	uint8_t* buffer, size_t bufferSize, bool* compressed, uint16_t* size, bool debug)
 {
 	int compressedColorSize[16];
 	int uncompressedColorSize[16];
@@ -593,6 +593,11 @@ bool CompressImage (uint8_t* pixels, int pixelCount,
 
 	for (n = 0; n < 16; n++)
 	{
+        if (debug)
+        {
+            printf("Color %02X: uncompressed nibbles=%d, compressed nibbles=%d\n",
+               n, uncompressedColorSize[n], compressedColorSize[n]);
+        }
 		if (compressedColorSize[n] < uncompressedColorSize[n])
 		{
 			mask |= 1 << n;
@@ -603,6 +608,10 @@ bool CompressImage (uint8_t* pixels, int pixelCount,
 			totalCompressedSize += uncompressedColorSize[n];
 		}
 	}
+    if (debug)
+    {
+        printf("Final mask: %04X\n", mask);
+    }
 
 	// Adjust sizes from nibble counts to final buffer sizes
 

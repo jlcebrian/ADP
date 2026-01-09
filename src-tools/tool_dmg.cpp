@@ -10,6 +10,8 @@
 
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
+static bool debug = false;
+
 static const char* imageExtensions[] = { "png" };
 static const int count = sizeof(imageExtensions) / sizeof(imageExtensions[0]);
 
@@ -656,7 +658,7 @@ static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
 			}
 			size = width * height;
 			outBuffer = buffer + size;
-			if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize))
+			if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
 			{
 				fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outBuffer, DMG_GetErrorString());
 				return false;
@@ -958,7 +960,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
-			if (!CompressImage(inPtr, size, outPtr, size, &compressed, &compressedSize))
+			if (!CompressImage(inPtr, size, outPtr, size, &compressed, &compressedSize, debug))
 			{
 				fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outPtr, DMG_GetErrorString());
 				DMG_Close(out);
@@ -1024,6 +1026,20 @@ int main (int argc, char *argv[])
 		}
 	}
 
+    if (argc > 1 && argv[1][0] == '-')
+    {
+        if (stricmp(argv[1], "--debug") == 0)
+        {
+            debug = true;
+            argc--, argv++;
+        }
+        else
+        {
+            fprintf(stderr, "Error: Unknown option: \"%s\"\n", argv[1]);
+            return 1;
+        }
+    }
+
 	DMG_SetWarningHandler(ShowWarning);
 
 	if (strlen(argv[1]) > 1000)
@@ -1053,6 +1069,12 @@ int main (int argc, char *argv[])
 		}
 	}
 	argc--, argv++;
+
+    if (argc > 0 && stricmp(argv[0], "-debug") == 0)
+    {
+        debug = true;
+        argc--, argv++;
+    }
 
 	switch (action)
 	{
