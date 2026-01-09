@@ -109,8 +109,8 @@ static bool HostChangeDirectoryCommand(const char* path);
 static void ParseOptions (int *argc, char *argv[], const char* config);
 static bool RunCommand (Action action, int argc, char *argv[]);
 
-bool AddFiles (int argc, char *argv[]);
-bool Extract  (int argc, char *argv[]);
+static bool AddFiles (int argc, char *argv[]);
+static bool Extract  (int argc, char *argv[]);
 
 static inline char ToUpper(char c)
 {
@@ -565,7 +565,7 @@ static bool RmDir (int argc, char *argv[])
 static bool SetVol (int argc, char *argv[])
 {
 	const char* label = (argc > 0) ? argv[0] : "";
-	
+
 	// TODO: DIM_SetVolumeLabel doesn't exist yet - needs to be implemented
 	// in the DIM library for FAT and ADF disk formats
 	if (!DIM_SetVolumeLabel(disk, label))
@@ -573,7 +573,7 @@ static bool SetVol (int argc, char *argv[])
 		printf("%s\n", DIM_GetErrorString());
 		return false;
 	}
-	
+
 	if (label[0] == 0)
 		printf("Volume label cleared\n");
 	else
@@ -589,7 +589,7 @@ static bool Cat (int argc, char *argv[], bool hexMode)
 	bool singleFile = false;
 	uint32_t bufferSize = 0;
 	uint8_t* buffer = NULL;
-	
+
 	if (argc > 0)
 		pattern = argv[0];
 	if (pattern != NULL)
@@ -619,7 +619,7 @@ static bool Cat (int argc, char *argv[], bool hexMode)
 	if (DIM_FindFirstFile(disk, &result, pattern))
 	{
 		do
-		{			
+		{
 			if (!singleFile)
 				printf("\n%s (%u bytes)\n\n", result.fileName, result.fileSize);
 
@@ -710,7 +710,7 @@ static bool Dir (int argc, char* argv[])
 	char cwd[FILE_MAX_PATH];
 	char label[64];
 	FindFileResults result;
-	
+
 	if (argc > 0)
 		pattern = argv[0];
 	if (pattern != NULL)
@@ -1200,7 +1200,7 @@ static bool RunCommandLine (int argc, char *argv[])
 						if (!disk)
 						{
 							printf("%s: %s\n", diskFileName, DIM_GetErrorString());
-							return false; 
+							return false;
 						}
 					}
 				}
@@ -1218,7 +1218,7 @@ static bool RunCommandLine (int argc, char *argv[])
 				if (!disk)
 				{
 					printf("%s: %s\n", diskFileName, DIM_GetErrorString());
-					return false; 
+					return false;
 				}
 				return RunCommand(ACTION_LIST, 0, argv);
 			}
