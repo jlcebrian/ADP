@@ -24,7 +24,7 @@ static bool DMG_UpdateOffsets (DMG* dmg, uint32_t from, uint32_t to, bool add, i
 	uint8_t* buffer = DMG_GetTemporaryBuffer(ImageMode_RGBA32);
 	int offset = dmg->version == DMG_Version1 ? 0x06 : 0x0A;
 	int size = dmg->version == DMG_Version1 ? 44 : 48;
-	
+
 	if (!File_Seek(dmg->file, offset))
 	{
 		DMG_SetError(DMG_ERROR_SEEKING_FILE);
@@ -101,7 +101,7 @@ static bool DMG_RemoveBlock (DMG* dmg, uint32_t offset, uint32_t size)
 	{
 		uint32_t chunkSize = remaining > bufferSize ? bufferSize : remaining;
 		uint32_t chunkOffset = offset + size;
-		
+
 		if (!File_Seek(dmg->file, chunkOffset + size))
 		{
 			DMG_SetError(DMG_ERROR_SEEKING_FILE);
@@ -121,7 +121,7 @@ static bool DMG_RemoveBlock (DMG* dmg, uint32_t offset, uint32_t size)
 		{
 			DMG_SetError(DMG_ERROR_WRITING_FILE);
 			return false;
-		}		
+		}
 		remaining -= chunkSize;
 		offset += chunkSize;
 	}
@@ -143,12 +143,12 @@ static bool DMG_InsertBlock (DMG* dmg, uint32_t offset, uint32_t size)
 		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 		return false;
 	}
-	
+
 	while (remaining > 0)
 	{
 		uint32_t chunkSize = remaining > bufferSize ? bufferSize : remaining;
 		uint32_t chunkOffset = offset + remaining - chunkSize;
-		
+
 		if (!File_Seek(dmg->file, chunkOffset))
 		{
 			DMG_SetError(DMG_ERROR_SEEKING_FILE);
@@ -163,7 +163,7 @@ static bool DMG_InsertBlock (DMG* dmg, uint32_t offset, uint32_t size)
 		{
 			DMG_SetError(DMG_ERROR_WRITING_FILE);
 			return false;
-		}		
+		}
 		remaining -= chunkSize;
 	}
 
@@ -219,7 +219,7 @@ bool DMG_UpdateEntry (DMG* dmg, uint8_t index)
 	int size = dmg->version == DMG_Version1 ? 44 : 48;
 	int offset = (dmg->version == DMG_Version1 ? 0x06 : 0x0A) + index * size;
 	uint8_t* buffer = DMG_GetTemporaryBuffer(ImageMode_RGBA32);
-	
+
 	DMG_Entry* entry = dmg->entries[index];
 	if (entry == 0)
 		return false;
@@ -230,20 +230,20 @@ bool DMG_UpdateEntry (DMG* dmg, uint8_t index)
 	uint16_t flags = 0x0000;
 	if (dmg->version == DMG_Version1)
 	{
-		if (entry->flags & DMG_FLAG_FIXED)  
+		if (entry->flags & DMG_FLAG_FIXED)
 			flags |= 0x01;
-		if (entry->flags & DMG_FLAG_BUFFERED) 
+		if (entry->flags & DMG_FLAG_BUFFERED)
 			flags |= 0x02;
 	}
 	else
 	{
-		if (entry->flags & DMG_FLAG_FIXED)  
+		if (entry->flags & DMG_FLAG_FIXED)
 			flags |= 0x04;
-		if (entry->flags & DMG_FLAG_BUFFERED) 
+		if (entry->flags & DMG_FLAG_BUFFERED)
 			flags |= 0x02;
 		if (DMG_GetCGAMode(entry) == CGA_Red)
-			flags |= 0x01;	
-		if (entry->type == DMGEntry_Audio) 
+			flags |= 0x01;
+		if (entry->type == DMGEntry_Audio)
 			flags |= 0x10;
 	}
 
@@ -321,10 +321,10 @@ bool DMG_IsBlockShared(DMG* dmg, uint8_t index)
 bool DMG_RemoveEntry(DMG* dmg, uint8_t index)
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
-	
+
 	if (entry == NULL)
 		return false;
-	
+
 	if (entry->type != DMGEntry_Empty)
 	{
 		uint32_t offset = entry->fileOffset;
@@ -361,7 +361,23 @@ bool DMG_SetEntryPalette (DMG* dmg, uint8_t index, uint32_t* palette)
 	int n;
 
 	if (entry == NULL)
-		return false;
+	{
+		if (dmg->entries[index] == NULL)
+		{
+			dmg->entries[index] = Allocate<DMG_Entry>("DMG Entry");
+			if (dmg->entries[index] == NULL)
+			{
+				DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+				return false;
+			}
+			entry = dmg->entries[index];
+			entry->type = DMGEntry_Empty;
+		}
+		else
+		{
+			return false;
+		}
+	}
 
 	for (n = 0; n < 16; n++)
 		entry->RGB32Palette[n] = palette[n];
@@ -383,7 +399,7 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 	write16(header + 0x00, 0, dmg->littleEndian);
 	write16(header + 0x02, 0x8000, dmg->littleEndian);
 	write16(header + 0x04, size, dmg->littleEndian);
-	
+
 	if (File_Write(dmg->file, header, 6) != 6)
 	{
 		DMG_SetError(DMG_ERROR_WRITING_FILE);
@@ -434,7 +450,7 @@ bool DMG_SetImageData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width,
 	write16(header + 0x00, width | (compressed ? 0x8000 : 0), dmg->littleEndian);
 	write16(header + 0x02, height, dmg->littleEndian);
 	write16(header + 0x04, size, dmg->littleEndian);
-	
+
 	if (File_Write(dmg->file, header, 6) != 6)
 	{
 		DMG_SetError(DMG_ERROR_WRITING_FILE);
@@ -539,7 +555,7 @@ DMG* DMG_Create(const char* filename)
 /*  Compression															     */
 /* ───────────────────────────────────────────────────────────────────────── */
 
-bool CompressImage (uint8_t* pixels, int pixelCount, 
+bool CompressImage (uint8_t* pixels, int pixelCount,
 	uint8_t* buffer, size_t bufferSize, bool* compressed, uint16_t* size)
 {
 	int compressedColorSize[16];
@@ -563,7 +579,7 @@ bool CompressImage (uint8_t* pixels, int pixelCount,
 	{
 		uint8_t color = (*ptr++ & 0x0F);
 		int repeat = 1;
-		
+
 		n++;
 		while (repeat < 16 && n < pixelCount && *ptr == color)
 		{
@@ -655,7 +671,7 @@ bool CompressImage (uint8_t* pixels, int pixelCount,
 			uint8_t r = 0;
 			while (n < pixelCount && pixels[n] == c && r < 15)
 				n++, r++;
-			
+
 			v |= r << (i * 4);
 			if (++i == 8)
 			{
