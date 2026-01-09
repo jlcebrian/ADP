@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 static DIM_Error _DIM_Error = DIMError_None;
 
@@ -279,6 +280,23 @@ static void FillFindResults (DIM_Disk* disk, FindFileResults* results)
 			if (fr->entry.attributes & FAT_ARCHIVE)
 				results->attributes |= FileAttribute_Archive;
 			results->description[0] = 0;
+
+			if (fr->entry.modifyDate == 0)
+			{
+				results->modifyTime = 0;
+			}
+			else
+			{
+				struct tm t = {0};
+				t.tm_sec  = (fr->entry.modifyTime & 0x1F) * 2;
+				t.tm_min  = (fr->entry.modifyTime >> 5) & 0x3F;
+				t.tm_hour = (fr->entry.modifyTime >> 11) & 0x1F;
+				t.tm_mday = (fr->entry.modifyDate & 0x1F);
+				t.tm_mon  = ((fr->entry.modifyDate >> 5) & 0x0F) - 1;
+				t.tm_year = ((fr->entry.modifyDate >> 9) & 0x7F) + 80;
+				t.tm_isdst = -1;
+				results->modifyTime = mktime(&t);
+			}
 			break;
 		}
 		case DIM_CPC:
@@ -289,6 +307,7 @@ static void FillFindResults (DIM_Disk* disk, FindFileResults* results)
 			results->fileSize = fr->fileSize;
 			results->fileName[12] = 0;
 			results->attributes = 0;
+			results->modifyTime = 0;
 			break;
 		}
 		case DIM_ADF:
@@ -298,6 +317,7 @@ static void FillFindResults (DIM_Disk* disk, FindFileResults* results)
 			results->description[0] = 0;
 			results->fileSize = fr->fileSize;
 			results->attributes = fr->directory ? FileAttribute_Directory : 0;
+			results->modifyTime = (time_t)(fr->days * 86400LL + fr->minutes * 60LL + fr->ticks / 50 + 252460800);
 			break;
 		}
 	}

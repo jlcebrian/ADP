@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <time.h>
 
 #define INTERACTIVE_MAX_ARGS 64
 
@@ -770,7 +771,16 @@ static bool Dir (int argc, char* argv[])
 				if (options & DIR_BRIEF)
 					printf("%s\\\n", result.fileName);
 				else
-					printf("%-31s <DIR>            %s\n", result.fileName, result.description);
+				{
+					char timeStr[20] = "";
+					if (result.modifyTime != 0)
+					{
+						struct tm* t = localtime(&result.modifyTime);
+						if (t)
+							strftime(timeStr, sizeof(timeStr), "%d-%m-%y %H:%M", t);
+					}
+					printf("%-31s <DIR>      %14s  %s\n", result.fileName, timeStr, result.description);
+				}
 				dirCount++;
 			}
 			else
@@ -778,7 +788,16 @@ static bool Dir (int argc, char* argv[])
 				if (options & DIR_BRIEF)
 					printf("%s\n", result.fileName);
 				else
-					printf("%-31s        %8d  %s\n", result.fileName, result.fileSize, result.description);
+				{
+					char timeStr[20] = "";
+					if (result.modifyTime != 0)
+					{
+						struct tm* t = localtime(&result.modifyTime);
+						if (t)
+							strftime(timeStr, sizeof(timeStr), "%d-%m-%y %H:%M", t);
+					}
+					printf("%-31s %8d  %14s  %s\n", result.fileName, result.fileSize, timeStr, result.description);
+				}
 				fileCount++;
 				totalSize += result.fileSize;
 			}
@@ -990,6 +1009,8 @@ static bool AddFiles (int argc, char *argv[])
             {
                 do
                 {
+                    if (results.attributes & FileAttribute_Directory)
+                        continue;
                     if (!AddFile(results.fileName))
                         ok = false;
                 }

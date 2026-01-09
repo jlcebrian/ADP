@@ -11,6 +11,7 @@
 #include <windows.h>
 #include <winuser.h>
 #include <stdlib.h>
+#include <time.h>
 
 struct FindFileInternal
 {
@@ -38,6 +39,11 @@ void FillFindResults(FindFileResults* results)
 	if (data->dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE)
 		results->attributes |= FileAttribute_Archive;
 	results->description[0] = 0;
+
+	ULARGE_INTEGER ull;
+	ull.LowPart = data->ftLastWriteTime.dwLowDateTime;
+	ull.HighPart = data->ftLastWriteTime.dwHighDateTime;
+	results->modifyTime = (time_t)(ull.QuadPart / 10000000ULL - 11644473600ULL);
 }
 
 bool OS_FindFirstFile(const char *pattern, FindFileResults *results)

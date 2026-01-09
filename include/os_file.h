@@ -38,6 +38,7 @@ struct FindFileResults
 	char     description[80];
 	uint32_t fileSize;
 	int      attributes;
+	time_t   modifyTime;
 
 	uint8_t  internalData[300];
 };

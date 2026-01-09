@@ -123,6 +123,9 @@ struct ADF_FindResults
 	bool         directory;
 	char         fileName[32];
 	uint32_t     fileSize;
+	uint32_t     days;
+	uint32_t     minutes;
+	uint32_t     ticks;
 
 	char         pattern[32];
 	uint8_t      patternLen;

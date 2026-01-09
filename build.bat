@@ -25,7 +25,7 @@ GOTO :EOF
 
 :ERROR
 echo Usage: build.bat [options] [Windows] [Release]
-echo
+echo.
 echo Options:
 echo   -ddb  Build only the DDB executable
 GOTO :EOF

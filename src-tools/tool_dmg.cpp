@@ -13,7 +13,7 @@
 static const char* imageExtensions[] = { "png" };
 static const int count = sizeof(imageExtensions) / sizeof(imageExtensions[0]);
 
-typedef enum 
+typedef enum
 {
 	OPTION_X,
 	OPTION_Y,
@@ -38,7 +38,7 @@ static const char* colonOptions[] = {
 };
 static const int colonOptionCount = sizeof(colonOptions) / sizeof(colonOptions[0]);
 
-static struct 
+static struct
 {
 	int value;
 	DMG_KHZ freq;
@@ -91,7 +91,7 @@ Action;
 static Action action = ACTION_LIST;
 
 #pragma pack(push, 1)
-struct WAVHeader 
+struct WAVHeader
 {
 	uint8_t		riff[4];
 	uint32_t 	fileSize;
@@ -397,12 +397,12 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					}
 					else
 					{
-						printf("%03d: (%dx%d image, %s) %d bytes ok.\n", n, entry->width, entry->height, 
+						printf("%03d: (%dx%d image, %s) %d bytes ok.\n", n, entry->width, entry->height,
 						       (entry->flags & DMG_FLAG_COMPRESSED) ? "compressed" : "uncompressed", entry->length);
 					}
 					break;
 				}
-				
+
 				case DMGEntry_Audio:
 				{
 					uint8_t* buffer = DMG_GetEntryData(dmg, n, extractMode);
@@ -473,7 +473,7 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 {
 	int n, i;
 
-	printf ("Mode %d, %s, %s\n", dmg->screenMode, DescribeVersion(dmg->version), 
+	printf ("Mode %d, %s, %s\n", dmg->screenMode, DescribeVersion(dmg->version),
 		dmg->littleEndian ? "little endian" : "big endian");
 
 	for (n = 0; n < 256; n++)
@@ -492,14 +492,15 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 				case DMGEntry_Image:
 					if (entry->width * entry->height == 0 || entry->length == 0)
 						continue;
-					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes %s\n", 
-						n, entry->width, entry->height, 
+					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes %s\n",
+						n, entry->width, entry->height,
 						(entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
-						(entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float", 
+						(entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float",
 						entry->x, entry->y, entry->length,
 						(entry->flags & DMG_FLAG_COMPRESSED) ? " (compressed)":"");
 					if (verbose)
 					{
+                        printf("     File offset: %08X\n", entry->fileOffset);
 						printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
 						printf("     Palette:      ");
 						for (i = 0; i < 16; i++)
@@ -519,9 +520,9 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 						printf("\n");
 					}
 					break;
-					
+
 				case DMGEntry_Audio:
-					printf("%03d: Audio sample   %-16s               %5d bytes\n", 
+					printf("%03d: Audio sample   %-16s               %5d bytes\n",
 						n, DMG_DescribeFreq((DMG_KHZ)entry->x), entry->length);
 					break;
 
@@ -685,7 +686,7 @@ static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
 				{
 					int value;
 					DMG_Entry* entry;
-					
+
 					if (currentIndex < 0)
 					{
 						fprintf(stderr, "Error: Entry index required\n");
@@ -928,7 +929,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			}
 			printf("%03d: Added audio (%5d bytes, %s)\n", n, size, DMG_DescribeFreq((DMG_KHZ)entry->x));
 		}
-		
+
 		if (entry->type == DMGEntry_Image)
 		{
 			uint16_t width = entry->width;

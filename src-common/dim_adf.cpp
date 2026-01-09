@@ -260,6 +260,9 @@ bool ADF_FindNextFile (ADF_Disk* disk, ADF_FindResults* result)
 		result->block = blockIndex;
 		result->nextBlock = disk->block.hashChain;
 		result->directory = (disk->block.secondaryType == 2);
+		result->days = disk->block.aDays;
+		result->minutes = disk->block.aMinutes;
+		result->ticks = disk->block.aTicks;
 
 		if (!DIM_MatchWildcards(result->fileName, len, result->pattern, result->patternLen))
 			continue;
@@ -352,12 +355,16 @@ bool ADF_SetVolumeLabel(ADF_Disk* disk, const char* label)
 	if (len > 0)
 		memcpy(disk->root.name, label, len);
 	
-	// Update checksum
-	ADF_UpdateChecksum((uint8_t*)&disk->root, 20);
+	// Create a temporary copy for writing
+	ADF_RootBlock temp = disk->root;
+	fix32(&temp); // Convert to Big Endian
+
+	// Update checksum on the Big Endian block
+	ADF_UpdateChecksum((uint8_t*)&temp, 20);
 	
 	// Write the root block back to disk
 	File_Seek(disk->file, disk->rootBlock * 512);
-	if (File_Write(disk->file, &disk->root, 512) != 512)
+	if (File_Write(disk->file, &temp, 512) != 512)
 	{
 		DIM_SetError(DIMError_WriteError);
 		return false;
@@ -368,22 +375,13 @@ bool ADF_SetVolumeLabel(ADF_Disk* disk, const char* label)
 
 static void ADF_GetCurrentAmigaTime(uint32_t* days, uint32_t* minutes, uint32_t* ticks)
 {
-    // 1. Get current system time (Unix Timestamp)
-    time_t t = time(NULL);
-    
-    // 2. Adjust for Amiga Epoch (Jan 1, 1978)
-    int64_t amigaSeconds = (int64_t)t - AMIGA_EPOCH_OFFSET;
-    
-    // Safety check for dates before 1978
-    if (amigaSeconds < 0) amigaSeconds = 0;
-
-    // 3. Calculate Components
-    *days    = (uint32_t)(amigaSeconds / 86400);
-    
+    time_t   t = time(NULL);
+    int64_t  amigaSeconds = (int64_t)t < AMIGA_EPOCH_OFFSET ? 0 : ((int64_t)t - AMIGA_EPOCH_OFFSET);
     uint32_t secondsInDay = (uint32_t)(amigaSeconds % 86400);
-    *minutes = secondsInDay / 60;
-    
     uint32_t seconds = secondsInDay % 60;
+
+    *days    = (uint32_t)(amigaSeconds / 86400);
+    *minutes = secondsInDay / 60;
     *ticks   = seconds * 50;
 }
 
@@ -800,7 +798,7 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
 
     // 3. Create Boot Block (Block 0)
     memset(buffer, 0, 512);
-    buffer[0] = 'D'; buffer[1] = 'O'; buffer[2] = 'S'; buffer[3] = 1; // DOS1 (FFS)
+    buffer[0] = 'D'; buffer[1] = 'O'; buffer[2] = 'S'; buffer[3] = 0; // DOS0 (OFS)
 
     // CRITICAL FIX: Write the Root Block pointer at offset 8 (Big Endian)
     // ADF_OpenDisk reads this to find the filesystem.
@@ -842,6 +840,9 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
 
     root.nameLength = 5;
     strcpy(root.name, "EMPTY");
+
+    // Set Secondary Type (Must be ST_ROOT for validity)
+    root.blockSecondaryType = fix32(ADF_ST_ROOT);
 
     // Write Root
     ADF_UpdateChecksum((uint8_t*)&root, 20);

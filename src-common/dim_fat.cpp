@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #define FAT_SECTOR_SIZE            512u
 #define FAT_BOOT_SIGNATURE         0x29
@@ -52,6 +53,23 @@ typedef enum
 	FAT_FAT32,
 }
 FAT_FATType;
+
+static void FAT_GetDateTime(uint16_t* date, uint16_t* time)
+{
+	time_t t = ::time(NULL);
+	struct tm* tm = ::localtime(&t);
+	
+	if (tm)
+	{
+		*date = (uint16_t)(((tm->tm_year - 80) << 9) | ((tm->tm_mon + 1) << 5) | tm->tm_mday);
+		*time = (uint16_t)((tm->tm_hour << 11) | (tm->tm_min << 5) | (tm->tm_sec / 2));
+	}
+	else
+	{
+		*date = 0;
+		*time = 0;
+	}
+}
 
 #define FAT_UNUSED    0u
 #define FAT_RESERVED  0xFFFFFFF0u
@@ -270,38 +288,30 @@ FAT_Disk* FAT_OpenDisk (const char* filename)
 		{
 			DIM_SetError(DIMError_InvalidFile);
 		}
-		else if (
-			boot->totalSectorsFAT16 > 0 &&
-			boot->totalSectorsFAT16 < 4085 &&
-			(unsigned)(boot->totalSectorsFAT16 * FAT_SECTOR_SIZE) <= disk->size &&
-			(unsigned)boot->totalSectorsFAT16 * FAT_SECTOR_SIZE <= disk->size)
-		{
-			disk->numSectors = boot->totalSectorsFAT16;
-			disk->fatType = FAT_FAT12;
-			ok = true;
-		}
-		else if (
-			boot->totalSectorsFAT16 > 0 &&
-			boot->totalSectorsFAT16 < 65525 &&
-			boot->totalSectorsFAT16 * FAT_SECTOR_SIZE <= disk->size &&
-			boot->totalSectorsFAT16 * FAT_SECTOR_SIZE <= disk->size)
-		{
-			disk->numSectors = boot->totalSectorsFAT16;
-			disk->fatType = FAT_FAT16;
-			ok = true;
-		}
-		else if (
-			boot->totalSectorsFAT32 > 0 &&
-			boot->totalSectorsFAT32 * FAT_SECTOR_SIZE <= disk->size &&
-			boot->totalSectorsFAT32 * FAT_SECTOR_SIZE <= disk->size)
-		{
-			disk->numSectors = boot->totalSectorsFAT32;
-			disk->fatType = FAT_FAT32;
-			ok = true;
-		}
 		else
 		{
-			DIM_SetError(DIMError_InvalidFile);
+			uint32_t totalSectors = (boot->totalSectorsFAT16 != 0) ? boot->totalSectorsFAT16 : boot->totalSectorsFAT32;
+			if (totalSectors == 0 || (uint64_t)totalSectors * FAT_SECTOR_SIZE > disk->size)
+			{
+				DIM_SetError(DIMError_InvalidFile);
+			}
+			else
+			{
+				uint32_t rootDirSectors = (boot->maxRootEntries * 32 + FAT_SECTOR_SIZE - 1) / FAT_SECTOR_SIZE;
+				uint32_t fatSectors = boot->sectorsPerFAT * boot->numFATs;
+				uint32_t dataSectors = totalSectors - (boot->reservedSectorCount + fatSectors + rootDirSectors);
+				uint32_t countOfClusters = dataSectors / boot->sectorsPerCluster;
+
+				disk->numSectors = totalSectors;
+				ok = true;
+
+				if (countOfClusters < 4085)
+					disk->fatType = FAT_FAT12;
+				else if (countOfClusters < 65525)
+					disk->fatType = FAT_FAT16;
+				else
+					disk->fatType = FAT_FAT32;
+			}
 		}
 	}
 
@@ -381,13 +391,18 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 	uint8_t sectorsPerCluster;
 	uint32_t maxRootEntries;
 	FAT_FATType fatType;
-	bool isFloppy = (disk->numSectors <= 2880);
+	bool isFloppy = (disk->numSectors <= 5760);
 	
-	// Standard floppy uses 112 root entries, larger disks use 512
-	maxRootEntries = isFloppy ? 112 : 512;
+	// Standard floppy uses 112 or 224 root entries, larger disks use 512
+	if (disk->numSectors <= 720)
+		maxRootEntries = 112;
+	else if (disk->numSectors <= 5760)
+		maxRootEntries = 224;
+	else
+		maxRootEntries = 512;
 	
 	// Calculate initial sectors per cluster based on disk size
-	if (disk->numSectors <= 2880)          // <= 1.44MB: floppy, use 2 sectors/cluster
+	if (disk->numSectors <= 5760)          // <= 2.88MB: floppy, use 2 sectors/cluster
 		sectorsPerCluster = 2;
 	else if (disk->numSectors <= 32680)    // <= 16MB: 4 sectors/cluster  
 		sectorsPerCluster = 4;
@@ -489,6 +504,11 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 	else if (disk->numSectors == 2880) // 1.44M 3.5"
 	{
 		boot->sectorsPerTrack = 18;
+		boot->numHeads = 2;
+	}
+	else if (disk->numSectors == 5760) // 2.88M 3.5"
+	{
+		boot->sectorsPerTrack = 36;
 		boot->numHeads = 2;
 	}
 	else if (isFloppy) // Other floppy sizes
@@ -1293,8 +1313,69 @@ bool FAT_MakeDirectory (FAT_Disk* disk, const char* filename)
 	if (!FAT_FindFreeDirectoryEntry(disk, &results, false, true))
 		return false;
 
+	// Allocate a cluster for the new directory
+	uint32_t newCluster = FAT_FindFreeCluster(disk);
+	if (newCluster == FAT_LAST)
+	{
+		DIM_SetError(DIMError_DiskFull);
+		return false;
+	}
+	FAT_SetClusterFATValue(disk, newCluster, FAT_LAST);
+
+	// Initialize the new directory cluster with . and .. entries
+	uint32_t sector = FAT_Cluster2Sector(disk, newCluster);
+	uint8_t newDirData[FAT_SECTOR_SIZE];
+	memset(newDirData, 0, FAT_SECTOR_SIZE);
+	
+	uint16_t date, time;
+	FAT_GetDateTime(&date, &time);
+
+	FAT_DirEntry* dot = (FAT_DirEntry*)newDirData;
+	memset(dot, ' ', 11);
+	dot->filename[0] = '.';
+	dot->attributes = FAT_DIRECTORY;
+	dot->startingCluster = (uint16_t)newCluster;
+	dot->fat32ClusterHigh = (uint16_t)(newCluster >> 16);
+	dot->modifyTime = time;
+	dot->modifyDate = date;
+	
+	FAT_DirEntry* dotdot = (FAT_DirEntry*)(newDirData + FAT_DIRECTORY_ENTRY_SIZE);
+	memset(dotdot, ' ', 11);
+	dotdot->filename[0] = '.';
+	dotdot->filename[1] = '.';
+	dotdot->attributes = FAT_DIRECTORY;
+	
+	uint32_t parentCluster = 0;
+	if (disk->cwdDepth > 0)
+		parentCluster = disk->cwd[disk->cwdDepth-1].startingCluster | ((uint32_t)disk->cwd[disk->cwdDepth-1].fat32ClusterHigh << 16);
+		
+	dotdot->startingCluster = (uint16_t)parentCluster;
+	dotdot->fat32ClusterHigh = (uint16_t)(parentCluster >> 16);
+	dotdot->modifyTime = time;
+	dotdot->modifyDate = date;
+	
+	if (!FAT_WriteSectorToDisk(disk, sector, newDirData))
+	{
+		FAT_SetClusterFATValue(disk, newCluster, 0);
+		return false;
+	}
+	
+	// Clear remaining sectors of the cluster
+	if (disk->bootSector->sectorsPerCluster > 1)
+	{
+		memset(newDirData, 0, FAT_SECTOR_SIZE);
+		for (int i = 1; i < disk->bootSector->sectorsPerCluster; i++)
+		{
+			if (!FAT_WriteSectorToDisk(disk, sector + i, newDirData))
+				return false;
+		}
+	}
+
 	memset(&results.entry, 0, sizeof(FAT_DirEntry));
 	results.entry.attributes = FAT_DIRECTORY;
+	results.entry.startingCluster = (uint16_t)newCluster;
+	results.entry.fat32ClusterHigh = (uint16_t)(newCluster >> 16);
+	FAT_GetDateTime(&results.entry.modifyDate, &results.entry.modifyTime);
 
 	const char* ptr = filename;
 	for (int n = 0; n < 8; n++)
@@ -1347,8 +1428,7 @@ uint32_t FAT_WriteFile (FAT_Disk* disk, const char* filename, const uint8_t* buf
 	results.entry.fat32ClusterHigh = (uint16_t)(FAT_LAST >> 16);
 	results.entry.startingCluster = 0;
 	results.entry.attributes = existingEntry ? preservedAttributes : 0;
-	results.entry.modifyTime = 0;
-	results.entry.modifyDate = 0;
+	FAT_GetDateTime(&results.entry.modifyDate, &results.entry.modifyTime);
 	
 	const char* ptr = filename;
 	for (int n = 0; n < 8; n++)
