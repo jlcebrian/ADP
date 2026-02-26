@@ -91,7 +91,7 @@ DDB* DDB_Create()
 
 	ddb->version = DDB_VERSION_2;
 	ddb->target = DDB_MACHINE_ATARIST;
-	ddb->language = DDB_SPANISH;
+	ddb->language = DDB_SPANISH_ENHANCED;
 	ddb->data = 0;
 	ddb->dataSize = 0;
 	return ddb;

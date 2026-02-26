@@ -111,7 +111,8 @@ static void ShowLoaderPrompt(int parts, DDB_Language language)
 									  "want to load (1-*)?",
 	};
 
-	const char** message = (language == DDB_SPANISH) ? messageSP : messageEN;
+	const char** message = (language == DDB_SPANISH ||
+		language == DDB_SPANISH_ENHANCED) ? messageSP : messageEN;
 	for (int y = 0; y < 2; y++)
 	{
 		for (int x = 0; message[y][x] != 0; x++)

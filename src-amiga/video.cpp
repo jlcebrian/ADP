@@ -333,7 +333,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	{
 		default:
 		case ScreenMode_VGA16:
-			if (pictureEntry->fixed && plane[0] == frontBuffer)
+			if ((pictureEntry->flags & DMG_FLAG_FIXED) && plane[0] == frontBuffer)
 			{
 				// TODO: This is a hack to fix the palette for V1
 				if (dmg->version == DMG_Version1)
@@ -346,7 +346,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			break;
 
 		case ScreenMode_CGA:
-			VID_SetPalette(pictureEntry->CGAMode == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
+			VID_SetPalette(DMG_GetCGAMode(pictureEntry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
 			break;
 	}
 	
@@ -518,7 +518,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 	else
 	{
 		if (fixed != 0)
-			*fixed = pictureEntry->fixed;
+			*fixed = (pictureEntry->flags & DMG_FLAG_FIXED) ? 1 : 0;
 		if (x != 0)
 			*x = pictureEntry->x;
 		if (y != 0)

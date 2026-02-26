@@ -456,7 +456,7 @@ void DDB_Warning(const char* format, ...)
 {
 	if (warningHandler != 0)
 	{
-	#if _STDCLIB
+	#if _STDCLIB && !defined(NO_PRINTF)
 		char buffer[256];
 		va_list args;
 		va_start(args, format);
@@ -695,8 +695,9 @@ bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
     }
     uint16_t width  = read16BE(header + 0x6);
     uint16_t height = read16BE(header + 0x8);
-    uint16_t flags  = read16BE(header + 0xE);
-    DDB5_ColorMode colorMode = (DDB5_ColorMode)(flags & 0x000F);
+    
+	// uint16_t flags  = read16BE(header + 0xE);
+	// DAT5_ColorMode colorMode = (DAT5_ColorMode)(flags & 0x000F);
 
     if (width == 320 && height == 200)
         *mode = ScreenMode_VGA;

@@ -784,7 +784,8 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					}
 					while (objNameBuffer[firstChar] == ' ')
 						firstChar++;
-					if (i->ddb->language == DDB_SPANISH)
+					if (i->ddb->language == DDB_SPANISH ||
+						i->ddb->language == DDB_SPANISH_ENHANCED)
 					{
 						if (ptr[1] == 'n') {
 							if (ptr[0] == 'u' || ptr[0] == 'U') {
@@ -847,7 +848,8 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
 					if (end == objNameBuffer)
 						return;
-					if (i->ddb->language == DDB_SPANISH)
+					if (i->ddb->language == DDB_SPANISH ||
+						i->ddb->language == DDB_SPANISH_ENHANCED)
 					{
 						if (objNameBuffer[1] == 'n') {
 							if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
@@ -1599,7 +1601,17 @@ static bool FindWord (DDB_Interpreter* i, const uint8_t** textPointer, const uin
 	return false;
 }
 
-static bool EndsWithPronoun (const char* word, int len)
+static bool ShouldCheckSpanishPronouns (DDB* ddb, int code)
+{
+	if (ddb->language == DDB_SPANISH)
+		return true;
+	if (ddb->language == DDB_SPANISH_ENHANCED && code < 240)
+		return true;
+
+	return false;
+}
+
+static bool EndsWithSpanishPronoun (const char* word, int len)
 {
 	// Short verbs are ignored. This is probably wrong, but it is what PAWS does, and
 	// fixes some words such as SOLO being used as verbs in the default database.
@@ -1708,15 +1720,17 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 
 			wordsFound++;
 
-			// TODO: Check phrase structure, following the documentation
-
 			switch (type)
 			{
 				case WordType_Verb:
 					if (i->flags[Flag_Verb] == 255)
 					{
 						i->flags[Flag_Verb] = code;
-						if (EndsWithPronoun((const char*)word, ptr - word) && i->flags[Flag_Noun1] == 255 && i->flags[Flag_CPNoun] != 255)
+
+						if (i->flags[Flag_Noun1] == 255 && 
+							i->flags[Flag_CPNoun] != 255 &&
+							ShouldCheckSpanishPronouns(i->ddb, code) &&
+							EndsWithSpanishPronoun((const char*)word, ptr - word))
 						{
 							i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 							i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];

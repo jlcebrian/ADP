@@ -205,14 +205,14 @@ enum DDB_Error
 	DDB_ERROR_NO_DDBS_FOUND,
 };
 
-enum DDB5_ColorMode
+enum DAT5_ColorMode
 {
-    DDB5_COLORMODE_UNIVERSAL = 0,
-    DDB5_COLORMODE_CGA  = 1,
-    DDB5_COLORMODE_EGA  = 2,
-    DDB5_COLORMODE_I16  = 3,
-    DDB5_COLORMODE_I32  = 4,
-    DDB5_COLORMODE_I256 = 5,
+    DAT5_COLORMODE_UNIVERSAL = 0,
+    DAT5_COLORMODE_CGA  = 1,
+    DAT5_COLORMODE_EGA  = 2,
+    DAT5_COLORMODE_I16  = 3,
+    DAT5_COLORMODE_I32  = 4,
+    DAT5_COLORMODE_I256 = 5,
 };
 
 enum DDB_Condact
@@ -386,8 +386,9 @@ enum DDB_Machine
 
 enum DDB_Language
 {
-	DDB_ENGLISH,
-	DDB_SPANISH
+	DDB_ENGLISH = 0,
+	DDB_SPANISH = 1,
+	DDB_SPANISH_ENHANCED = 9			// verbs >= 240 ignore pronouns
 };
 
 enum DDB_Flow

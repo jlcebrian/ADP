@@ -171,7 +171,7 @@
     custom palette) had to be considered, even if the CGA/EGA conversion
     was less than perfect.
 
-    This files tried to take a guess at what could have been the next
+    This design tries to take a guess at what could have been the next
     evolution of the file format if backwards compatibility were still
     being considered. At that time, VGA (and even SuperVGA) had become
     common, and both Amiga and Atari had evolved with the Amiga 1200

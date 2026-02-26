@@ -29,11 +29,16 @@ program = out/amiga/$(exename)
 OUT = $(program)
 CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
+SHRINKLER = Shrinkler
 
 ifdef WINDOWS
 	SDKDIR = $(abspath $(dir $(shell where $(CC)))..\m68k-amiga-elf\sys-include)
 else
 	SDKDIR = $(abspath $(dir $(shell which $(CC)))../m68k-amiga-elf/sys-include)
+	TOOLBINDIR = $(abspath $(dir $(shell which $(CC))))
+	TOOLSHIMDIR = $(CURDIR)/obj/amiga/.toolchain
+	TOOLSHIM = $(TOOLSHIMDIR)/as
+	TOOLPATH = PATH="$(TOOLSHIMDIR):$(TOOLBINDIR):$$PATH"
 endif
 
 CCFLAGS += -DVERSION=$(VERSION) 
@@ -52,14 +57,24 @@ VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -dwarf=3 -quiet -x -I. -I$(SDKD
 
 all: $(OUT).exe
 
+ifndef WINDOWS
+$(TOOLSHIM):
+	@mkdir -p $(TOOLSHIMDIR)
+	@ln -sf "$(TOOLBINDIR)/m68k-amiga-elf-as" "$(TOOLSHIM)"
+endif
+
 $(OUT).exe: $(OUT).elf
 	$(info Elf2Hunk $(program).exe)
 	@elf2hunk $(OUT).elf $(OUT).exe -s
-	@shrinkler $(OUT).exe $(OUT).exe
+	@$(SHRINKLER) $(OUT).exe $(OUT).exe
 
 $(OUT).elf: $(objects)
 	$(info Linking $(program).elf)
+ifndef WINDOWS
+	@$(TOOLPATH) $(CC) $(CCFLAGS) $(LDFLAGS) $(objects) -o $@
+else
 	@$(CC) $(CCFLAGS) $(LDFLAGS) $(objects) -o $@
+endif
 	@m68k-amiga-elf-objdump --disassemble --no-show-raw-ins --visualize-jumps -S $@ >$(OUT).s
 
 clean:
@@ -74,16 +89,32 @@ endif
 
 $(cpp_objects) : obj/amiga/%.o : %.cpp
 	$(info Compiling $<)
+ifndef WINDOWS
+	@$(TOOLPATH) $(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+else
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+endif
 
 $(c_objects) : obj/amiga/%.o : %.c
 	$(info Compiling $<)
+ifndef WINDOWS
+	@$(TOOLPATH) $(CC) $(CCFLAGS) -c -o $@ $(CURDIR)/$<
+else
 	@$(CC) $(CCFLAGS) -c -o $@ $(CURDIR)/$<
+endif
 
 $(s_objects): obj/amiga/%.o : %.s
 	$(info Assembling $<)
+ifndef WINDOWS
+	@$(TOOLPATH) $(CC) $(CCFLAGS) $(ASFLAGS) -c -o $@ $(CURDIR)/$<
+else
 	@$(CC) $(CCFLAGS) $(ASFLAGS) -c -o $@ $(CURDIR)/$<
+endif
 
 $(vasm_objects): obj/amiga/%.o : %.asm
 	$(info Assembling $<)
 	@$(VASM) $(VASMFLAGS) -o $@ $(CURDIR)/$<
+
+ifndef WINDOWS
+$(objects): | $(TOOLSHIM)
+endif
