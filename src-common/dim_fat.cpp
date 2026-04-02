@@ -82,6 +82,7 @@ struct FAT_Disk
 	uint32_t		size;
 	uint32_t    	numSectors;
 	uint32_t        numClusters;
+	bool            readOnly;
 
 	FAT_BootSector* bootSector;
 	FAT_FATType		fatType;
@@ -108,6 +109,7 @@ uint32_t  FAT_FindFreeCluster       (FAT_Disk* disk);
 bool      FAT_WriteSectorToDisk     (FAT_Disk* disk, uint32_t sector, const uint8_t* data);
 bool      FAT_UpdateDirectoryEntry  (FAT_Disk* disk, FAT_DirEntry* entry, uint32_t sector, uint32_t offset);
 bool      FAT_ReadSector            (FAT_Disk* disk, uint32_t sector);
+static bool FAT_DecodeMSA           (File* file, uint32_t fileSize, uint8_t** outData, uint32_t* outSize);
 
 static inline uint32_t FAT_Sector2Cluster (FAT_Disk* disk, uint32_t sector)
 {
@@ -242,6 +244,7 @@ bool FAT_MatchPattern (const FAT_DirEntry* entry, const char* pattern)
 FAT_Disk* FAT_OpenDisk (const char* filename)
 {
 	bool ok = false;
+	bool readOnly = false;
 
 	FAT_Disk* disk = Allocate<FAT_Disk>("FAT Disk");
 	if (!disk)
@@ -253,9 +256,15 @@ FAT_Disk* FAT_OpenDisk (const char* filename)
 	disk->file = File_Open(filename, ReadWrite);
 	if (!disk->file)
 	{
-		DIM_SetError(DIMError_FileNotFound);
-		Free(disk);
-		return NULL;
+		// Allow opening read-only images (common for archived floppy dumps).
+		disk->file = File_Open(filename, ReadOnly);
+		if (!disk->file)
+		{
+			DIM_SetError(DIMError_FileNotFound);
+			Free(disk);
+			return NULL;
+		}
+		readOnly = true;
 	}
 
 	DIM_SetError(DIMError_InvalidFile);
@@ -278,6 +287,35 @@ FAT_Disk* FAT_OpenDisk (const char* filename)
 	}
 	else
 	{
+		uint8_t* bootBytes = (uint8_t*)boot;
+		if (bootBytes[0] == 0x0E && bootBytes[1] == 0x0F)
+		{
+			uint8_t* rawImage = NULL;
+			uint32_t rawSize = 0;
+			if (!FAT_DecodeMSA(disk->file, disk->size, &rawImage, &rawSize))
+			{
+				DIM_SetError(DIMError_InvalidFile);
+			}
+			else
+			{
+				File_Close(disk->file);
+				disk->file = Memory_Open(rawImage, rawSize);
+				if (!disk->file)
+				{
+					Free(rawImage);
+					DIM_SetError(DIMError_OutOfMemory);
+				}
+				else
+				{
+					readOnly = true;
+					disk->size = rawSize;
+					disk->numSectors = rawSize / FAT_SECTOR_SIZE;
+					if (File_Read(disk->file, disk->bootSector, FAT_SECTOR_SIZE) != FAT_SECTOR_SIZE)
+						DIM_SetError(DIMError_ReadError);
+				}
+			}
+		}
+
 		if (boot->bytesPerSector != FAT_SECTOR_SIZE ||
 			boot->sectorsPerCluster == 0 ||
 			boot->sectorsPerCluster > 64 ||
@@ -317,6 +355,7 @@ FAT_Disk* FAT_OpenDisk (const char* filename)
 
 	if (ok)
 	{
+		disk->readOnly = readOnly;
 		uint64_t fatSize = boot->sectorsPerFAT * FAT_SECTOR_SIZE * boot->numFATs;
 		disk->fat = Allocate<uint8_t>("FAT Disk fat", fatSize);
 		if (disk->fat == NULL)
@@ -376,6 +415,7 @@ FAT_Disk* FAT_CreateDisk (const char* filename, uint32_t size)
 
 	disk->size = size;
 	disk->numSectors = size / FAT_SECTOR_SIZE;
+	disk->readOnly = false;
 	disk->bootSector = (FAT_BootSector*)Allocate<uint8_t>("FAT Disk boot", FAT_SECTOR_SIZE);
 	if (!disk->bootSector)
 	{
@@ -855,6 +895,12 @@ bool FAT_ReadSector (FAT_Disk* disk, uint32_t sector)
 
 bool FAT_WriteSectorToDisk (FAT_Disk* disk, uint32_t sector, const uint8_t* data)
 {
+	if (disk->readOnly)
+	{
+		DIM_SetError(DIMError_WriteError);
+		return false;
+	}
+
 	if (sector < 0 || sector >= disk->numSectors)
 		return false;
 
@@ -1111,7 +1157,7 @@ void FAT_CloseDisk (FAT_Disk* disk)
 {
 	if (disk)
 	{
-		if (disk->fatModified)
+		if (disk->fatModified && !disk->readOnly)
 		{
 			File_Seek(disk->file, FAT_SECTOR_SIZE);
 			for (int n = 0; n < disk->bootSector->numFATs; n++)
@@ -1503,6 +1549,142 @@ uint32_t FAT_WriteFile (FAT_Disk* disk, const char* filename, const uint8_t* buf
 
 	FAT_UpdateDirectoryEntry(disk, &results.entry, results.sector, results.offset);
 	return results.entry.fileSize;
+}
+
+static uint16_t FAT_ReadBE16(const uint8_t* ptr)
+{
+	return (uint16_t)((ptr[0] << 8) | ptr[1]);
+}
+
+static bool FAT_DecodeMSA(File* file, uint32_t fileSize, uint8_t** outData, uint32_t* outSize)
+{
+	if (fileSize < 10)
+		return false;
+
+	if (!File_Seek(file, 0))
+		return false;
+
+	uint8_t* input = Allocate<uint8_t>("MSA input", fileSize);
+	if (!input)
+		return false;
+	if (File_Read(file, input, fileSize) != fileSize)
+	{
+		Free(input);
+		return false;
+	}
+
+	if (FAT_ReadBE16(input) != 0x0E0F)
+	{
+		Free(input);
+		return false;
+	}
+
+	uint32_t sectorsPerTrack = FAT_ReadBE16(input + 2);
+	uint32_t sideId = FAT_ReadBE16(input + 4);
+	uint32_t firstTrack = FAT_ReadBE16(input + 6);
+	uint32_t lastTrack = FAT_ReadBE16(input + 8);
+
+	if (sectorsPerTrack == 0 || sectorsPerTrack > 32 || sideId > 1 || lastTrack < firstTrack)
+	{
+		Free(input);
+		return false;
+	}
+
+	uint32_t sides = sideId + 1;
+	uint32_t tracks = lastTrack - firstTrack + 1;
+	uint32_t trackSize = sectorsPerTrack * FAT_SECTOR_SIZE;
+	uint64_t rawSize64 = (uint64_t)trackSize * tracks * sides;
+	if (rawSize64 == 0 || rawSize64 > 0xFFFFFFFFu)
+	{
+		Free(input);
+		return false;
+	}
+
+	uint32_t rawSize = (uint32_t)rawSize64;
+	uint8_t* output = Allocate<uint8_t>("MSA output", rawSize);
+	if (!output)
+	{
+		Free(input);
+		return false;
+	}
+
+	uint32_t inPos = 10;
+	uint32_t outPos = 0;
+
+	for (uint32_t track = 0; track < tracks; track++)
+	{
+		for (uint32_t side = 0; side < sides; side++)
+		{
+			if (inPos + 2 > fileSize)
+			{
+				Free(output);
+				Free(input);
+				return false;
+			}
+
+			uint32_t packedSize = FAT_ReadBE16(input + inPos);
+			inPos += 2;
+
+			if (packedSize == trackSize)
+			{
+				if (inPos + trackSize > fileSize || outPos + trackSize > rawSize)
+				{
+					Free(output);
+					Free(input);
+					return false;
+				}
+				memcpy(output + outPos, input + inPos, trackSize);
+				inPos += trackSize;
+				outPos += trackSize;
+			}
+			else
+			{
+				uint32_t remaining = trackSize;
+				while (remaining > 0)
+				{
+					if (inPos >= fileSize || outPos >= rawSize)
+					{
+						Free(output);
+						Free(input);
+						return false;
+					}
+
+					uint8_t value = input[inPos++];
+					if (value != 0xE5)
+					{
+						output[outPos++] = value;
+						remaining--;
+					}
+					else
+					{
+						if (inPos + 3 > fileSize)
+						{
+							Free(output);
+							Free(input);
+							return false;
+						}
+						uint8_t repeatValue = input[inPos++];
+						uint32_t repeatCount = FAT_ReadBE16(input + inPos);
+						inPos += 2;
+						if (repeatCount == 0 || repeatCount > remaining || outPos + repeatCount > rawSize)
+						{
+							Free(output);
+							Free(input);
+							return false;
+						}
+						memset(output + outPos, repeatValue, repeatCount);
+						outPos += repeatCount;
+						remaining -= repeatCount;
+					}
+				}
+			}
+		}
+	}
+
+	Free(input);
+	*outData = output;
+	*outSize = rawSize;
+	return true;
 }
 
 #endif
