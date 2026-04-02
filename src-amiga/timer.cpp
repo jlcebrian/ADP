@@ -21,32 +21,32 @@ void OpenTimer()
 	if (timerOpened)
 		return;
 	
-		if (SysBase->SoftVer >= 39)
+	if (SysBase->SoftVer >= 39)
+	{
+		port = CreateMsgPort();
+		if (port == 0)
 		{
-			port = CreateMsgPort();
-			if (port == 0)
-			{
-				DebugPrintf("Error creating keyboard message port\n");
-				return;
-			}
+			DebugPrintf("Error creating timer message port\n");
+			return;
+		}
 
-			req = (timerequest*)CreateIORequest(port, sizeof(timerequest));
-			if (req == 0)
-			{
-				DebugPrintf("Error creating keyboard IO request\n");
-				return;
-			}
-		}
-		else
+		req = (timerequest*)CreateIORequest(port, sizeof(timerequest));
+		if (req == 0)
 		{
-			req = (struct timerequest*)AllocMem(sizeof(timerequest), MEMF_ANY | MEMF_PUBLIC);
-			if (req == 0)
-			{
-				DebugPrintf("Error allocating keyboard IO request\n");
-				return;
-			}
-			memset(req, 0, sizeof(timerequest));
+			DebugPrintf("Error creating timer IO request\n");
+			return;
 		}
+	}
+	else
+	{
+		req = (struct timerequest*)AllocMem(sizeof(timerequest), MEMF_ANY | MEMF_PUBLIC);
+		if (req == 0)
+		{
+			DebugPrintf("Error allocating timer IO request\n");
+			return;
+		}
+		memset(req, 0, sizeof(timerequest));
+	}
 		
 	if (OpenDevice("timer.device", UNIT_MICROHZ, (IORequest *)req, 0) != 0)
 	{
@@ -55,6 +55,7 @@ void OpenTimer()
 		Exit(0);
 	}
 
+	timerOpened = true;
 }
 
 uint32_t GetMilliseconds()

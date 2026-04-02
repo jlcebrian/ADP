@@ -225,18 +225,18 @@ bool VID_LoadDataFile (const char* fileName)
 		memcpy(charset + 1024, DefaultCharset, 1024);
 	}
 
-	uint32_t freeMemory = AvailMem(0);
 	uint32_t datSize = File_GetSize(dmg->file);
-	DebugPrintf("Free memory: %u bytes\n", freeMemory);
+	uint32_t freeMemory = AvailMem(0);
+	DebugPrintf("Free memory: %u bytes (datSize: %u)\n", freeMemory, datSize);
 
-	if (freeMemory > datSize + 32768)			// Everything fits
+	if (freeMemory > datSize + 65536)			// Everything fits
 	{
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
 		freeMemory = AvailMem(0);
 		if (freeMemory >= 32768)
 			DMG_SetupImageCache(dmg, freeMemory);
 	}
-	else if (freeMemory > datSize)				// DAT barely fits
+	else if (freeMemory > datSize + 32768)		// DAT barely fits
 	{
 		DMG_SetupImageCache(dmg, 32768);
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
@@ -815,6 +815,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		return true;
 	initialized = true;
 
+	CloseWorkBench();
 	OpenTimer();
 
 	if (SysBase->VBlankFrequency == 50)
@@ -876,6 +877,8 @@ void VID_Finish ()
 	FreeMem(copper1, 1024);
 	FreeMem(backBuffer, SCR_ALLOCATE);
 	FreeMem(frontBuffer, SCR_ALLOCATE);
+
+	OpenWorkBench();
 }
 
 #endif

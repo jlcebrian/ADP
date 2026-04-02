@@ -247,6 +247,7 @@ void OpenKeyboard()
 {
 	if (!kbOpen)
 	{
+		DebugPrintf("Opening input.device");
 		if (SysBase->SoftVer >= 39)
 		{
 			port = CreateMsgPort();
