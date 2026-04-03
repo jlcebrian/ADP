@@ -54,9 +54,9 @@ uint64_t File_Write(File* file, const void* buffer, uint64_t size)
 bool File_Seek(File* file, uint64_t offset)
 {
 	CallingDOS();
-	bool result = Seek((BPTR)file, offset, OFFSET_BEGINNING) == (LONG)offset;
+	LONG result = Seek((BPTR)file, offset, OFFSET_BEGINNING);
 	AfterCallingDOS();
-	return result;
+	return result != -1;
 }
 
 uint64_t File_GetSize(File* file)
