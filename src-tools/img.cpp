@@ -12,7 +12,12 @@
 
 #include <png.h>
 
-bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette) 
+bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette)
+{
+	return LoadPNGIndexed16(filename, buffer, bufferSize, width, height, palette, 0);
+}
+
+bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, uint8_t* paletteAlpha)
 {
 	png_uint_32 y;
 	png_structp png;
@@ -22,6 +27,8 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
 	int colorType, bitDepth;
 	png_colorp pngPalette;
     int numPaletteEntries;
+	png_bytep transparency = 0;
+	int numTransparency = 0;
 	png_bytep* rowPointers;
 
 	FILE* file = fopen(filename, "rb");
@@ -63,6 +70,7 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
     *height = (uint16_t)pngHeight;
     
     png_get_PLTE(png, info, &pngPalette, &numPaletteEntries);
+	png_get_tRNS(png, info, &transparency, &numTransparency, 0);
     
     if (numPaletteEntries > 256 || numPaletteEntries <= 0) {
         png_destroy_read_struct(&png, &info, NULL);
@@ -88,6 +96,13 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
     for (int i = 0; i < numPaletteEntries && i < 16; i++) {
         palette[i] = 0xFF000000 | (pngPalette[i].red << 16) | (pngPalette[i].green << 8) | pngPalette[i].blue;
     }
+	if (paletteAlpha)
+	{
+		for (int i = 0; i < 256; i++)
+			paletteAlpha[i] = 255;
+		for (int i = 0; i < numTransparency && i < 256; i++)
+			paletteAlpha[i] = transparency[i];
+	}
     rowPointers = Allocate<png_bytep>("PNG buffer", pngHeight * sizeof(png_bytep));
     for (y = 0; y < pngHeight; y++) {
         rowPointers[y] = (png_bytep)(buffer + y * pngWidth);
@@ -130,9 +145,20 @@ bool SaveCOLPalette16 (const char* filename, uint32_t* palette)
 
 bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette)
 {
+	return SavePNGIndexed16(filename, pixels, width, height, palette, 16, 0);
+}
+
+bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha)
+{
 	FILE* file = fopen(filename, "wb");
 	if (!file)
 		return false; // Failed to open the file
+
+	if (paletteSize <= 0 || paletteSize > 256)
+	{
+		fclose(file);
+		return false;
+	}
 
 	png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	png_infop info = png ? png_create_info_struct(png) : NULL;
@@ -151,14 +177,16 @@ bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, ui
 	png_init_io(png, file);
 	png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_PALETTE, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-	png_colorp pngPalette = (png_colorp)png_malloc(png, 16 * sizeof(png_color));
-	for (int i = 0; i < 16; i++) {
+	png_colorp pngPalette = (png_colorp)png_malloc(png, paletteSize * sizeof(png_color));
+	for (int i = 0; i < paletteSize; i++) {
 		pngPalette[i].red = (png_byte)(palette[i] >> 16);
 		pngPalette[i].green = (png_byte)(palette[i] >> 8);
 		pngPalette[i].blue = (png_byte)palette[i];
 	}
 
-	png_set_PLTE(png, info, pngPalette, 16);
+	png_set_PLTE(png, info, pngPalette, paletteSize);
+	if (paletteAlpha)
+		png_set_tRNS(png, info, (png_bytep)paletteAlpha, paletteSize, 0);
 
 	png_bytep* rowPointers = (png_bytep*)png_malloc(png, height * sizeof(png_bytep));
 	for (int y = 0; y < height; y++) {

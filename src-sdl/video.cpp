@@ -4,6 +4,7 @@
 #include <ddb_scr.h>
 #include <ddb_vid.h>
 #include <dmg.h>
+#include <dmg_font.h>
 #include <os_char.h>
 #include <os_file.h>
 #include <os_mem.h>
@@ -44,6 +45,7 @@ bool       textInput;
 bool	   charsetInitialized = false;
 bool       videoInitialized = false;
 uint32_t   palette[256];
+uint8_t    defaultCharWidth = 6;
 #if HAS_PCX
 uint32_t   pcxPalette[256];
 
@@ -214,6 +216,18 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 		return false;
 	}
 	fclose(file);
+	return true;
+}
+
+static bool LoadSINTACFont(const char* filename)
+{
+	DMG_Font font;
+	if (!DMG_ReadSINTACFont(filename, &font))
+		return false;
+
+	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
+	MemCopy(charWidth, font.width8, sizeof(font.width8));
+	charsetInitialized = true;
 	return true;
 }
 
@@ -1363,6 +1377,11 @@ bool VID_LoadDataFile(const char* fileName)
 	VID_SetExternalPictureBase(0);
 	#endif
 	columnWidth = 6;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = defaultCharWidth;
+	memcpy(charset, DefaultCharset, 1024);
+	memcpy(charset + 1024, DefaultCharset, 1024);
+	charsetInitialized = true;
 
 	if (dmg != NULL)
 	{
@@ -1398,14 +1417,17 @@ bool VID_LoadDataFile(const char* fileName)
 		#endif
 	}
 
-	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	bool fontLoaded = false;
+	if (screenMachine == DDB_MACHINE_IBMPC)
+	{
+		fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
+			LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
+	}
+
+	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
-		if (!charsetInitialized)
-		{
-			memcpy(charset, DefaultCharset, 1024);
-			memcpy(charset + 1024, DefaultCharset, 1024);
-		}
+		// Keep the default fixed-width charset restored above.
 	}
 	charsetInitialized = true;
 
@@ -1445,6 +1467,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 
 	lineHeight  = 8;
 	columnWidth = version == DDB_VERSION_PAWS ? 8 : 6;
+	defaultCharWidth = columnWidth;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = columnWidth;
 
@@ -1474,6 +1497,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 			screenWidth   = 320;
 			screenHeight  = 200;
 			columnWidth   = 8;
+			defaultCharWidth = 8;
 			for (int n = 0; n < 256; n++)
 				charWidth[n] = 8;
 			break;
@@ -1486,6 +1510,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 			attributes    = Allocate<uint8_t>("C64 Attributes", 40 * 25);
 			stride        = 40;
 			columnWidth   = 8;
+			defaultCharWidth = 8;
 			for (int n = 0; n < 256; n++)
 				charWidth[n] = 8;
 			break;

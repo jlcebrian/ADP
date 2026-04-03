@@ -134,6 +134,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\dmg_univ.cpp ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
+	src-common\dmg_font.cpp ^
 	src-common\dmg_pcx.cpp ^
 	src-common\dmg.cpp ^
 	src-common\dim.cpp ^
@@ -174,6 +175,7 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^
 	src-common\dmg_univ.cpp ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
+	src-common\dmg_font.cpp ^
 	src-common\dmg_pcx.cpp ^
 	src-common\dmg.cpp ^
 	src-common\dim.cpp ^
@@ -228,6 +230,7 @@ IF %ERRORLEVEL% NEQ 0 GOTO :EOF
 
 echo ---- Compiling CHR
 cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\chr.exe ^
+	src-common\dmg_font.cpp ^
 	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^

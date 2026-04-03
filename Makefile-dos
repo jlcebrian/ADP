@@ -14,6 +14,7 @@ OBJS = 		     &
 	ddb_pal.obj  &
 	ddb_play.obj &
 	dmg.obj      &
+	dmg_font.obj &
 	dmg_pcx.obj  &
 	dmg_cga.obj  &
 	dmg_ega.obj  &

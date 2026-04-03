@@ -3,6 +3,7 @@
 #include <ddb_vid.h>
 #include <ddb_data.h>
 #include <ddb_scr.h>
+#include <dmg_font.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -31,6 +32,7 @@ static DMG_Entry* bufferedEntry;
 static int        bufferedEntryIndex;
 static bool       initialized = false;
 static bool       quit;
+static uint8_t    defaultCharWidth = 6;
 
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
@@ -61,6 +63,17 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 	fseek(file, 128, SEEK_SET);
 	fread(ptr, 1, 2048, file);
 	fclose(file);
+	return true;
+}
+
+static bool LoadSINTACFont(const char* filename)
+{
+	DMG_Font font;
+	if (!DMG_ReadSINTACFont(filename, &font))
+		return false;
+
+	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
+	MemCopy(charWidth, font.width8, sizeof(font.width8));
 	return true;
 }
 
@@ -522,6 +535,10 @@ bool VID_LoadDataFile (const char* fileName)
 	VID_SetExternalPictureBase(0);
 	#endif
 	columnWidth = 6;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = defaultCharWidth;
+	memcpy(charset, DefaultCharset, 1024);
+	memcpy(charset + 1024, DefaultCharset, 1024);
 
 	if (dmg != NULL)
 	{
@@ -541,11 +558,12 @@ bool VID_LoadDataFile (const char* fileName)
 		if (HasExternalPCXGraphics(fileName))
 		{
 			columnWidth = 8;
-			if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+			if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+				!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+				!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 				!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 			{
-				memcpy(charset, DefaultCharset, 1024);
-				memcpy(charset + 1024, DefaultCharset, 1024);
+				// Keep the default fixed-width charset restored above.
 			}
 			return true;
 		}
@@ -557,11 +575,12 @@ bool VID_LoadDataFile (const char* fileName)
 		return false;
 	}
 
-	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+		!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
-		memcpy(charset, DefaultCharset, 1024);
-		memcpy(charset + 1024, DefaultCharset, 1024);
+		// Keep the default fixed-width charset restored above.
 	}
 
 	return true;
@@ -1347,6 +1366,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 	screenHeight  = 200;
 	lineHeight    = 8;
 	columnWidth   = 6;
+	defaultCharWidth = 6;
 	screenWidth   = 320;
 	screenHeight  = 200;
 	for (int n = 0; n < 256; n++)
