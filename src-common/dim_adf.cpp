@@ -280,46 +280,92 @@ uint32_t ADF_ReadFile (ADF_Disk* disk, const char* path, uint8_t* buffer, uint32
 	uint8_t  data[512];
 	uint8_t  headerSize = disk->fs == ADF_OFS ? 24 : 0;
 	uint16_t dataSize = 512 - headerSize;
-	uint32_t block = disk->block.firstData;
-	uint32_t index = disk->block.highSeq;
-	uint32_t total = 0;
-	if (disk->block.dataBlocks[index] != block)
-	{
-		DIM_SetError(DIMError_ReadError);
-		return total;
-	}
-	while (total < size)
-	{
-		if (!File_Seek(disk->file, block*512))
-			return total;
-		if (File_Read(disk->file, &data, 512) != 512)
-			return total;
 
-		uint32_t remaining = size-total;
-		uint32_t length = remaining > dataSize ? dataSize : remaining;
-		memcpy(buffer, data+headerSize, length);
-		total += length;
-		buffer += length;
-		if (total >= size)
-			break;
+    if (disk->fs == ADF_OFS)
+    {
+        uint32_t block = disk->block.firstData;
+        uint32_t total = 0;
+        while (total < size)
+        {
+            if (block == 0 || block >= disk->numBlocks)
+            {
+                DIM_SetError(DIMError_ReadError);
+                return total;
+            }
+            if (!File_Seek(disk->file, block * 512))
+                return total;
+            if (File_Read(disk->file, &data, 512) != 512)
+                return total;
 
-		if (index-- == 0)
-		{
-			index = 71;
-			if (disk->block.extension == 0)
-			{
-				DIM_SetError(DIMError_ReadError);
-				return total;
-			}
-			if (!File_Seek(disk->file, disk->block.extension*512))
-				return total;
-			if (File_Read(disk->file, &disk->block, 512) != 512)
-				return total;
-			fix32(&disk->block);
-		}
-		block = disk->block.dataBlocks[index];
-	}
-	return total;
+            if (read32(data, false) != ADF_DATA_TYPE)
+            {
+                DIM_SetError(DIMError_InvalidDisk);
+                return total;
+            }
+
+            uint32_t blockDataSize = read32(data + 12, false);
+            if (blockDataSize > dataSize)
+            {
+                DIM_SetError(DIMError_InvalidDisk);
+                return total;
+            }
+
+            uint32_t remaining = size - total;
+            uint32_t length = remaining > blockDataSize ? blockDataSize : remaining;
+            memcpy(buffer, data + headerSize, length);
+            total += length;
+            buffer += length;
+
+            if (total >= size)
+                break;
+
+            block = read32(data + 16, false);
+        }
+        return total;
+    }
+    else
+    {
+        uint32_t block = disk->block.firstData;
+        uint32_t index = disk->block.highSeq;
+        uint32_t total = 0;
+        if (disk->block.dataBlocks[index] != block)
+        {
+            DIM_SetError(DIMError_ReadError);
+            return total;
+        }
+        while (total < size)
+        {
+            if (!File_Seek(disk->file, block*512))
+                return total;
+            if (File_Read(disk->file, &data, 512) != 512)
+                return total;
+
+            uint32_t remaining = size-total;
+            uint32_t length = remaining > dataSize ? dataSize : remaining;
+            memcpy(buffer, data+headerSize, length);
+            total += length;
+            buffer += length;
+            if (total >= size)
+                break;
+
+            if (index-- == 0)
+            {
+                index = 71;
+                if (disk->block.extension == 0)
+                {
+                    DIM_SetError(DIMError_ReadError);
+                    return total;
+                }
+                if (!File_Seek(disk->file, disk->block.extension*512))
+                    return total;
+                if (File_Read(disk->file, &disk->block, 512) != 512)
+                    return total;
+                fix32(&disk->block);
+            }
+            block = disk->block.dataBlocks[index];
+        }
+        return total;
+    }
 }
 
 uint32_t ADF_GetVolumeLabel(ADF_Disk* disk, char* buffer, uint32_t bufferSize)
