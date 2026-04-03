@@ -13,6 +13,7 @@
 
 #include "keyboard.h"
 #include "timer.h"
+#include "textdraw.h"
 #include "video.h"
 #include "audio.h"
 
@@ -58,7 +59,9 @@ static uint16_t*  pictureData = 0;
 static uint32_t   pictureStride;
 
 uint16_t  (*charsetWords)[256][8] = 0;
+static uint16_t* rotationTable = 0;
 uint16_t* copper1;
+
 uint16_t  copper2[] __attribute__((section (".MEMF_CHIP"))) = 
 {
 	offsetof(Custom, color[ 0]), 0x0000,
@@ -109,8 +112,15 @@ INLINE void RunCopperProgram(uint16_t* program, uint16_t* end)
 
 void VID_ActivateCharset()
 {
-	if (charsetWords == 0)
-		charsetWords = (uint16_t(*)[256][8])AllocMem(8192, MEMF_CHIP | MEMF_CLEAR);
+	if (charsetWords == 0 || rotationTable == 0)
+		return;
+
+	for (int shift = 0; shift < 8; shift++)
+	{
+		uint16_t* table = rotationTable + (shift << 8);
+		for (int value = 0; value < 256; value++)
+			table[value] = (uint16_t)(((uint16_t)value << 8) >> shift);
+	}
 
 	uint8_t* chr = charset;
 	for (int c = 0; c < 256; c++)
@@ -449,9 +459,44 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 }
 
+static void VID_DrawCharacterNewFF (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
+{
+	uint8_t width = charWidth[ch];
+	if (width == 0)
+		return;
+	if (width > 8)
+		width = 8;
+
+	if (rotationTable == 0 || charsetWords == 0)
+		return;
+
+	uint8_t* dst = charToBack ^ displaySwap ? backBuffer : frontBuffer;
+	uint8_t* out = dst + y * SCR_STRIDEB + (x >> 3);
+	
+	const uint16_t shift = (uint16_t)(x & 0x07);
+	const uint16_t* rotation = rotationTable + (shift << 8);
+	const uint8_t* glyph = charset + 8 * ch;
+	const uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
+	const uint16_t cover = rotation[widthMask8];
+	uint8_t maskedGlyph[8];
+	ink &= 0x0F;
+
+	for (int row = 0; row < 8; row++)
+		maskedGlyph[row] = glyph[row] & widthMask8;
+
+	if (paper == 255)
+	{
+		VID_DrawCharacterTransparentPatched(out, rotation, maskedGlyph, ink);
+		return;
+	}
+
+	paper &= 0x0F;
+	VID_DrawCharacterSolidPatched(out, rotation, maskedGlyph, cover, ink, paper);
+}
+
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-	BlitterChar(charToBack ^ displaySwap ? backBuffer : frontBuffer, x, y, ch, ink, paper);
+	VID_DrawCharacterNewFF(x, y, ch, ink, paper);
 }
 
 void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
@@ -533,10 +578,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	if (dmg == 0) 
-	{
-		// VID_ShowError("Driver has no DMG");
 		return;
-	}
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == 0 || entry->type != DMGEntry_Image)
@@ -549,9 +591,9 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	pictureData   = (uint16_t*) DMG_GetEntryDataPlanar(dmg, picno);
 	if (pictureData == 0)
 	{
-		// VID_ShowError(driver, DMG_GetErrorString());
 		pictureEntry = 0;
 		pictureOrigin = 0;
+		pictureIndex = 0;
 	}
 }
 
@@ -833,6 +875,18 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 
 	memcpy(charset,      DefaultCharset, 1024);
 	memcpy(charset+1024, DefaultCharset, 1024);
+	charsetWords = (uint16_t(*)[256][8])AllocMem(8192, MEMF_CHIP | MEMF_CLEAR);
+	rotationTable = (uint16_t*)AllocMem(8 * 256 * sizeof(uint16_t), MEMF_CLEAR);
+	if (charsetWords == 0 || rotationTable == 0)
+	{
+		VID_Finish();
+		return false;
+	}
+	if (!VID_InitializeTextDraw())
+	{
+		VID_Finish();
+		return false;
+	}
 	VID_ActivateCharset();
 
 	frontBuffer = (uint8_t*)AllocMem(SCR_ALLOCATE, MEMF_CHIP);
@@ -873,6 +927,18 @@ void VID_Finish ()
 	FreeSystem();
 	
 	CloseTimer();
+	VID_FinishTextDraw();
+
+	if (charsetWords)
+	{
+		FreeMem(charsetWords, 8192);
+		charsetWords = 0;
+	}
+	if (rotationTable)
+	{
+		FreeMem(rotationTable, 8 * 256 * sizeof(uint16_t));
+		rotationTable = 0;
+	}
 
 	FreeMem(copper1, 1024);
 	FreeMem(backBuffer, SCR_ALLOCATE);

@@ -29,8 +29,10 @@ program = out/amiga/$(exename)
 OUT = $(program)
 ADF = $(OUT).adf
 ADFDIR = out/amiga/floppy
+ELF_DUMP = $(OUT).objdump
 CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
+OBJDUMP = m68k-amiga-elf-objdump
 SHRINKLER = Shrinkler
 EXE2ADF = exe2adf
 
@@ -47,7 +49,6 @@ endif
 CCFLAGS += -DVERSION=$(VERSION) 
 CCFLAGS += -Os
 CCFLAGS += -D_DEBUGPRINT 
-#CCFLAGS += -O0
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
 CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
@@ -94,17 +95,18 @@ $(OUT).elf: $(objects)
 	$(info Linking $(program).elf)
 ifndef WINDOWS
 	@$(TOOLPATH) $(CC) $(CCFLAGS) $(LDFLAGS) $(objects) -o $@
+	@$(TOOLPATH) $(OBJDUMP) --disassemble --no-show-raw-ins --visualize-jumps -S $@ >$(ELF_DUMP)
 else
 	@$(CC) $(CCFLAGS) $(LDFLAGS) $(objects) -o $@
+	@$(OBJDUMP) --disassemble --no-show-raw-ins --visualize-jumps -S $@ >$(ELF_DUMP)
 endif
-	@m68k-amiga-elf-objdump --disassemble --no-show-raw-ins --visualize-jumps -S $@ >$(OUT).s
 
 clean:
 	$(info Cleaning...)
 ifdef WINDOWS
-	@del /q obj\amiga\*.o out\amiga\$(exename).*
+	@del /q obj\amiga\*.o obj\amiga\*.objdump out\amiga\$(exename).* out\amiga\$(exename).objdump
 else
-	@$(RM) obj/amiga/*.o out/amiga/$(exename).*
+	@$(RM) obj/amiga/*.o obj/amiga/*.objdump obj/amiga/*.o.s out/amiga/$(exename).* out/amiga/$(exename).objdump
 endif
 
 -include $(objects:.o=.d)
@@ -136,6 +138,11 @@ endif
 $(vasm_objects): obj/amiga/%.o : %.asm
 	$(info Assembling $<)
 	@$(VASM) $(VASMFLAGS) -o $@ $(CURDIR)/$<
+ifndef WINDOWS
+	@$(TOOLPATH) $(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
+else
+	@$(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
+endif
 
 ifndef WINDOWS
 $(objects): | $(TOOLSHIM)

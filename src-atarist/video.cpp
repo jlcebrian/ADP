@@ -439,82 +439,43 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 
 void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-	uint16_t ink0   = (ink   & 0x01) ? 0xFFFF : 0x0000;
-	uint16_t ink1   = (ink   & 0x02) ? 0xFFFF : 0x0000;
-	uint16_t ink2   = (ink   & 0x04) ? 0xFFFF : 0x0000;
-	uint16_t ink3   = (ink   & 0x08) ? 0xFFFF : 0x0000;
+	uint8_t width = charWidth[ch];
+	if (width == 0)
+		return;
+	if (width > 8)
+		width = 8;
 
-	uint8_t* data = charset + 8*ch;
-	uint16_t* out = textScreen + 80*y + 4*(x >> 4);
-	uint8_t shift = x & 0x0F;
-	uint16_t mask = ~(0xFC00 >> shift);
+	const uint8_t* data = charset + 8 * ch;
+	uint16_t wordOffset = (uint16_t)(x >> 4);
+	uint8_t shift = (uint8_t)(x & 0x0F);
+	uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
+	uint32_t coverBits = ((uint32_t)widthMask8 << 24) >> shift;
+	uint16_t cover0 = (uint16_t)(coverBits >> 16);
+	uint16_t cover1 = (uint16_t)coverBits;
 
-	if (paper != 255)
+	for (int row = 0; row < 8; row++)
 	{
-		uint16_t paper0 = (paper & 0x01) ? 0xFFFF : 0x0000;
-		uint16_t paper1 = (paper & 0x02) ? 0xFFFF : 0x0000;
-		uint16_t paper2 = (paper & 0x04) ? 0xFFFF : 0x0000;
-		uint16_t paper3 = (paper & 0x08) ? 0xFFFF : 0x0000;
+		uint16_t* out = textScreen + 80 * (y + row) + 4 * wordOffset;
+		uint32_t glyphBits = ((uint32_t)(data[row] & widthMask8) << 24) >> shift;
+		uint16_t bits0 = (uint16_t)(glyphBits >> 16);
+		uint16_t bits1 = (uint16_t)glyphBits;
 
-		for (int row = 0; row < 8; row++)
+		for (int planeIndex = 0; planeIndex < 4; planeIndex++)
 		{
-			uint16_t pix = (*data << 8) >> shift;
-			uint16_t neg = ~mask & ~pix;
-			out[0] = (out[0] & mask) | (pix & ink0) | (neg & paper0);
-			out[1] = (out[1] & mask) | (pix & ink1) | (neg & paper1);
-			out[2] = (out[2] & mask) | (pix & ink2) | (neg & paper2);
-			out[3] = (out[3] & mask) | (pix & ink3) | (neg & paper3);
-			out += 80;
-			data++;
-		}
-		if (shift > 10)
-		{
-			data -= 8;
-			shift = 24-shift;
-			out  -= 636;
-			mask  = ~(0x00FC << shift);
-	
-			for (int row = 0; row < 8; row++)
+			uint16_t inkMask = (ink & (1 << planeIndex)) ? 0xFFFF : 0x0000;
+			uint16_t paperMask = (paper != 255 && (paper & (1 << planeIndex))) ? 0xFFFF : 0x0000;
+
+			if (paper == 255)
 			{
-				uint16_t pix = *data << shift;
-				uint16_t neg = ~mask & ~pix;
-				out[0] = (out[0] & mask) | (pix & ink0) | (neg & paper0);
-				out[1] = (out[1] & mask) | (pix & ink1) | (neg & paper1);
-				out[2] = (out[2] & mask) | (pix & ink2) | (neg & paper2);
-				out[3] = (out[3] & mask) | (pix & ink3) | (neg & paper3);
-				out += 80;
-				data++;
+				out[planeIndex] = (out[planeIndex] & ~bits0) | (bits0 & inkMask);
+				if (cover1 != 0)
+					out[planeIndex + 4] = (out[planeIndex + 4] & ~bits1) | (bits1 & inkMask);
 			}
-		}
-	}
-	else
-	{
-		for (int row = 0; row < 8; row++)
-		{
-			uint16_t pix = (*data << 8) >> shift;
-			out[0] = (out[0] & ~pix) | (pix & ink0);
-			out[1] = (out[1] & ~pix) | (pix & ink1);
-			out[2] = (out[2] & ~pix) | (pix & ink2);
-			out[3] = (out[3] & ~pix) | (pix & ink3);
-			out += 80;
-			data++;
-		}
-		if (shift > 10)
-		{
-			data -= 8;
-			shift = 24-shift;
-			out  -= 636;
-			mask  = ~(0x00FC << shift);
-	
-			for (int row = 0; row < 8; row++)
+			else
 			{
-				uint16_t pix = *data << shift;
-				out[0] = (out[0] & ~pix) | (pix & ink0);
-				out[1] = (out[1] & ~pix) | (pix & ink1);
-				out[2] = (out[2] & ~pix) | (pix & ink2);
-				out[3] = (out[3] & ~pix) | (pix & ink3);
-				out += 80;
-				data++;
+				out[planeIndex] = (out[planeIndex] & ~cover0) | (bits0 & inkMask) | ((cover0 & ~bits0) & paperMask);
+				if (cover1 != 0)
+					out[planeIndex + 4] = (out[planeIndex + 4] & ~cover1) | (bits1 & inkMask) | ((cover1 & ~bits1) & paperMask);
 			}
 		}
 	}
