@@ -27,9 +27,7 @@
     0x0008      2           Target screen height in pixels (usually 200 or 400)
     0x000A      2           Number of the first entry in the file (usually 0)
     0x000C      2           Number of the last entry in the file (usually 255)
-    0x000E      2           Flags
-
-                Bits 0-4    Color mode
+    0x000E      1           Color mode
 
                             0                   Universal (I256 + equivalence tables)
                             1                   CGA:     All graphics data is chunky 2bpp, fixed palette
@@ -37,6 +35,8 @@
                             3                   I16:     All images are 4bpp deep (no color equivalence tables)
                             4                   I32:     All images are 5bpp deep (no color equivalence tables)
                             5                   I256:    All images are 8bpp deep (no color equivalence tables)
+
+    0x000F      0           Flags (reserved for future usage)
 
     0x0010		N * 32	    Entry headers (amount defined by indexes: last-first+1)
         		...			Data area
