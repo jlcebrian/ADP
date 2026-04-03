@@ -848,8 +848,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
 					if (end == objNameBuffer)
 						return;
-					if (i->ddb->language == DDB_SPANISH ||
-						i->ddb->language == DDB_SPANISH_ENHANCED)
+					if (i->ddb->language == DDB_SPANISH)
 					{
 						if (objNameBuffer[1] == 'n') {
 							if (objNameBuffer[0] == 'u' || objNameBuffer[0] == 'U') {
@@ -1174,14 +1173,14 @@ static void ListObjectsAt (DDB_Interpreter* i, int locno)
 	int count = CountObjectsAt(i, locno);
     bool newLineAtEnd = false;
 
-	i->flags[Flag_ListFlags] &= ~0x80;
+	i->flags[Flag_ListFlags] &= ~ListFlag_Found;
 	for (int n = 0; n < i->ddb->numObjects; n++)
 	{
 		if (i->objloc[n] == locno)
 		{
-			i->flags[Flag_ListFlags] |= 0x80;
+			i->flags[Flag_ListFlags] |= ListFlag_Found;
 			const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, n, (char *)objNameBuffer, sizeof(objNameBuffer));
-			if (i->flags[Flag_ListFlags] & 0x40)		// Continuous listing
+			if (i->flags[Flag_ListFlags] & ListFlag_Continuous)		// Continuous listing
 			{
 				objNameBuffer[0] = ToLower(objNameBuffer[0]);
 				for (const char* ptr = (const char*)objNameBuffer; ptr < end && *ptr != '.'; ptr++)
@@ -1309,6 +1308,7 @@ static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 		i->doallDepth = 0;
 		i->doallLocno = locno;
 		i->flags[Flag_DoAllLocNo] = locno;
+		i->flags[Flag_ListFlags] &= ~ListFlag_DoallFailed;
 		n = 0;
 	}
 	else
@@ -1338,9 +1338,12 @@ static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 			return true;
 		}
 	}
+
 	i->doall = false;
 	i->doallObjno = 255;
 	i->flags[Flag_DoAllLocNo] = locno;
+	if (start)
+		i->flags[Flag_ListFlags] |= ListFlag_DoallFailed;
 	return false;
 }
 
@@ -1610,12 +1613,14 @@ static bool FindWord (DDB_Interpreter* i, const uint8_t** textPointer, const uin
 	return false;
 }
 
-static bool ShouldCheckSpanishPronouns (DDB* ddb, int code)
+static bool ShouldCheckSpanishPronouns (DDB_Interpreter* i, int code)
 {
-	if (ddb->language == DDB_SPANISH)
+	if (i->ddb->language == DDB_SPANISH)
+	{
+		if ((i->flags[Flag_ListFlags] & ListFlag_NoSuffixesHi) != 0 && code >= 240)
+			return false;
 		return true;
-	if (ddb->language == DDB_SPANISH_ENHANCED && code < 240)
-		return true;
+	}
 
 	return false;
 }
@@ -1655,6 +1660,10 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 	uint8_t type;
 	uint8_t previousVerb = 255;
 	int wordsFound = 0;
+	uint8_t lastWordType = WordType_Unknown;
+
+	i->flags[Flag_ListFlags] &= ~ListFlag_Preposition;
+	i->flags[Flag_ListFlags] &= ~ListFlag_UnknownWord;
 
 	if (quoted && !i->quotedString && (i->sentenceFlags & SentenceFlag_Colon) != 0) {
 		ptr = i->inputBuffer + i->inputBufferPtr;
@@ -1723,7 +1732,10 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 			if (type == WordType_Conjunction)
 			{
 				if (wordsFound == 0)
+				{
+					lastWordType = WordType_Unknown;
 					continue;
+				}
 				break;
 			}
 
@@ -1738,17 +1750,25 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 
 						if (i->flags[Flag_Noun1] == 255 && 
 							i->flags[Flag_CPNoun] != 255 &&
-							ShouldCheckSpanishPronouns(i->ddb, code) &&
+							ShouldCheckSpanishPronouns(i, code) &&
 							EndsWithSpanishPronoun((const char*)word, ptr - word))
 						{
 							i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 							i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
 						}
 					}
+					else
+					{
+						// Second verb in the sentence is ignored
+						type = WordType_Unknown;
+					}
 					break;
 				case WordType_Pronoun:
 					if (i->flags[Flag_Noun1] == 255 && i->flags[Flag_CPNoun] != 255)
 					{
+						if (lastWordType == WordType_Preposition)
+							i->flags[Flag_ListFlags] |= ListFlag_Preposition;
+
 						i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 						i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
 					}
@@ -1781,9 +1801,14 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 				default:
 					break;
 			}
+			lastWordType = type;
 		}
 		else
 		{
+			if (lastWordType == WordType_Verb)
+				i->flags[Flag_ListFlags] |= ListFlag_UnknownWord;
+
+			lastWordType = WordType_Unknown;
 			i->sentenceFlags |= SentenceFlag_UnknownWord;
 			while(ptr < end && IsAlphaNumeric(*ptr))
 				ptr++;
@@ -1862,6 +1887,35 @@ static bool AnyWindowOverlapsCurrent (DDB_Interpreter* i)
 		windowClearCount++;
 	}
 	return false;
+}
+
+static int HasAt(DDB_Interpreter* i, int param0, DDB_HasAtOp op)
+{
+	int last = (i->flags[Flag_ListFlags] & ListFlag_AltHasAtRange) != 0 ? 91 : 59;
+	int n = last - param0/8;
+	int m = (1 << (param0 & 7));
+	int ok = 1;
+
+	switch (op)
+	{
+		case HASAT_ISSET:
+			ok = (i->flags[n] & m) != 0;
+			break;
+		case HASAT_ISNOTSET:
+			ok = (i->flags[n] & m) == 0;
+			break;
+		case HASAT_CLEAR:
+			i->flags[n] &= ~m;
+			return 1;
+		case HASAT_SET:		
+			i->flags[n] |= m;
+			return 1;
+		case HASAT_TOGGLE:
+			i->flags[n] ^= m;
+			return 1;
+	}
+	TRACE("%sFlag %d = %d ($%02X mask $%02X)", ok != 0 ? "":"[Failed] ", n, i->flags[n], i->flags[n] & m, m);
+	return ok;
 }
 
 // --------------------
@@ -2075,16 +2129,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				TRACE("%sObj#%d \"%s\" is in %d", ok ? "":"[Failed] ", param0, DDB_GetDebugMessage(i->ddb, DDB_OBJNAME, param0), i->objloc[param0]);
 				break;
 			case CONDACT_HASAT:
-			case CONDACT_HASNAT:
-			{
-				int n = 59 - param0/8;
-				int m = (1 << (param0 & 7));
-				ok = (i->flags[n] & m) != 0;
-				if (condact == CONDACT_HASNAT)
-					ok = !ok;
-				TRACE("%sFlag %d = %d ($%02X mask $%02X)", ok ? "":"[Failed] ", n, i->flags[n], i->flags[n], m);
+				ok = HasAt(i, param0, HASAT_ISSET);
 				break;
-			}
+			case CONDACT_HASNAT:
+				ok = HasAt(i, param0, HASAT_ISNOTSET);
+				break;
+			case CONDACT_SETAT:
+				ok = HasAt(i, param0, (DDB_HasAtOp)param1);
+				break;
 			case CONDACT_ZERO:
 				ok = i->flags[param0] == 0;
 				TRACE("%sFlag %d = %d", ok ? "":"[Failed] ", param0, i->flags[param0]);
@@ -2437,6 +2489,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					SCR_GetKey(0, 0, 0);
 				i->state = DDB_PAUSED;
 				i->pauseFrames = param0 == 0 ? 65535 : param0;
+				i->saveKeyToFlags = (param0 == 0);
 				SCR_GetMilliseconds(&i->pauseStart);
 				UpdatePos(i, process, entry, offset + params + 1);
 				if (param0 == 0)
@@ -3582,6 +3635,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					}
 				}
 				i->done = true;
+				break;
+
+			case CONDACT_INDIR:
+				// TODO: Check process size to prevent out of bounds access
+				// However, this is what an actual real interpreter would do, so...
+				code[4] = i->flags[param0];
 				break;
 
 			// TODO

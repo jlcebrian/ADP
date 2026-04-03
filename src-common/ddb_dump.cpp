@@ -6,6 +6,8 @@ static uint8_t buffer[2048];
 
 const char* DDB_GetCondactName(DDB_Condact condact)
 {
+	static char error[32];
+
 	switch (condact)
 	{
 		case CONDACT_ABILITY: return "ABILITY";
@@ -144,8 +146,17 @@ const char* DDB_GetCondactName(DDB_Condact condact)
 		case CONDACT_LINE:    return "LINE";
 		case CONDACT_PROTECT: return "PROTECT";
 
-		case CONDACT_INVALID: return "[Invalid Condact]";
-		default:              return "[Unknown Condact]";
+		case CONDACT_INDIR:   return "INDIR";
+		case CONDACT_SETAT:   return "SETAT";
+
+		case CONDACT_INVALID: 
+			StrCopy(error, 32, "[Invalid condact 0x00]");
+			IntToHex2(condact, error + 19);
+			return error;
+		default:
+			StrCopy(error, 32, "[Unknown condact 0x00]");
+			IntToHex2(condact, error + 19);
+			return error;
 	}
 }
 

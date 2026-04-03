@@ -24,6 +24,7 @@ enum DDB_WordType
 	WordType_Preposition  = 4,
 	WordType_Conjunction  = 5,
 	WordType_Pronoun      = 6,
+	WordType_Unknown      = 255
 };
 
 enum DDB_Flag
@@ -143,6 +144,17 @@ enum DDB_GraphicsFlags
 	Graphics_On              = 0x40,
 	Graphics_Off             = 0x20,
 
+};
+
+enum DDB_ObjectListFlags
+{
+	ListFlag_Found			= 0x80,
+	ListFlag_Continuous		= 0x40,
+	ListFlag_UnknownWord	= 0x20,		// 1 if an unknown word was found after the verb
+	ListFlag_Preposition	= 0x10,		// 1 if a preposition was found before the first noun
+	ListFlag_NoSuffixesHi	= 0x04,		// 1 to deactivate spanish pronoun terminations in verbs 240+
+	ListFlag_AltHasAtRange	= 0x02,		// 1 to move HASAT to range 60-91
+	ListFlag_DoallFailed	= 0x01,		// 1 if DOALL found no objects on start
 };
 
 enum DDB_WindowFlags
@@ -354,6 +366,10 @@ enum DDB_Condact
 	CONDACT_LINE,
 	CONDACT_PROTECT,
 
+	// DAAD V3
+	CONDACT_INDIR,
+	CONDACT_SETAT,
+
 	CONDACT_INVALID,
 };
 
@@ -368,6 +384,7 @@ enum DDB_Version
 	DDB_VERSION_PAWS = 0,
 	DDB_VERSION_1    = 1,
 	DDB_VERSION_2    = 2,
+	DDB_VERSION_3    = 3,
 };
 
 enum DDB_Machine
@@ -388,7 +405,6 @@ enum DDB_Language
 {
 	DDB_ENGLISH = 0,
 	DDB_SPANISH = 1,
-	DDB_SPANISH_ENHANCED = 9			// verbs >= 240 ignore pronouns
 };
 
 enum DDB_Flow
@@ -398,6 +414,15 @@ enum DDB_Flow
 	FLOW_AFTER_TURN,
 	FLOW_INPUT,
 	FLOW_RESPONSES,
+};
+
+enum DDB_HasAtOp
+{
+	HASAT_CLEAR = 0,
+	HASAT_SET = 1,
+	HASAT_TOGGLE = 2,
+	HASAT_ISSET = -1,		// Internal use only
+	HASAT_ISNOTSET = -2,
 };
 
 struct DDB

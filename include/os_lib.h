@@ -51,6 +51,7 @@ extern void*       MemCopy    (void* dst, const void* src, size_t size);
 extern int         MemComp    (void* dst, const void* src, size_t size);
 
 extern char*       LongToChar (long value, char *buffer, int radix);
+extern void        IntToHex2  (int value, char *buffer);
 
 extern size_t      StrCopy    (char* dst, uint32_t dstSize, const char* src);
 extern const char* StrRChr    (const char* ptr, char c);

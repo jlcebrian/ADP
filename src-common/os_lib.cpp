@@ -7,6 +7,12 @@ static char const digits[16] =
 	'A','B','C','D','E','F',
 };
 
+void IntToHex2(int value, char* buffer)
+{
+	buffer[0] = digits[(value >> 4) & 0x0F];
+	buffer[1] = digits[value & 0x0F];
+}
+
 char *LongToChar(long value, char *buffer, int radix)
 {
 	char *p;

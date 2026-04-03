@@ -272,9 +272,9 @@ static DDB_CondactMap version2Condacts[128] = {
 	{ CONDACT_COPYOF, 		  2 },		// 0x77
 	{ CONDACT_INVALID,  	  0 },		// 0x78
 	{ CONDACT_COPYOO, 		  2 },		// 0x79
-	{ CONDACT_INVALID, 		  1 },		// 0x7A
+	{ CONDACT_INDIR, 		  1 },		// 0x7A		- New in DAAD V3
 	{ CONDACT_COPYFO, 		  2 },		// 0x7B
-	{ CONDACT_INVALID,        0 },		// 0x7C
+	{ CONDACT_SETAT, 	      2 },		// 0x7C		- New in DAAD V3
 	{ CONDACT_COPYFF, 		  2 },		// 0x7D
 	{ CONDACT_COPYBF, 		  2 },		// 0x7E
 	{ CONDACT_RESET,   		  0 },		// 0x7F
@@ -1095,7 +1095,7 @@ DDB* DDB_Load(const char* filename)
 		}
 	}
 
-	if (ddb->version > 2)
+	if (ddb->version > 3)
 	{
 		DDB_Warning("Invalid DDB header: unsupported version %d", ddb->version);
 		ddbError = DDB_ERROR_INVALID_FILE;
@@ -1160,7 +1160,7 @@ DDB* DDB_Load(const char* filename)
 	ddb->objWordsTable     = data + read16(data + 26, ddb->littleEndian) - ddb->baseOffset;
 	ddb->objAttrTable      = data + read16(data + 28, ddb->littleEndian) - ddb->baseOffset;
 
-	if (ddb->version == 2)
+	if (ddb->version >= 2)
 	{
 		ddb->objExAttrTable = (uint16_t*)(data + read16(data + 30, ddb->littleEndian) - ddb->baseOffset);
 
@@ -1169,7 +1169,7 @@ DDB* DDB_Load(const char* filename)
 			ddb->objExAttrTable[n] = read16((const uint8_t*) &ddb->objExAttrTable[n], !ddb->littleEndian);
 	}
 
-	uint16_t externOffset = read16(data + (ddb->version == 2 ? 34 : 32), ddb->littleEndian);
+	uint16_t externOffset = read16(data + (ddb->version >= 2 ? 34 : 32), ddb->littleEndian);
 	if (externOffset != 0 && externOffset > ddb->baseOffset)
 		ddb->externData   = (uint8_t*)(data + externOffset - ddb->baseOffset);
 
@@ -1254,6 +1254,7 @@ const char* DDB_DescribeVersion (DDB_Version version)
 		case DDB_VERSION_PAWS: return "PAWS"; break;
 		case DDB_VERSION_1: return "DAAD v1"; break;
 		case DDB_VERSION_2: return "DAAD v2"; break;
+		case DDB_VERSION_3: return "DAAD v3"; break;
 		default:            return "Unknown version"; break;
 	}
 }
