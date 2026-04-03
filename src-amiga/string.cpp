@@ -43,6 +43,16 @@ void *MemCopy(void *dst, const void *src, size_t size)
 	return dst;
 }
 
+int MemComp(void* dst, const void* src, size_t size)
+{
+	uint8_t* dstPtr = (uint8_t*)dst;
+	uint8_t* srcPtr = (uint8_t*)src;
+	while (size--)
+		if (*dstPtr != *srcPtr)
+			return *dstPtr - *srcPtr;
+	return 0;
+}
+
 size_t StrLen(const char *str)
 {
 	size_t len = 0;
