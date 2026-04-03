@@ -21,6 +21,7 @@ enum UndoMode
 static void DumpUndoBuffer(DDB_Interpreter* i);
 static void AddInputHistoryLine (DDB_Interpreter* i);
 static void UpdateLastInputHistoryLine (DDB_Interpreter* i);
+static void LoadInputHistoryLine(DDB_Interpreter* i, const uint8_t* ptr);
 
 // ------------------------------ Message-based cursor (PAWS) ------------------------------
 
@@ -358,6 +359,18 @@ static void UpdateLastInputHistoryLine (DDB_Interpreter* i)
 	i->inputCompletionX = 0;
 }
 
+static void LoadInputHistoryLine(DDB_Interpreter* i, const uint8_t* ptr)
+{
+	uint8_t length = 0;
+	while (ptr[length] != 0 && length < sizeof(i->inputBuffer) - 1)
+		length++;
+
+	MemClear(i->inputBuffer, sizeof(i->inputBuffer));
+	MemCopy(i->inputBuffer, ptr, length);
+	i->inputBuffer[length] = 0;
+	i->inputCursorX = i->inputBufferLength = length;
+}
+
 static bool HistoryCompletion (DDB_Interpreter* i)
 {
 	const uint8_t* ptr = i->inputHistory + i->inputHistoryCurrentEntry;
@@ -383,9 +396,8 @@ static bool HistoryCompletion (DDB_Interpreter* i)
 		{
 			if (StrComp(ptr, i->inputBuffer, size) == 0)
 			{
-				StrCopy(i->inputBuffer, sizeof(i->inputBuffer), ptr);
+				LoadInputHistoryLine(i, ptr);
 				i->inputHistoryCurrentEntry = ptr - i->inputHistory;
-				i->inputCursorX = i->inputBufferLength = StrLen(i->inputBuffer);
 				i->inputCompletionX = size;
 				return true;
 			}
@@ -426,9 +438,9 @@ static bool NavigateHistory (DDB_Interpreter* i, int direction)
 				break;
 		}
 	}
-	StrCopy(i->inputBuffer, sizeof(i->inputBuffer), ptr);
+	LoadInputHistoryLine(i, ptr);
 	i->inputHistoryCurrentEntry = ptr - i->inputHistory;
-	i->inputCursorX = i->inputBufferLength = StrLen(i->inputBuffer);
+	i->inputCompletionX = 0;
 	return true;
 }
 

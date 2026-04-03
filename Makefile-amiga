@@ -48,7 +48,7 @@ endif
 
 CCFLAGS += -DVERSION=$(VERSION) 
 CCFLAGS += -Os
-CCFLAGS += -D_DEBUGPRINT 
+#CCFLAGS += -D_DEBUGPRINT 
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
 CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
