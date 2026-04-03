@@ -97,7 +97,7 @@ enum DDB_Flag
 			//   Bit 6: 1 if there is RAMSAVE data present
 			//   Bit 7: 1 if there was a timeout last frame
 
-	Flag_DoAllObjNo		= 50,			// 32  Object number for DOALL
+	Flag_DoAllLocNo		= 50,			// 32  Location number for DOALL
 	Flag_Objno     		= 51,			// 33  Current object (for _) referenced by WHATO etc.
 	Flag_Strength  		= 52,			// 34  Maximum weight that can be carried (ABILITY)
 	Flag_ListFlags		= 53,			// 35  Object list print flags
@@ -581,6 +581,7 @@ struct DDB_Interpreter
 	bool			doall;
 	uint8_t         doallDepth;
 	uint8_t         doallLocno;
+	uint8_t         doallObjno;
 	uint8_t         doallProcess;
 	uint16_t        doallEntry;
 	uint16_t        doallOffset;

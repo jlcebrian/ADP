@@ -1299,13 +1299,21 @@ static uint8_t Whato (DDB_Interpreter* i)
 
 static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 {
-	int n = i->flags[Flag_DoAllObjNo] + 1;
+	int n;
+
+	if (locno == Loc_Here)
+		locno = i->flags[Flag_Locno];
 
 	if (start)
 	{
 		i->doallDepth = 0;
 		i->doallLocno = locno;
+		i->flags[Flag_DoAllLocNo] = locno;
 		n = 0;
+	}
+	else
+	{
+		n = i->doallObjno + 1;
 	}
 
 	for (; n < i->ddb->numObjects; n++)
@@ -1321,17 +1329,18 @@ static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 			}
 			i->flags[Flag_Noun1] = i->ddb->objWordsTable[2*n];
 			i->flags[Flag_Adjective1] = i->ddb->objWordsTable[2*n + 1];
-			i->flags[Flag_DoAllObjNo] = n;
 
 			// TODO: Verify this step, since it is not documented
 			SetObjno(i, n);
 
 			i->doall = true;
+			i->doallObjno = n;
 			return true;
 		}
 	}
 	i->doall = false;
-	i->flags[Flag_DoAllObjNo] = 255;
+	i->doallObjno = 255;
+	i->flags[Flag_DoAllLocNo] = locno;
 	return false;
 }
 
@@ -1898,7 +1907,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				{
 					if (i->doallDepth > 0)
 						i->doallDepth--;
-					else if (DoAll(i, i->doallLocno, false))
+					else if (DoAll(i, i->flags[Flag_DoAllLocNo], false))
 					{
 						TRACE("Performing next DoAll: process %d, entry %d, offset %d\n", i->doallProcess, i->doallEntry, i->doallOffset);
 						entry    = i->doallEntry;
@@ -3091,7 +3100,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->doallEntry = entry;
 				i->doallOffset = offset + params + 1;
 				UpdatePos(i, process, entry, offset + params + 1);
-				if (!DoAll(i, param0 == 255 ? i->flags[Flag_Locno] : param0, true))
+				if (!DoAll(i, param0, true))
 					ok = false;
 				break;
 
