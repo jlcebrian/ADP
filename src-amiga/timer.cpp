@@ -74,7 +74,7 @@ void CloseTimer()
 	if (timerOpened == false)
 		return;
 		
-	CloseDevice((IORequest *)&req);
+	CloseDevice((IORequest *)req);
 
 	if (SysBase->SoftVer >= 39)
 	{
@@ -86,5 +86,7 @@ void CloseTimer()
 		FreeMem(req, sizeof(timerequest));
 	}
 
+	req = 0;
+	port = 0;
 	timerOpened = false;
 }

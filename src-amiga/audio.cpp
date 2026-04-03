@@ -102,7 +102,7 @@ void PlaySample(uint8_t* sample, uint32_t length, uint32_t hz, uint32_t volume)
 	BeginIO((struct IORequest *)req);
 	playing = true;
 
-	DebugPrintf("Playing sample at %p: %ld bytes, %ld hz, %ld period, %ld volume\n", sample, length, hz, period, volume);
+	// DebugPrintf("Playing sample at %p: %ld bytes, %ld hz, %ld period, %ld volume\n", sample, length, hz, period, volume);
 }
 
 void StopSample()
