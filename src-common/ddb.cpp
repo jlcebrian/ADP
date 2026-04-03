@@ -684,6 +684,17 @@ bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
             File_Close(file);
             return true;
         }
+		#if HAS_PCX
+		file = File_Open(ChangeExtension(fileName, ".VGA"), ReadOnly);
+		if (file == NULL)
+			file = File_Open(ChangeExtension(fileName, ".vga"), ReadOnly);
+		if (file != NULL)
+		{
+			*mode = ScreenMode_VGA;
+			File_Close(file);
+			return true;
+		}
+		#endif
         return false;
     }
     

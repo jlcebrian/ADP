@@ -17,6 +17,44 @@ static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
 
+#if HAS_PCX
+static bool FileExists(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+	File_Close(file);
+	return true;
+}
+
+static void BuildFileNameWithExtension(const char* fileName, const char* extension, char* output, size_t outputSize)
+{
+	StrCopy(output, outputSize, fileName);
+	char* dot = (char*)StrRChr(output, '.');
+	if (dot == 0)
+		dot = output + StrLen(output);
+	StrCopy(dot, output + outputSize - dot, extension);
+}
+
+static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine, DDB_Version version, DDB_ScreenMode* screenMode)
+{
+	static char introScreen[FILE_MAX_PATH];
+	if (machine != DDB_MACHINE_IBMPC || version < DDB_VERSION_2)
+		return 0;
+
+	BuildFileNameWithExtension(fileName, ".VGA", introScreen, sizeof(introScreen));
+	if (!FileExists(introScreen))
+	{
+		BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
+		if (!FileExists(introScreen))
+			return 0;
+	}
+
+	*screenMode = ScreenMode_VGA;
+	return introScreen;
+}
+#endif
+
 static void EnumFiles(const char* pattern = "*")
 {
 	FindFileResults r;
@@ -297,6 +335,9 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		ddbCount = CountFiles(".ddb");
 		scrCount = CountFiles(".scr");
 		const char* scrExtension = ".scr";
+		#if HAS_PCX
+		const char* introScreen = 0;
+		#endif
 		if (scrCount == 0)
 		{
 			if ((scrCount = CountFiles(".egs")) > 0)
@@ -341,6 +382,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 			DDB_Check(ddbFileName, &machine, &language, &version);
             DDB_CheckVideoMode(ddbFileName, &screenMode);
+			#if HAS_PCX
+			introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
+			if (introScreen != 0)
+				scrCount = 1;
+			#endif
 			DebugPrintf("Checked %s\n", ddbFileName);
 			VID_Initialize(machine, version, screenMode);
             if (DDB_SupportsDataFile(version, machine))
@@ -351,7 +397,12 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		{
 			if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
 				machine = DDB_MACHINE_AMIGA;
-			if (!VID_DisplaySCRFile(GetFile(scrExtension, 0), machine))
+			#if HAS_PCX
+			const char* screenFile = introScreen != 0 ? introScreen : GetFile(scrExtension, 0);
+			#else
+			const char* screenFile = GetFile(scrExtension, 0);
+			#endif
+			if (!VID_DisplaySCRFile(screenFile, machine))
 			{
 				VID_ShowError(DDB_GetErrorString());
 				return state = Player_Error;
@@ -401,6 +452,10 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	}
 	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(ddbFileName);
+	#if HAS_PCX
+	if (VID_HasExternalPictures())
+		screenMode = ScreenMode_VGA;
+	#endif
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 	{
@@ -436,7 +491,11 @@ static void FadeOut()
 }
 
 // Checks for intro screen files and, if found, updates machine and screenMode accordingly
+#if HAS_PCX
+static void CheckIntroScreenFiles(const char* ddbFileName, const char** introScreen, DDB_Machine* machine, DDB_Version version, DDB_ScreenMode* screenMode)
+#else
 static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine, DDB_ScreenMode* screenMode)
+#endif
 {
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
@@ -455,6 +514,12 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 		*screenMode = ScreenMode_CGA;
 		*introScreen = GetFile(".cgs", 0);
 	}
+	#if HAS_PCX
+	else if ((*introScreen = FindPCXIntroScreen(ddbFileName, *machine, version, screenMode)) != 0)
+	{
+		scrCount = 1;
+	}
+	#endif
 	else if ((scrCount = CountFiles(".vgs")) > 0)
 	{
 		*screenMode = ScreenMode_VGA16;
@@ -486,7 +551,11 @@ bool DDB_RunPlayer()
 	DDB_Check(ddbFileName, &machine, &language, &version);
 	VID_Initialize(machine, version, screenMode);
 
-    CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
+	#if HAS_PCX
+	CheckIntroScreenFiles(ddbFileName, &introScreen, &machine, version, &screenMode);
+	#else
+	CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
+	#endif
     if (introScreen != 0)
     {
         if (!VID_DisplaySCRFile(introScreen, machine))
@@ -533,6 +602,10 @@ bool DDB_RunPlayer()
 
 	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(ddbFileName);
+	#if HAS_PCX
+	if (VID_HasExternalPictures())
+		screenMode = ScreenMode_VGA;
+	#endif
 
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)

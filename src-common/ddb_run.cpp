@@ -128,6 +128,13 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 					i->inkMap[n+3] = 1;
 				}
 			}
+			#if HAS_PCX
+			else if (i->screenMode == ScreenMode_VGA && VID_HasExternalPictures())
+			{
+				for (int n = 0; n < 16; n++)
+					i->inkMap[n] = n;
+			}
+			#endif
 			else
 			{
 				i->inkMap[0] = 0;
@@ -336,6 +343,21 @@ static int CalculateCarriedWeight(DDB_Interpreter* i)
 
 void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint8_t* cellW)
 {
+	if (columnWidth == 8)
+	{
+		int cellsX = w->x / 8;
+		int cellsW = w->width / 8;
+
+		if (w->x + w->width >= screenWidth)
+			cellsW = (screenWidth - cellsX * 8) / 8;
+		if (cellsW == 0)
+			cellsW = 1;
+
+		*cellX = cellsX;
+		*cellW = cellsW;
+		return;
+	}
+
 	static int inc[] = { 0,1,2,3,1,2,3,3,1,2,2,3,1,1,2,3 };
 	int charsX = w->x / 6;
 	int charsW = w->width / 6;
@@ -3458,6 +3480,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				i->win.ink = i->inkMap[param0 & 0x0F];
 				i->done = true;
+				TRACE("Ink %02d (from %02d)", i->win.ink, param0);
 				break;
 			case CONDACT_TIMEOUT:
 				ok = (i->flags[Flag_TimeoutFlags] & Timeout_LastFrame) != 0;

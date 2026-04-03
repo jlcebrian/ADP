@@ -3,6 +3,8 @@
 #include <ddb_vid.h>
 #include <ddb_data.h>
 #include <ddb_scr.h>
+#include <os_file.h>
+#include <os_lib.h>
 #include <os_mem.h>
 
 #include "dmg.h"
@@ -17,6 +19,13 @@
 #include <string.h>
 
 static uint8_t*   pictureData = 0;
+#if HAS_PCX
+static uint8_t*   pcxPictureData = 0;
+static uint16_t   pcxPictureSize = 0;
+static int        pcxPictureWidth = 0;
+static int        pcxPictureHeight = 0;
+static uint32_t   pcxPalette[256];
+#endif
 static uint8_t*   audioData = 0;
 static DMG_Entry* bufferedEntry;
 static int        bufferedEntryIndex;
@@ -54,6 +63,70 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 	fclose(file);
 	return true;
 }
+
+#if HAS_PCX
+static bool FileExists(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == NULL)
+		return false;
+	File_Close(file);
+	return true;
+}
+
+static void BuildFileNameWithExtension(const char* fileName, const char* extension, char* output, size_t outputSize)
+{
+	StrCopy(output, outputSize, fileName);
+	char* dot = (char*)StrRChr(output, '.');
+	if (dot == NULL)
+		dot = output + StrLen(output);
+	StrCopy(dot, output + outputSize - dot, extension);
+}
+
+static bool FindNamedPCXFile(const char* fileName, char* output, size_t outputSize)
+{
+	BuildFileNameWithExtension(fileName, ".VGA", output, outputSize);
+	if (FileExists(output))
+		return true;
+
+	BuildFileNameWithExtension(fileName, ".vga", output, outputSize);
+	return FileExists(output);
+}
+
+static void FreeBufferedPCXPicture()
+{
+	if (pcxPictureData != NULL)
+	{
+		Free(pcxPictureData);
+		pcxPictureData = NULL;
+	}
+	pcxPictureSize = 0;
+	pcxPictureWidth = 0;
+	pcxPictureHeight = 0;
+}
+
+static bool HasExternalPCXGraphics(const char* fileName)
+{
+	char introScreen[FILE_MAX_PATH];
+	if (FindNamedPCXFile(fileName, introScreen, sizeof(introScreen)))
+		return true;
+
+	for (int picno = 0; picno < 256; picno++)
+	{
+		char pictureFileName[FILE_MAX_PATH];
+		if (VID_GetExternalPictureFileName((uint8_t)picno, pictureFileName, sizeof(pictureFileName)))
+			return true;
+	}
+
+	return false;
+}
+
+static bool IsPCXScreenFile(const char* fileName)
+{
+	const char* dot = StrRChr(fileName, '.');
+	return dot != NULL && StrIComp(dot, ".vga") == 0;
+}
+#endif
 
 // ----------------------------------------------------------------------------
 //  Video related variables
@@ -375,8 +448,81 @@ bool VID_AnyKey ()
 	return kbhit();
 }
 
+#if HAS_PCX
+static void BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y, int w, int h)
+{
+	if (input == NULL || inputWidth <= 0)
+		return;
+
+	if (x < minx)
+	{
+		int skip = minx - x;
+		input += skip;
+		w -= skip;
+		x = minx;
+	}
+	if (y < miny)
+	{
+		int skip = miny - y;
+		input += skip * inputWidth;
+		h -= skip;
+		y = miny;
+	}
+	if (x + w > maxx + 1)
+		w = maxx - x + 1;
+	if (y + h > maxy + 1)
+		h = maxy - y + 1;
+	if (w <= 0 || h <= 0)
+		return;
+
+	const uint8_t* src = input;
+	uint8_t* dst = offset + y * lineSize + (x >> 2);
+	int mask = 1 << (x & 3);
+
+	outp(0x3C4, 0x02);
+
+	for (int dx = 0; dx < w; dx++)
+	{
+		const uint8_t* srcPtr = src;
+		uint8_t* dstPtr = dst;
+
+		outp(0x3C5, mask);
+		for (int dy = 0; dy < h; dy++)
+		{
+			*dstPtr = *srcPtr;
+			dstPtr += lineSize;
+			srcPtr += inputWidth;
+		}
+
+		src++;
+		mask <<= 1;
+		dst += (mask >> 4);
+		mask |= (mask >> 4);
+		mask &= 0x0F;
+	}
+}
+
+static void ApplyPalette256(const uint32_t* colors)
+{
+	for (int n = 0; n < 256; n++)
+	{
+		uint8_t r = (colors[n] >> 16) & 0xFF;
+		uint8_t g = (colors[n] >> 8) & 0xFF;
+		uint8_t b = colors[n] & 0xFF;
+		VID_SetPaletteColor((uint8_t)n, r, g, b);
+	}
+	MemCopy(palette, colors, sizeof(pcxPalette));
+}
+#endif
+
 bool VID_LoadDataFile (const char* fileName)
 {
+	#if HAS_PCX
+	FreeBufferedPCXPicture();
+	VID_SetExternalPictureBase(0);
+	#endif
+	columnWidth = 6;
+
 	if (dmg != NULL)
 	{
 		DMG_Close(dmg);
@@ -390,6 +536,22 @@ bool VID_LoadDataFile (const char* fileName)
 		dmg = DMG_Open(ChangeExtension(fileName, ".cga"), true);
 	if (dmg == NULL)
 	{
+		#if HAS_PCX
+		VID_SetExternalPictureBase(fileName);
+		if (HasExternalPCXGraphics(fileName))
+		{
+			columnWidth = 8;
+			if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+				!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+			{
+				memcpy(charset, DefaultCharset, 1024);
+				memcpy(charset + 1024, DefaultCharset, 1024);
+			}
+			return true;
+		}
+		VID_SetExternalPictureBase(0);
+		#endif
+
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		VID_Finish();
 		return false;
@@ -519,6 +681,11 @@ void VID_Finish()
 	if (!initialized)
 		return;
 
+	#if HAS_PCX
+	FreeBufferedPCXPicture();
+	VID_SetExternalPictureBase(0);
+	#endif
+
 	SB_Stop();
 	Timer_Stop();
 
@@ -531,6 +698,19 @@ void VID_Finish()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {	
+	#if HAS_PCX
+	if (pcxPictureData != NULL)
+	{
+		if (w > pcxPictureWidth)
+			w = pcxPictureWidth;
+		if (h > pcxPictureHeight)
+			h = pcxPictureHeight;
+		BlitLinearPicture(pcxPictureData, pcxPictureWidth, x, y, w, h);
+		ApplyPalette256(pcxPalette);
+		return;
+	}
+	#endif
+
 	DMG_Entry* entry = bufferedEntry;
 	if (entry == NULL)
 		return;
@@ -623,7 +803,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	// Update color palette
 
-	if (entry->fixed) 
+	if (entry->flags & DMG_FLAG_FIXED)
 	{
 		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex, 
 			screenMode == ScreenMode_VGA16 ? ImageMode_RGBA32 :
@@ -641,6 +821,32 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 {
+	#if HAS_PCX
+	if (IsPCXScreenFile(fileName))
+	{
+		uint16_t bufferSize = 65535;
+		uint8_t* output = Allocate<uint8_t>("Temporary PCX buffer", bufferSize);
+		if (output == NULL)
+		{
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+
+		int width = 0;
+		int height = 0;
+		if (!DMG_DecompressPCX(fileName, output, &bufferSize, &width, &height, pcxPalette))
+		{
+			Free(output);
+			return false;
+		}
+
+		BlitLinearPicture(output, width, 0, 0, width, height);
+		ApplyPalette256(pcxPalette);
+		Free(output);
+		return true;
+	}
+	#endif
+
 	size_t required = screenWidth * screenHeight;
 	uint32_t palette[16];
 	uint8_t* output = Allocate<uint8_t>("Temporary SCR buffer", required);
@@ -831,7 +1037,25 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 }
 
 void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h)
-{	if (bufferedEntry == NULL)
+{
+	#if HAS_PCX
+	if (pcxPictureData != NULL)
+	{
+		if (fixed != NULL)
+			*fixed = true;
+		if (x != NULL)
+			*x = 0;
+		if (y != NULL)
+			*y = 0;
+		if (w != NULL)
+			*w = pcxPictureWidth;
+		if (h != NULL)
+			*h = pcxPictureHeight;
+		return;
+	}
+	#endif
+
+	if (bufferedEntry == NULL)
 	{
 		if (fixed != NULL)
 			*fixed = false;
@@ -847,7 +1071,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 	else
 	{
 		if (fixed != NULL)
-			*fixed = bufferedEntry->fixed;
+			*fixed = (bufferedEntry->flags & DMG_FLAG_FIXED) != 0;
 		if (x != NULL)
 			*x = bufferedEntry->x;
 		if (y != NULL)
@@ -861,7 +1085,29 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 {
+	#if HAS_PCX
+	FreeBufferedPCXPicture();
+	bufferedEntry = NULL;
+	pictureData = NULL;
+
+	if (dmg == NULL)
+	{
+		char pictureFileName[FILE_MAX_PATH];
+		if (!VID_GetExternalPictureFileName(picno, pictureFileName, sizeof(pictureFileName)))
+			return;
+
+		pcxPictureData = Allocate<uint8_t>("PCX picture", 65535);
+		if (pcxPictureData == NULL)
+			return;
+
+		pcxPictureSize = 65535;
+		if (!DMG_DecompressPCX(pictureFileName, pcxPictureData, &pcxPictureSize, &pcxPictureWidth, &pcxPictureHeight, pcxPalette))
+			FreeBufferedPCXPicture();
+		return;
+	}
+	#else
 	if (dmg == NULL) return;
+	#endif
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == NULL || entry->type != DMGEntry_Image)
@@ -1083,8 +1329,12 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 	quit = false;
 }
 
-bool VID_Initialize(DDB_Machine machine)
+bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode)
 {
+	(void)machine;
+	(void)version;
+	(void)mode;
+
 	if (initialized)
 		return false;
 

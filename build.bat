@@ -96,7 +96,7 @@ SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
 SET TOOLOPTS=/Iinclude-tools /Ilib/libpng
 SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib\libpng /Ilib\sdl2\include /Iinclude /D_STDCLIB /DNO_CACHE ^
-	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING /D_DEBUGPRINT /DHAS_PAWS
+	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING /D_DEBUGPRINT /DHAS_PAWS /DHAS_PCX
 set OPTIM=/Zi /GR- /EHsc /MP8 /FC /GL
 SET LINK=
 
@@ -134,6 +134,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\dmg_univ.cpp ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
+	src-common\dmg_pcx.cpp ^
 	src-common\dmg.cpp ^
 	src-common\dim.cpp ^
 	src-common\dim_adf.cpp ^
@@ -173,6 +174,7 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^
 	src-common\dmg_univ.cpp ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
+	src-common\dmg_pcx.cpp ^
 	src-common\dmg.cpp ^
 	src-common\dim.cpp ^
 	src-common\dim_adf.cpp ^
@@ -249,6 +251,7 @@ cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dmg.exe ^
 	src-common\dmg_cga.cpp ^
 	src-common\dmg_ega.cpp ^
 	src-common\ddb_pal.cpp ^
+	src-common\dmg_pcx.cpp ^
 	src-common\os_file.cpp ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^

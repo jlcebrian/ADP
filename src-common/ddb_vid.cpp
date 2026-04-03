@@ -1,5 +1,6 @@
 #include <ddb_vid.h>
 #include <ddb_pal.h>
+#include <os_file.h>
 #include <os_lib.h>
 #include <dmg.h>
 
@@ -11,9 +12,99 @@ uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
 
+#if HAS_PCX
+static char externalPictureBase[FILE_MAX_PATH];
+
+static bool FileExists(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+	File_Close(file);
+	return true;
+}
+
+static const char* GetLastPathSeparator(const char* fileName)
+{
+	const char* slash = StrRChr(fileName, '/');
+	const char* backslash = StrRChr(fileName, '\\');
+	if (slash == 0)
+		return backslash;
+	if (backslash == 0)
+		return slash;
+	return slash > backslash ? slash : backslash;
+}
+
+static void BuildExternalPictureFileName(const char* fileName, uint8_t picno, const char* extension, char* output, size_t outputSize)
+{
+	if (output == 0 || outputSize == 0)
+		return;
+
+	output[0] = 0;
+	if (fileName == 0 || fileName[0] == 0)
+		return;
+
+	const char* separator = GetLastPathSeparator(fileName);
+	size_t prefixLength = separator == 0 ? 0 : (size_t)(separator - fileName + 1);
+	if (prefixLength >= outputSize)
+		prefixLength = outputSize - 1;
+
+	if (prefixLength > 0)
+	{
+		MemCopy(output, fileName, prefixLength);
+		output[prefixLength] = 0;
+	}
+
+	if (prefixLength + 4 >= outputSize)
+		return;
+
+	output[prefixLength + 0] = '0' + (picno / 100);
+	output[prefixLength + 1] = '0' + ((picno / 10) % 10);
+	output[prefixLength + 2] = '0' + (picno % 10);
+	output[prefixLength + 3] = 0;
+	StrCat(output, outputSize, extension);
+}
+
+void VID_SetExternalPictureBase(const char* fileName)
+{
+	if (fileName == 0)
+		externalPictureBase[0] = 0;
+	else
+		StrCopy(externalPictureBase, sizeof(externalPictureBase), fileName);
+}
+
+bool VID_GetExternalPictureFileName(uint8_t picno, char* fileName, size_t fileNameSize)
+{
+	if (externalPictureBase[0] == 0 || fileName == 0 || fileNameSize == 0)
+		return false;
+
+	BuildExternalPictureFileName(externalPictureBase, picno, ".VGA", fileName, fileNameSize);
+	if (FileExists(fileName))
+		return true;
+
+	BuildExternalPictureFileName(externalPictureBase, picno, ".vga", fileName, fileNameSize);
+	if (FileExists(fileName))
+		return true;
+
+	fileName[0] = 0;
+	return false;
+}
+
+bool VID_HasExternalPictures()
+{
+	return externalPictureBase[0] != 0;
+}
+#endif
+
 bool VID_PictureExists (uint8_t picno)
 {
-	if (dmg == 0) return false;
+	#if HAS_PCX
+	if (dmg == 0)
+	{
+		char fileName[FILE_MAX_PATH];
+		return VID_GetExternalPictureFileName(picno, fileName, sizeof(fileName));
+	}
+	#endif
 	
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	return (entry != 0 && entry->type == DMGEntry_Image);

@@ -76,3 +76,10 @@ extern void   VID_SetClipboardText    (uint8_t* buffer, uint32_t bufferSize);
 #if HAS_FULLSCREEN
 extern void   VID_ToggleFullscreen    ();
 #endif
+
+#if HAS_PCX
+extern void   VID_SetExternalPictureBase (const char* fileName);
+extern bool   VID_GetExternalPictureFileName (uint8_t picno, char* fileName, size_t fileNameSize);
+extern bool   VID_HasExternalPictures (); 
+#endif
+

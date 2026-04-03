@@ -1,8 +1,10 @@
 #include <ddb.h>
 #include <ddb_vid.h>
 #include <ddb_scr.h>
+#include <dmg.h>
 #include <os_mem.h>
 #include <os_file.h>
+#include <os_lib.h>
 
 #ifdef _WIN32
 #include <SDL.h>
@@ -14,6 +16,40 @@
 
 static bool trace = false;
 static bool force = false;
+
+#if HAS_PCX
+static bool LoadPCXStartupPalette(const char* fileName)
+{
+	if (!VID_HasExternalPictures())
+		return false;
+
+	char screenFile[FILE_MAX_PATH];
+	StrCopy(screenFile, sizeof(screenFile), fileName);
+	char* dot = (char*)StrRChr(screenFile, '.');
+	if (dot == 0)
+		dot = screenFile + StrLen(screenFile);
+	StrCopy(dot, screenFile + sizeof(screenFile) - dot, ".VGA");
+
+	File* file = File_Open(screenFile, ReadOnly);
+	if (file == 0)
+	{
+		StrCopy(dot, screenFile + sizeof(screenFile) - dot, ".vga");
+		file = File_Open(screenFile, ReadOnly);
+		if (file == 0)
+			return false;
+	}
+	File_Close(file);
+
+	uint32_t palette[256];
+	if (!DMG_ReadPCXPalette(screenFile, palette))
+		return false;
+
+	for (int n = 0; n < 256; n++)
+		VID_SetPaletteColor32((uint8_t)n, palette[n]);
+	VID_ActivatePalette();
+	return true;
+}
+#endif
 
 void TracePrintf(const char* format, ...)
 {
@@ -290,11 +326,22 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	VID_Initialize(ddb->target, ddb->version, ScreenMode_VGA16);
+	DDB_ScreenMode screenMode = ScreenMode_VGA16;
+	if (ddb->target == DDB_MACHINE_IBMPC)
+		DDB_CheckVideoMode(argv[1], &screenMode);
+
+	VID_Initialize(ddb->target, ddb->version, screenMode);
 	if (DDB_SupportsDataFile(ddb->version, ddb->target))
 		VID_LoadDataFile(argv[1]);
+	#if HAS_PCX
+	if (VID_HasExternalPictures())
+	{
+		screenMode = ScreenMode_VGA;
+		LoadPCXStartupPalette(argv[1]);
+	}
+	#endif
 
-	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
+	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == NULL)
 	{
 		fprintf(stderr, "Error: %s\n", DDB_GetErrorString());

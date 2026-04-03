@@ -1,5 +1,5 @@
 
-OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB
+OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB -DHAS_PCX
 #OPTIM=-od -d3 -hw
 OPTIM=-otexan -zc -d0 -3r
 #OPTIM=-onatx -oh -ei -zp8 -3
@@ -14,6 +14,7 @@ OBJS = 		     &
 	ddb_pal.obj  &
 	ddb_play.obj &
 	dmg.obj      &
+	dmg_pcx.obj  &
 	dmg_cga.obj  &
 	dmg_ega.obj  &
 	dmg_cach.obj &
@@ -37,23 +38,23 @@ OBJS = 		     &
 
 Debug : all .SYMBOLIC
 Release : all .SYMBOLIC
-all : out\adp.exe .SYMBOLIC
+all : out/adp.exe .SYMBOLIC
 
 clean
-	@if exist *.obj             @del *.obj
-	@if exist src-common\*.obj  @del src-common\*.obj
-	@if exist src\dos\*.obj     @del src\dos\*.obj
-	@if exist *.err             @del *.err
-	@if exist src-common\*.err  @del src-common\*.err
-	@if exist src\dos\*.err     @del src\dos\*.err
-	@if exist adp.exe           @del adp.exe
-	@if exist objs.lnk          @del objs.lnk
+	@if exist *.obj             @rm *.obj
+	@if exist src-common\*.obj  @rm src-common\*.obj
+	@if exist src\dos\*.obj     @rm src\dos\*.obj
+	@if exist *.err             @rm *.err
+	@if exist src-common\*.err  @rm src-common\*.err
+	@if exist src\dos\*.err     @rm src\dos\*.err
+	@if exist adp.exe           @rm adp.exe
+	@if exist objs.lnk          @rm objs.lnk
 
-out\adp.exe: $OBJS 
+out/adp.exe: $OBJS 
 	@echo OPTION ELIMINATE > objs.lnk
 	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
 	wcl386 $(OPTS) $(OPTIM) -l=CAUSEWAY -fe=$*.exe @objs.lnk
-	upx $*.exe >NUL
+	upx $*.exe >/dev/null
 
 .obj: obj\dos
 .cpp: src-common;src-dos
