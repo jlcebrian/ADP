@@ -784,8 +784,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					}
 					while (objNameBuffer[firstChar] == ' ')
 						firstChar++;
-					if (i->ddb->language == DDB_SPANISH ||
-						i->ddb->language == DDB_SPANISH_ENHANCED)
+					if (i->ddb->language == DDB_SPANISH)
 					{
 						if (ptr[1] == 'n') {
 							if (ptr[0] == 'u' || ptr[0] == 'U') {

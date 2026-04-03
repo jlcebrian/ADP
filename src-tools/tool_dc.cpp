@@ -20,7 +20,7 @@ int main (int argc, char *argv[])
 	DC_CompilerOptions opts;
 	opts.version = 2;
 	opts.target = DDB_MACHINE_IBMPC;
-	opts.language = DDB_SPANISH_ENHANCED;
+	opts.language = DDB_SPANISH;
 	
 	DC_Program* program = DC_Compile(argv[1], &opts);
 	if (program == 0)
