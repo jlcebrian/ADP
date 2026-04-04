@@ -47,7 +47,15 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 	{
 		BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
 		if (!FileExists(introScreen))
-			return 0;
+		{
+			BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
+			if (!FileExists(introScreen))
+			{
+				BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+				if (!FileExists(introScreen))
+					return 0;
+			}
+		}
 	}
 
 	*screenMode = ScreenMode_VGA;

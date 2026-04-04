@@ -194,8 +194,74 @@ static void WritePalette(uint8_t* ptr, DMG_Entry* entry)
 	}
 }
 
+static bool DMG_UpdateEntryV5(DMG* dmg, uint8_t index)
+{
+    if (index < dmg->firstEntry || index > dmg->lastEntry)
+    {
+        DMG_SetError(DMG_ERROR_INVALID_ENTRY_COUNT);
+        return false;
+    }
+
+    DMG_Entry* entry = dmg->entries[index];
+    if (entry == 0)
+        return false;
+
+    uint8_t buffer[32];
+    MemClear(buffer, sizeof(buffer));
+
+    if (entry->type != DMGEntry_Empty)
+    {
+        write32(buffer + 0x00, entry->fileOffset, false);
+        write32(buffer + 0x04, entry->length, false);
+        buffer[0x08] = entry->type == DMGEntry_Audio ? 1 : 0;
+
+        if (entry->type == DMGEntry_Image)
+        {
+            uint16_t flags = 0;
+            buffer[0x09] = entry->bitDepth;
+            if (entry->flags & DMG_FLAG_ZX0)
+                flags |= 0x0008;
+            if ((entry->flags & DMG_FLAG_FIXED) == 0)
+                flags |= 0x0010;
+            if (entry->flags & DMG_FLAG_BUFFERED)
+                flags |= 0x0020;
+            if (DMG_GetCGAMode(entry) == CGA_Blue)
+                flags |= 0x0040;
+            write16(buffer + 0x0A, flags, false);
+            write16(buffer + 0x0C, entry->x, false);
+            write16(buffer + 0x0E, entry->y, false);
+            write16(buffer + 0x10, entry->width, false);
+            write16(buffer + 0x12, entry->height, false);
+            buffer[0x14] = entry->firstColor;
+            buffer[0x15] = entry->lastColor;
+            write32(buffer + 0x16, entry->paletteOffset, false);
+            write32(buffer + 0x1A, entry->paletteSize, false);
+        }
+        else
+        {
+            buffer[0x09] = (uint8_t)entry->x;
+        }
+    }
+
+    uint32_t offset = 0x10 + (index - dmg->firstEntry) * 32;
+    if (!File_Seek(dmg->file, offset))
+    {
+        DMG_SetError(DMG_ERROR_SEEKING_FILE);
+        return false;
+    }
+    if (File_Write(dmg->file, buffer, sizeof(buffer)) != sizeof(buffer))
+    {
+        DMG_SetError(DMG_ERROR_WRITING_FILE);
+        return false;
+    }
+    return true;
+}
+
 bool DMG_UpdateFileHeader (DMG* dmg)
 {
+    if (dmg->version == DMG_Version5)
+        return true;
+
 	uint8_t header[6];
 	int size = dmg->version == DMG_Version1 ? 2 : 6;
 	write16(header + 0x00, DMG_GetEntryCount(dmg), false);
@@ -215,6 +281,9 @@ bool DMG_UpdateFileHeader (DMG* dmg)
 
 bool DMG_UpdateEntry (DMG* dmg, uint8_t index)
 {
+    if (dmg->version == DMG_Version5)
+        return DMG_UpdateEntryV5(dmg, index);
+
 	int n;
 	int size = dmg->version == DMG_Version1 ? 44 : 48;
 	int offset = (dmg->version == DMG_Version1 ? 0x06 : 0x0A) + index * size;
@@ -327,6 +396,22 @@ bool DMG_RemoveEntry(DMG* dmg, uint8_t index)
 
 	if (entry->type != DMGEntry_Empty)
 	{
+        if (dmg->version == DMG_Version5)
+        {
+            entry->fileOffset = 0;
+            entry->length = 0;
+            entry->paletteOffset = 0;
+            entry->paletteSize = 0;
+            entry->paletteColors = 0;
+            if (entry->RGB32PaletteV5 != 0)
+            {
+                Free(entry->RGB32PaletteV5);
+                entry->RGB32PaletteV5 = 0;
+            }
+            entry->type = DMGEntry_Empty;
+            return DMG_UpdateEntry(dmg, index);
+        }
+
 		uint32_t offset = entry->fileOffset;
 		uint32_t size = entry->length + 6;
 		entry->fileOffset = 0;
@@ -357,6 +442,11 @@ uint8_t DMG_FindFreeEntry (DMG* dmg)
 
 bool DMG_SetEntryPalette (DMG* dmg, uint8_t index, uint32_t* palette)
 {
+    return DMG_SetEntryPaletteEx(dmg, index, palette, 16);
+}
+
+bool DMG_SetEntryPaletteEx (DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize)
+{
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	int n;
 
@@ -379,6 +469,31 @@ bool DMG_SetEntryPalette (DMG* dmg, uint8_t index, uint32_t* palette)
 		}
 	}
 
+    if (dmg->version == DMG_Version5)
+    {
+        if (entry->RGB32PaletteV5 != 0)
+            Free(entry->RGB32PaletteV5);
+        entry->RGB32PaletteV5 = 0;
+        entry->paletteColors = paletteSize;
+        entry->firstColor = 0;
+        entry->lastColor = paletteSize == 0 ? 0 : paletteSize - 1;
+        entry->paletteSize = paletteSize * 3;
+        entry->paletteOffset = 0;
+
+        if (paletteSize != 0)
+        {
+            entry->RGB32PaletteV5 = Allocate<uint32_t>("DAT5 palette", paletteSize);
+            if (entry->RGB32PaletteV5 == 0)
+            {
+                DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+                return false;
+            }
+            for (n = 0; n < paletteSize; n++)
+                entry->RGB32PaletteV5[n] = palette[n];
+        }
+        return true;
+    }
+
 	for (n = 0; n < 16; n++)
 		entry->RGB32Palette[n] = palette[n];
 	return DMG_UpdateEntry(dmg, index);
@@ -388,6 +503,25 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	uint8_t header[6];
+
+    if (dmg->version == DMG_Version5)
+    {
+        if (entry == 0)
+            return false;
+
+        File_Seek(dmg->file, dmg->fileSize);
+        if (File_Write(dmg->file, buffer, size) != size)
+        {
+            DMG_SetError(DMG_ERROR_WRITING_FILE);
+            return false;
+        }
+        entry->type = DMGEntry_Audio;
+        entry->fileOffset = dmg->fileSize;
+        entry->length = size;
+        entry->x = freq;
+        dmg->fileSize += size;
+        return DMG_UpdateEntry(dmg, index);
+    }
 
 	if (entry->type != DMGEntry_Empty)
 	{
@@ -437,8 +571,68 @@ const char* DMG_DescribeFreq(DMG_KHZ freq)
 
 bool DMG_SetImageData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed)
 {
+    return DMG_SetImageDataEx(dmg, index, buffer, width, height, size, compressed, 4);
+}
+
+bool DMG_SetImageDataEx (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth)
+{
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	uint8_t header[6];
+
+    if (dmg->version == DMG_Version5)
+    {
+        if (entry == 0)
+            return false;
+
+        if (entry->RGB32PaletteV5 != 0 && entry->paletteColors != 0)
+        {
+            uint8_t* pal = DMG_GetTemporaryBuffer(ImageMode_RGBA32);
+            if (DMG_GetTemporaryBufferSize() < entry->paletteColors * 3)
+            {
+                DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+                return false;
+            }
+            for (uint16_t i = 0; i < entry->paletteColors; i++)
+            {
+                pal[i * 3 + 0] = (uint8_t)(entry->RGB32PaletteV5[i] >> 16);
+                pal[i * 3 + 1] = (uint8_t)(entry->RGB32PaletteV5[i] >> 8);
+                pal[i * 3 + 2] = (uint8_t)entry->RGB32PaletteV5[i];
+            }
+            entry->paletteOffset = dmg->fileSize;
+            entry->paletteSize = entry->paletteColors * 3;
+            File_Seek(dmg->file, dmg->fileSize);
+            if (File_Write(dmg->file, pal, entry->paletteSize) != entry->paletteSize)
+            {
+                DMG_SetError(DMG_ERROR_WRITING_FILE);
+                return false;
+            }
+            dmg->fileSize += entry->paletteSize;
+        }
+        else
+        {
+            entry->paletteOffset = 0;
+            entry->paletteSize = 0;
+        }
+
+        File_Seek(dmg->file, dmg->fileSize);
+        if (File_Write(dmg->file, buffer, size) != size)
+        {
+            DMG_SetError(DMG_ERROR_WRITING_FILE);
+            return false;
+        }
+
+        entry->type = DMGEntry_Image;
+        entry->bitDepth = bitDepth;
+        entry->fileOffset = dmg->fileSize;
+        entry->width = width;
+        entry->height = height;
+        entry->length = size;
+        entry->flags &= ~(DMG_FLAG_COMPRESSED | DMG_FLAG_ZX0);
+        if (compressed)
+            entry->flags |= DMG_FLAG_COMPRESSED | DMG_FLAG_ZX0;
+        dmg->fileSize += size;
+        return DMG_UpdateEntry(dmg, index);
+    }
 
 	if (entry->type != DMGEntry_Empty)
 	{
@@ -463,13 +657,90 @@ bool DMG_SetImageData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width,
 	}
 
 	entry->type = DMGEntry_Image;
-    entry->bitDepth = 4;
+    entry->bitDepth = bitDepth;
 	entry->fileOffset = dmg->fileSize;
 	dmg->fileSize += size + 6;
 	entry->width = width;
 	entry->height = height;
 	entry->length = size;
 	return DMG_UpdateEntry(dmg, index);
+}
+
+DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry, uint8_t lastEntry)
+{
+    File* file = File_Create(filename);
+    if (file == NULL)
+    {
+        DMG_SetError(DMG_ERROR_CREATING_FILE);
+        return NULL;
+    }
+
+    uint8_t header[16];
+    MemClear(header, sizeof(header));
+    header[0] = 'D';
+    header[1] = 'A';
+    header[2] = 'T';
+    header[4] = 0;
+    header[5] = 5;
+    write16(header + 0x06, width, false);
+    write16(header + 0x08, height, false);
+    header[0x0A] = firstEntry;
+    header[0x0D] = lastEntry;
+    header[0x0E] = colorMode;
+
+    if (File_Write(file, header, sizeof(header)) != sizeof(header))
+    {
+        File_Close(file);
+        DMG_SetError(DMG_ERROR_WRITING_FILE);
+        return NULL;
+    }
+
+    uint32_t entryCount = lastEntry - firstEntry + 1;
+    uint8_t* emptyHeaders = DMG_GetTemporaryBuffer(ImageMode_RGBA32);
+    MemClear(emptyHeaders, entryCount * 32);
+    if (File_Write(file, emptyHeaders, entryCount * 32) != entryCount * 32)
+    {
+        File_Close(file);
+        DMG_SetError(DMG_ERROR_WRITING_FILE);
+        return NULL;
+    }
+
+    DMG* dmg = Allocate<DMG>("DMG");
+    if (dmg == NULL)
+    {
+        File_Close(file);
+        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+        return NULL;
+    }
+    MemClear(dmg, sizeof(DMG));
+    dmg->file = file;
+    dmg->fileSize = 16 + entryCount * 32;
+    dmg->version = DMG_Version5;
+    dmg->littleEndian = false;
+    dmg->colorMode = colorMode;
+    dmg->targetWidth = width;
+    dmg->targetHeight = height;
+    dmg->firstEntry = firstEntry;
+    dmg->lastEntry = lastEntry;
+    dmg->screenMode =
+        (width == 640 && height == 400) ? ScreenMode_SHiRes :
+        (width == 640 && height == 200) ? ScreenMode_HiRes :
+        (colorMode == DMG_DAT5_COLORMODE_I256 ? ScreenMode_VGA : ScreenMode_VGA16);
+
+    for (uint32_t i = firstEntry; i <= lastEntry; i++)
+    {
+        dmg->entries[i] = Allocate<DMG_Entry>("DMG Entry");
+        if (dmg->entries[i] == NULL)
+        {
+            DMG_Close(dmg);
+            DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+            return NULL;
+        }
+        MemClear(dmg->entries[i], sizeof(DMG_Entry));
+        dmg->entries[i]->type = DMGEntry_Empty;
+        dmg->entries[i]->flags = DMG_FLAG_PROCESSED;
+    }
+    return dmg;
 }
 
 DMG* DMG_Create(const char* filename)

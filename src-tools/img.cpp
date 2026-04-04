@@ -19,6 +19,12 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
 
 bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, uint8_t* paletteAlpha)
 {
+    int paletteSize = 0;
+    return LoadPNGIndexed(filename, buffer, bufferSize, width, height, palette, &paletteSize, paletteAlpha) && paletteSize <= 16;
+}
+
+bool LoadPNGIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, uint8_t* paletteAlpha)
+{
 	png_uint_32 y;
 	png_structp png;
 	png_infop info;
@@ -93,9 +99,11 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
 	}
 	#endif
     
-    for (int i = 0; i < numPaletteEntries && i < 16; i++) {
+    for (int i = 0; i < numPaletteEntries && i < 256; i++) {
         palette[i] = 0xFF000000 | (pngPalette[i].red << 16) | (pngPalette[i].green << 8) | pngPalette[i].blue;
     }
+    if (paletteSize)
+        *paletteSize = numPaletteEntries;
 	if (paletteAlpha)
 	{
 		for (int i = 0; i < 256; i++)
@@ -113,22 +121,36 @@ bool LoadPNGIndexed16(const char* filename, uint8_t* buffer, size_t bufferSize, 
     fclose(file);
     Free(rowPointers);
     
-    return true; // Successfully loaded the image
+	return true; // Successfully loaded the image
 }
 
 bool SaveCOLPalette16 (const char* filename, uint32_t* palette)
 {
+    return SaveCOLPalette(filename, palette, 16);
+}
+
+bool SaveCOLPalette (const char* filename, uint32_t* palette, int paletteSize)
+{
 	int n;
-	uint8_t data[56];
+    if (paletteSize <= 0 || paletteSize > 256)
+        return false;
+
+    uint32_t dataSize = 8 + paletteSize * 3;
+	uint8_t* data = Allocate<uint8_t>("COL palette", dataSize);
+    if (!data)
+        return false;
 
 	File* file = File_Create(filename);
 	if (!file)
+    {
+        Free(data);
 		return false; // Failed to open the file
+    }
 
-	write32(data, sizeof(data), true);
+	write32(data, dataSize, true);
 	write16(data + 4, 0xB123, true);
 	write16(data + 6, 0x0000, true);
-	for (n = 0; n < 16; n++)
+	for (n = 0; n < paletteSize; n++)
 	{
 		uint8_t r = (uint8_t)(palette[n] >> 16);
 		uint8_t g = (uint8_t)(palette[n] >> 8);
@@ -138,8 +160,9 @@ bool SaveCOLPalette16 (const char* filename, uint32_t* palette)
 		data[8 + n*3 + 2] = b;
 	}
 
-	bool success = File_Write(file, data, sizeof(data)) == sizeof(data);
+	bool success = File_Write(file, data, dataSize) == dataSize;
 	File_Close(file);
+    Free(data);
 	return success;
 }
 
@@ -149,6 +172,11 @@ bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, ui
 }
 
 bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha)
+{
+    return SavePNGIndexed(filename, pixels, width, height, palette, paletteSize, paletteAlpha);
+}
+
+bool SavePNGIndexed (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha)
 {
 	FILE* file = fopen(filename, "wb");
 	if (!file)

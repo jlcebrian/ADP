@@ -101,6 +101,17 @@ DMG_Version;
 
 typedef enum
 {
+    DMG_DAT5_COLORMODE_NONE = 0,
+    DMG_DAT5_COLORMODE_CGA  = 1,
+    DMG_DAT5_COLORMODE_EGA  = 2,
+    DMG_DAT5_COLORMODE_I16  = 3,
+    DMG_DAT5_COLORMODE_I32  = 4,
+    DMG_DAT5_COLORMODE_I256 = 5,
+}
+DMG_DAT5ColorMode;
+
+typedef enum
+{
 	DMG_5KHZ 			= 0,
 	DMG_7KHZ			= 1,
 	DMG_9_5KHZ			= 2,
@@ -129,6 +140,7 @@ struct DMG_Entry
 	DMG_EntryType	type;
 
 	uint32_t		RGB32Palette[16];
+    uint32_t*       RGB32PaletteV5;
 	uint8_t			CGAPalette[16];
 	uint8_t			EGAPalette[16];
 
@@ -143,6 +155,9 @@ struct DMG_Entry
 
 	uint32_t		fileOffset;
 	uint32_t		length;
+    uint32_t        paletteOffset;
+    uint32_t        paletteSize;
+    uint16_t        paletteColors;
 };
 
 struct DMG_Slot
@@ -168,6 +183,11 @@ struct DMG
 	bool		littleEndian;
 	DMG_Version version;
 	uint8_t		screenMode;
+    uint8_t     firstEntry;
+    uint8_t     lastEntry;
+    uint8_t     colorMode;
+    uint16_t    targetWidth;
+    uint16_t    targetHeight;
 
 	DMG_Entry*  entries[256];
 
@@ -190,15 +210,19 @@ extern DMG* dmg;
 DMG*		DMG_Open			   (const char* filename, bool readOnly);
 DMG*		DMG_OpenFromFile	   (File* file);
 DMG*        DMG_Create             (const char* filename);
+DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry = 0, uint8_t lastEntry = 255);
 DMG_Entry*	DMG_GetEntry		   (DMG* dmg, uint8_t index);
 bool        DMG_UpdateEntry        (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index);
 uint32_t*   DMG_GetEntryPalette    (DMG* dmg, uint8_t index, DMG_ImageMode mode);
+uint16_t    DMG_GetEntryPaletteSize(DMG* dmg, uint8_t index);
 bool        DMG_RemoveEntry	 	   (DMG* dmg, uint8_t index);
 bool        DMG_SetEntryPalette    (DMG* dmg, uint8_t index, uint32_t* palette);
+bool        DMG_SetEntryPaletteEx  (DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize);
 bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed);
+bool        DMG_SetImageDataEx     (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth);
 bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
 bool        DMG_ReuseEntryData     (DMG* dmg, uint8_t index, uint8_t originalIndex);
 int         DMG_GetEntryCount      (DMG* dmg);
@@ -230,6 +254,10 @@ bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, ui
 bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
 bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* output, int pixels);
 uint8_t*    DMG_Planar8To16            (uint8_t* data, uint8_t* buffer, int length, uint32_t width);
+bool        DMG_UnpackBitplaneBytes    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
+bool        DMG_PackBitplaneBytes      (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
+bool        DMG_PackChunkyPixels       (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
+bool        DMG_UnpackChunkyPixels     (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 
 bool        DMG_DecompressCGA          (const uint8_t* data, uint16_t dataLength, uint8_t* buffer, int width, int height);
 bool        DMG_DecompressEGA          (const uint8_t* data, uint16_t dataLength, uint8_t* buffer, int width, int height);
@@ -240,6 +268,8 @@ bool        DMG_DecompressPCX          (const char* fileName, uint8_t* buffer, u
 bool        DMG_DecompressOldRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
 bool        DMG_DecompressNewRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
 bool        DMG_DecompressNewRLEPlanar (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian);
+bool        DMG_DecompressZX0          (const uint8_t* data, uint32_t dataLength, uint8_t* buffer, uint32_t outputSize);
+uint8_t*    DMG_CompressZX0            (const uint8_t* data, uint32_t dataLength, uint32_t* outputSize);
 bool        DMG_Planar8ToPacked        (const uint8_t* data, uint16_t length, uint8_t* output, int pixels, uint32_t width);
 void        DMG_ConvertChunkyToPlanar  (uint8_t *buffer, uint32_t bufferSize, uint32_t width);
 

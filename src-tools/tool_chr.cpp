@@ -1,9 +1,11 @@
 #include <img.h>
 #include <dmg_font.h>
 #include <ddb.h>
+#include <os_mem.h>
 #include <os_lib.h>
 #include <os_file.h>
 
+#include <png.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -230,9 +232,7 @@ static void ConvertIndexedToCharset(const uint8_t* pixels, int glyphHeight, int 
 
 	if (widths)
 	{
-		if (explicitWidths)
-			widths[32] = 8;
-		else
+		if (!explicitWidths)
 			UpdateWidths(widths, charset, glyphHeight);
 	}
 }
@@ -299,7 +299,100 @@ static bool LoadPNG(const char* fileName, ToolFontState* state, uint16_t* width,
 {
 	InitializePNGPalette();
 	if (!LoadPNGIndexed16(fileName, indexed, sizeof(indexed), width, height, palette, paletteAlpha))
-		return false;
+	{
+		FILE* file = fopen(fileName, "rb");
+		if (file == 0)
+			return false;
+
+		png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+		if (png == 0)
+		{
+			fclose(file);
+			return false;
+		}
+		png_infop info = png_create_info_struct(png);
+		if (info == 0)
+		{
+			png_destroy_read_struct(&png, NULL, NULL);
+			fclose(file);
+			return false;
+		}
+		if (setjmp(png_jmpbuf(png)))
+		{
+			png_destroy_read_struct(&png, &info, NULL);
+			fclose(file);
+			return false;
+		}
+
+		png_init_io(png, file);
+		png_read_info(png, info);
+
+		uint32_t pngWidth = png_get_image_width(png, info);
+		uint32_t pngHeight = png_get_image_height(png, info);
+		int colorType = png_get_color_type(png, info);
+		int bitDepth = png_get_bit_depth(png, info);
+
+		if (bitDepth == 16)
+			png_set_strip_16(png);
+		if (colorType == PNG_COLOR_TYPE_PALETTE)
+			png_set_palette_to_rgb(png);
+		if (colorType == PNG_COLOR_TYPE_GRAY && bitDepth < 8)
+			png_set_expand_gray_1_2_4_to_8(png);
+		if (png_get_valid(png, info, PNG_INFO_tRNS))
+			png_set_tRNS_to_alpha(png);
+		if ((colorType & PNG_COLOR_MASK_ALPHA) == 0)
+			png_set_add_alpha(png, 0xFF, PNG_FILLER_AFTER);
+		if (colorType == PNG_COLOR_TYPE_GRAY || colorType == PNG_COLOR_TYPE_GRAY_ALPHA)
+			png_set_gray_to_rgb(png);
+
+		png_read_update_info(png, info);
+		if (pngWidth * pngHeight > sizeof(indexed))
+		{
+			png_destroy_read_struct(&png, &info, NULL);
+			fclose(file);
+			return false;
+		}
+
+		png_bytep* rowPointers = Allocate<png_bytep>("PNG rows", pngHeight);
+		png_byte* image = Allocate<png_byte>("PNG image", pngWidth * pngHeight * 4);
+		if (rowPointers == 0 || image == 0)
+		{
+			if (rowPointers) Free(rowPointers);
+			if (image) Free(image);
+			png_destroy_read_struct(&png, &info, NULL);
+			fclose(file);
+			return false;
+		}
+
+		for (uint32_t y = 0; y < pngHeight; y++)
+			rowPointers[y] = image + y * pngWidth * 4;
+		png_read_image(png, rowPointers);
+		png_destroy_read_struct(&png, &info, NULL);
+		fclose(file);
+		*width = (uint16_t)pngWidth;
+		*height = (uint16_t)pngHeight;
+
+		for (uint32_t y = 0; y < pngHeight; y++)
+		{
+			png_byte* src = image + y * pngWidth * 4;
+			uint8_t* dst = indexed + y * pngWidth;
+			for (uint32_t x = 0; x < pngWidth; x++, src += 4, dst++)
+			{
+				if (src[3] == 0)
+				{
+					*dst = Pixel_Transparent;
+				}
+				else
+				{
+					int luminance = src[0] * 299 + src[1] * 587 + src[2] * 114;
+					*dst = luminance >= 128000 ? Pixel_Background : Pixel_Foreground;
+				}
+			}
+		}
+
+		Free(rowPointers);
+		Free(image);
+	}
 
 	if (*width != 128 || (*height != 128 && *height != 256 && *height != 384))
 		return false;

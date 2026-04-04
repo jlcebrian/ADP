@@ -5,6 +5,222 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
+static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, DMG_Entry* entry, uint8_t* buffer, uint32_t bufferSize)
+{
+    uint32_t indexedSize = entry->width * entry->height;
+    uint8_t* fileData = buffer + bufferSize - entry->length;
+    uint8_t* tempFileData = 0;
+    if (entry->length > bufferSize)
+    {
+        DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+        return 0;
+    }
+    if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
+    {
+        DMG_SetError(DMG_ERROR_READING_FILE);
+        return 0;
+    }
+
+    if (mode == ImageMode_Audio)
+        return fileData;
+
+    if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
+    {
+        if ((entry->flags & DMG_FLAG_ZX0) == 0)
+        {
+            DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+            return 0;
+        }
+
+        uint32_t decompressedSize = 0;
+        switch (dmg->colorMode)
+        {
+            case DMG_DAT5_COLORMODE_CGA:
+                decompressedSize = ((uint32_t)entry->width * entry->height + 3) / 4;
+                break;
+            case DMG_DAT5_COLORMODE_EGA:
+                decompressedSize = ((uint32_t)entry->width * entry->height + 1) / 2;
+                break;
+            case DMG_DAT5_COLORMODE_I16:
+            case DMG_DAT5_COLORMODE_I32:
+            case DMG_DAT5_COLORMODE_I256:
+                decompressedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+                break;
+            default:
+                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+                return 0;
+        }
+
+        if (decompressedSize > bufferSize)
+        {
+            DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+            return 0;
+        }
+        uint8_t* compressedData = 0;
+        bool freeCompressedData = false;
+        if (bufferSize >= decompressedSize + entry->length)
+        {
+            compressedData = buffer + bufferSize - entry->length;
+        }
+        else
+        {
+            compressedData = Allocate<uint8_t>("ZX0 input", entry->length, false);
+            if (compressedData == 0)
+            {
+                DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+                return 0;
+            }
+            freeCompressedData = true;
+        }
+        if (DMG_ReadFromFile(dmg, entry->fileOffset, compressedData, entry->length) != entry->length)
+        {
+            if (freeCompressedData)
+                Free(compressedData);
+            DMG_SetError(DMG_ERROR_READING_FILE);
+            return 0;
+        }
+        if (!DMG_DecompressZX0(compressedData, entry->length, buffer, decompressedSize))
+        {
+            if (freeCompressedData)
+                Free(compressedData);
+            DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
+            return 0;
+        }
+        tempFileData = Allocate<uint8_t>("DAT5 decompressed", decompressedSize, false);
+        if (tempFileData == 0)
+        {
+            if (freeCompressedData)
+                Free(compressedData);
+            DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+            return 0;
+        }
+        MemCopy(tempFileData, buffer, decompressedSize);
+        if (freeCompressedData)
+            Free(compressedData);
+        fileData = tempFileData;
+    }
+    else
+    {
+        if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
+        {
+            DMG_SetError(DMG_ERROR_READING_FILE);
+            return 0;
+        }
+    }
+
+    if (entry->type != DMGEntry_Image)
+        return 0;
+
+    switch (dmg->colorMode)
+    {
+        case DMG_DAT5_COLORMODE_CGA:
+            if (!DMG_UnpackChunkyPixels(fileData, entry->width, entry->height, 2, buffer))
+            {
+                if (tempFileData)
+                    Free(tempFileData);
+                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+                return 0;
+            }
+            break;
+
+        case DMG_DAT5_COLORMODE_EGA:
+            if (!DMG_UnpackChunkyPixels(fileData, entry->width, entry->height, 4, buffer))
+            {
+                if (tempFileData)
+                    Free(tempFileData);
+                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+                return 0;
+            }
+            break;
+
+        case DMG_DAT5_COLORMODE_I16:
+        case DMG_DAT5_COLORMODE_I32:
+        case DMG_DAT5_COLORMODE_I256:
+            if (!DMG_UnpackBitplaneBytes(fileData, entry->width, entry->height, entry->bitDepth, buffer))
+            {
+                if (tempFileData)
+                    Free(tempFileData);
+                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+                return 0;
+            }
+            break;
+
+        default:
+            if (tempFileData)
+                Free(tempFileData);
+            DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+            return 0;
+    }
+
+    if (mode == ImageMode_Indexed || mode == ImageMode_IndexedCGA || mode == ImageMode_IndexedEGA)
+    {
+        if (mode == ImageMode_IndexedCGA)
+        {
+            for (uint32_t i = 0; i < indexedSize; i++)
+                buffer[i] &= 0x03;
+        }
+        else if (mode == ImageMode_IndexedEGA)
+        {
+            for (uint32_t i = 0; i < indexedSize; i++)
+                buffer[i] &= 0x0F;
+        }
+        if (tempFileData)
+            Free(tempFileData);
+        return buffer;
+    }
+
+    if (mode == ImageMode_Packed || mode == ImageMode_PackedCGA || mode == ImageMode_PackedEGA)
+    {
+        if (dmg->colorMode == DMG_DAT5_COLORMODE_CGA && mode == ImageMode_PackedCGA)
+        {
+            MemCopy(buffer, fileData, entry->length);
+            if (tempFileData)
+                Free(tempFileData);
+            return buffer;
+        }
+        if (dmg->colorMode == DMG_DAT5_COLORMODE_EGA && mode == ImageMode_PackedEGA)
+        {
+            MemCopy(buffer, fileData, entry->length);
+            if (tempFileData)
+                Free(tempFileData);
+            return buffer;
+        }
+        if (tempFileData)
+            Free(tempFileData);
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+        return 0;
+    }
+
+    if (mode == ImageMode_RGBA32 || mode == ImageMode_RGBA32CGA || mode == ImageMode_RGBA32EGA)
+    {
+        uint32_t* dst = (uint32_t*)buffer;
+        uint32_t* colors = entry->RGB32PaletteV5;
+        if (mode == ImageMode_RGBA32CGA)
+            colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+        else if (mode == ImageMode_RGBA32EGA)
+            colors = EGAPalette;
+
+        for (int32_t i = (int32_t)indexedSize - 1; i >= 0; i--)
+            dst[i] = colors[buffer[i]];
+        if (tempFileData)
+            Free(tempFileData);
+        return buffer;
+    }
+
+    if (mode == ImageMode_Planar || mode == ImageMode_PlanarST)
+    {
+        if (tempFileData)
+            Free(tempFileData);
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+        return 0;
+    }
+
+    if (tempFileData)
+        Free(tempFileData);
+    DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+    return 0;
+}
+
 uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 {
 	bool success;
@@ -49,6 +265,9 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 		return 0;
 	}
+
+    if (dmg->version == DMG_Version5)
+        return DMG_GetEntryDataV5(dmg, index, mode, entry, buffer, bufferSize);
 
 #ifndef NO_CACHE
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);

@@ -257,6 +257,14 @@ static bool FindNamedPCXFile(const char* fileName, char* output, size_t outputSi
 		return true;
 
 	BuildFileNameWithExtension(fileName, ".vga", output, outputSize);
+	if (FileExists(output))
+		return true;
+
+	BuildFileNameWithExtension(fileName, ".PCX", output, outputSize);
+	if (FileExists(output))
+		return true;
+
+	BuildFileNameWithExtension(fileName, ".pcx", output, outputSize);
 	return FileExists(output);
 }
 
@@ -661,6 +669,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	bufferedEntry = entry;
 	bufferedIndex = picno;
 	pictureData   = DMG_GetEntryData(dmg, picno,
+            dmg->version == DMG_Version5 ? ImageMode_Indexed :
 			mode == ScreenMode_CGA ? ImageMode_PackedCGA :
 			mode == ScreenMode_EGA ? ImageMode_PackedEGA : ImageMode_Packed);
 	if (pictureData == 0)
@@ -788,22 +797,31 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	uint8_t* srcPtr = (uint8_t*)pictureData;
 	uint8_t* dstPtr = graphicsBuffer + y * screenWidth + x;
 	uint32_t* filePalette = (uint32_t*)DMG_GetEntryPalette(dmg, bufferedIndex, ImageMode_RGBA32);
-	for (int dy = 0; dy < h; dy++, srcPtr += entry->width/2, dstPtr += screenWidth)
-	{
-		for (int dx = 0, ix = 0; dx < w; dx += 2, ix++)
-		{
-			dstPtr[dx] = srcPtr[ix] >> 4;
-			dstPtr[dx+1] = srcPtr[ix] & 0x0F;
-		}
-	}
+    if (dmg->version == DMG_Version5)
+    {
+    	for (int dy = 0; dy < h; dy++, srcPtr += entry->width, dstPtr += screenWidth)
+            memcpy(dstPtr, srcPtr, w);
+    }
+    else
+    {
+    	for (int dy = 0; dy < h; dy++, srcPtr += entry->width/2, dstPtr += screenWidth)
+    	{
+    		for (int dx = 0, ix = 0; dx < w; dx += 2, ix++)
+    		{
+    			dstPtr[dx] = srcPtr[ix] >> 4;
+    			dstPtr[dx+1] = srcPtr[ix] & 0x0F;
+    		}
+    	}
+    }
 
 	switch (mode)
 	{
 		default:
 		case ScreenMode_VGA16:
-			if (entry->flags & DMG_FLAG_FIXED)
+			if (dmg->version == DMG_Version5 || (entry->flags & DMG_FLAG_FIXED))
 			{
-				for (int n = 0; n < 16; n++)
+                int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedIndex);
+				for (int n = 0; n < paletteCount; n++)
 					palette[n] = filePalette[n];
 				// TODO: This is a hack to fix the palette for Original/Jabato
 				//       We should check the ST/DOS interpreter to see what's going on

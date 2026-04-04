@@ -1,5 +1,6 @@
 #include <dmg.h>
 #include <img.h>
+#include <cli_parser.h>
 #include <ddb.h>
 #include <os_lib.h>
 
@@ -11,8 +12,11 @@
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
 static bool debug = false;
+static bool reindexByBrightness = false;
+static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
+static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
 
-static const char* imageExtensions[] = { "png" };
+static const char* imageExtensions[] = { "png", "pcx", "vga" };
 static const int count = sizeof(imageExtensions) / sizeof(imageExtensions[0]);
 
 typedef enum
@@ -75,6 +79,10 @@ static char newfilename[1024];
 static bool selected[256];
 static bool verbose = false;
 static bool readOnly = true;
+static bool createDAT5 = false;
+static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
+static uint16_t createDAT5Width = 320;
+static uint16_t createDAT5Height = 200;
 
 typedef enum
 {
@@ -91,6 +99,12 @@ typedef enum
 Action;
 
 static Action action = ACTION_LIST;
+
+typedef enum
+{
+    DMG_OPTION_VERBOSE = 1,
+}
+DmgOption;
 
 #pragma pack(push, 1)
 struct WAVHeader
@@ -118,7 +132,7 @@ void TracePrintf(const char* format, ...)
 static void PrintHelp()
 {
 	printf("DMG file utility for DAAD " VERSION_STR "\n\n");
-	printf("Usage: dat [action] <file.dat> [options] [index:flags/file]\n\n");
+	printf("Usage: dmg [action] [global options] <file.dat> [arguments]\n\n");
 	printf("Actions:\n\n");
 	printf("    l     List contents of DAT file (default)\n");
 	printf("    v     List contents of DAT file (with palettes)\n");
@@ -131,20 +145,34 @@ static void PrintHelp()
 	printf("    n     Create a new DAT file\n");
 	printf("    u     Update/rebuild DAT file to newer version\n");
 	printf("    h     Show this help\n");
+    printf("\n");
+    printf("Global options:\n\n");
+    printf("   -v     Enable verbose/debug output\n");
+    printf("\n");
+	printf("Selectors:\n\n");
+	printf("   #          Select one entry (0-255)\n");
+	printf("   #,#...     Select a comma-separated list of entries\n");
+	printf("   #-#        Select an inclusive range of entries\n");
+	printf("   #-         Select from the given entry to 255\n");
 	printf("\n");
-	printf("Extract options:\n\n");
-	printf("   #          Extract entry index (0-255)\n");
-	printf("   #,#...     Extract the given list of entries\n");
-	printf("   #-#        Extract entries from the given range (inclusive)\n");
+	printf("Extract/test options:\n\n");
+	printf("   If no selector is supplied, all entries are used.\n");
 	printf("   -i         Save indexed images (default)\n");
 	printf("   -t         Save truecolor images\n");
 	printf("   -e         Export EGA version of images/palettes\n");
 	printf("   -c         Export CGA version of images/palettes\n");
 	printf("\n");
-	printf("Add/edit options:\n\n");
-	printf("   #          Add/modify entry index (0-255)\n");
+	printf("Add/edit/update arguments:\n\n");
+	printf("   Selectors set the current target entries.\n");
+	printf("   Following property tokens apply to the current target entries\n");
+	printf("   until another selector appears.\n");
+	printf("   Image/audio files affect one entry only.\n");
+	printf("   Use #:<file> to target a specific entry.\n\n");
 	printf("   file.png   Add/replace image contents & palette\n");
+    printf("   file.pcx   Add/replace image contents & palette\n");
+    printf("   file.vga   Add/replace image contents & palette\n");
 	printf("   file.wav   Add/replace audio sample contents\n");
+	printf("   #:<file>   Add/replace image or audio in a specific entry\n");
 	printf("   x:#        Set X coordinate\n");
 	printf("   y:#        Set Y coordinate\n");
 	printf("   first:#    Set first color\n");
@@ -152,12 +180,213 @@ static void PrintHelp()
 	printf("   cga:#      Set CGA mode (red or blue)\n");
 	printf("   freq:#     Set frequency (5, 7, 9.5, 15, 20 or 30)\n");
 	printf("   buffer:#   Set buffer flag (0 or 1)\n");
-	printf("   fixed:#    Set fixed flag (0 or 1)\n");
+    printf("   fixed:#    Set fixed flag (0 or 1)\n");
+    printf("   -r         Reindex DAT5 palettes darkest-to-brightest before write\n");
+    printf("   mode:<id>  When creating a DAT5: cga, ega, i16, i32, i256\n");
+    printf("   screen:WxH When creating a DAT5: 320x200, 640x200 or 640x400\n");
+    printf("\n");
+    printf("Examples:\n\n");
+    printf("   dmg u file.dat 0-50 fixed:1\n");
+    printf("   dmg e file.dat 12 x:24 y:80\n");
+    printf("   dmg a file.dat -r 0:PARTE1/DAAD.png\n");
+    printf("   dmg u file.dat out.dat 0-50 fixed:1\n");
 }
 
 static void ShowWarning(const char* message)
 {
 	fprintf(stderr, "Warning: %s\n", message);
+}
+
+static int GetPaletteLimit(DMG_DAT5ColorMode mode)
+{
+    switch (mode)
+    {
+        case DMG_DAT5_COLORMODE_CGA: return 4;
+        case DMG_DAT5_COLORMODE_EGA:
+        case DMG_DAT5_COLORMODE_I16: return 16;
+        case DMG_DAT5_COLORMODE_I32: return 32;
+        case DMG_DAT5_COLORMODE_I256: return 256;
+        default: return 16;
+    }
+}
+
+static uint8_t GetBitDepthForMode(DMG_DAT5ColorMode mode)
+{
+    switch (mode)
+    {
+        case DMG_DAT5_COLORMODE_CGA: return 0;
+        case DMG_DAT5_COLORMODE_EGA: return 0;
+        case DMG_DAT5_COLORMODE_I16: return 4;
+        case DMG_DAT5_COLORMODE_I32: return 5;
+        case DMG_DAT5_COLORMODE_I256: return 8;
+        default: return 4;
+    }
+}
+
+static bool ParseDAT5Mode(const char* value, DMG_DAT5ColorMode* mode)
+{
+    if (stricmp(value, "cga") == 0) *mode = DMG_DAT5_COLORMODE_CGA;
+    else if (stricmp(value, "ega") == 0) *mode = DMG_DAT5_COLORMODE_EGA;
+    else if (stricmp(value, "i16") == 0 || stricmp(value, "st") == 0) *mode = DMG_DAT5_COLORMODE_I16;
+    else if (stricmp(value, "i32") == 0 || stricmp(value, "ocs") == 0 || stricmp(value, "amiga") == 0) *mode = DMG_DAT5_COLORMODE_I32;
+    else if (stricmp(value, "i256") == 0 || stricmp(value, "vga") == 0 || stricmp(value, "aga") == 0) *mode = DMG_DAT5_COLORMODE_I256;
+    else return false;
+    return true;
+}
+
+static bool ParseDAT5Size(const char* value, uint16_t* width, uint16_t* height)
+{
+    const char* x = strchr(value, 'x');
+    if (x == NULL)
+        x = strchr(value, 'X');
+    if (x == NULL)
+        return false;
+    int w = atoi(value);
+    int h = atoi(x + 1);
+    if (w <= 0 || h <= 0)
+        return false;
+    *width = (uint16_t)w;
+    *height = (uint16_t)h;
+    return true;
+}
+
+static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint16_t width, uint16_t height, uint8_t* output, uint32_t* outputSize)
+{
+    switch (mode)
+    {
+        case DMG_DAT5_COLORMODE_CGA:
+            *outputSize = ((uint32_t)width * height + 3) / 4;
+            return DMG_PackChunkyPixels(indexed, width, height, 2, output);
+        case DMG_DAT5_COLORMODE_EGA:
+            *outputSize = ((uint32_t)width * height + 1) / 2;
+            return DMG_PackChunkyPixels(indexed, width, height, 4, output);
+        case DMG_DAT5_COLORMODE_I16:
+            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 4;
+            return DMG_PackBitplaneBytes(indexed, width, height, 4, output);
+        case DMG_DAT5_COLORMODE_I32:
+            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 5;
+            return DMG_PackBitplaneBytes(indexed, width, height, 5, output);
+        case DMG_DAT5_COLORMODE_I256:
+            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 8;
+            return DMG_PackBitplaneBytes(indexed, width, height, 8, output);
+        default:
+            return false;
+    }
+}
+
+static uint32_t PaletteBrightness(uint32_t color)
+{
+    uint32_t r = (color >> 16) & 0xFF;
+    uint32_t g = (color >> 8) & 0xFF;
+    uint32_t b = color & 0xFF;
+    return 299 * r + 587 * g + 114 * b;
+}
+
+static void ReindexPaletteByBrightness(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
+{
+    if (paletteSize <= 1)
+        return;
+
+    uint16_t order[256];
+    uint8_t remap[256];
+    uint32_t reordered[256];
+    bool usedSlot[256];
+    int brightestSlot = paletteSize >= 16 ? 15 : (paletteSize - 1);
+
+    for (int i = 0; i < paletteSize; i++)
+        order[i] = (uint16_t)i;
+
+    for (int i = 0; i < paletteSize - 1; i++)
+    {
+        int best = i;
+        uint32_t bestBrightness = PaletteBrightness(palette[order[i]]);
+        for (int j = i + 1; j < paletteSize; j++)
+        {
+            uint32_t brightness = PaletteBrightness(palette[order[j]]);
+            if (brightness < bestBrightness ||
+                (brightness == bestBrightness && order[j] < order[best]))
+            {
+                best = j;
+                bestBrightness = brightness;
+            }
+        }
+        if (best != i)
+        {
+            uint16_t tmp = order[i];
+            order[i] = order[best];
+            order[best] = tmp;
+        }
+    }
+
+    for (int i = 0; i < paletteSize; i++)
+        usedSlot[i] = false;
+
+    reordered[0] = palette[order[0]];
+    remap[order[0]] = 0;
+    usedSlot[0] = true;
+
+    reordered[brightestSlot] = palette[order[paletteSize - 1]];
+    remap[order[paletteSize - 1]] = (uint8_t)brightestSlot;
+    usedSlot[brightestSlot] = true;
+
+    int source = paletteSize - 2;
+    for (int slot = 1; slot < paletteSize && source > 0; slot++)
+    {
+        if (usedSlot[slot])
+            continue;
+        reordered[slot] = palette[order[source]];
+        remap[order[source]] = (uint8_t)slot;
+        usedSlot[slot] = true;
+        source--;
+    }
+
+    while (source > 0)
+    {
+        for (int slot = 1; slot < paletteSize && source > 0; slot++)
+        {
+            if (usedSlot[slot])
+                continue;
+            reordered[slot] = palette[order[source]];
+            remap[order[source]] = (uint8_t)slot;
+            usedSlot[slot] = true;
+            source--;
+        }
+    }
+
+    for (int i = 0; i < paletteSize; i++)
+        palette[i] = reordered[i];
+
+    for (uint32_t i = 0; i < pixelCount; i++)
+        pixels[i] = remap[pixels[i]];
+}
+
+static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t** output, uint32_t* outputSize, bool* compressed)
+{
+    *compressed = false;
+    *output = (uint8_t*)input;
+    *outputSize = inputSize;
+
+    uint32_t zx0Size = 0;
+    uint8_t* zx0Data = DMG_CompressZX0(input, inputSize, &zx0Size);
+    if (zx0Data == 0)
+        return true;
+
+    uint32_t savings = inputSize > zx0Size ? inputSize - zx0Size : 0;
+    uint32_t minimumSavings = DAT5_MIN_ZX0_SAVINGS_BYTES;
+    uint32_t percentSavings = (inputSize * DAT5_MIN_ZX0_SAVINGS_PERCENT + 99) / 100;
+    if (percentSavings > minimumSavings)
+        minimumSavings = percentSavings;
+
+    if (zx0Size < inputSize && savings >= minimumSavings)
+    {
+        *compressed = true;
+        *output = zx0Data;
+        *outputSize = zx0Size;
+        return true;
+    }
+
+    free(zx0Data);
+    return true;
 }
 
 static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ sampleRate)
@@ -229,108 +458,160 @@ const char* MakeFileName(const char* original, int index, const char* extension)
 	return newfilename;
 }
 
-bool ParseEntrySelectionList(int argc, char *argv[])
+static void ClearSelection(bool* entries)
 {
-	int n;
+    MemClear(entries, 256 * sizeof(bool));
+}
 
-	memset(selected, 0, sizeof(selected));
+static int CountSelectedEntries(const bool* entries)
+{
+    int count = 0;
+    for (int i = 0; i < 256; i++)
+    {
+        if (entries[i])
+            count++;
+    }
+    return count;
+}
 
-	while (argc > 1)
-	{
-		const char *ptr = argv[1];
-		if (isdigit(*ptr))
-		{
-			while (*ptr)
-			{
-				if (isspace(*ptr))
-				{
-					ptr++;
-				}
-				else if (isdigit(*ptr))
-				{
-					int index = 0;
-					while (*ptr >= '0' && *ptr <= '9')
-						index = index * 10 + *ptr++ - '0';
-					if (index >= 0 && index < 256)
-						selected[index] = true;
-					if (*ptr == '-')
-					{
-						ptr++;
-						if (isdigit(*ptr))
-						{
-							int index2 = 0;
-							while (*ptr >= '0' && *ptr <= '9')
-								index2 = index2 * 10 + *ptr++ - '0';
-							if (index2 >= 0 && index2 < 256)
-							{
-								while (index <= index2)
-									selected[index++] = true;
-							}
-							else
-							{
-								fprintf(stderr, "Error: Invalid index list: \"%s\"\n", argv[1]);
-								return false;
-							}
-						}
-						else if (*ptr == 0)
-						{
-							while (index < 256)
-								selected[index++] = true;
-						}
-					}
-					if (*ptr == ',')
-						ptr++;
-				}
-				else
-				{
-					fprintf(stderr, "Error: Invalid index list: \"%s\"\n", argv[1]);
-					return false;
-				}
-			}
-		}
-		else if (*ptr == '-')
-		{
-			ptr++;
-			while (*ptr != 0)
-			{
-				if (action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES)
-				{
-					switch(tolower(*ptr))
-					{
-						case 'c': extractMode = (DMG_ImageMode)((extractMode & 0xF0) | 0x01); break;
-						case 'e': extractMode = (DMG_ImageMode)((extractMode & 0xF0) | 0x02); break;
-						case 'i': extractMode = (DMG_ImageMode)((extractMode & 0x0F) | 0x40); break;	// Indexed
-						case 't': extractMode = (DMG_ImageMode)((extractMode & 0x0F) | 0x10); break;	// RGBA32
-						default:
-							fprintf(stderr, "Error: Invalid option: \"%c\"\n", *ptr);
-							break;
-					}
-				}
-				else
-				{
-					fprintf(stderr, "Error: Invalid option: \"%c\"\n", *ptr);
-				}
-				ptr++;
-			}
-		}
-		else
-		{
-			fprintf(stderr, "Error: Invalid argument: \"%s\"\n", argv[1]);
-			return false;
-		}
-		argc--, argv++;
-	}
+static int FirstSelectedEntry(const bool* entries)
+{
+    for (int i = 0; i < 256; i++)
+    {
+        if (entries[i])
+            return i;
+    }
+    return -1;
+}
 
-	for (n = 0 ; n < 256; n++)
-	{
-		if (selected[n])
-			break;
-	}
-	if (n == 256)
-	{
-		memset(selected, 1, sizeof(selected));
-	}
-	return true;
+static void SelectSingleEntry(bool* entries, int index)
+{
+    ClearSelection(entries);
+    if (index >= 0 && index < 256)
+        entries[index] = true;
+}
+
+static bool ParseSelectionToken(const char* token, bool* entries)
+{
+    const char* ptr = token;
+    ClearSelection(entries);
+
+    while (*ptr)
+    {
+        if (isspace(*ptr))
+        {
+            ptr++;
+            continue;
+        }
+        if (!isdigit(*ptr))
+            return false;
+
+        int index = 0;
+        while (*ptr >= '0' && *ptr <= '9')
+            index = index * 10 + *ptr++ - '0';
+        if (index < 0 || index >= 256)
+            return false;
+
+        if (*ptr == '-')
+        {
+            ptr++;
+            if (*ptr == 0)
+            {
+                while (index < 256)
+                    entries[index++] = true;
+                break;
+            }
+            if (!isdigit(*ptr))
+                return false;
+
+            int index2 = 0;
+            while (*ptr >= '0' && *ptr <= '9')
+                index2 = index2 * 10 + *ptr++ - '0';
+            if (index2 < 0 || index2 >= 256 || index2 < index)
+                return false;
+            while (index <= index2)
+                entries[index++] = true;
+        }
+        else
+        {
+            entries[index] = true;
+        }
+
+        if (*ptr == ',')
+        {
+            ptr++;
+            continue;
+        }
+        if (*ptr != 0 && !isspace(*ptr))
+            return false;
+    }
+
+    return CountSelectedEntries(entries) > 0;
+}
+
+static bool IsSelectionToken(const char* token)
+{
+    bool temp[256];
+    return ParseSelectionToken(token, temp);
+}
+
+static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
+{
+    ClearSelection(selected);
+
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* ptr = tokens[i];
+        if (ptr == 0 || *ptr == 0)
+            continue;
+
+        if (IsSelectionToken(ptr))
+        {
+            bool temp[256];
+            ParseSelectionToken(ptr, temp);
+            for (int n = 0; n < 256; n++)
+            {
+                if (temp[n])
+                    selected[n] = true;
+            }
+            continue;
+        }
+
+        if (*ptr == '-')
+        {
+            ptr++;
+            while (*ptr != 0)
+            {
+                if (action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES)
+                {
+                    switch(tolower(*ptr))
+                    {
+                        case 'c': extractMode = (DMG_ImageMode)((extractMode & 0xF0) | 0x01); break;
+                        case 'e': extractMode = (DMG_ImageMode)((extractMode & 0xF0) | 0x02); break;
+                        case 'i': extractMode = (DMG_ImageMode)((extractMode & 0x0F) | 0x40); break;
+                        case 't': extractMode = (DMG_ImageMode)((extractMode & 0x0F) | 0x10); break;
+                        default:
+                            fprintf(stderr, "Error: Invalid option: \"%c\"\n", *ptr);
+                            return false;
+                    }
+                }
+                else
+                {
+                    fprintf(stderr, "Error: Invalid option: \"%c\"\n", *ptr);
+                    return false;
+                }
+                ptr++;
+            }
+            continue;
+        }
+
+        fprintf(stderr, "Error: Invalid argument: \"%s\"\n", tokens[i]);
+        return false;
+    }
+
+    if (CountSelectedEntries(selected) == 0)
+        memset(selected, 1, sizeof(selected));
+    return true;
 }
 
 static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
@@ -370,7 +651,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					{
 						outputFileName = MakeFileName(filename, n, "col");
 						palette = (uint32_t*)DMG_GetEntryPalette(dmg, n, extractMode);
-						success = SaveCOLPalette16(outputFileName, palette);
+						success = SaveCOLPalette(outputFileName, palette, DMG_GetEntryPaletteSize(dmg, n));
 						if (!success)
 						{
 							fprintf(stderr, "%03d: Error: Unable to write palette to %s\n", n, outputFileName);
@@ -384,7 +665,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 						if (DMG_IS_INDEXED(extractMode))
 						{
 							palette = DMG_GetEntryPalette(dmg, n, extractMode);
-							success = SavePNGIndexed16(outputFileName, buffer, entry->width, entry->height, palette);
+							success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, DMG_GetEntryPaletteSize(dmg, n), 0);
 						}
 						else if (DMG_IS_RGBA32(extractMode))
 						{
@@ -467,16 +748,86 @@ static const char *DescribeVersion(DMG_Version v)
 		case DMG_Version1_CGA:  return "CGA";
 		case DMG_Version1_EGA:  return "EGA";
 		case DMG_Version2:      return "Version2";
+        case DMG_Version5:      return "Version5";
 		default:                return "unknown DAT";
 	}
+}
+
+static const char* DescribeScreenMode(DDB_ScreenMode mode)
+{
+    switch (mode)
+    {
+        case ScreenMode_Default: return "Default";
+        case ScreenMode_Text:    return "Text";
+        case ScreenMode_CGA:     return "CGA";
+        case ScreenMode_EGA:     return "EGA";
+        case ScreenMode_VGA16:   return "VGA16";
+        case ScreenMode_VGA:     return "320x200x256";
+        case ScreenMode_HiRes:   return "640x200x256";
+        case ScreenMode_SHiRes:  return "640x400x256";
+        default:                 return "Unknown";
+    }
+}
+
+static const char* DescribeDAT5ColorMode(uint8_t mode)
+{
+    switch ((DMG_DAT5ColorMode)mode)
+    {
+        case DMG_DAT5_COLORMODE_CGA:  return "CGA";
+        case DMG_DAT5_COLORMODE_EGA:  return "EGA";
+        case DMG_DAT5_COLORMODE_I16:  return "I16";
+        case DMG_DAT5_COLORMODE_I32:  return "I32";
+        case DMG_DAT5_COLORMODE_I256: return "I256";
+        default:                      return "Unknown";
+    }
+}
+
+static uint32_t GetCompressedImageBaseline(DMG_Entry* entry)
+{
+    if (entry->type != DMGEntry_Image)
+        return 0;
+
+    if (dmg != 0 && dmg->version == DMG_Version5)
+    {
+        switch ((DMG_DAT5ColorMode)dmg->colorMode)
+        {
+            case DMG_DAT5_COLORMODE_CGA:
+                return ((uint32_t)entry->width * entry->height + 3) / 4;
+            case DMG_DAT5_COLORMODE_EGA:
+                return ((uint32_t)entry->width * entry->height + 1) / 2;
+            case DMG_DAT5_COLORMODE_I16:
+            case DMG_DAT5_COLORMODE_I32:
+            case DMG_DAT5_COLORMODE_I256:
+                return ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+            default:
+                break;
+        }
+    }
+
+    return DMG_CalculateRequiredSize(entry, ImageMode_Raw);
+}
+
+static void PrintCompressionGain(DMG_Entry* entry)
+{
+    if ((entry->flags & DMG_FLAG_COMPRESSED) == 0)
+        return;
+
+    uint32_t rawSize = GetCompressedImageBaseline(entry);
+    if (rawSize == 0 || entry->length >= rawSize)
+        return;
+
+    uint32_t keptTimes10 = (entry->length * 1000 + rawSize / 2) / rawSize;
+    printf(" (%u.%u%% size)", keptTimes10 / 10, keptTimes10 % 10);
 }
 
 static void ListSelectedEntries(DMG* dmg, bool verbose)
 {
 	int n, i;
 
-	printf ("Mode %d, %s, %s\n", dmg->screenMode, DescribeVersion(dmg->version),
+	printf ("%s, %s, %s\n", DescribeScreenMode((DDB_ScreenMode)dmg->screenMode), DescribeVersion(dmg->version),
 		dmg->littleEndian ? "little endian" : "big endian");
+    if (dmg->version == DMG_Version5)
+        printf ("     DAT5 %s, target %dx%d, entries %u-%u\n", DescribeDAT5ColorMode(dmg->colorMode), dmg->targetWidth, dmg->targetHeight, dmg->firstEntry, dmg->lastEntry);
 
 	for (n = 0; n < 256; n++)
 	{
@@ -494,32 +845,38 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 				case DMGEntry_Image:
 					if (entry->width * entry->height == 0 || entry->length == 0)
 						continue;
-					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes %s\n",
+					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes",
 						n, entry->width, entry->height,
 						(entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
 						(entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float",
-						entry->x, entry->y, entry->length,
-						(entry->flags & DMG_FLAG_COMPRESSED) ? " (compressed)":"");
+						entry->x, entry->y, entry->length);
+                    PrintCompressionGain(entry);
+                    printf("\n");
 					if (verbose)
 					{
-                        printf("     File offset: %08X\n", entry->fileOffset);
+						printf("     File offset: %08X\n", entry->fileOffset);
 						printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
+                        printf("     Bit depth:    %d\n", entry->bitDepth);
+                        printf("     Palette size: %d\n", DMG_GetEntryPaletteSize(dmg, n));
 						printf("     Palette:      ");
-						for (i = 0; i < 16; i++)
+						for (i = 0; i < DMG_GetEntryPaletteSize(dmg, n); i++)
 						{
-							uint32_t c = entry->RGB32Palette[i];
+							uint32_t c = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32)[i];
 							printf("%03X ", ((c >> 4) & 0xF) | ((c >> 8) & 0xF0) | ((c >> 12) & 0xF00));
 						}
 						printf("\n");
-						printf("     EGA Palette:  ");
-						for (i = 0; i < 16; i++)
-							printf(" %02d ", entry->EGAPalette[i]);
-						printf("\n");
-						printf("     CGA Palette:  ");
-						for (i = 0; i < 4; i++)
-							printf(" %02d ", entry->CGAPalette[i]);
-						printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
-						printf("\n");
+                        if (dmg->version != DMG_Version5)
+                        {
+    						printf("     EGA Palette:  ");
+	    					for (i = 0; i < 16; i++)
+		    					printf(" %02d ", entry->EGAPalette[i]);
+			    			printf("\n");
+				    		printf("     CGA Palette:  ");
+					    	for (i = 0; i < 4; i++)
+						    	printf(" %02d ", entry->CGAPalette[i]);
+							    printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
+    						printf("\n");
+                        }
 					}
 					break;
 
@@ -587,284 +944,478 @@ static bool IsImageFileExtension(const char* extension)
 	return false;
 }
 
-static bool ParseEntryChanges(DMG* dmg, int argc, char *argv[])
+static bool LoadIndexedImageFile(const char* fileName, uint8_t* pixels, uint32_t pixelsBufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize)
 {
-	int currentIndex = -1;
-	bool currentFileSaved = false;
-	bool indexSpecified = false;
+    const char* dot = strrchr(fileName, '.');
+    if (dot == 0)
+        return false;
 
-	while (argc > 1)
-	{
-		const char* ptr = argv[1];
-		const char* colon = strchr(ptr, ':');
-		const char* dot = strrchr(ptr, '.');
-		const char* slash = strrchr(ptr, '/');
-		const char* backslash = strrchr(ptr, '\\');
-		const char* filepart = slash ? slash+1 : backslash ? backslash+1 : ptr;
+    if (stricmp(dot + 1, "png") == 0)
+        return LoadPNGIndexed(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize, 0);
 
-		if (dot != NULL && IsImageFileExtension(dot+1))
-		{
-			uint16_t width, height;
-			uint32_t palette[16];
-			uint8_t* outBuffer;
-			uint32_t size;
-			uint16_t compressedSize;
-			bool compressed;
+#if HAS_PCX
+    if (stricmp(dot + 1, "pcx") == 0 || stricmp(dot + 1, "vga") == 0)
+    {
+        uint16_t required = pixelsBufferSize > 0xFFFF ? 0xFFFF : (uint16_t)pixelsBufferSize;
+        int w = 0;
+        int h = 0;
+        if (!DMG_DecompressPCX(fileName, pixels, &required, &w, &h, palette))
+            return false;
+        *width = (uint16_t)w;
+        *height = (uint16_t)h;
+        *paletteSize = 256;
+        return true;
+    }
+#endif
 
-			// Extract or calculate entry index
+    return false;
+}
 
-			if (colon && isdigit(*ptr))
-			{
-				currentIndex = atoi(ptr);
-				indexSpecified = true;
-				ptr = colon + 1;
-				if (currentIndex > 255)
-				{
-					fprintf(stderr, "Error: Invalid index: %d\n", currentIndex);
-					return false;
-				}
-			}
-			else if (!indexSpecified && isdigit(*filepart) && atoi(filepart) < 256)
-			{
-				currentIndex = atoi(filepart);
-			}
-			else if (!indexSpecified && !currentFileSaved)
-			{
-				currentIndex = DMG_FindFreeEntry(dmg);
-			}
-			else if (currentFileSaved && currentIndex < 256)
-				currentIndex++;
+static bool IsImageToken(const char* token)
+{
+    const char* dot = strrchr(token, '.');
+    return dot != 0 && IsImageFileExtension(dot + 1);
+}
 
-			// Allocate a suitable. TODO: Dynamically allocate
-			// the image data, to support old platforms.
+static bool IsTargetedFileToken(const char* token)
+{
+    const char* colon = strchr(token, ':');
+    return colon != 0 && colon != token && isdigit(*token) && IsImageToken(colon + 1);
+}
 
-			if (bufferSize < LOAD_BUFFER_SIZE)
-			{
-				bufferSize = LOAD_BUFFER_SIZE;
-				buffer = (uint8_t*)realloc(buffer, bufferSize);
-				if (buffer == NULL)
-				{
-					fprintf(stderr, "Error: Out of memory: unable to allocate %d bytes\n", bufferSize);
-					return false;
-				}
-			}
+static bool IsPropertyToken(const char* token)
+{
+    for (int i = 0; i < colonOptionCount; i++)
+    {
+        if (strnicmp(token, colonOptions[i], strlen(colonOptions[i])) == 0)
+            return true;
+    }
+    return false;
+}
 
-			// Load the image and store it in the DMG
+static bool IsCreateToken(const char* token)
+{
+    return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0;
+}
 
-			if (!LoadPNGIndexed16(ptr, buffer, bufferSize, &width, &height, &palette[0]))
-			{
-				fprintf(stderr, "Error: Unable to load image \"%s\"\n", ptr);
-				return false;
-			}
-			size = width * height;
-			outBuffer = buffer + size;
-			if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
-			{
-				fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outBuffer, DMG_GetErrorString());
-				return false;
-			}
-			if (!DMG_SetEntryPalette(dmg, currentIndex, palette))
-			{
-				fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
-				return false;
-			}
-			if (!DMG_SetImageData(dmg, currentIndex, outBuffer, width, height, compressedSize, compressed))
-			{
-				fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
-				return false;
-			}
-			printf("%03d: Added image %s (%d bytes%s)\n", currentIndex, ptr, compressedSize, compressed ? ", compressed" : "");
+static bool IsEntryChangeToken(const char* token)
+{
+    return strcmp(token, "-r") == 0 ||
+        IsSelectionToken(token) ||
+        IsTargetedFileToken(token) ||
+        IsImageToken(token) ||
+        IsPropertyToken(token) ||
+        IsCreateToken(token);
+}
 
-			currentFileSaved = true;
-		}
-		else if (colon)
-		{
-			int n, i;
-			bool success = true;
+static bool ParseOptionValue(const char* ptr, int* value)
+{
+    if (isdigit(*ptr))
+    {
+        *value = atoi(ptr);
+        return true;
+    }
+    if (stricmp(ptr, "true") == 0)
+    {
+        *value = 1;
+        return true;
+    }
+    if (stricmp(ptr, "false") == 0)
+    {
+        *value = 0;
+        return true;
+    }
+    if (stricmp(ptr, "red") == 0)
+    {
+        *value = 1;
+        return true;
+    }
+    if (stricmp(ptr, "blue") == 0)
+    {
+        *value = 0;
+        return true;
+    }
+    return false;
+}
 
-			for (n = 0; n < colonOptionCount && success; n++)
-			{
-				if (strnicmp(ptr, colonOptions[n], strlen(colonOptions[n])) == 0)
-				{
-					int value;
-					DMG_Entry* entry;
+static bool ApplyPropertyToEntry(DMG* dmg, int entryIndex, ColonOption option, int value)
+{
+    DMG_Entry* entry = DMG_GetEntry(dmg, entryIndex);
+    if (entry == 0)
+    {
+        if (DMG_GetError() != DMG_ERROR_NONE)
+            fprintf(stderr, "%03d: Error: Unable to read entry: %s\n", entryIndex, DMG_GetErrorString());
+        return false;
+    }
 
-					if (currentIndex < 0)
-					{
-						fprintf(stderr, "Error: Entry index required\n");
-						continue;
-					}
-					entry = DMG_GetEntry(dmg, currentIndex);
-					if (entry == NULL)
-					{
-						if (DMG_GetError() != DMG_ERROR_NONE)
-							fprintf(stderr, "Error: Unable to read entry: %s\n", DMG_GetErrorString());
-						continue;
-					}
+    switch (option)
+    {
+        case OPTION_X:
+            if (entry->type != DMGEntry_Image)
+            {
+                fprintf(stderr, "%03d: Error: X coordinate only valid for images\n", entryIndex);
+                return false;
+            }
+            if (value < 0 || value > DMG_MAX_IMAGE_WIDTH)
+            {
+                fprintf(stderr, "%03d: Error: Invalid X coordinate: %d\n", entryIndex, value);
+                return false;
+            }
+            entry->x = value;
+            printf("%03d: X coordinate set to %d\n", entryIndex, value);
+            break;
 
-					ptr += strlen(colonOptions[n]);
-					if (isdigit(*ptr))
-						value = atoi(ptr);
-					else if (stricmp(ptr, "true"))
-						value = 1;
-					else if (stricmp(ptr, "false"))
-						value = 0;
-					else if (stricmp(ptr, "red"))
-						value = 1;
-					else if (stricmp(ptr, "blue"))
-						value = 0;
-					else
-					{
-						fprintf(stderr, "Error: Invalid value: \"%s\"\n", ptr);
-						success = false;
-						break;
-					}
+        case OPTION_Y:
+            if (entry->type != DMGEntry_Image)
+            {
+                fprintf(stderr, "%03d: Error: Y coordinate only valid for images\n", entryIndex);
+                return false;
+            }
+            if (value < 0 || value > DMG_MAX_IMAGE_HEIGHT)
+            {
+                fprintf(stderr, "%03d: Error: Invalid Y coordinate: %d\n", entryIndex, value);
+                return false;
+            }
+            entry->y = value;
+            printf("%03d: Y coordinate set to %d\n", entryIndex, value);
+            break;
 
-					switch (n)
-					{
-						case OPTION_X:
-							if (entry->type != DMGEntry_Image)
-							{
-								fprintf(stderr, "Error: X coordinate only valid for images\n");
-								success = false;
-								break;
-							}
-							if (value < 0 || value > DMG_MAX_IMAGE_WIDTH)
-							{
-								fprintf(stderr, "Error: Invalid X coordinate: %d\n", value);
-								success = false;
-								break;
-							}
-							entry->x = value;
-							printf("%03d: X coordinate set to %d\n", currentIndex, value);
-							break;
-						case OPTION_Y:
-							if (entry->type != DMGEntry_Image)
-							{
-								fprintf(stderr, "Error: X coordinate only valid for images\n");
-								success = false;
-								break;
-							}
-							if (value < 0 || value > DMG_MAX_IMAGE_HEIGHT)
-							{
-								fprintf(stderr, "Error: Invalid Y coordinate: %d\n", value);
-								success = false;
-								break;
-							}
-							entry->y = value;
-							printf("%03d: Y coordinate set to %d\n", currentIndex, value);
-							break;
-						case OPTION_FIRST_COLOR:
-							if (value < 0 || value > 15)
-							{
-								fprintf(stderr, "Error: Invalid first color: %d\n", value);
-								success = false;
-								break;
-							}
-							entry->firstColor = value;
-							printf("%03d: First color set to %d\n", currentIndex, value);
-							break;
-						case OPTION_LAST_COLOR:
-							if (value < 0 || value > 15)
-							{
-								fprintf(stderr, "Error: Invalid last color: %d\n", value);
-								success = false;
-								break;
-							}
-							entry->lastColor = value;
-							printf("%03d: Last color set to %d\n", currentIndex, value);
-							break;
-						case OPTION_BUFFER:
-							if (value < 0 || value > 1)
-							{
-								fprintf(stderr, "Error: Invalid buffer flag: %d\n", value);
-								success = false;
-								break;
-							}
-							if (value)
-                                entry->flags |= DMG_FLAG_BUFFERED;
-                            else
-                                entry->flags &= ~DMG_FLAG_BUFFERED;
-							printf("%03d: Buffer flag set to %s\n", currentIndex, value ? "true" : "false");
-							break;
-						case OPTION_FIXED:
-							if (value < 0 || value > 1)
-							{
-								fprintf(stderr, "Error: Invalid fixed flag: %d\n", value);
-								success = false;
-								break;
-							}
-							if (value)
-                                entry->flags |= DMG_FLAG_FIXED;
-                            else
-                                entry->flags &= ~DMG_FLAG_FIXED;
-							printf("%03d: Fixed flag set to %s\n", currentIndex, value ? "true" : "false");
-							break;
-						case OPTION_CGA:
-							if (value < 0 || value > 1)
-							{
-								fprintf(stderr, "Error: Invalid CGA mode: %d\n", value);
-								success = false;
-								break;
-							}
-							DMG_SetCGAMode(entry, (DMG_CGAMode)value);
-							printf("%03d: CGA mode set to %s\n", currentIndex, value ? "blue" : "red");
-							break;
-						case OPTION_FREQ:
-							if (entry->type != DMGEntry_Audio)
-							{
-								fprintf(stderr, "Error: Frequency only valid for audio\n");
-								success = false;
-								break;
-							}
-							for (i = 0; frequencies[i].value != 0; i++)
-							{
-								if (frequencies[i].value == value) {
-									entry->x = frequencies[i].freq;
-									break;
-								}
-							}
-							if (frequencies[i].value == 0)
-							{
-								fprintf(stderr, "Error: Invalid frequency: %d\n", value);
-								success = false;
-								break;
-							}
-							printf("%03d: Frequency set to %s\n", currentIndex, DMG_DescribeFreq((DMG_KHZ)entry->x));
-							break;
-					}
-					if (success)
-						DMG_UpdateEntry(dmg, currentIndex);
-					break;
-				}
-			}
-			if (n == colonOptionCount)
-			{
-				fprintf(stderr, "Error: Unknown option: \"%s\"\n", argv[1]);
-				continue;
-			}
-		}
-		else if (isdigit(*ptr))
-		{
-			currentIndex = atoi(ptr);
-			if (currentIndex > 255)
-			{
-				fprintf(stderr, "Error: Invalid index: %d\n", currentIndex);
-				return false;
-			}
-			currentFileSaved = false;
-			indexSpecified = true;
-		}
+        case OPTION_FIRST_COLOR:
+            if (value < 0 || value > 15)
+            {
+                fprintf(stderr, "%03d: Error: Invalid first color: %d\n", entryIndex, value);
+                return false;
+            }
+            entry->firstColor = value;
+            printf("%03d: First color set to %d\n", entryIndex, value);
+            break;
 
-		argc--, argv++;
-	}
-	return true;
+        case OPTION_LAST_COLOR:
+            if (value < 0 || value > 15)
+            {
+                fprintf(stderr, "%03d: Error: Invalid last color: %d\n", entryIndex, value);
+                return false;
+            }
+            entry->lastColor = value;
+            printf("%03d: Last color set to %d\n", entryIndex, value);
+            break;
+
+        case OPTION_BUFFER:
+            if (value < 0 || value > 1)
+            {
+                fprintf(stderr, "%03d: Error: Invalid buffer flag: %d\n", entryIndex, value);
+                return false;
+            }
+            if (value)
+                entry->flags |= DMG_FLAG_BUFFERED;
+            else
+                entry->flags &= ~DMG_FLAG_BUFFERED;
+            printf("%03d: Buffer flag set to %s\n", entryIndex, value ? "true" : "false");
+            break;
+
+        case OPTION_FIXED:
+            if (value < 0 || value > 1)
+            {
+                fprintf(stderr, "%03d: Error: Invalid fixed flag: %d\n", entryIndex, value);
+                return false;
+            }
+            if (value)
+                entry->flags |= DMG_FLAG_FIXED;
+            else
+                entry->flags &= ~DMG_FLAG_FIXED;
+            printf("%03d: Fixed flag set to %s\n", entryIndex, value ? "true" : "false");
+            break;
+
+        case OPTION_CGA:
+            if (value < 0 || value > 1)
+            {
+                fprintf(stderr, "%03d: Error: Invalid CGA mode: %d\n", entryIndex, value);
+                return false;
+            }
+            DMG_SetCGAMode(entry, (DMG_CGAMode)value);
+            printf("%03d: CGA mode set to %s\n", entryIndex, value ? "blue" : "red");
+            break;
+
+        case OPTION_FREQ:
+        {
+            if (entry->type != DMGEntry_Audio)
+            {
+                fprintf(stderr, "%03d: Error: Frequency only valid for audio\n", entryIndex);
+                return false;
+            }
+            int i;
+            for (i = 0; frequencies[i].value != 0; i++)
+            {
+                if (frequencies[i].value == value)
+                {
+                    entry->x = frequencies[i].freq;
+                    break;
+                }
+            }
+            if (frequencies[i].value == 0)
+            {
+                fprintf(stderr, "%03d: Error: Invalid frequency: %d\n", entryIndex, value);
+                return false;
+            }
+            printf("%03d: Frequency set to %s\n", entryIndex, DMG_DescribeFreq((DMG_KHZ)entry->x));
+            break;
+        }
+    }
+
+    DMG_UpdateEntry(dmg, entryIndex);
+    return true;
+}
+
+static bool ApplyPropertyToSelection(DMG* dmg, const bool* currentSelection, const char* token)
+{
+    int option = -1;
+    const char* valuePtr = 0;
+    for (int i = 0; i < colonOptionCount; i++)
+    {
+        size_t len = strlen(colonOptions[i]);
+        if (strnicmp(token, colonOptions[i], len) == 0)
+        {
+            option = i;
+            valuePtr = token + len;
+            break;
+        }
+    }
+
+    if (option < 0)
+    {
+        fprintf(stderr, "Error: Unknown option: \"%s\"\n", token);
+        return false;
+    }
+    if (CountSelectedEntries(currentSelection) == 0)
+    {
+        fprintf(stderr, "Error: Entry selector required before \"%s\"\n", token);
+        return false;
+    }
+
+    int value = 0;
+    if (!ParseOptionValue(valuePtr, &value))
+    {
+        fprintf(stderr, "Error: Invalid value: \"%s\"\n", valuePtr);
+        return false;
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (currentSelection[i])
+            ApplyPropertyToEntry(dmg, i, (ColonOption)option, value);
+    }
+    return true;
+}
+
+static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+{
+    const char* path = token;
+    const char* colon = strchr(token, ':');
+    const char* slash = strrchr(token, '/');
+    const char* backslash = strrchr(token, '\\');
+    const char* filepart = slash ? slash + 1 : backslash ? backslash + 1 : token;
+    int targetIndex = -1;
+
+    if (colon != 0 && colon != token && isdigit(*token))
+    {
+        targetIndex = atoi(token);
+        if (targetIndex > 255)
+        {
+            fprintf(stderr, "Error: Invalid index: %d\n", targetIndex);
+            return false;
+        }
+        path = colon + 1;
+    }
+    else
+    {
+        int selectionCount = CountSelectedEntries(currentSelection);
+        if (*explicitSelection && selectionCount > 1)
+        {
+            fprintf(stderr, "Error: Image token \"%s\" requires a single selected entry or an explicit #:<file> target\n", token);
+            return false;
+        }
+        if (*explicitSelection && selectionCount == 1)
+        {
+            targetIndex = FirstSelectedEntry(currentSelection);
+        }
+        else if (isdigit(*filepart) && atoi(filepart) < 256)
+        {
+            targetIndex = atoi(filepart);
+        }
+        else if (!*currentFileSaved)
+        {
+            targetIndex = DMG_FindFreeEntry(dmg);
+        }
+        else if (*currentIndex >= 0 && *currentIndex < 255)
+        {
+            targetIndex = *currentIndex + 1;
+        }
+        else
+        {
+            fprintf(stderr, "Error: Unable to determine target entry for \"%s\"\n", token);
+            return false;
+        }
+    }
+
+    if (bufferSize < LOAD_BUFFER_SIZE)
+    {
+        bufferSize = LOAD_BUFFER_SIZE;
+        buffer = (uint8_t*)realloc(buffer, bufferSize);
+        if (buffer == NULL)
+        {
+            fprintf(stderr, "Error: Out of memory: unable to allocate %d bytes\n", bufferSize);
+            return false;
+        }
+    }
+
+    uint16_t width = 0, height = 0;
+    uint32_t palette[256];
+    int paletteSize = 0;
+    if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize))
+    {
+        fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
+        return false;
+    }
+
+    uint32_t size = width * height;
+    if (reindexByBrightness && dmg->version == DMG_Version5 && paletteSize > 0)
+        ReindexPaletteByBrightness(buffer, size, palette, paletteSize);
+
+    if (dmg->version == DMG_Version5)
+    {
+        int limit = GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode);
+        uint32_t encodedSize = 0;
+        uint32_t storedSize = 0;
+        uint8_t* storedBuffer = 0;
+        uint8_t* outBuffer = buffer + size;
+        bool compressed = false;
+
+        if (paletteSize > limit)
+        {
+            fprintf(stderr, "Error: Image palette has %d colors, limit is %d for this DAT5 mode\n", paletteSize, limit);
+            return false;
+        }
+        if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
+        {
+            fprintf(stderr, "Error: Unable to encode image \"%s\" for DAT5 mode\n", path);
+            return false;
+        }
+        if (!CompressDAT5Image(outBuffer, encodedSize, &storedBuffer, &storedSize, &compressed))
+        {
+            fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
+            return false;
+        }
+        if (!DMG_SetEntryPaletteEx(dmg, targetIndex, palette, paletteSize))
+        {
+            fprintf(stderr, "Error: Unable to set image palette: %s\n", DMG_GetErrorString());
+            if (compressed)
+                free(storedBuffer);
+            return false;
+        }
+        if (!DMG_SetImageDataEx(dmg, targetIndex, storedBuffer, width, height, storedSize, compressed, GetBitDepthForMode((DMG_DAT5ColorMode)dmg->colorMode)))
+        {
+            fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
+            if (compressed)
+                free(storedBuffer);
+            return false;
+        }
+        printf("%03d: Added image %s (%u bytes%s)\n", targetIndex, path, storedSize, compressed ? ", ZX0" : "");
+        if (compressed)
+            free(storedBuffer);
+    }
+    else
+    {
+        uint8_t* outBuffer = buffer + size;
+        uint16_t compressedSize = 0;
+        bool compressed = false;
+        if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
+        {
+            fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", path, DMG_GetErrorString());
+            return false;
+        }
+        if (!DMG_SetEntryPalette(dmg, targetIndex, palette))
+        {
+            fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
+            return false;
+        }
+        if (!DMG_SetImageData(dmg, targetIndex, outBuffer, width, height, compressedSize, compressed))
+        {
+            fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
+            return false;
+        }
+        printf("%03d: Added image %s (%d bytes%s)\n", targetIndex, path, compressedSize, compressed ? ", compressed" : "");
+    }
+
+    SelectSingleEntry(currentSelection, targetIndex);
+    *explicitSelection = false;
+    *currentIndex = targetIndex;
+    *currentFileSaved = true;
+    return true;
+}
+
+static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
+{
+    int currentIndex = -1;
+    bool currentFileSaved = false;
+    bool currentSelection[256];
+    bool explicitSelection = false;
+    ClearSelection(currentSelection);
+
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* token = tokens[i];
+        if (token == 0 || *token == 0)
+            continue;
+
+        if (strcmp(token, "-r") == 0)
+        {
+            reindexByBrightness = true;
+            continue;
+        }
+
+        if (IsCreateToken(token))
+            continue;
+
+        if (IsSelectionToken(token))
+        {
+            if (!ParseSelectionToken(token, currentSelection))
+            {
+                fprintf(stderr, "Error: Invalid index list: \"%s\"\n", token);
+                return false;
+            }
+            explicitSelection = true;
+            currentIndex = FirstSelectedEntry(currentSelection);
+            currentFileSaved = false;
+            continue;
+        }
+
+        if (IsPropertyToken(token))
+        {
+            if (!ApplyPropertyToSelection(dmg, currentSelection, token))
+                return false;
+            continue;
+        }
+
+        if (IsTargetedFileToken(token) || IsImageToken(token))
+        {
+            if (!ApplyImageToken(dmg, token, currentSelection, &explicitSelection, &currentIndex, &currentFileSaved))
+                return false;
+            continue;
+        }
+
+        fprintf(stderr, "Error: Invalid argument: \"%s\"\n", token);
+        return false;
+    }
+
+    return true;
 }
 
 bool RebuildDAT(DMG* dmg, const char* outputFileName)
 {
 	int n, i;
-	DMG* out = DMG_Create(outputFileName);
+	DMG* out = dmg->version == DMG_Version5 ?
+        DMG_CreateDAT5(outputFileName, (DMG_DAT5ColorMode)dmg->colorMode, dmg->targetWidth, dmg->targetHeight, dmg->firstEntry, dmg->lastEntry) :
+        DMG_Create(outputFileName);
 	if (out == NULL)
 	{
 		fprintf(stderr, "Error: Failed to create \"%s\": %s\n", outputFileName, DMG_GetErrorString());
@@ -890,12 +1441,12 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		memcpy (outEntry->RGB32Palette, entry->RGB32Palette, sizeof(entry->RGB32Palette));
 		memcpy (outEntry->CGAPalette, entry->CGAPalette, sizeof(entry->CGAPalette));
 		memcpy (outEntry->EGAPalette, entry->EGAPalette, sizeof(entry->EGAPalette));
+        outEntry->bitDepth = entry->bitDepth;
         outEntry->flags = entry->flags;
 		outEntry->x = entry->x;
 		outEntry->y = entry->y;
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
-
 		if (entry->type == DMGEntry_Empty)
 			continue;
 
@@ -960,6 +1511,52 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
+            if (dmg->version == DMG_Version5)
+            {
+                uint32_t encodedSize = 0;
+                uint32_t storedSize = 0;
+                uint8_t* storedBuffer = 0;
+                uint32_t paletteBuffer[256];
+                uint32_t* palettePtr = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32);
+                int paletteSize = entry->paletteColors;
+                if (paletteSize > 0)
+                {
+                    memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
+                    if (reindexByBrightness)
+                        ReindexPaletteByBrightness(inPtr, size, paletteBuffer, paletteSize);
+                    if (!DMG_SetEntryPaletteEx(out, n, paletteBuffer, paletteSize))
+                    {
+                        fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
+                        DMG_Close(out);
+                        return false;
+                    }
+                }
+                if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, inPtr, width, height, outPtr, &encodedSize))
+                {
+                    fprintf(stderr, "%03d: Error: Unable to encode DAT5 image\n", n);
+                    DMG_Close(out);
+                    return false;
+                }
+                if (!CompressDAT5Image(outPtr, encodedSize, &storedBuffer, &storedSize, &compressed))
+                {
+                    fprintf(stderr, "%03d: Error: Unable to compress DAT5 image\n", n);
+                    DMG_Close(out);
+                    return false;
+                }
+                if (!DMG_SetImageDataEx(out, n, storedBuffer, width, height, storedSize, compressed, entry->bitDepth))
+                {
+                    fprintf(stderr, "Error: Unable to set DAT5 image data: %s\n", DMG_GetErrorString());
+                    if (compressed)
+                        free(storedBuffer);
+                    DMG_Close(out);
+                    return false;
+                }
+                printf("%03d: Added image (%5u bytes%s)\n", n, storedSize, compressed ? ", ZX0" : "");
+                if (compressed)
+                    free(storedBuffer);
+                continue;
+            }
+
 			if (!CompressImage(inPtr, size, outPtr, size, &compressed, &compressedSize, debug))
 			{
 				fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outPtr, DMG_GetErrorString());
@@ -983,11 +1580,116 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 	return true;
 }
 
+static bool ParseCreateArguments(int tokenCount, const char* tokens[])
+{
+    for (int i = 0; i < tokenCount; i++)
+    {
+        if (strnicmp(tokens[i], "mode:", 5) == 0)
+        {
+            createDAT5 = true;
+            if (!ParseDAT5Mode(tokens[i] + 5, &createDAT5Mode))
+            {
+                fprintf(stderr, "Error: Invalid DAT5 mode: \"%s\"\n", tokens[i] + 5);
+                return false;
+            }
+        }
+        else if (strnicmp(tokens[i], "screen:", 7) == 0)
+        {
+            createDAT5 = true;
+            if (!ParseDAT5Size(tokens[i] + 7, &createDAT5Width, &createDAT5Height))
+            {
+                fprintf(stderr, "Error: Invalid DAT5 screen size: \"%s\"\n", tokens[i] + 7);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const char** outputFileName, int* editTokenCount, const char** editTokens)
+{
+    *outputFileName = 0;
+    *editTokenCount = 0;
+
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* token = tokens[i];
+        if (strcmp(token, "-r") == 0)
+        {
+            editTokens[(*editTokenCount)++] = token;
+            continue;
+        }
+
+        if (*outputFileName == 0 && !IsEntryChangeToken(token))
+        {
+            *outputFileName = token;
+            continue;
+        }
+
+        editTokens[(*editTokenCount)++] = token;
+    }
+
+    return true;
+}
+
+static bool UpdateTokenRequiresRebuild(const char* token)
+{
+    if (token == 0 || *token == 0)
+        return false;
+    if (strcmp(token, "-r") == 0)
+        return true;
+    if (IsCreateToken(token))
+        return true;
+    if (IsTargetedFileToken(token) || IsImageToken(token))
+        return true;
+    return false;
+}
+
+static bool UpdateRequiresRebuild(DMG* dmg, const char* outputFileName, int editTokenCount, const char* editTokens[])
+{
+    if (outputFileName != 0)
+        return true;
+    if (dmg->version != DMG_Version5)
+        return true;
+
+    for (int i = 0; i < editTokenCount; i++)
+    {
+        if (UpdateTokenRequiresRebuild(editTokens[i]))
+            return true;
+    }
+    return false;
+}
+
 int main (int argc, char *argv[])
 {
 	DMG* dmg = NULL;
 	const char* outputFileName;
 	int n;
+    char parseError[256];
+    CLI_CommandLine commandLine;
+    static const CLI_ActionSpec actionSpecs[] =
+    {
+        { "l", ACTION_LIST },
+        { "v", ACTION_LIST },
+        { "x", ACTION_EXTRACT },
+        { "p", ACTION_EXTRACT_PALETTES },
+        { "t", ACTION_TEST },
+        { "a", ACTION_ADD },
+        { "m", ACTION_ADD },
+        { "e", ACTION_ADD },
+        { "d", ACTION_DELETE },
+        { "c", ACTION_NEW },
+        { "n", ACTION_NEW },
+        { "o", ACTION_UPDATE },
+        { "u", ACTION_UPDATE },
+        { "h", ACTION_HELP },
+        { 0, 0 }
+    };
+    static const CLI_OptionSpec optionSpecs[] =
+    {
+        { 'v', DMG_OPTION_VERBOSE, CLI_OPTION_NONE },
+        { 0, 0, CLI_OPTION_NONE }
+    };
 
 	if (argc < 2)
 	{
@@ -995,69 +1697,63 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	if (strlen(argv[1]) == 1)
-	{
-		switch (tolower(argv[1][0]))
-		{
-			case 'l': action = ACTION_LIST; break;
-			case 'v': action = ACTION_LIST; verbose = true; break;
-			case 'x': action = ACTION_EXTRACT; break;
-			case 'p': action = ACTION_EXTRACT_PALETTES; break;
-			case 't': action = ACTION_TEST; break;
-			case 'a': action = ACTION_ADD; readOnly = false; break;
-			case 'm': action = ACTION_ADD; readOnly = false; break;
-			case 'e': action = ACTION_ADD; readOnly = false; break;
-			case 'd': action = ACTION_DELETE; readOnly = false; break;
-			case 'c': action = ACTION_NEW; readOnly = false; break;
-			case 'n': action = ACTION_NEW; readOnly = false; break;
-			case 'o': action = ACTION_UPDATE; readOnly = false; break;
-			case 'u': action = ACTION_UPDATE; readOnly = false; break;
-			case 'h': PrintHelp(); return 0;
-
-			default:
-				fprintf(stderr, "Error: Unknown action: \"%s\"\n", argv[1]);
-				return 1;
-		}
-		argc--, argv++;
-		if (argc < 2)
-		{
-			fprintf(stderr, "Error: Missing filename\n");
-			return 1;
-		}
-	}
-
-    if (argc > 1 && argv[1][0] == '-')
+    if (!CLI_ParseCommandLine(argc, argv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
     {
-        if (stricmp(argv[1], "--debug") == 0)
-        {
-            debug = true;
-            argc--, argv++;
-        }
-        else
-        {
-            fprintf(stderr, "Error: Unknown option: \"%s\"\n", argv[1]);
-            return 1;
-        }
+        fprintf(stderr, "Error: %s\n", parseError);
+        return 1;
+    }
+
+    action = (Action)commandLine.action;
+    verbose = commandLine.actionName != 0 && stricmp(commandLine.actionName, "v") == 0;
+    debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
+    readOnly = action != ACTION_ADD && action != ACTION_DELETE && action != ACTION_NEW && action != ACTION_UPDATE;
+
+    if (action == ACTION_HELP)
+    {
+        PrintHelp();
+        return 0;
+    }
+
+    if (commandLine.argumentCount < 1)
+    {
+        fprintf(stderr, "Error: Missing filename\n");
+        return 1;
     }
 
 	DMG_SetWarningHandler(ShowWarning);
 
-	if (strlen(argv[1]) > 1000)
+	if (strlen(commandLine.arguments[0]) > 1000)
 	{
-		fprintf(stderr, "Error: Invalid filename: \"%s\"\n", argv[1]);
+		fprintf(stderr, "Error: Invalid filename: \"%s\"\n", commandLine.arguments[0]);
 		return 1;
 	}
-	strcpy(filename, argv[1]);
+	strcpy(filename, commandLine.arguments[0]);
+
+    const char** remainingArgs = commandLine.arguments + 1;
+    int remainingArgCount = commandLine.argumentCount - 1;
+
+    if (action == ACTION_NEW && !ParseCreateArguments(remainingArgCount, remainingArgs))
+        return 1;
 
 	if (action == ACTION_NEW)
 	{
-		dmg = DMG_Create(filename);
+        if (createDAT5)
+        {
+            if (createDAT5Mode == DMG_DAT5_COLORMODE_NONE)
+            {
+                fprintf(stderr, "Error: DAT5 creation requires mode:<cga|ega|i16|i32|i256>\n");
+                return 1;
+            }
+            dmg = DMG_CreateDAT5(filename, createDAT5Mode, createDAT5Width, createDAT5Height);
+        }
+        else
+		    dmg = DMG_Create(filename);
 		if (dmg == NULL)
 		{
-			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", argv[1], DMG_GetErrorString());
+			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", filename, DMG_GetErrorString());
 			return 1;
 		}
-		printf("Created new DAT file \"%s\"\n", argv[1]);
+		printf("Created new DAT file \"%s\"\n", filename);
 	}
 	else
 	{
@@ -1068,44 +1764,52 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 	}
-	argc--, argv++;
-
-    if (argc > 0 && stricmp(argv[0], "-debug") == 0)
-    {
-        debug = true;
-        argc--, argv++;
-    }
 
 	switch (action)
 	{
 		case ACTION_HELP:
 			break;
 		case ACTION_LIST:
-			if (ParseEntrySelectionList(argc, argv))
+			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
 				ListSelectedEntries(dmg, verbose);
 			break;
 		case ACTION_DELETE:
-			if (ParseEntrySelectionList(argc, argv))
+			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
 				DeleteSelectedEntries(dmg);
 			break;
 		case ACTION_EXTRACT:
 		case ACTION_EXTRACT_PALETTES:
 		case ACTION_TEST:
-			if (ParseEntrySelectionList(argc, argv))
+			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
 				ExtractSelectedEntries(dmg, action != ACTION_TEST, action == ACTION_EXTRACT_PALETTES);
 			break;
 		case ACTION_ADD:
 		case ACTION_NEW:
-			ParseEntryChanges(dmg, argc, argv);
+			ParseEntryChanges(dmg, remainingArgCount, remainingArgs);
 			break;
 		case ACTION_UPDATE:
-			if (argc < 2)
+        {
+            bool defaultOutput = true;
+            const char* editTokens[CLI_MAX_ARGUMENTS];
+            int editTokenCount = 0;
+            ParseUpdateArguments(remainingArgCount, remainingArgs, &outputFileName, &editTokenCount, editTokens);
+            if (editTokenCount > 0 && !ParseEntryChanges(dmg, editTokenCount, editTokens))
+                break;
+            if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
+            {
+                if (editTokenCount > 0)
+                    printf("%s updated in place.\n", filename);
+                else
+                    printf("%s already up to date.\n", filename);
+                break;
+            }
+			if (outputFileName == 0)
 				outputFileName = ChangeExtension(filename, "new");
-			else
-				outputFileName = argv[1];
+            else
+                defaultOutput = false;
 			if (RebuildDAT(dmg, outputFileName))
 			{
-				if (argc < 2)
+				if (defaultOutput)
 				{
 					DMG_Close(dmg);
 					dmg = NULL;
@@ -1121,6 +1825,7 @@ int main (int argc, char *argv[])
 			}
 
 			break;
+        }
 	}
 	if (dmg != NULL)
 		DMG_Close(dmg);

@@ -264,6 +264,7 @@ cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dmg.exe ^
 	src-common\dim_cpc.cpp ^
 	src-common\dim_fat.cpp ^
 	src-tools\img.cpp ^
+	src-tools\cli_parser.cpp ^
 	src-tools\tool_dmg.cpp ^
 	src-tools\dmg_edit.cpp ^
 	%TOOLLIBS% /link %LINK% /SUBSYSTEM:CONSOLE

@@ -2,7 +2,7 @@
   .DAT5     New Generation DAAD Image Database File Format Spec
 ───────────────────────────────────────────────────────────────────────────────
 
-    This new file format defines a new generation of universal
+    This new file format defines a new generation of
     image library files for DAAD. At the end of the file, the
     rationale for the changes compared to previous DAT specs
     is considered. However, the main DAT5 design goals are:
@@ -11,9 +11,8 @@
         and 256 color graphics (VGA, Amiga AGA, Atari Falcon)
     -   Add support for multi-disk games where a game has
         multiple DAT files because they are too big for one
-    -   Keep and enhance downgrading graphics support (that is,
-        the ability to display graphics in EGA/CGA, or
-        display 256 color graphics in 32 or 16 color hardware)
+    -   Keep the file format simple and platform-specific, so every
+        target can use graphics prepared for its exact capabilities
 
     NOTE: All data in a DAT 5+ is big endian, there is no little
     endian version of the file. This includes 16 bit sample data.
@@ -29,12 +28,11 @@
     0x000C      2           Number of the last entry in the file (usually 255)
     0x000E      1           Color mode
 
-                            0                   Universal (I256 + equivalence tables)
                             1                   CGA:     All graphics data is chunky 2bpp, fixed palette
-                            2                   EGA:     All graphics data is chunky 16bpp, fixed palette
-                            3                   I16:     All images are 4bpp deep (no color equivalence tables)
-                            4                   I32:     All images are 5bpp deep (no color equivalence tables)
-                            5                   I256:    All images are 8bpp deep (no color equivalence tables)
+                            2                   EGA:     All graphics data is chunky 4bpp, fixed palette
+                            3                   I16:     All images are 4bpp deep
+                            4                   I32:     All images are 5bpp deep
+                            5                   I256:    All images are 8bpp deep
 
     0x000F      0           Flags (reserved for future usage)
 
@@ -74,56 +72,36 @@
     0x001A		4			Size of palette data in file
     0x001E      2           CRC value (naive XOR of data & palette info)
 
-    Palette data is stored in the following way:
+    Palette data is stored as a sequence of RGB byte triplets.
+    The number of entries is equal to last-first+1 according
+    to the entry header.
 
-        *   COLOR PALETTE            (number of entries equal to last-first+1 according to header)
-        *   32C EQUIVALENCE TABLES   (if graphic has bit depth 8)
-        *   16C EQUIVALENCE TABLES   (if graphic has bit depth 5 or 8)
-        *   EGA EQUIVALENCE TABLE
-        *   CGA EQUIVALENCE TABLE
-
-    The color palette is stored as three bytes per color in R, G, B order with a 0 to 255 range.
-
-    If the file is not in universal mode, the equivalence tables will be missing from the
-    palette data and only the color triples will be stored there.
-
-    If present, every equivalence table contain the following parts:
-
-        M*2 bytes       Conversion map table, as many entries as colors in the original graphic
-        1 BYTE          Index of the first color used (in the reduced palette)
-        1 BYTE          Index of the last color used (in the reduced palette)
-        N*3 bytes       The reduced palette color values in RGB byte triplet format
-
-    The CGA/EGA equivalence tables use a fixed palette, so only the conversion map
-    table is present. The color indexes and palette color values will be missing.
-
-    Every entry in the conversion map contains the following data:
-
-        *   Bit 0-4     Index of the first color    (0-31)
-        *   Bit 5-9     Index of the second color   (0-31)
-        *   Bit 10-15   Distance between colors     (0-63)
-
-    The conversion table maps every color in the original graphic to two
-    color indexes in the reduced color palette and offers a distance
-    factor so the loader can apply dithering to the colors.
-
-    The distance is already adjusted for linear space and perceptuality,
-    so the loader can assume a 50% distance (value 31) is well served
-    with a 50% coverage pattern, for example.
+    Palettes are only present for custom indexed modes (I16,
+    I32 and I256). CGA and EGA modes use their fixed hardware
+    palettes, so their palette offset and size must be zero.
 
     If the file is CGA or EGA specific, palette data is not present,
     bit depth is 0, and the graphic data is a single ZX0 or binary
     stream containing chunky pixels (either 2bpp or 4bpp). If the
-    file is normal, bit depth can be 4, 5 or 8, and the graphic
-    data contains as many ZX0 or binary streams as bit planes.
+    file is indexed, bit depth can be 4, 5 or 8, and the graphic
+    data is stored as row-interleaved bitplanes:
 
-    Note that the interpreter will need to scramble or reorganize
-    the data as needed. DAAD always keeps the last loaded graphic
-    entirely in RAM, so the scrambling is expected to be made
-    in that buffer. Keeping the bit planes separate is intended
-    to improve the ZX0 compression (the conversion tool will
-    reorganize the graphic palette to keep close appearing colors
-    together and minimize change in the more significant bits).
+        Row 0, Plane 0
+        Row 0, Plane 1
+        ...
+        Row 0, Plane N-1
+        Row 1, Plane 0
+        ...
+
+    For each row, every plane contributes ceil(width/8) bytes.
+    This layout mirrors the temporary planar picture buffer used
+    by the Amiga interpreter and avoids an extra reshuffling step
+    when preparing image data for blitting.
+
+    An alternative layout with complete planes stored one after the
+    other was evaluated during implementation, but did not improve
+    ZX0 compression in practice for the current test set, so DAT5
+    keeps row-interleaved bitplanes as its canonical planar format.
 
     ─────────────────────
      Entry Header: Audio
@@ -194,20 +172,30 @@
     it's good enough to preserve details of high resolution images and
     provides an easy conversion path for DAAD's windowing system.
 
-    This file format has been designed to support this path. In
-    practice, I expect DAT 5 files to be created as follows:
+    This file format has been designed to support this path while
+    keeping implementation simple. DAT5 files are no longer intended
+    to be universal containers with downgrade tables. Instead, each
+    DAT5 is tailored to one target family and one graphics mode.
 
-    1) 640x400 files with 256 color graphics, for a PC SVGA interpreter,
-       or an Amiga AGA interpreter. An Amiga OCS could play the same
-       file in 640x200 by skipping every other row of a graphic,
-       and a ST/VGA interpreter could shrink them to 320x200, both
-       of them using the precalculated color reduction tables.
+    Games that want to support multiple display standards are expected
+    to ship multiple data files. For example, a PC game may include
+    separate CGA, EGA and VGA DAT files, and an Amiga game may include
+    separate OCS and AGA DAT files. This is considered acceptable, as
+    it keeps interpreters simpler and lets developers use their own
+    conversion toolchain to obtain better results for each target.
 
-    2) 320x200 files with 256 graphics, for a PC VGA interpreter. An
-       Amiga AGA would also play those with no issues in 320x200 mode.
-       OCS/ST/EGA/CGA interpreters will display them with color
-       reduction using those precalculated tables and no shrinking.
+    In practice, I expect DAT5 files to be created as follows:
 
-    3) Special purpose files for each platform. Those include chunky
-       CGA/EGA modes and platform-specific files.
+    1) CGA-specific files, with chunky 2bpp graphics and no palette data.
+
+    2) EGA-specific files, with chunky 4bpp graphics and no palette data.
+
+    3) ST-specific files, with 4 row-interleaved bitplanes and
+       per-image palettes.
+
+    4) Amiga OCS-specific files, with 5 row-interleaved bitplanes
+       and up to 32 colors.
+
+    5) VGA or Amiga AGA-specific files, with 8 row-interleaved
+       bitplanes and up to 256 colors.
        
