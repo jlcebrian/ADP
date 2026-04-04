@@ -8,6 +8,145 @@
 extern "C" void DecompressRLE (const void* data, uint32_t dataSize,
 	void* output, uint32_t outputSize, uint16_t rleMask);
 
+static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* payload)
+{
+    if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0 || entry->RGB32PaletteV5 != 0)
+        return true;
+
+    entry->RGB32PaletteV5 = Allocate<uint32_t>("DAT5 palette", entry->paletteColors);
+    if (entry->RGB32PaletteV5 == 0)
+    {
+        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+        return false;
+    }
+
+    for (uint16_t p = 0; p < entry->paletteColors; p++)
+    {
+        entry->RGB32PaletteV5[p] =
+            0xFF000000 |
+            (payload[p * 3 + 0] << 16) |
+            (payload[p * 3 + 1] << 8) |
+            (payload[p * 3 + 2] << 0);
+    }
+    return true;
+}
+
+static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* entry, uint8_t* buffer, uint32_t bufferSize)
+{
+	if (entry->type != DMGEntry_Image)
+		return 0;
+
+	if (dmg->colorMode != DMG_DAT5_COLORMODE_I16 &&
+		dmg->colorMode != DMG_DAT5_COLORMODE_I32 &&
+		dmg->colorMode != DMG_DAT5_COLORMODE_I256)
+	{
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return 0;
+	}
+
+	uint32_t requiredSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+    uint32_t paletteBytes = entry->paletteColors * 3;
+    uint32_t imageDataLength = entry->length >= paletteBytes ? entry->length - paletteBytes : 0;
+	if (requiredSize > bufferSize)
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return 0;
+	}
+    if (entry->length < paletteBytes)
+    {
+        DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
+        return 0;
+    }
+
+	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
+	{
+		if ((entry->flags & DMG_FLAG_ZX0) == 0)
+		{
+			DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+			return 0;
+		}
+
+		const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
+		uint8_t* scratch = 0;
+        if (payloadData != 0)
+        {
+            DebugPrintf("DAT5 planar %u: payload file cache hit at %lu (%lu bytes)\n",
+                (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
+        }
+		if (payloadData == 0)
+		{
+			if (bufferSize >= requiredSize + entry->length)
+				scratch = buffer + bufferSize - entry->length;
+			else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length)
+				scratch = dmg->zx0Scratch;
+			else
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				return 0;
+			}
+
+			if (DMG_ReadFromFile(dmg, entry->fileOffset, scratch, entry->length) != entry->length)
+			{
+				DMG_SetError(DMG_ERROR_READING_FILE);
+				return 0;
+			}
+            DebugPrintf("DAT5 planar %u: payload file read at %lu (%lu bytes)\n",
+                (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
+			payloadData = scratch;
+		}
+
+        if (!DMG_EnsureDAT5PaletteFromPayload(entry, payloadData))
+            return 0;
+
+		if (!DMG_DecompressZX0(payloadData + paletteBytes, imageDataLength, buffer, requiredSize))
+		{
+			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
+			return 0;
+		}
+		return buffer;
+	}
+
+	if (imageDataLength != requiredSize)
+	{
+		DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
+		return 0;
+	}
+
+	const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
+	if (payloadData != 0)
+	{
+        DebugPrintf("DAT5 planar %u: payload file cache hit at %lu (%lu bytes)\n",
+            (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
+        if (!DMG_EnsureDAT5PaletteFromPayload(entry, payloadData))
+            return 0;
+		MemCopy(buffer, payloadData + paletteBytes, requiredSize);
+		return buffer;
+	}
+
+    uint8_t* scratch = 0;
+    if (bufferSize >= requiredSize + entry->length)
+        scratch = buffer + bufferSize - entry->length;
+    else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length)
+        scratch = dmg->zx0Scratch;
+    else
+    {
+        DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+        return 0;
+    }
+
+	if (DMG_ReadFromFile(dmg, entry->fileOffset, scratch, entry->length) != entry->length)
+	{
+		DMG_SetError(DMG_ERROR_READING_FILE);
+		return 0;
+	}
+    DebugPrintf("DAT5 planar %u: payload file read at %lu (%lu bytes)\n",
+        (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
+    if (!DMG_EnsureDAT5PaletteFromPayload(entry, scratch))
+        return 0;
+    MemCopy(buffer, scratch + paletteBytes, requiredSize);
+	return buffer;
+}
+
 bool DMG_DecompressNewRLEPlanar (const uint8_t* d, uint16_t rleMask, 
 	uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian)
 {
@@ -131,9 +270,13 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		buffer = (uint8_t*)(cache + 1);
 		if (cache->populated)
+        {
+            DebugPrintf("Planar image %u: image cache hit (%u bytes)\n", (unsigned)index, (unsigned)requiredSize);
 			return buffer;
+        }
 		bufferSize = cache->size;
 		cache->populated = true;
+        DebugPrintf("Planar image %u: image cache miss, populating (%u bytes)\n", (unsigned)index, (unsigned)requiredSize);
 	}
 #endif
 
@@ -141,6 +284,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		buffer = DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 		bufferSize = DMG_GetTemporaryBufferSize();
+        DebugPrintf("Planar image %u: using temporary buffer (%u bytes available, %u required)\n",
+            (unsigned)index, (unsigned)bufferSize, (unsigned)requiredSize);
 		if (bufferSize < requiredSize)
 		{
 			DMG_Warning("Entry %d: Internal buffer too small for entry (%d bytes required)", index, requiredSize);
@@ -154,6 +299,9 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		DMG_SetError(DMG_ERROR_DECOMPRESSION_BUFFER_MISSING);
 		return 0;
 	}
+
+	if (dmg->version == DMG_Version5)
+		return DMG_GetEntryDataPlanarV5(dmg, index, entry, buffer, bufferSize);
 
 #ifndef NO_CACHE
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);

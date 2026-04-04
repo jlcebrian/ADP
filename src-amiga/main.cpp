@@ -36,6 +36,7 @@ static APTR  SystemIrq;
 struct View *ActiView;
 
 static uint16_t savedColors[32];
+static uint16_t savedSprpt[16];
 
 void PrintToOutput(const char* msg)
 {
@@ -57,6 +58,16 @@ void TakeSystem()
 	OwnBlitter();
 	WaitBlit();
 
+	custom->dmacon = DMAF_SPRITE;
+
+	for (int n = 0; n < 8; n++)
+	{
+		uint32_t sprpt = (uint32_t)custom->sprpt[n];
+		savedSprpt[n * 2 + 0] = (uint16_t)(sprpt >> 16);
+		savedSprpt[n * 2 + 1] = (uint16_t)(sprpt & 0xFFFF);
+		custom->sprpt[n] = 0;
+	}
+	
 	for(int a = 0; a < 32 ; a++)
 	{
 		savedColors[a] = custom->color[a];
@@ -101,6 +112,9 @@ void FreeSystem()
 	WaitTOF();
 	WaitTOF();
 
+	for (int n = 0; n < 8; n++)
+		custom->sprpt[n] = (APTR)(((uint32_t)savedSprpt[n * 2 + 0] << 16) | savedSprpt[n * 2 + 1]);
+
 	for(int a = 0; a < 32 ; a++)
 		custom->color[a] = savedColors[a];
 
@@ -117,7 +131,10 @@ int main ()
 	DOSBase       = (struct DosLibrary*)OpenLibrary((CONST_STRPTR)"dos.library", 0);
 	IntuitionBase = (struct IntuitionBase*)OpenLibrary((CONST_STRPTR)"intuition.library", 0);
 
-	PrintToOutput(msg);
+	PrintToOutput(msg);	
+	
+	uint32_t freeMemory = AvailMem(0);
+	DebugPrintf("Free memory on startup: %u bytes\n", freeMemory);
 
 	// WORD savedDMACON = custom->dmacon;
 

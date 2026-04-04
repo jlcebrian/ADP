@@ -3,6 +3,7 @@
 # to generate assembler source with LTO, add to LDFLAGS: -save-temps=cwd
 
 VERSION ?= BETA0.3
+DEBUG_MEMORY ?= 0
 
 ifdef OS
 	WINDOWS = 1
@@ -17,9 +18,11 @@ c_sources := $(wildcard *.c) $(wildcard $(addsuffix *.c,$(subdirs)))
 c_objects := $(addprefix obj/amiga/,$(patsubst %.c,%.o,$(notdir $(c_sources))))
 s_sources := $(wildcard $(addsuffix *.s, $(subdirs)))
 s_objects := $(addprefix obj/amiga/,$(patsubst %.s,%.o,$(notdir $(s_sources))))
+zx0_s_source := src-zx0/unzx0_68k.s
+zx0_s_object := obj/amiga/unzx0_68k.o
 vasm_sources := $(wildcard *.asm) $(wildcard $(addsuffix *.asm, $(subdirs)))
 vasm_objects := $(addprefix obj/amiga/, $(patsubst %.asm,%.o,$(notdir $(vasm_sources))))
-objects := $(cpp_objects) $(c_objects) $(s_objects) $(vasm_objects)
+objects := $(cpp_objects) $(c_objects) $(s_objects) $(zx0_s_object) $(vasm_objects)
 
 # https://stackoverflow.com/questions/4036191/sources-from-subdirectories-in-makefile/4038459
 # http://www.microhowto.info/howto/automatically_generate_makefile_dependencies.html
@@ -47,8 +50,10 @@ else
 endif
 
 CCFLAGS += -DVERSION=$(VERSION) 
+CCFLAGS += -DDEBUG_MEMORY=$(DEBUG_MEMORY)
 CCFLAGS += -Os
-#CCFLAGS += -D_DEBUGPRINT 
+CCFLAGS += -D_DEBUGPRINT 
+CCFLAGS += -DDEBUG_ALLOCS
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
 CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
@@ -133,6 +138,15 @@ ifndef WINDOWS
 	@$(TOOLPATH) $(CC) $(CCFLAGS) $(ASFLAGS) -c -o $@ $(CURDIR)/$<
 else
 	@$(CC) $(CCFLAGS) $(ASFLAGS) -c -o $@ $(CURDIR)/$<
+endif
+
+$(zx0_s_object): $(zx0_s_source)
+	$(info Assembling $<)
+	@$(VASM) $(VASMFLAGS) -o $@ $(CURDIR)/$<
+ifndef WINDOWS
+	@$(TOOLPATH) $(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
+else
+	@$(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
 endif
 
 $(vasm_objects): obj/amiga/%.o : %.asm

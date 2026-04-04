@@ -24,6 +24,11 @@
 DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
+void VID_SetDisplayPlanesHint(uint8_t planes)
+{
+	(void)planes;
+}
+
 SDL_Window*  window;
 SDL_Surface* surface;
 
@@ -821,8 +826,14 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			if (dmg->version == DMG_Version5 || (entry->flags & DMG_FLAG_FIXED))
 			{
                 int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedIndex);
-				for (int n = 0; n < paletteCount; n++)
-					palette[n] = filePalette[n];
+                int firstColor = DMG_GetEntryFirstColor(dmg, bufferedIndex);
+                if (firstColor == 0)
+                {
+                    for (int n = 0; n < 256; n++)
+                        palette[n] = 0xFF000000;
+                }
+				for (int n = 0; n < paletteCount && firstColor + n < 256; n++)
+					palette[firstColor + n] = filePalette[n];
 				// TODO: This is a hack to fix the palette for Original/Jabato
 				//       We should check the ST/DOS interpreter to see what's going on
 				if (dmg->version == DMG_Version1)

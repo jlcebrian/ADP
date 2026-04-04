@@ -7,6 +7,7 @@ strlen:
 		move.l	a0,d0
 .loop:		tst.b	(a0)+
 		bne	.loop
+		subq.l	#1,a0
 		sub.l	a0,d0
 		neg.l	d0
 		rts

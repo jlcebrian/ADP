@@ -23,9 +23,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "zx0.h"
 
 unsigned char* output_data;
@@ -87,14 +84,13 @@ unsigned char *compress(BLOCK *optimal, unsigned char *input_data, int input_siz
 
     /* calculate and allocate output buffer */
     *output_size = (optimal->bits+25)/8;
-    output_data = (unsigned char *)malloc(*output_size);
+    output_data = (unsigned char *)zx0_alloc(*output_size);
     if (!output_data) {
-         fprintf(stderr, "Error: Insufficient memory\n");
-         exit(1);
+         zx0_fail("ZX0: insufficient memory");
     }
 
     /* un-reverse optimal sequence */
-    prev = NULL;
+    prev = ZX0_NULL;
     while (optimal) {
         next = optimal->chain;
         optimal->chain = prev;

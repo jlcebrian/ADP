@@ -190,6 +190,7 @@ struct DMG
     uint16_t    targetHeight;
 
 	DMG_Entry*  entries[256];
+    DMG_Entry*  entryBlock;
 
 	DMG_Cache*  cache;
 	DMG_Cache*  cacheTail;
@@ -200,6 +201,9 @@ struct DMG
 	uint32_t    fileCacheBlockSize;
 	uint8_t*    fileCacheBlocks[128];
 	uint32_t    fileCacheOffset;
+    uint8_t*    zx0Scratch;
+    uint32_t    zx0ScratchSize;
+    bool        zx0ScratchOwned;
 
 	File*		file;
 	uint32_t    fileSize;
@@ -218,9 +222,11 @@ uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index);
 uint32_t*   DMG_GetEntryPalette    (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint16_t    DMG_GetEntryPaletteSize(DMG* dmg, uint8_t index);
+uint8_t     DMG_GetEntryFirstColor (DMG* dmg, uint8_t index);
 bool        DMG_RemoveEntry	 	   (DMG* dmg, uint8_t index);
 bool        DMG_SetEntryPalette    (DMG* dmg, uint8_t index, uint32_t* palette);
 bool        DMG_SetEntryPaletteEx  (DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize);
+bool        DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize, uint8_t firstColor, uint8_t lastColor);
 bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed);
 bool        DMG_SetImageDataEx     (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth);
 bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
@@ -237,6 +243,7 @@ void        DMG_SetupFileCache     (DMG* dmg, uint32_t blockSize = 0, void(*prog
 uint32_t    DMG_ReadFromFile       (DMG* dmg, uint32_t offset, void* buffer, uint32_t size);
 void*       DMG_GetFromFileCache   (DMG* dmg, uint32_t offset, uint32_t size);
 void        DMG_FreeFileImageCache (DMG* dmg);
+void        DMG_SetZX0ScratchBuffer(DMG* dmg, uint8_t* buffer, uint32_t size, bool owned = false);
 
 void        DMG_Warning            (const char* format, ...);
 void        DMG_SetError           (DMG_Error error);
@@ -248,6 +255,7 @@ const char* DMG_DescribeFreq       (DMG_KHZ freq);
 
 uint32_t    DMG_GetTemporaryBufferSize ();
 uint8_t*    DMG_GetTemporaryBuffer     (DMG_ImageMode mode);
+bool        DMG_ReserveTemporaryBuffer (uint32_t size);
 void        DMG_FreeTemporaryBuffer    ();
 
 bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);

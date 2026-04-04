@@ -23,9 +23,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "zx0.h"
 
 extern int zx0_quiet;
@@ -59,23 +56,24 @@ BLOCK* optimize(unsigned char *input_data, int input_size, int skip, int offset_
     int max_offset = offset_ceiling(input_size-1, offset_limit);
 
     /* allocate all main data structures at once */
-    last_literal = (BLOCK **)calloc(max_offset+1, sizeof(BLOCK *));
-    last_match = (BLOCK **)calloc(max_offset+1, sizeof(BLOCK *));
-    optimal = (BLOCK **)calloc(input_size, sizeof(BLOCK *));
-    match_length = (int *)calloc(max_offset+1, sizeof(int));
-    best_length = (int *)malloc(input_size*sizeof(int));
+    last_literal = (BLOCK **)zx0_calloc(max_offset+1, sizeof(BLOCK *));
+    last_match = (BLOCK **)zx0_calloc(max_offset+1, sizeof(BLOCK *));
+    optimal = (BLOCK **)zx0_calloc(input_size, sizeof(BLOCK *));
+    match_length = (int *)zx0_calloc(max_offset+1, sizeof(int));
+    best_length = (int *)zx0_alloc(input_size*sizeof(int));
     if (!last_literal || !last_match || !optimal || !match_length || !best_length) {
-        fprintf(stderr, "Error: Insufficient memory\n");
-        exit(1);
+        zx0_fail("ZX0: insufficient memory");
     }
     if (input_size > 2)
         best_length[2] = 2;
 
     /* start with fake block */
-    assign(&last_match[INITIAL_OFFSET], allocate(-1, skip-1, INITIAL_OFFSET, NULL));
+    assign(&last_match[INITIAL_OFFSET], allocate(-1, skip-1, INITIAL_OFFSET, ZX0_NULL));
 
+#ifdef _DEBUGPRINT
     if (!zx0_quiet)
-        printf("[");
+        DebugPrintf("[");
+#endif
 
     /* process remaining bytes */
     for (index = skip; index < input_size; index++) {
@@ -130,15 +128,18 @@ BLOCK* optimize(unsigned char *input_data, int input_size, int skip, int offset_
         /* indicate progress */
         if (index*MAX_SCALE/input_size > dots) {
             if (!zx0_quiet) {
-                printf(".");
-                fflush(stdout);
+#ifdef _DEBUGPRINT
+                DebugPrintf(".");
+#endif
             }
             dots++;
         }
     }
 
+#ifdef _DEBUGPRINT
     if (!zx0_quiet)
-        printf("]\n");
+        DebugPrintf("]\n");
+#endif
 
     return optimal[input_size-1];
 }

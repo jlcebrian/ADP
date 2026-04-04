@@ -104,8 +104,11 @@ static inline size_t StrLen  (const uint8_t* str)
 static inline size_t StrLen(const char *str)
 {
 	size_t len = 0;
-	while (*str++)
+	while (*str)
+	{
+		str++;
 		len++;
+	}
 	return len;
 }
 static inline size_t StrLen  (const uint8_t* str)

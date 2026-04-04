@@ -6,6 +6,7 @@ extern bool         exitGame;
 extern DDB_Machine  screenMachine;
 
 extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode);
+extern void   VID_SetDisplayPlanesHint(uint8_t planes);
 extern void   VID_Finish              ();
 
 extern bool   VID_AnyKey              ();
@@ -13,6 +14,7 @@ extern bool   VID_LoadDataFile        (const char* filename);
 extern bool   VID_PictureExists       (uint8_t picno);
 extern bool   VID_SampleExists        (uint8_t no);
 extern void   VID_Clear               (int x, int y, int w, int h, uint8_t color);
+extern void   VID_ClearAllPlanes      (int x, int y, int w, int h, uint8_t color);
 extern void   VID_ClearBuffer         (bool front);
 extern void   VID_DisplayPicture      (int x, int y, int w, int h, DDB_ScreenMode screenMode);
 extern bool   VID_DisplaySCRFile      (const char* fileName, DDB_Machine target);
@@ -82,4 +84,3 @@ extern void   VID_SetExternalPictureBase (const char* fileName);
 extern bool   VID_GetExternalPictureFileName (uint8_t picno, char* fileName, size_t fileNameSize);
 extern bool   VID_HasExternalPictures (); 
 #endif
-

@@ -8,21 +8,25 @@
 static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, DMG_Entry* entry, uint8_t* buffer, uint32_t bufferSize)
 {
     uint32_t indexedSize = entry->width * entry->height;
-    uint8_t* fileData = buffer + bufferSize - entry->length;
+    uint32_t paletteBytes = entry->paletteColors * 3;
+    uint32_t imageDataLength = entry->length >= paletteBytes ? entry->length - paletteBytes : 0;
+    uint8_t* fileData = buffer + bufferSize - imageDataLength;
     uint8_t* tempFileData = 0;
-    if (entry->length > bufferSize)
+    if (entry->length < paletteBytes || imageDataLength > bufferSize)
     {
         DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
         return 0;
     }
-    if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
-    {
-        DMG_SetError(DMG_ERROR_READING_FILE);
-        return 0;
-    }
 
     if (mode == ImageMode_Audio)
+    {
+        if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
+        {
+            DMG_SetError(DMG_ERROR_READING_FILE);
+            return 0;
+        }
         return fileData;
+    }
 
     if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
     {
@@ -58,13 +62,13 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
         }
         uint8_t* compressedData = 0;
         bool freeCompressedData = false;
-        if (bufferSize >= decompressedSize + entry->length)
+        if (bufferSize >= decompressedSize + imageDataLength)
         {
-            compressedData = buffer + bufferSize - entry->length;
+            compressedData = buffer + bufferSize - imageDataLength;
         }
         else
         {
-            compressedData = Allocate<uint8_t>("ZX0 input", entry->length, false);
+            compressedData = Allocate<uint8_t>("ZX0 input", imageDataLength, false);
             if (compressedData == 0)
             {
                 DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
@@ -72,14 +76,14 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
             }
             freeCompressedData = true;
         }
-        if (DMG_ReadFromFile(dmg, entry->fileOffset, compressedData, entry->length) != entry->length)
+        if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, compressedData, imageDataLength) != imageDataLength)
         {
             if (freeCompressedData)
                 Free(compressedData);
             DMG_SetError(DMG_ERROR_READING_FILE);
             return 0;
         }
-        if (!DMG_DecompressZX0(compressedData, entry->length, buffer, decompressedSize))
+        if (!DMG_DecompressZX0(compressedData, imageDataLength, buffer, decompressedSize))
         {
             if (freeCompressedData)
                 Free(compressedData);
@@ -101,7 +105,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
     }
     else
     {
-        if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
+        if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, fileData, imageDataLength) != imageDataLength)
         {
             DMG_SetError(DMG_ERROR_READING_FILE);
             return 0;
@@ -173,14 +177,14 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
     {
         if (dmg->colorMode == DMG_DAT5_COLORMODE_CGA && mode == ImageMode_PackedCGA)
         {
-            MemCopy(buffer, fileData, entry->length);
+            MemCopy(buffer, fileData, imageDataLength);
             if (tempFileData)
                 Free(tempFileData);
             return buffer;
         }
         if (dmg->colorMode == DMG_DAT5_COLORMODE_EGA && mode == ImageMode_PackedEGA)
         {
-            MemCopy(buffer, fileData, entry->length);
+            MemCopy(buffer, fileData, imageDataLength);
             if (tempFileData)
                 Free(tempFileData);
             return buffer;
@@ -195,13 +199,22 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
     {
         uint32_t* dst = (uint32_t*)buffer;
         uint32_t* colors = entry->RGB32PaletteV5;
+        uint8_t firstColor = entry->firstColor;
         if (mode == ImageMode_RGBA32CGA)
             colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
         else if (mode == ImageMode_RGBA32EGA)
             colors = EGAPalette;
+        else if (colors == 0)
+            colors = DMG_GetEntryPalette(dmg, index, mode);
 
         for (int32_t i = (int32_t)indexedSize - 1; i >= 0; i--)
-            dst[i] = colors[buffer[i]];
+        {
+            uint8_t color = buffer[i];
+            if (mode == ImageMode_RGBA32 && (color < firstColor || color > entry->lastColor))
+                dst[i] = 0xFF000000;
+            else
+                dst[i] = colors[mode == ImageMode_RGBA32 ? (color - firstColor) : color];
+        }
         if (tempFileData)
             Free(tempFileData);
         return buffer;

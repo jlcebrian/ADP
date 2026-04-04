@@ -56,8 +56,11 @@ int MemComp(void* dst, const void* src, size_t size)
 size_t StrLen(const char *str)
 {
 	size_t len = 0;
-	while (*str++)
+	while (*str)
+	{
+		str++;
 		len++;
+	}
 	return len;
 }
 
@@ -76,6 +79,14 @@ size_t StrCopy(char *dst, uint32_t dstSize, const char *src)
 	*dst = 0;
 	len++;
 	return len;
+}
+
+size_t StrCat(char *dst, uint32_t dstSize, const char *src)
+{
+	size_t dstLen = StrLen(dst);
+	if (dstLen >= dstSize)
+		return dstLen;
+	return dstLen + StrCopy(dst + dstLen, dstSize - dstLen, src);
 }
 
 const char* StrRChr(const char* ptr, char c)

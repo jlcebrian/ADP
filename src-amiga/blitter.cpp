@@ -12,8 +12,6 @@
 #include <hardware/intbits.h>
 #include <graphics/copper.h>
 
-#define DISPLAY_PLANES 4
-
 #define BLTCON0_ASH0_SHF 0xC
 #define BLTCON0_USEA     0x0800
 #define BLTCON0_USEB     0x0400
@@ -226,7 +224,7 @@ void BlitterChar(void* dst, uint16_t x, uint16_t y, uint8_t charIndex, uint8_t i
 
 	ink <<= 1;
 
-	for (uint16_t plane_idx = 0; plane_idx < BITPLANES; ++plane_idx)
+	for (uint16_t plane_idx = 0; plane_idx < TEXT_PLANES; ++plane_idx)
 	{
 		custom->bltcon0 = con | minterms[(ink & 2) | (paper & 1)];
 		custom->bltbpt = (void*)srcStart;
@@ -234,7 +232,7 @@ void BlitterChar(void* dst, uint16_t x, uint16_t y, uint8_t charIndex, uint8_t i
 		custom->bltdpt = (void*)dstStart;
 		custom->bltsize = (8 << BLTSIZE_H0_SHF) | widthWords;
 
-		if (plane_idx == BITPLANES-1)
+		if (plane_idx == TEXT_PLANES-1)
 			break;
 
 		WaitForBlitter();

@@ -389,7 +389,9 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		{
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 			DDB_Check(ddbFileName, &machine, &language, &version);
-            DDB_CheckVideoMode(ddbFileName, &screenMode);
+			uint8_t displayPlanes = 4;
+			DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
+			VID_SetDisplayPlanesHint(displayPlanes);
 			#if HAS_PCX
 			introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
 			if (introScreen != 0)
@@ -397,8 +399,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			#endif
 			DebugPrintf("Checked %s\n", ddbFileName);
 			VID_Initialize(machine, version, screenMode);
-            if (DDB_SupportsDataFile(version, machine))
-                VID_LoadDataFile(ddbFileName);
+            if (DDB_SupportsDataFile(version, machine) && !VID_LoadDataFile(ddbFileName))
+				DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
 		}
 		
 		if (scrCount > 0)
@@ -458,8 +460,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return state = Player_Error;
 	}
-	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(ddbFileName);
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;
@@ -495,7 +497,10 @@ static void FadeOut()
 		}
 		VID_VSync();
 	}
+	VID_ClearBuffer(true);
+	VID_ClearBuffer(false);
 	VID_SetDefaultPalette();
+	VID_ActivatePalette();
 }
 
 // Checks for intro screen files and, if found, updates machine and screenMode accordingly
@@ -557,13 +562,16 @@ bool DDB_RunPlayer()
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 	DDB_Check(ddbFileName, &machine, &language, &version);
-	VID_Initialize(machine, version, screenMode);
+	uint8_t displayPlanes = 4;
+	DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
+	VID_SetDisplayPlanesHint(displayPlanes);
 
 	#if HAS_PCX
 	CheckIntroScreenFiles(ddbFileName, &introScreen, &machine, version, &screenMode);
 	#else
 	CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
 	#endif
+	VID_Initialize(machine, version, screenMode);
     if (introScreen != 0)
     {
         if (!VID_DisplaySCRFile(introScreen, machine))
@@ -599,6 +607,8 @@ bool DDB_RunPlayer()
 	VID_SaveScreen();
 
 	VID_ShowProgressBar(0);
+	uint32_t tLoadStart = 0;
+	VID_GetMilliseconds(&tLoadStart);
 	DDB* ddb = DDB_Load(ddbFileName);
 	if (!ddb)
 	{
@@ -606,16 +616,25 @@ bool DDB_RunPlayer()
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return false;
 	}
+	uint32_t tAfterDDBLoad = 0;
+	VID_GetMilliseconds(&tAfterDDBLoad);
+	DebugPrintf("DDB_Load completed in %lu ms\n", (unsigned long)(tAfterDDBLoad - tLoadStart));
 	VID_ShowProgressBar(64);
 
-	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(ddbFileName);
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+	uint32_t tAfterDATLoad = 0;
+	VID_GetMilliseconds(&tAfterDATLoad);
+	DebugPrintf("VID_LoadDataFile completed in %lu ms\n", (unsigned long)(tAfterDATLoad - tAfterDDBLoad));
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;
 	#endif
 
 	DDB_CreateInterpreter(ddb, screenMode);
+	uint32_t tAfterInterpreter = 0;
+	VID_GetMilliseconds(&tAfterInterpreter);
+	DebugPrintf("DDB_CreateInterpreter completed in %lu ms\n", (unsigned long)(tAfterInterpreter - tAfterDATLoad));
 	if (interpreter == 0)
 	{
 		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());

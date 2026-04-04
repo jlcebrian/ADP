@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_vid.h>
+#include <dmg.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -719,6 +720,96 @@ bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
 
     File_Close(file);
     return true;
+}
+
+bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t* planes)
+{
+    if (planes)
+        *planes = 4;
+
+    DebugPrintf("DDB_CheckDataFileConfig(%s)\n", fileName);
+    File* dat = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
+    if (dat != 0)
+    {
+        uint8_t header[16];
+        if (File_Read(dat, header, sizeof(header)) != sizeof(header))
+        {
+            File_Close(dat);
+            DebugPrintf("Unable to read DAT header for %s\n", fileName);
+            return false;
+        }
+        File_Close(dat);
+
+        if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 &&
+            header[4] == 0 && header[5] == 5)
+        {
+            uint16_t width = read16BE(header + 0x06);
+            uint16_t height = read16BE(header + 0x08);
+            uint8_t colorMode = header[0x0E];
+
+            DebugPrintf("Found DAT5 header: colorMode=%d target=%ux%u\n",
+                (int)colorMode, (unsigned)width, (unsigned)height);
+
+            if (width == 320 && height == 200)
+            {
+                if (mode) *mode = (colorMode == DMG_DAT5_COLORMODE_I256) ? ScreenMode_VGA : ScreenMode_VGA16;
+            }
+            else if (width == 640 && height == 200)
+            {
+                if (mode) *mode = ScreenMode_HiRes;
+            }
+            else if (width == 640 && height == 400)
+            {
+                if (mode) *mode = ScreenMode_SHiRes;
+            }
+
+            if (planes)
+            {
+                switch (colorMode)
+                {
+                    case DMG_DAT5_COLORMODE_I32: *planes = 5; break;
+                    case DMG_DAT5_COLORMODE_I256: *planes = 8; break;
+                    default: *planes = 4; break;
+                }
+            }
+        }
+        else
+        {
+            DebugPrintf("Found legacy DAT header\n");
+            if (mode)
+                *mode = ScreenMode_VGA16;
+            if (planes)
+                *planes = 4;
+        }
+
+        if (mode || planes)
+            DebugPrintf("Data file config => screenMode=%d planes=%u\n",
+                mode ? (int)*mode : -1, planes ? (unsigned)*planes : 0);
+        return true;
+    }
+
+    File* ega = File_Open(ChangeExtension(fileName, ".ega"), ReadOnly);
+    if (ega != 0)
+    {
+        DebugPrintf("Found EGA data file for %s\n", fileName);
+        if (mode) *mode = ScreenMode_EGA;
+        if (planes) *planes = 4;
+        File_Close(ega);
+        return true;
+    }
+
+    File* cga = File_Open(ChangeExtension(fileName, ".cga"), ReadOnly);
+    if (cga != 0)
+    {
+        DebugPrintf("Found CGA data file for %s\n", fileName);
+        if (mode) *mode = ScreenMode_CGA;
+        if (planes) *planes = 4;
+        File_Close(cga);
+        return true;
+    }
+
+    DebugPrintf("No data file config found for %s\n", fileName);
+    return false;
 }
 
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)

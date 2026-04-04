@@ -450,6 +450,11 @@ void VID_SetPaletteColor (uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 	outp(0x3C9, b >> 2);
 }
 
+void VID_ActivatePalette()
+{
+	// The DOS VGA backend programs the DAC immediately in VID_SetPaletteColor().
+}
+
 void VID_WaitForKey()
 {
 	while (!VID_AnyKey())
@@ -1378,6 +1383,11 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 
 	initialized = true;
 	return true;
+}
+
+void VID_SetDisplayPlanesHint(uint8_t planes)
+{
+	(void)planes;
 }
 
 void VID_SetTextInputMode (bool enabled)

@@ -21,24 +21,52 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 	
 	dmg->fileCacheOffset = 0;
 	dmg->fileCacheBlockSize = 0;
+    uint32_t fileCacheEnd = 0;
+    bool haveBufferedRange = false;
 
 	for (int n = 0; n < 256; n++)
 	{
 		if (dmg->entries[n] == 0 || 
 			dmg->entries[n]->type == DMGEntry_Empty)
 			continue;
-		if (dmg->fileCacheOffset == 0 ||
-			dmg->fileCacheOffset > dmg->entries[n]->fileOffset)
-			dmg->fileCacheOffset = dmg->entries[n]->fileOffset;
+        DMG_Entry* entry = dmg->entries[n];
+        if ((entry->flags & DMG_FLAG_BUFFERED) == 0)
+            continue;
+
+        uint32_t entryStart = entry->fileOffset;
+        uint32_t entryEnd = entry->fileOffset + entry->length;
+        if (dmg->version != DMG_Version5)
+            entryEnd += 6;
+
+		if (!haveBufferedRange || dmg->fileCacheOffset > entryStart)
+			dmg->fileCacheOffset = entryStart;
+        if (!haveBufferedRange || fileCacheEnd < entryEnd)
+            fileCacheEnd = entryEnd;
+        haveBufferedRange = true;
+
 	}
 
+    if (!haveBufferedRange || fileCacheEnd <= dmg->fileCacheOffset)
+    {
+        DebugPrintf("No buffered entries require file cache\n");
+        if (progressFunction)
+            progressFunction(255);
+        return;
+    }
+
 	uint32_t fileSize = File_GetSize(dmg->file);
-	uint32_t remaining = fileSize - dmg->fileCacheOffset;
+    if (fileCacheEnd > fileSize)
+        fileCacheEnd = fileSize;
+	uint32_t remaining = fileCacheEnd - dmg->fileCacheOffset;
+	uint32_t cacheableSize = remaining;
 	if (blockSize > remaining || blockSize == 0)
 		blockSize = remaining;
 
+	DebugPrintf("File cache source range: offset=%lu size=%lu bytes\n",
+		(unsigned long)dmg->fileCacheOffset, (unsigned long)remaining);
+
 	if (progressFunction)
-		progressFunction(0);
+		progressFunction(64);
 
 	File_Seek(dmg->file, dmg->fileCacheOffset);
 
@@ -63,6 +91,9 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 		}
 
 		uint32_t amount = blockSize > remaining ? remaining : blockSize;
+		uint32_t blockOffset = dmg->fileCacheOffset + (cacheableSize - remaining);
+		DebugPrintf("File cache block %d: reading %lu bytes from file offset %lu\n",
+			n, (unsigned long)amount, (unsigned long)blockOffset);
 
 		dmg->fileCacheBlocks[n] = ptr;
 
@@ -88,7 +119,8 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 			
 			if (progressFunction)
 			{
-				uint32_t progress = 64 + (freeMemory - remaining) * 192 / fileSize;
+				uint32_t cached = cacheableSize - remaining;
+				uint32_t progress = 64 + (cacheableSize == 0 ? 192 : cached * 192 / cacheableSize);
 				if (progress > 255)
 					progress = 255;
 				progressFunction(progress);
@@ -147,7 +179,7 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 
 	while (true)
 	{
-		dmg->cache = (DMG_Cache*)Allocate<uint8_t>("DMG Cache", bytes, false);
+		dmg->cache = (DMG_Cache*)Allocate<uint8_t>("DMG Image Cache", bytes, false);
 		if (dmg->cache != 0)
 			break;
 		if (bytes < 65536)
@@ -186,9 +218,21 @@ bool DMG_RemoveOlderCacheItem (DMG* dmg, bool force)
 		item = item->next;
 	}
 	if (older == 0)
+	{
+		DebugPrintf("Image cache evict: no removable item (force=%d free=%lu)\n",
+			force ? 1 : 0, (unsigned long)dmg->cacheFree);
 		return false;
+	}
 
 	uint32_t space = older->size + sizeof(DMG_Cache);
+	uint8_t removedIndex = older->index;
+	DebugPrintf("Image cache evict: index=%u size=%lu buffered=%d free=%lu gain=%lu force=%d\n",
+		(unsigned)removedIndex,
+		(unsigned long)older->size,
+		older->buffer ? 1 : 0,
+		(unsigned long)dmg->cacheFree,
+		(unsigned long)space,
+		force ? 1 : 0);
 	uint32_t offsetNext = (uint8_t*)older->next - (uint8_t*)dmg->cache;
 	uint32_t spaceAfter = dmg->cacheSize - dmg->cacheFree - offsetNext;
 	if (spaceAfter > 0)
@@ -197,7 +241,7 @@ bool DMG_RemoveOlderCacheItem (DMG* dmg, bool force)
 	dmg->cacheTail = (DMG_Cache*)((uint8_t*)dmg->cacheTail - space);
 	dmg->cacheFree += space;
 
-	dmg->cacheBitmap[older->index >> 3] &= ~(1 << (older->index & 7));
+	dmg->cacheBitmap[removedIndex >> 3] &= ~(1 << (removedIndex & 7));
 
 	item = older;
 	while (item != dmg->cacheTail)
@@ -226,6 +270,11 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 					return 0;
 				}
 				item->time = useCounter++;
+				DebugPrintf("Image cache lookup: index=%u hit size=%lu required=%lu free=%lu\n",
+					(unsigned)index,
+					(unsigned long)item->size,
+					(unsigned long)size,
+					(unsigned long)dmg->cacheFree);
 				return item;
 			}
 			item = item->next;
@@ -239,26 +288,41 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	// inside the same buffer as read
 
 	uint32_t required = ((size + 31) & ~31) + sizeof(DMG_Cache);
+	DebugPrintf("Image cache lookup: index=%u miss required=%lu payload=%lu free=%lu total=%lu\n",
+		(unsigned)index,
+		(unsigned long)required,
+		(unsigned long)size,
+		(unsigned long)dmg->cacheFree,
+		(unsigned long)dmg->cacheSize);
 	if (required > dmg->cacheSize)
+	{
+		DebugPrintf("Image cache miss: required block too large for cache\n");
 		return 0;
+	}
 	if (dmg->cacheFree < required)
 	{
 		bool force = dmg->cacheSize < 96*1024;
+		DebugPrintf("Image cache compact: need=%lu free=%lu force=%d\n",
+			(unsigned long)required, (unsigned long)dmg->cacheFree, force ? 1 : 0);
 		while (DMG_RemoveOlderCacheItem(dmg, force)) 
 		{
-			if (dmg->cacheFree > required)
+			if (dmg->cacheFree >= required)
 				break;
 		}
 		if (dmg->cacheFree < required && !force && (entry->flags & DMG_FLAG_BUFFERED))
 		{
 			while (DMG_RemoveOlderCacheItem(dmg, true))
 			{
-				if (dmg->cacheFree > required)
+				if (dmg->cacheFree >= required)
 					break;
 			}
 		}
 		if (dmg->cacheFree < required)
+		{
+			DebugPrintf("Image cache miss: insufficient space after compaction (need=%lu free=%lu)\n",
+				(unsigned long)required, (unsigned long)dmg->cacheFree);
 			return 0;
+		}
 	}
 
 	DMG_Cache* item = dmg->cacheTail;
@@ -271,5 +335,10 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	item->populated = false;
 
 	dmg->cacheFree -= required;
+	DebugPrintf("Image cache insert: index=%u required=%lu remaining=%lu buffered=%d\n",
+		(unsigned)index,
+		(unsigned long)required,
+		(unsigned long)dmg->cacheFree,
+		item->buffer ? 1 : 0);
 	return item;
 }

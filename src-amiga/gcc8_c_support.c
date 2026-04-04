@@ -108,7 +108,6 @@ void* memmove(void *dest, const void *src, unsigned long len) {
 void KPutCharX();
 void PutChar();
 
-#ifdef _DEBUGPRINT
 __attribute__((noinline)) __attribute__((optimize("O1")))
 void KPrintF(const char* fmt, ...) {
 	va_list vl;
@@ -123,7 +122,6 @@ void KPrintF(const char* fmt, ...) {
 		Write(Output(), (APTR)temp, ln);
 	}
 }
-#endif
 
 int main();
 

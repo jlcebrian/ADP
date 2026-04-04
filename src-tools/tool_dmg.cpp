@@ -12,7 +12,6 @@
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
 static bool debug = false;
-static bool reindexByBrightness = false;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
 
@@ -83,6 +82,18 @@ static bool createDAT5 = false;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
+
+typedef enum
+{
+    REMAP_NONE,
+    REMAP_MIN,
+    REMAP_RESERVE,
+    REMAP_STD,
+    REMAP_DARK,
+}
+RemapMode;
+
+static RemapMode remapMode = REMAP_NONE;
 
 typedef enum
 {
@@ -166,6 +177,7 @@ static void PrintHelp()
 	printf("   Selectors set the current target entries.\n");
 	printf("   Following property tokens apply to the current target entries\n");
 	printf("   until another selector appears.\n");
+	printf("   remap:* tokens affect DAT5 image writes/rebuilds for this command.\n");
 	printf("   Image/audio files affect one entry only.\n");
 	printf("   Use #:<file> to target a specific entry.\n\n");
 	printf("   file.png   Add/replace image contents & palette\n");
@@ -181,14 +193,18 @@ static void PrintHelp()
 	printf("   freq:#     Set frequency (5, 7, 9.5, 15, 20 or 30)\n");
 	printf("   buffer:#   Set buffer flag (0 or 1)\n");
     printf("   fixed:#    Set fixed flag (0 or 1)\n");
-    printf("   -r         Reindex DAT5 palettes darkest-to-brightest before write\n");
+    printf("   remap:min  Remap DAT5 palettes by fixing only slots 0 and 15\n");
+    printf("   remap:reserve Reserve low color slots by shifting the image palette up\n");
+    printf("                up to 16 slots, or as many as the mode still allows\n");
+    printf("   remap:std  Remap DAT5 palettes using the standard bright-slot order\n");
+    printf("   remap:dark Remap DAT5 palettes strictly from dark to bright\n");
     printf("   mode:<id>  When creating a DAT5: cga, ega, i16, i32, i256\n");
     printf("   screen:WxH When creating a DAT5: 320x200, 640x200 or 640x400\n");
     printf("\n");
     printf("Examples:\n\n");
     printf("   dmg u file.dat 0-50 fixed:1\n");
     printf("   dmg e file.dat 12 x:24 y:80\n");
-    printf("   dmg a file.dat -r 0:PARTE1/DAAD.png\n");
+    printf("   dmg a file.dat remap:std 0:image.png\n");
     printf("   dmg u file.dat out.dat 0-50 fixed:1\n");
 }
 
@@ -250,6 +266,177 @@ static bool ParseDAT5Size(const char* value, uint16_t* width, uint16_t* height)
     return true;
 }
 
+static void ClearSelection(bool* entries);
+static int CountSelectedEntries(const bool* entries);
+static int FirstSelectedEntry(const bool* entries);
+static void SelectSingleEntry(bool* entries, int index);
+static bool ParseSelectionToken(const char* token, bool* entries);
+static bool IsPropertyToken(const char* token);
+static bool IsImageToken(const char* token);
+static bool IsTargetedFileToken(const char* token);
+
+static bool InferTargetIndexForToken(const char* token, const bool* currentSelection, bool explicitSelection, int currentIndex, bool currentFileSaved, const bool* usedEntries, int* targetIndex)
+{
+    const char* colon = strchr(token, ':');
+    const char* slash = strrchr(token, '/');
+    const char* backslash = strrchr(token, '\\');
+    const char* filepart = slash ? slash + 1 : backslash ? backslash + 1 : token;
+
+    if (colon != 0 && colon != token && isdigit(*token))
+    {
+        int value = atoi(token);
+        if (value < 0 || value > 255)
+            return false;
+        *targetIndex = value;
+        return true;
+    }
+
+    int selectionCount = CountSelectedEntries(currentSelection);
+    if (explicitSelection && selectionCount > 1)
+        return false;
+    if (explicitSelection && selectionCount == 1)
+    {
+        *targetIndex = FirstSelectedEntry(currentSelection);
+        return true;
+    }
+    if (isdigit(*filepart) && atoi(filepart) < 256)
+    {
+        *targetIndex = atoi(filepart);
+        return true;
+    }
+    if (!currentFileSaved)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (!usedEntries[i])
+            {
+                *targetIndex = i;
+                return true;
+            }
+        }
+        return false;
+    }
+    if (currentIndex >= 0 && currentIndex < 255)
+    {
+        *targetIndex = currentIndex + 1;
+        return true;
+    }
+    return false;
+}
+
+static bool InferDAT5CreateRange(int tokenCount, const char* tokens[], uint8_t* first, uint8_t* last)
+{
+    bool currentSelection[256];
+    bool usedEntries[256];
+    int currentIndex = -1;
+    bool explicitSelection = false;
+    bool currentFileSaved = false;
+    bool found = false;
+    uint8_t usedFirst = 255;
+    uint8_t usedLast = 0;
+
+    ClearSelection(currentSelection);
+    ClearSelection(usedEntries);
+
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* token = tokens[i];
+        bool selection[256];
+
+        if (ParseSelectionToken(token, selection))
+        {
+            memcpy(currentSelection, selection, 256 * sizeof(bool));
+            explicitSelection = true;
+            currentIndex = FirstSelectedEntry(currentSelection);
+            currentFileSaved = false;
+            continue;
+        }
+
+        if (IsPropertyToken(token))
+        {
+            for (int n = 0; n < 256; n++)
+            {
+                if (!currentSelection[n])
+                    continue;
+                usedEntries[n] = true;
+                if (!found)
+                {
+                    usedFirst = usedLast = (uint8_t)n;
+                    found = true;
+                }
+                else
+                {
+                    if (n < usedFirst) usedFirst = (uint8_t)n;
+                    if (n > usedLast) usedLast = (uint8_t)n;
+                }
+            }
+            continue;
+        }
+
+        if (IsTargetedFileToken(token) || IsImageToken(token))
+        {
+            int targetIndex = -1;
+            if (!InferTargetIndexForToken(token, currentSelection, explicitSelection, currentIndex, currentFileSaved, usedEntries, &targetIndex))
+                continue;
+            usedEntries[targetIndex] = true;
+            if (!found)
+            {
+                usedFirst = usedLast = (uint8_t)targetIndex;
+                found = true;
+            }
+            else
+            {
+                if (targetIndex < usedFirst) usedFirst = (uint8_t)targetIndex;
+                if (targetIndex > usedLast) usedLast = (uint8_t)targetIndex;
+            }
+            SelectSingleEntry(currentSelection, targetIndex);
+            explicitSelection = false;
+            currentIndex = targetIndex;
+            currentFileSaved = true;
+        }
+    }
+
+    if (!found)
+        return false;
+    *first = usedFirst;
+    *last = usedLast;
+    return true;
+}
+
+static bool GetUsedDAT5Range(DMG* dmg, uint8_t* first, uint8_t* last)
+{
+    bool found = false;
+    uint8_t usedFirst = 255;
+    uint8_t usedLast = 0;
+
+    if (dmg == 0 || dmg->version != DMG_Version5)
+        return false;
+
+    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    {
+        DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
+        if (entry == 0 || entry->type == DMGEntry_Empty)
+            continue;
+        if (!found)
+        {
+            usedFirst = (uint8_t)n;
+            usedLast = (uint8_t)n;
+            found = true;
+        }
+        else
+        {
+            if (n < usedFirst) usedFirst = (uint8_t)n;
+            if (n > usedLast) usedLast = (uint8_t)n;
+        }
+    }
+
+    if (!found)
+        return false;
+    if (first) *first = usedFirst;
+    if (last) *last = usedLast;
+    return true;
+}
+
 static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint16_t width, uint16_t height, uint8_t* output, uint32_t* outputSize)
 {
     switch (mode)
@@ -261,16 +448,35 @@ static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint
             *outputSize = ((uint32_t)width * height + 1) / 2;
             return DMG_PackChunkyPixels(indexed, width, height, 4, output);
         case DMG_DAT5_COLORMODE_I16:
-            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 4;
+            *outputSize = ((uint32_t)(width + 15) >> 4) * height * 4 * 2;
             return DMG_PackBitplaneBytes(indexed, width, height, 4, output);
         case DMG_DAT5_COLORMODE_I32:
-            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 5;
+            *outputSize = ((uint32_t)(width + 15) >> 4) * height * 5 * 2;
             return DMG_PackBitplaneBytes(indexed, width, height, 5, output);
         case DMG_DAT5_COLORMODE_I256:
-            *outputSize = ((uint32_t)(width + 7) >> 3) * height * 8;
+            *outputSize = ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
             return DMG_PackBitplaneBytes(indexed, width, height, 8, output);
         default:
             return false;
+    }
+}
+
+static uint32_t GetDAT5EncodedSize(DMG_DAT5ColorMode mode, uint16_t width, uint16_t height)
+{
+    switch (mode)
+    {
+        case DMG_DAT5_COLORMODE_CGA:
+            return ((uint32_t)width * height + 3) / 4;
+        case DMG_DAT5_COLORMODE_EGA:
+            return ((uint32_t)width * height + 1) / 2;
+        case DMG_DAT5_COLORMODE_I16:
+            return ((uint32_t)(width + 15) >> 4) * height * 4 * 2;
+        case DMG_DAT5_COLORMODE_I32:
+            return ((uint32_t)(width + 15) >> 4) * height * 5 * 2;
+        case DMG_DAT5_COLORMODE_I256:
+            return ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
+        default:
+            return 0;
     }
 }
 
@@ -282,15 +488,43 @@ static uint32_t PaletteBrightness(uint32_t color)
     return 299 * r + 587 * g + 114 * b;
 }
 
-static void ReindexPaletteByBrightness(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
+static uint8_t GetMaxPixelIndex(const uint8_t* pixels, uint32_t pixelCount)
+{
+    uint8_t maxIndex = 0;
+    for (uint32_t i = 0; i < pixelCount; i++)
+    {
+        if (pixels[i] > maxIndex)
+            maxIndex = pixels[i];
+    }
+    return maxIndex;
+}
+
+static void RemapPaletteWithOrder(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize, const uint16_t* order)
+{
+    uint8_t remap[256];
+    uint32_t reordered[256];
+
+    for (int i = 0; i < paletteSize; i++)
+    {
+        reordered[i] = palette[order[i]];
+        remap[order[i]] = (uint8_t)i;
+    }
+
+    for (int i = 0; i < paletteSize; i++)
+        palette[i] = reordered[i];
+
+    for (uint32_t i = 0; i < pixelCount; i++)
+        pixels[i] = remap[pixels[i]];
+}
+
+static void ReindexPaletteStd(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
 {
     if (paletteSize <= 1)
         return;
 
     uint16_t order[256];
-    uint8_t remap[256];
-    uint32_t reordered[256];
     bool usedSlot[256];
+    uint16_t finalOrder[256];
     int brightestSlot = paletteSize >= 16 ? 15 : (paletteSize - 1);
 
     for (int i = 0; i < paletteSize; i++)
@@ -321,12 +555,10 @@ static void ReindexPaletteByBrightness(uint8_t* pixels, uint32_t pixelCount, uin
     for (int i = 0; i < paletteSize; i++)
         usedSlot[i] = false;
 
-    reordered[0] = palette[order[0]];
-    remap[order[0]] = 0;
+    finalOrder[0] = order[0];
     usedSlot[0] = true;
 
-    reordered[brightestSlot] = palette[order[paletteSize - 1]];
-    remap[order[paletteSize - 1]] = (uint8_t)brightestSlot;
+    finalOrder[brightestSlot] = order[paletteSize - 1];
     usedSlot[brightestSlot] = true;
 
     int source = paletteSize - 2;
@@ -334,8 +566,7 @@ static void ReindexPaletteByBrightness(uint8_t* pixels, uint32_t pixelCount, uin
     {
         if (usedSlot[slot])
             continue;
-        reordered[slot] = palette[order[source]];
-        remap[order[source]] = (uint8_t)slot;
+        finalOrder[slot] = order[source];
         usedSlot[slot] = true;
         source--;
     }
@@ -346,18 +577,162 @@ static void ReindexPaletteByBrightness(uint8_t* pixels, uint32_t pixelCount, uin
         {
             if (usedSlot[slot])
                 continue;
-            reordered[slot] = palette[order[source]];
-            remap[order[source]] = (uint8_t)slot;
+            finalOrder[slot] = order[source];
             usedSlot[slot] = true;
             source--;
         }
     }
 
+    RemapPaletteWithOrder(pixels, pixelCount, palette, paletteSize, finalOrder);
+}
+
+static void ReindexPaletteDark(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
+{
+    if (paletteSize <= 1)
+        return;
+
+    uint16_t order[256];
     for (int i = 0; i < paletteSize; i++)
-        palette[i] = reordered[i];
+        order[i] = (uint16_t)i;
+
+    for (int i = 0; i < paletteSize - 1; i++)
+    {
+        int best = i;
+        uint32_t bestBrightness = PaletteBrightness(palette[order[i]]);
+        for (int j = i + 1; j < paletteSize; j++)
+        {
+            uint32_t brightness = PaletteBrightness(palette[order[j]]);
+            if (brightness < bestBrightness ||
+                (brightness == bestBrightness && order[j] < order[best]))
+            {
+                best = j;
+                bestBrightness = brightness;
+            }
+        }
+        if (best != i)
+        {
+            uint16_t tmp = order[i];
+            order[i] = order[best];
+            order[best] = tmp;
+        }
+    }
+
+    RemapPaletteWithOrder(pixels, pixelCount, palette, paletteSize, order);
+}
+
+static void ReindexPaletteMinimal(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
+{
+    if (paletteSize <= 1)
+        return;
+
+    int darkest = 0;
+    int brightest = 0;
+    uint32_t darkestBrightness = PaletteBrightness(palette[0]);
+    uint32_t brightestBrightness = darkestBrightness;
+
+    for (int i = 1; i < paletteSize; i++)
+    {
+        uint32_t brightness = PaletteBrightness(palette[i]);
+        if (brightness < darkestBrightness ||
+            (brightness == darkestBrightness && i < darkest))
+        {
+            darkest = i;
+            darkestBrightness = brightness;
+        }
+        if (brightness > brightestBrightness ||
+            (brightness == brightestBrightness && i < brightest))
+        {
+            brightest = i;
+            brightestBrightness = brightness;
+        }
+    }
+
+    int brightestSlot = paletteSize >= 16 ? 15 : (paletteSize - 1);
+    uint16_t order[256];
+    uint8_t indexAtSlot[256];
+    for (int i = 0; i < paletteSize; i++)
+    {
+        order[i] = (uint16_t)i;
+        indexAtSlot[i] = (uint8_t)i;
+    }
+
+    if (darkest != 0)
+    {
+        uint8_t displaced = indexAtSlot[0];
+        order[0] = (uint16_t)darkest;
+        order[darkest] = displaced;
+        indexAtSlot[0] = (uint8_t)darkest;
+        indexAtSlot[darkest] = displaced;
+    }
+
+    if (brightestSlot >= 0 && brightestSlot < paletteSize)
+    {
+        int currentBrightestSlot = brightest;
+        for (int slot = 0; slot < paletteSize; slot++)
+        {
+            if (order[slot] == (uint16_t)brightest)
+            {
+                currentBrightestSlot = slot;
+                break;
+            }
+        }
+        if (currentBrightestSlot != brightestSlot)
+        {
+            uint16_t tmp = order[brightestSlot];
+            order[brightestSlot] = (uint16_t)brightest;
+            order[currentBrightestSlot] = tmp;
+        }
+    }
+
+    RemapPaletteWithOrder(pixels, pixelCount, palette, paletteSize, order);
+}
+
+static void ReindexPaletteReserve(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int* paletteSize, int paletteLimit, int* firstColor, int* lastColor)
+{
+    if (paletteSize == 0 || *paletteSize <= 0 || *paletteSize >= paletteLimit)
+    {
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = *paletteSize > 0 ? *paletteSize - 1 : 0;
+        return;
+    }
+
+    int reserve = paletteLimit - *paletteSize;
+    if (reserve > 16)
+        reserve = 16;
+    if (reserve <= 0)
+    {
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = *paletteSize > 0 ? *paletteSize - 1 : 0;
+        return;
+    }
 
     for (uint32_t i = 0; i < pixelCount; i++)
-        pixels[i] = remap[pixels[i]];
+        pixels[i] = (uint8_t)(pixels[i] + reserve);
+    if (firstColor) *firstColor = reserve;
+    if (lastColor) *lastColor = reserve + *paletteSize - 1;
+}
+
+static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int* paletteSize, int paletteLimit, int* firstColor, int* lastColor)
+{
+    if (firstColor) *firstColor = 0;
+    if (lastColor) *lastColor = *paletteSize > 0 ? *paletteSize - 1 : 0;
+    switch (remapMode)
+    {
+        case REMAP_MIN:
+            ReindexPaletteMinimal(pixels, pixelCount, palette, *paletteSize);
+            break;
+        case REMAP_RESERVE:
+            ReindexPaletteReserve(pixels, pixelCount, palette, paletteSize, paletteLimit, firstColor, lastColor);
+            break;
+        case REMAP_STD:
+            ReindexPaletteStd(pixels, pixelCount, palette, *paletteSize);
+            break;
+        case REMAP_DARK:
+            ReindexPaletteDark(pixels, pixelCount, palette, *paletteSize);
+            break;
+        default:
+            break;
+    }
 }
 
 static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t** output, uint32_t* outputSize, bool* compressed)
@@ -385,7 +760,7 @@ static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t*
         return true;
     }
 
-    free(zx0Data);
+    OSFree(zx0Data);
     return true;
 }
 
@@ -993,6 +1368,30 @@ static bool IsPropertyToken(const char* token)
     return false;
 }
 
+static bool ParseRemapMode(const char* token, RemapMode* mode)
+{
+    if (strnicmp(token, "remap:", 6) != 0)
+        return false;
+    const char* value = token + 6;
+    if (stricmp(value, "min") == 0)
+        *mode = REMAP_MIN;
+    else if (stricmp(value, "reserve") == 0)
+        *mode = REMAP_RESERVE;
+    else if (stricmp(value, "std") == 0)
+        *mode = REMAP_STD;
+    else if (stricmp(value, "dark") == 0)
+        *mode = REMAP_DARK;
+    else
+        return false;
+    return true;
+}
+
+static bool IsRemapToken(const char* token)
+{
+    RemapMode mode;
+    return ParseRemapMode(token, &mode);
+}
+
 static bool IsCreateToken(const char* token)
 {
     return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0;
@@ -1000,10 +1399,10 @@ static bool IsCreateToken(const char* token)
 
 static bool IsEntryChangeToken(const char* token)
 {
-    return strcmp(token, "-r") == 0 ||
-        IsSelectionToken(token) ||
+    return IsSelectionToken(token) ||
         IsTargetedFileToken(token) ||
         IsImageToken(token) ||
+        IsRemapToken(token) ||
         IsPropertyToken(token) ||
         IsCreateToken(token);
 }
@@ -1271,6 +1670,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     uint16_t width = 0, height = 0;
     uint32_t palette[256];
     int paletteSize = 0;
+    int firstColor = 0;
+    int lastColor = 0;
     if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize))
     {
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
@@ -1278,8 +1679,29 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     }
 
     uint32_t size = width * height;
-    if (reindexByBrightness && dmg->version == DMG_Version5 && paletteSize > 0)
-        ReindexPaletteByBrightness(buffer, size, palette, paletteSize);
+    if (dmg->version == DMG_Version5)
+    {
+        uint32_t encodedBytes = GetDAT5EncodedSize((DMG_DAT5ColorMode)dmg->colorMode, width, height);
+        uint32_t totalBytes = size + encodedBytes;
+        if (bufferSize < totalBytes)
+        {
+            bufferSize = totalBytes;
+            buffer = (uint8_t*)realloc(buffer, bufferSize);
+            if (buffer == NULL)
+            {
+                fprintf(stderr, "Error: Out of memory: unable to allocate %d bytes\n", bufferSize);
+                return false;
+            }
+            if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize))
+            {
+                fprintf(stderr, "Error: Unable to reload image \"%s\": %s\n", path, DMG_GetErrorString());
+                return false;
+            }
+            size = width * height;
+        }
+    }
+    if (remapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
+        ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
 
     if (dmg->version == DMG_Version5)
     {
@@ -1305,26 +1727,32 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
             return false;
         }
-        if (!DMG_SetEntryPaletteEx(dmg, targetIndex, palette, paletteSize))
+        if (!DMG_SetEntryPaletteRange(dmg, targetIndex, palette, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
         {
             fprintf(stderr, "Error: Unable to set image palette: %s\n", DMG_GetErrorString());
             if (compressed)
-                free(storedBuffer);
+                OSFree(storedBuffer);
             return false;
         }
         if (!DMG_SetImageDataEx(dmg, targetIndex, storedBuffer, width, height, storedSize, compressed, GetBitDepthForMode((DMG_DAT5ColorMode)dmg->colorMode)))
         {
             fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
             if (compressed)
-                free(storedBuffer);
+                OSFree(storedBuffer);
             return false;
         }
         printf("%03d: Added image %s (%u bytes%s)\n", targetIndex, path, storedSize, compressed ? ", ZX0" : "");
         if (compressed)
-            free(storedBuffer);
+            OSFree(storedBuffer);
     }
     else
     {
+        uint8_t maxIndex = GetMaxPixelIndex(buffer, size);
+        if (paletteSize > 16 || maxIndex > 15)
+        {
+            fprintf(stderr, "Error: Legacy DAT formats only support up to 16 colors. Use DAT5 mode:i16/mode:i32/mode:i256.\n");
+            return false;
+        }
         uint8_t* outBuffer = buffer + size;
         uint16_t compressedSize = 0;
         bool compressed = false;
@@ -1367,9 +1795,13 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         if (token == 0 || *token == 0)
             continue;
 
-        if (strcmp(token, "-r") == 0)
+        if (IsRemapToken(token))
         {
-            reindexByBrightness = true;
+            if (!ParseRemapMode(token, &remapMode))
+            {
+                fprintf(stderr, "Error: Invalid remap mode: \"%s\"\n", token);
+                return false;
+            }
             continue;
         }
 
@@ -1413,8 +1845,18 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 bool RebuildDAT(DMG* dmg, const char* outputFileName)
 {
 	int n, i;
+    uint8_t firstEntry = dmg->firstEntry;
+    uint8_t lastEntry = dmg->lastEntry;
+    if (dmg->version == DMG_Version5)
+    {
+        if (!GetUsedDAT5Range(dmg, &firstEntry, &lastEntry))
+        {
+            firstEntry = dmg->firstEntry;
+            lastEntry = dmg->firstEntry;
+        }
+    }
 	DMG* out = dmg->version == DMG_Version5 ?
-        DMG_CreateDAT5(outputFileName, (DMG_DAT5ColorMode)dmg->colorMode, dmg->targetWidth, dmg->targetHeight, dmg->firstEntry, dmg->lastEntry) :
+        DMG_CreateDAT5(outputFileName, (DMG_DAT5ColorMode)dmg->colorMode, dmg->targetWidth, dmg->targetHeight, firstEntry, lastEntry) :
         DMG_Create(outputFileName);
 	if (out == NULL)
 	{
@@ -1431,6 +1873,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read entry: %s\n", n, DMG_GetErrorString());
 			continue;
 		}
+		if (entry->type == DMGEntry_Empty)
+			continue;
 		DMG_Entry* outEntry = DMG_GetEntry(out, n);
 		if (outEntry == NULL)
 		{
@@ -1447,8 +1891,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		outEntry->y = entry->y;
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
-		if (entry->type == DMGEntry_Empty)
-			continue;
 
 		for (i = 0; i < n; i++)
 		{
@@ -1491,10 +1933,14 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			bool compressed;
 			uint16_t compressedSize;
 			uint8_t* outPtr;
+            uint32_t requiredBuffer = size + 64;
 
-			if (bufferSize < size + 64)
+            if (dmg->version == DMG_Version5)
+                requiredBuffer = size + GetDAT5EncodedSize((DMG_DAT5ColorMode)dmg->colorMode, width, height);
+
+			if (bufferSize < requiredBuffer)
 			{
-				bufferSize = size + 64;
+				bufferSize = requiredBuffer;
 				buffer = (uint8_t*)realloc(buffer, bufferSize);
 				if (buffer == NULL)
 				{
@@ -1519,12 +1965,14 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 uint32_t paletteBuffer[256];
                 uint32_t* palettePtr = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32);
                 int paletteSize = entry->paletteColors;
+                int firstColor = entry->firstColor;
+                int lastColor = entry->lastColor;
                 if (paletteSize > 0)
                 {
                     memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
-                    if (reindexByBrightness)
-                        ReindexPaletteByBrightness(inPtr, size, paletteBuffer, paletteSize);
-                    if (!DMG_SetEntryPaletteEx(out, n, paletteBuffer, paletteSize))
+                    if (remapMode != REMAP_NONE)
+                        ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
+                    if (!DMG_SetEntryPaletteRange(out, n, paletteBuffer, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
                     {
                         fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
                         DMG_Close(out);
@@ -1547,13 +1995,13 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 {
                     fprintf(stderr, "Error: Unable to set DAT5 image data: %s\n", DMG_GetErrorString());
                     if (compressed)
-                        free(storedBuffer);
+                        OSFree(storedBuffer);
                     DMG_Close(out);
                     return false;
                 }
                 printf("%03d: Added image (%5u bytes%s)\n", n, storedSize, compressed ? ", ZX0" : "");
                 if (compressed)
-                    free(storedBuffer);
+                    OSFree(storedBuffer);
                 continue;
             }
 
@@ -1584,7 +2032,15 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
 {
     for (int i = 0; i < tokenCount; i++)
     {
-        if (strnicmp(tokens[i], "mode:", 5) == 0)
+        if (IsRemapToken(tokens[i]))
+        {
+            if (!ParseRemapMode(tokens[i], &remapMode))
+            {
+                fprintf(stderr, "Error: Invalid remap mode: \"%s\"\n", tokens[i]);
+                return false;
+            }
+        }
+        else if (strnicmp(tokens[i], "mode:", 5) == 0)
         {
             createDAT5 = true;
             if (!ParseDAT5Mode(tokens[i] + 5, &createDAT5Mode))
@@ -1606,15 +2062,16 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
     return true;
 }
 
-static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const char** outputFileName, int* editTokenCount, const char** editTokens)
+static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const char** outputFileName, bool* hasExplicitOutputFile, int* editTokenCount, const char** editTokens)
 {
     *outputFileName = 0;
+    *hasExplicitOutputFile = false;
     *editTokenCount = 0;
 
     for (int i = 0; i < tokenCount; i++)
     {
         const char* token = tokens[i];
-        if (strcmp(token, "-r") == 0)
+        if (IsRemapToken(token))
         {
             editTokens[(*editTokenCount)++] = token;
             continue;
@@ -1623,6 +2080,7 @@ static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const cha
         if (*outputFileName == 0 && !IsEntryChangeToken(token))
         {
             *outputFileName = token;
+            *hasExplicitOutputFile = true;
             continue;
         }
 
@@ -1636,7 +2094,7 @@ static bool UpdateTokenRequiresRebuild(const char* token)
 {
     if (token == 0 || *token == 0)
         return false;
-    if (strcmp(token, "-r") == 0)
+    if (IsRemapToken(token))
         return true;
     if (IsCreateToken(token))
         return true;
@@ -1648,6 +2106,8 @@ static bool UpdateTokenRequiresRebuild(const char* token)
 static bool UpdateRequiresRebuild(DMG* dmg, const char* outputFileName, int editTokenCount, const char* editTokens[])
 {
     if (outputFileName != 0)
+        return true;
+    if (editTokenCount == 0)
         return true;
     if (dmg->version != DMG_Version5)
         return true;
@@ -1665,6 +2125,7 @@ int main (int argc, char *argv[])
 	DMG* dmg = NULL;
 	const char* outputFileName;
 	int n;
+    int exitCode = 0;
     char parseError[256];
     CLI_CommandLine commandLine;
     static const CLI_ActionSpec actionSpecs[] =
@@ -1739,12 +2200,15 @@ int main (int argc, char *argv[])
 	{
         if (createDAT5)
         {
+            uint8_t firstEntry = 0;
+            uint8_t lastEntry = 255;
             if (createDAT5Mode == DMG_DAT5_COLORMODE_NONE)
             {
                 fprintf(stderr, "Error: DAT5 creation requires mode:<cga|ega|i16|i32|i256>\n");
                 return 1;
             }
-            dmg = DMG_CreateDAT5(filename, createDAT5Mode, createDAT5Width, createDAT5Height);
+            InferDAT5CreateRange(remainingArgCount, remainingArgs, &firstEntry, &lastEntry);
+            dmg = DMG_CreateDAT5(filename, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
         }
         else
 		    dmg = DMG_Create(filename);
@@ -1785,16 +2249,29 @@ int main (int argc, char *argv[])
 			break;
 		case ACTION_ADD:
 		case ACTION_NEW:
-			ParseEntryChanges(dmg, remainingArgCount, remainingArgs);
+			if (!ParseEntryChanges(dmg, remainingArgCount, remainingArgs))
+            {
+                if (action == ACTION_NEW && dmg != NULL)
+                {
+                    DMG_Close(dmg);
+                    dmg = NULL;
+                    remove(filename);
+                }
+                exitCode = 1;
+            }
 			break;
 		case ACTION_UPDATE:
         {
-            bool defaultOutput = true;
             const char* editTokens[CLI_MAX_ARGUMENTS];
             int editTokenCount = 0;
-            ParseUpdateArguments(remainingArgCount, remainingArgs, &outputFileName, &editTokenCount, editTokens);
+            bool hasExplicitOutputFile = false;
+            bool replaceOriginal = false;
+            ParseUpdateArguments(remainingArgCount, remainingArgs, &outputFileName, &hasExplicitOutputFile, &editTokenCount, editTokens);
             if (editTokenCount > 0 && !ParseEntryChanges(dmg, editTokenCount, editTokens))
+            {
+                exitCode = 1;
                 break;
+            }
             if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
             {
                 if (editTokenCount > 0)
@@ -1803,26 +2280,35 @@ int main (int argc, char *argv[])
                     printf("%s already up to date.\n", filename);
                 break;
             }
-			if (outputFileName == 0)
-				outputFileName = ChangeExtension(filename, "new");
-            else
-                defaultOutput = false;
+			if (!hasExplicitOutputFile)
+            {
+				outputFileName = ChangeExtension(filename, ".new");
+                replaceOriginal = true;
+            }
 			if (RebuildDAT(dmg, outputFileName))
 			{
-				if (defaultOutput)
-				{
-					DMG_Close(dmg);
-					dmg = NULL;
-					if (remove(filename) != 0)
-						fprintf(stderr, "Warning: Unable to delete old file \"%s\"\n", filename);
-					else if (rename(outputFileName, filename) != 0)
-						fprintf(stderr, "Warning: Unable to rename \"%s\" to \"%s\"\n", outputFileName, filename);
-					else
-						printf("%s written.\n", filename);
-				}
-				else
-					printf("%s written.\n", outputFileName);
+                if (replaceOriginal)
+                {
+                    DMG_Close(dmg);
+                    dmg = NULL;
+                    remove(filename);
+                    if (rename(outputFileName, filename) != 0)
+                    {
+                        fprintf(stderr, "Error: Failed to replace \"%s\" with rebuilt file \"%s\"\n", filename, outputFileName);
+                        exitCode = 1;
+                        break;
+                    }
+				    printf("%s updated.\n", filename);
+                }
+                else
+                {
+				    printf("%s written.\n", outputFileName);
+                }
 			}
+            else
+            {
+                exitCode = 1;
+            }
 
 			break;
         }
@@ -1830,5 +2316,5 @@ int main (int argc, char *argv[])
 	if (dmg != NULL)
 		DMG_Close(dmg);
 
-	return 0;
+	return exitCode;
 }

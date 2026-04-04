@@ -1,6 +1,14 @@
 #ifndef ADP_ZX0_H
 #define ADP_ZX0_H
 
+#include <os_lib.h>
+
+#ifdef __cplusplus
+#define ZX0_NULL 0
+#else
+#define ZX0_NULL NULL
+#endif
+
 /*
  * (c) Copyright 2021 by Einar Saukas. All rights reserved.
  *
@@ -39,6 +47,33 @@ typedef struct block_t {
     int offset;
     int references;
 } BLOCK;
+
+static inline void* zx0_alloc(size_t size)
+{
+    return OSAlloc(size);
+}
+
+static inline void zx0_free(void* ptr)
+{
+    if (ptr != 0)
+        OSFree(ptr);
+}
+
+static inline void* zx0_calloc(size_t count, size_t size)
+{
+    void* ptr = OSAlloc(count * size);
+    if (ptr != 0)
+        MemClear(ptr, count * size);
+    return ptr;
+}
+
+static inline void zx0_fail(const char* message)
+{
+#ifdef _DEBUGPRINT
+    DebugPrintf("%s\n", message);
+#endif
+    Abort();
+}
 
 BLOCK *allocate(int bits, int index, int offset, BLOCK *chain);
 

@@ -1,5 +1,5 @@
 #include <dmg.h>
-#include <string.h>
+#include <os_lib.h>
 
 extern "C" {
 int zx0_quiet = 1;
@@ -10,6 +10,9 @@ int zx0_quiet = 1;
 
 namespace
 {
+#ifdef _AMIGA
+    extern "C" void zx0_decompress(const uint8_t* input, uint8_t* output);
+#else
     struct ZX0_State
     {
         const uint8_t* input;
@@ -95,10 +98,17 @@ namespace
         }
         return true;
     }
+#endif
 }
 
 bool DMG_DecompressZX0(const uint8_t* data, uint32_t dataLength, uint8_t* buffer, uint32_t outputSize)
 {
+#ifdef _AMIGA
+    (void)dataLength;
+    (void)outputSize;
+    zx0_decompress(data, buffer);
+    return true;
+#else
     ZX0_State state;
     state.input = data;
     state.inputEnd = data + dataLength;
@@ -162,6 +172,7 @@ COPY_FROM_NEW_OFFSET:
     if (bit)
         goto COPY_FROM_NEW_OFFSET;
     goto COPY_LITERALS;
+#endif
 }
 
 uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* outputSize)
@@ -169,7 +180,7 @@ uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* out
     const int offsetLimit = 2176;
     int size = 0;
     int delta = 0;
-    uint8_t* inputCopy = (uint8_t*)malloc(dataLength);
+    uint8_t* inputCopy = (uint8_t*)OSAlloc(dataLength);
     if (inputCopy == 0)
     {
         if (outputSize)
@@ -177,9 +188,9 @@ uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* out
         return 0;
     }
 
-    memcpy(inputCopy, data, dataLength);
+    MemCopy(inputCopy, data, dataLength);
     uint8_t* compressed = compress(optimize(inputCopy, (int)dataLength, 0, offsetLimit), inputCopy, (int)dataLength, 0, FALSE, TRUE, &size, &delta);
-    free(inputCopy);
+    OSFree(inputCopy);
     if (compressed == 0)
     {
         if (outputSize)

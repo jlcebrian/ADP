@@ -23,15 +23,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "zx0.h"
 
 #define QTY_BLOCKS 10000
 
-BLOCK *ghost_root = NULL;
-BLOCK *dead_array = NULL;
+BLOCK *ghost_root = ZX0_NULL;
+BLOCK *dead_array = ZX0_NULL;
 int dead_array_size = 0;
 
 BLOCK *allocate(int bits, int index, int offset, BLOCK *chain) {
@@ -46,10 +43,9 @@ BLOCK *allocate(int bits, int index, int offset, BLOCK *chain) {
         }
     } else {
         if (!dead_array_size) {
-            dead_array = (BLOCK *)malloc(QTY_BLOCKS*sizeof(BLOCK));
+            dead_array = (BLOCK *)zx0_alloc(QTY_BLOCKS*sizeof(BLOCK));
             if (!dead_array) {
-                fprintf(stderr, "Error: Insufficient memory\n");
-                exit(1);
+                zx0_fail("ZX0: insufficient memory");
             }
             dead_array_size = QTY_BLOCKS;
         }

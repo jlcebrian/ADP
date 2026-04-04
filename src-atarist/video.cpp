@@ -32,6 +32,11 @@ static bool     quit;
 static uint8_t  palette[16][3];
 static uint16_t colors[16];
 
+void VID_SetDisplayPlanesHint(uint8_t planes)
+{
+	(void)planes;
+}
+
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
 

@@ -143,7 +143,7 @@ void DumpMemory(uint32_t maxb)
 				next = next->next;
 			}
 
-			VID_Clear(6, y, 230, 8, 0);
+			VID_ClearAllPlanes(6, y, 230, 8, 0);
 			
 			char buf[16];
 			LongToChar(count, buf, 10);
@@ -159,15 +159,15 @@ void DumpMemory(uint32_t maxb)
 		r = r->next;
 	}
 
-	VID_Clear(  5,  14,   3, y-12, 0);
-	VID_Clear(234,  14,   3, y-12, 0);
-	VID_Clear(  5,  13, 232,    3, 0);
-	VID_Clear(  5,   y, 232,    3, 0);
+	VID_ClearAllPlanes(  5,  14,   3, y-12, 0);
+	VID_ClearAllPlanes(234,  14,   3, y-12, 0);
+	VID_ClearAllPlanes(  5,  13, 232,    3, 0);
+	VID_ClearAllPlanes(  5,   y, 232,    3, 0);
 
-	VID_Clear(  6,  15,   1, y-14, 15);
-	VID_Clear(235,  15,   1, y-14, 15);
-	VID_Clear(  6,  14, 230,    1, 15);
-	VID_Clear(  6, y+1, 230,    1, 15);
+	VID_ClearAllPlanes(  6,  15,   1, y-14, 15);
+	VID_ClearAllPlanes(235,  15,   1, y-14, 15);
+	VID_ClearAllPlanes(  6,  14, 230,    1, 15);
+	VID_ClearAllPlanes(  6, y+1, 230,    1, 15);
 
 	y += 10;
 
@@ -192,6 +192,7 @@ void DumpMemory(uint32_t maxb)
 		LongToChar(maxb, buf+StrLen(buf), 10);
 		StrCat(buf, sizeof(buf), " maxb ");
 	}
+	VID_ClearAllPlanes(6, 2, 6 * StrLen(buf), 8, 0);
 	for (int n = 0; buf[n]; n++)
 		VID_DrawCharacter(6+6*n, 2, buf[n], 0, 15);
 }

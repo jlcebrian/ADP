@@ -154,4 +154,15 @@ void Abort()
 	abort();
 }
 
+#else
+
+void Abort()
+{
+#ifdef _DEBUGPRINT
+	DebugPrintf("Abort()\n");
+#endif
+	while (true)
+		;
+}
+
 #endif

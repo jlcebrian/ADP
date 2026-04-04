@@ -22,7 +22,11 @@
 ;     misrepresented as being the original software.
 ;  3. This notice may not be removed or altered from any source distribution.
 
-zx0_decompress:
+	xdef	zx0_decompress
+
+zx0_decompress
+               move.l 4(sp),a0      ; C ABI: input pointer
+               move.l 8(sp),a1      ; C ABI: output pointer
                movem.l a2/d2,-(sp)  ; preserve registers
                moveq #-128,d1       ; initialize empty bit queue
                                     ; plus bit to roll into carry
