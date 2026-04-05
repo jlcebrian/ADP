@@ -77,6 +77,7 @@ static char filename[1024];
 static char newfilename[1024];
 static bool selected[256];
 static bool verbose = false;
+static bool listSortById = false;
 static bool readOnly = true;
 static bool createDAT5 = false;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
@@ -94,6 +95,8 @@ typedef enum
 RemapMode;
 
 static RemapMode remapMode = REMAP_NONE;
+static uint8_t priorityEntries[256];
+static int priorityEntryCount = 0;
 
 typedef enum
 {
@@ -114,6 +117,7 @@ static Action action = ACTION_LIST;
 typedef enum
 {
     DMG_OPTION_VERBOSE = 1,
+    DMG_OPTION_SORT_BY_ID,
 }
 DmgOption;
 
@@ -159,6 +163,7 @@ static void PrintHelp()
     printf("\n");
     printf("Global options:\n\n");
     printf("   -v     Enable verbose/debug output\n");
+    printf("   -n     List entries by id instead of file offset\n");
     printf("\n");
 	printf("Selectors:\n\n");
 	printf("   #          Select one entry (0-255)\n");
@@ -198,6 +203,7 @@ static void PrintHelp()
     printf("                up to 16 slots, or as many as the mode still allows\n");
     printf("   remap:std  Remap DAT5 palettes using the standard bright-slot order\n");
     printf("   remap:dark Remap DAT5 palettes strictly from dark to bright\n");
+    printf("   priority:#,#... Prioritize physical DAT order for these entries on n/u\n");
     printf("   mode:<id>  When creating a DAT5: cga, ega, i16, i32, i256\n");
     printf("   screen:WxH When creating a DAT5: 320x200, 640x200 or 640x400\n");
     printf("\n");
@@ -1198,6 +1204,9 @@ static void PrintCompressionGain(DMG_Entry* entry)
 static void ListSelectedEntries(DMG* dmg, bool verbose)
 {
 	int n, i;
+    uint8_t order[256];
+    int orderCount = 0;
+    DMG_Entry* entryRefs[256];
 
 	printf ("%s, %s, %s\n", DescribeScreenMode((DDB_ScreenMode)dmg->screenMode), DescribeVersion(dmg->version),
 		dmg->littleEndian ? "little endian" : "big endian");
@@ -1206,65 +1215,96 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 
 	for (n = 0; n < 256; n++)
 	{
-		if (selected[n])
-		{
-			DMG_Entry* entry = DMG_GetEntry(dmg, n);
-			if (entry == NULL)
-			{
-				if (DMG_GetError() != DMG_ERROR_NONE)
-					fprintf(stderr, "Error: Unable to read entry %d: %s\n", n, DMG_GetErrorString());
-				continue;
-			}
-			switch (entry->type)
-			{
-				case DMGEntry_Image:
-					if (entry->width * entry->height == 0 || entry->length == 0)
-						continue;
-					printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes",
-						n, entry->width, entry->height,
-						(entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
-						(entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float",
-						entry->x, entry->y, entry->length);
-                    PrintCompressionGain(entry);
-                    printf("\n");
-					if (verbose)
-					{
-						printf("     File offset: %08X\n", entry->fileOffset);
-						printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
-                        printf("     Bit depth:    %d\n", entry->bitDepth);
-                        printf("     Palette size: %d\n", DMG_GetEntryPaletteSize(dmg, n));
-						printf("     Palette:      ");
-						for (i = 0; i < DMG_GetEntryPaletteSize(dmg, n); i++)
-						{
-							uint32_t c = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32)[i];
-							printf("%03X ", ((c >> 4) & 0xF) | ((c >> 8) & 0xF0) | ((c >> 12) & 0xF00));
-						}
-						printf("\n");
-                        if (dmg->version != DMG_Version5)
-                        {
-    						printf("     EGA Palette:  ");
-	    					for (i = 0; i < 16; i++)
-		    					printf(" %02d ", entry->EGAPalette[i]);
-			    			printf("\n");
-				    		printf("     CGA Palette:  ");
-					    	for (i = 0; i < 4; i++)
-						    	printf(" %02d ", entry->CGAPalette[i]);
-							    printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
-    						printf("\n");
-                        }
-					}
-					break;
-
-				case DMGEntry_Audio:
-					printf("%03d: Audio sample   %-16s               %5d bytes\n",
-						n, DMG_DescribeFreq((DMG_KHZ)entry->x), entry->length);
-					break;
-
-				case DMGEntry_Empty:
-					break;
-			}
-		}
+		if (!selected[n])
+            continue;
+        DMG_Entry* entry = DMG_GetEntry(dmg, n);
+        if (entry == NULL)
+        {
+            if (DMG_GetError() != DMG_ERROR_NONE)
+                fprintf(stderr, "Error: Unable to read entry %d: %s\n", n, DMG_GetErrorString());
+            continue;
+        }
+        if (entry->type == DMGEntry_Empty)
+            continue;
+        order[orderCount] = (uint8_t)n;
+        entryRefs[orderCount] = entry;
+        orderCount++;
 	}
+
+    if (!listSortById)
+    {
+        for (int a = 0; a < orderCount - 1; a++)
+        {
+            for (int b = a + 1; b < orderCount; b++)
+            {
+                uint32_t oa = entryRefs[a]->fileOffset;
+                uint32_t ob = entryRefs[b]->fileOffset;
+                if (ob < oa || (ob == oa && order[b] < order[a]))
+                {
+                    uint8_t ti = order[a];
+                    order[a] = order[b];
+                    order[b] = ti;
+                    DMG_Entry* te = entryRefs[a];
+                    entryRefs[a] = entryRefs[b];
+                    entryRefs[b] = te;
+                }
+            }
+        }
+    }
+
+    for (int p = 0; p < orderCount; p++)
+    {
+        n = order[p];
+        DMG_Entry* entry = entryRefs[p];
+        switch (entry->type)
+        {
+            case DMGEntry_Image:
+                if (entry->width * entry->height == 0 || entry->length == 0)
+                    continue;
+                printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes",
+                    n, entry->width, entry->height,
+                    (entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
+                    (entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float",
+                    entry->x, entry->y, entry->length);
+                PrintCompressionGain(entry);
+                printf("\n");
+                if (verbose)
+                {
+                    printf("     File offset: %08X\n", entry->fileOffset);
+                    printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
+                    printf("     Bit depth:    %d\n", entry->bitDepth);
+                    printf("     Palette size: %d\n", DMG_GetEntryPaletteSize(dmg, n));
+                    printf("     Palette:      ");
+                    for (i = 0; i < DMG_GetEntryPaletteSize(dmg, n); i++)
+                    {
+                        uint32_t c = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32)[i];
+                        printf("%03X ", ((c >> 4) & 0xF) | ((c >> 8) & 0xF0) | ((c >> 12) & 0xF00));
+                    }
+                    printf("\n");
+                    if (dmg->version != DMG_Version5)
+                    {
+                        printf("     EGA Palette:  ");
+                        for (i = 0; i < 16; i++)
+                            printf(" %02d ", entry->EGAPalette[i]);
+                        printf("\n");
+                        printf("     CGA Palette:  ");
+                        for (i = 0; i < 4; i++)
+                            printf(" %02d ", entry->CGAPalette[i]);
+                        printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
+                        printf("\n");
+                    }
+                }
+                break;
+
+            case DMGEntry_Audio:
+                printf("%03d: Audio sample   %-16s               %5d bytes\n",
+                    n, DMG_DescribeFreq((DMG_KHZ)entry->x), entry->length);
+                break;
+
+            case DMGEntry_Empty:
+                break;
+        }
+    }
 }
 
 static void RGBA32ToIndexed16 (uint32_t* pixels, int count, uint32_t* palette, uint8_t* out)
@@ -1397,14 +1437,133 @@ static bool IsCreateToken(const char* token)
     return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0;
 }
 
+static bool IsPriorityToken(const char* token)
+{
+    return strnicmp(token, "priority:", 9) == 0;
+}
+
 static bool IsEntryChangeToken(const char* token)
 {
     return IsSelectionToken(token) ||
         IsTargetedFileToken(token) ||
         IsImageToken(token) ||
         IsRemapToken(token) ||
+        IsPriorityToken(token) ||
         IsPropertyToken(token) ||
         IsCreateToken(token);
+}
+
+static void ResetPriorityEntries()
+{
+    priorityEntryCount = 0;
+}
+
+static bool AddPriorityEntry(int value)
+{
+    if (value < 0 || value > 255)
+        return false;
+    for (int i = 0; i < priorityEntryCount; i++)
+    {
+        if (priorityEntries[i] == (uint8_t)value)
+            return true;
+    }
+    priorityEntries[priorityEntryCount++] = (uint8_t)value;
+    return true;
+}
+
+static bool ParsePriorityToken(const char* token)
+{
+    if (!IsPriorityToken(token))
+        return false;
+
+    const char* ptr = token + 9;
+    if (*ptr == 0)
+        return false;
+
+    while (*ptr != 0)
+    {
+        if (!isdigit(*ptr))
+            return false;
+        int start = atoi(ptr);
+        while (isdigit(*ptr)) ptr++;
+        int end = start;
+        if (*ptr == '-')
+        {
+            ptr++;
+            if (!isdigit(*ptr))
+                return false;
+            end = atoi(ptr);
+            while (isdigit(*ptr)) ptr++;
+        }
+        if (start <= end)
+        {
+            for (int n = start; n <= end; n++)
+                if (!AddPriorityEntry(n))
+                    return false;
+        }
+        else
+        {
+            for (int n = start; n >= end; n--)
+                if (!AddPriorityEntry(n))
+                    return false;
+        }
+        if (*ptr == 0)
+            break;
+        if (*ptr != ',')
+            return false;
+        ptr++;
+    }
+    return true;
+}
+
+static bool HasBufferedEntries(DMG* dmg)
+{
+    if (dmg == 0)
+        return false;
+    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    {
+        DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
+        if (entry != 0 && entry->type != DMGEntry_Empty && (entry->flags & DMG_FLAG_BUFFERED))
+            return true;
+    }
+    return false;
+}
+
+static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
+{
+    bool added[256];
+    MemClear(added, sizeof(added));
+    int count = 0;
+
+    for (int i = 0; i < priorityEntryCount; i++)
+    {
+        uint8_t n = priorityEntries[i];
+        DMG_Entry* entry = DMG_GetEntry(dmg, n);
+        if (entry == 0 || entry->type == DMGEntry_Empty || added[n])
+            continue;
+        order[count++] = n;
+        added[n] = true;
+    }
+
+    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    {
+        DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
+        if (entry == 0 || entry->type == DMGEntry_Empty || added[n] || (entry->flags & DMG_FLAG_BUFFERED) == 0)
+            continue;
+        order[count++] = (uint8_t)n;
+        added[n] = true;
+    }
+
+    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    {
+        DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
+        if (entry == 0 || entry->type == DMGEntry_Empty || added[n])
+            continue;
+        order[count++] = (uint8_t)n;
+        added[n] = true;
+    }
+
+    return count;
 }
 
 static bool ParseOptionValue(const char* ptr, int* value)
@@ -1795,6 +1954,16 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         if (token == 0 || *token == 0)
             continue;
 
+        if (IsPriorityToken(token))
+        {
+            if (!ParsePriorityToken(token))
+            {
+                fprintf(stderr, "Error: Invalid priority list: \"%s\"\n", token);
+                return false;
+            }
+            continue;
+        }
+
         if (IsRemapToken(token))
         {
             if (!ParseRemapMode(token, &remapMode))
@@ -1845,6 +2014,10 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 bool RebuildDAT(DMG* dmg, const char* outputFileName)
 {
 	int n, i;
+    uint8_t rebuildOrder[256];
+    uint32_t reusedOffsets[256];
+    uint8_t reusedEntries[256];
+    int reusedCount = 0;
     uint8_t firstEntry = dmg->firstEntry;
     uint8_t lastEntry = dmg->lastEntry;
     if (dmg->version == DMG_Version5)
@@ -1864,8 +2037,10 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		return false;
 	}
 
-	for (n = 0; n < 256; n++)
+	int rebuildCount = BuildRebuildOrder(dmg, rebuildOrder);
+	for (i = 0; i < rebuildCount; i++)
 	{
+        n = rebuildOrder[i];
 		DMG_Entry* entry = DMG_GetEntry(dmg, n);
 		if (entry == NULL)
 		{
@@ -1892,18 +2067,19 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
 
-		for (i = 0; i < n; i++)
+		for (int reuse = 0; reuse < reusedCount; reuse++)
 		{
-			if (dmg->entries[i] == 0)
-				continue;
-			if (dmg->entries[i]->fileOffset == entry->fileOffset)
+			if (reusedOffsets[reuse] == entry->fileOffset)
+			{
+				uint8_t sourceIndex = reusedEntries[reuse];
+				outEntry->fileOffset = out->entries[sourceIndex]->fileOffset;
+				printf("%03d: Reusing data from %03d\n", n, sourceIndex);
+				DMG_UpdateEntry(out, n);
 				break;
+			}
 		}
-		if (i != n)
+		if (outEntry->fileOffset != 0)
 		{
-			outEntry->fileOffset = out->entries[i]->fileOffset;
-			printf("%03d: Reusing data from %03d\n", n, i);
-			DMG_UpdateEntry(out, n);
 			continue;
 		}
 
@@ -1923,6 +2099,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				return false;
 			}
 			printf("%03d: Added audio (%5d bytes, %s)\n", n, size, DMG_DescribeFreq((DMG_KHZ)entry->x));
+            reusedOffsets[reusedCount] = entry->fileOffset;
+            reusedEntries[reusedCount++] = (uint8_t)n;
 		}
 
 		if (entry->type == DMGEntry_Image)
@@ -2002,6 +2180,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 printf("%03d: Added image (%5u bytes%s)\n", n, storedSize, compressed ? ", ZX0" : "");
                 if (compressed)
                     OSFree(storedBuffer);
+                reusedOffsets[reusedCount] = entry->fileOffset;
+                reusedEntries[reusedCount++] = (uint8_t)n;
                 continue;
             }
 
@@ -2018,6 +2198,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				return false;
 			}
 			printf("%03d: Added image (%5d bytes%s)\n", n, compressedSize, compressed ? ", compressed" : "");
+            reusedOffsets[reusedCount] = entry->fileOffset;
+            reusedEntries[reusedCount++] = (uint8_t)n;
 		}
 		else
 		{
@@ -2032,7 +2214,15 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
 {
     for (int i = 0; i < tokenCount; i++)
     {
-        if (IsRemapToken(tokens[i]))
+        if (IsPriorityToken(tokens[i]))
+        {
+            if (!ParsePriorityToken(tokens[i]))
+            {
+                fprintf(stderr, "Error: Invalid priority list: \"%s\"\n", tokens[i]);
+                return false;
+            }
+        }
+        else if (IsRemapToken(tokens[i]))
         {
             if (!ParseRemapMode(tokens[i], &remapMode))
             {
@@ -2071,6 +2261,11 @@ static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const cha
     for (int i = 0; i < tokenCount; i++)
     {
         const char* token = tokens[i];
+        if (IsPriorityToken(token))
+        {
+            editTokens[(*editTokenCount)++] = token;
+            continue;
+        }
         if (IsRemapToken(token))
         {
             editTokens[(*editTokenCount)++] = token;
@@ -2094,6 +2289,8 @@ static bool UpdateTokenRequiresRebuild(const char* token)
 {
     if (token == 0 || *token == 0)
         return false;
+    if (IsPriorityToken(token))
+        return true;
     if (IsRemapToken(token))
         return true;
     if (IsCreateToken(token))
@@ -2149,6 +2346,7 @@ int main (int argc, char *argv[])
     static const CLI_OptionSpec optionSpecs[] =
     {
         { 'v', DMG_OPTION_VERBOSE, CLI_OPTION_NONE },
+        { 'n', DMG_OPTION_SORT_BY_ID, CLI_OPTION_NONE },
         { 0, 0, CLI_OPTION_NONE }
     };
 
@@ -2167,6 +2365,7 @@ int main (int argc, char *argv[])
     action = (Action)commandLine.action;
     verbose = commandLine.actionName != 0 && stricmp(commandLine.actionName, "v") == 0;
     debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
+    listSortById = CLI_HasOption(&commandLine, DMG_OPTION_SORT_BY_ID);
     readOnly = action != ACTION_ADD && action != ACTION_DELETE && action != ACTION_NEW && action != ACTION_UPDATE;
 
     if (action == ACTION_HELP)
@@ -2182,6 +2381,8 @@ int main (int argc, char *argv[])
     }
 
 	DMG_SetWarningHandler(ShowWarning);
+    remapMode = REMAP_NONE;
+    ResetPriorityEntries();
 
 	if (strlen(commandLine.arguments[0]) > 1000)
 	{
@@ -2258,6 +2459,30 @@ int main (int argc, char *argv[])
                     remove(filename);
                 }
                 exitCode = 1;
+            }
+            else if (action == ACTION_NEW && (priorityEntryCount > 0 || HasBufferedEntries(dmg)))
+            {
+                const char* reorderedFileName = ChangeExtension(filename, ".new");
+                if (!RebuildDAT(dmg, reorderedFileName))
+                {
+                    exitCode = 1;
+                    break;
+                }
+                DMG_Close(dmg);
+                dmg = NULL;
+                remove(filename);
+                if (rename(reorderedFileName, filename) != 0)
+                {
+                    fprintf(stderr, "Error: Failed to replace \"%s\" with reordered file \"%s\"\n", filename, reorderedFileName);
+                    exitCode = 1;
+                    break;
+                }
+                dmg = DMG_Open(filename, false);
+                if (dmg == NULL)
+                {
+                    fprintf(stderr, "Error: Failed to reopen reordered \"%s\": %s\n", filename, DMG_GetErrorString());
+                    exitCode = 1;
+                }
             }
 			break;
 		case ACTION_UPDATE:

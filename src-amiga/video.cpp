@@ -120,6 +120,13 @@ static void CopyScreenBuffer(uint8_t** src, uint8_t** dst)
 	WaitBlit();
 }
 
+static void ClearScratchBuffer(uint8_t color)
+{
+	for (uint8_t p = 0; p < displayPlanes; p++)
+		BlitterRect(scratchPlane[p], 0, 0, screenWidth, screenHeight, (color & (1 << p)) != 0);
+	WaitBlit();
+}
+
 static void PresentScratchBuffer()
 {
 	if (isAGA && displayPlanes == 8)
@@ -471,6 +478,20 @@ static uint32_t GetDesiredImageCacheSize(DMG* file, uint32_t freeMemory, uint32_
 	return desired;
 }
 
+static const char* DescribeScreenMode(DDB_ScreenMode screenMode)
+{
+	switch (screenMode)
+	{
+		case ScreenMode_CGA: return "CGA";
+		case ScreenMode_EGA: return "EGA";
+		case ScreenMode_VGA16: return "VGA16";
+		case ScreenMode_VGA: return "VGA256";
+		case ScreenMode_HiRes: return "HiRes";
+		case ScreenMode_SHiRes: return "SuperHiRes";
+		default: return "Text";
+	}
+}
+
 static uint8_t GetRequiredDisplayPlanes(DMG* file)
 {
 	if (file == 0 || file->version != DMG_Version5)
@@ -726,7 +747,6 @@ bool VID_AnyKey ()
 
 bool VID_LoadDataFile (const char* fileName)
 {
-	uint32_t t0 = GetMilliseconds();
 	pictureOrigin = 0;
 	pictureEntry = 0;
 	pictureIndex = 0;
@@ -735,11 +755,8 @@ bool VID_LoadDataFile (const char* fileName)
 	picturePlaneStride = 0;
 	picturePlanes = TEXT_PLANES;
 
-	DebugPrintf("VID_LoadDataFile(%s)\n", fileName);
-
 	if (dmg != 0)
 	{
-		DebugPrintf("Closing previous data file\n");
 		DMG_Close(dmg);
 		dmg = 0;
 	}
@@ -750,10 +767,6 @@ bool VID_LoadDataFile (const char* fileName)
 	uint8_t probeColorMode = 0;
 	if (ProbeDataFileHeader(fileName, &probePlanes, &probeWidth, &probeHeight, &probeColorMode))
 	{
-		DebugPrintf("Header probe: mode=%u target=%ux%u planes=%u isAGA=%d activePlanes=%u\n",
-			(unsigned)probeColorMode, (unsigned)probeWidth, (unsigned)probeHeight,
-			(unsigned)probePlanes, isAGA ? 1 : 0, (unsigned)displayPlanes);
-
 		if (probeColorMode != 0)
 		{
 			if (probeWidth != 320 || probeHeight != 200)
@@ -779,18 +792,21 @@ bool VID_LoadDataFile (const char* fileName)
 		}
 	}
 
-	DebugPrintf("Trying %s\n", ChangeExtension(fileName, ".dat"));
+	const char* datName = ChangeExtension(fileName, ".dat");
+	const char* loadedName = datName;
 	uint32_t tOpen = GetMilliseconds();
-	dmg = DMG_Open(ChangeExtension(fileName, ".dat"), true);
+	dmg = DMG_Open(datName, true);
 	if (dmg == 0)
 	{
-		DebugPrintf("Trying %s\n", ChangeExtension(fileName, ".ega"));
-		dmg = DMG_Open(ChangeExtension(fileName, ".ega"), true);
+		const char* egaName = ChangeExtension(fileName, ".ega");
+		loadedName = egaName;
+		dmg = DMG_Open(egaName, true);
 	}
 	if (dmg == 0)
 	{
-		DebugPrintf("Trying %s\n", ChangeExtension(fileName, ".cga"));
-		dmg = DMG_Open(ChangeExtension(fileName, ".cga"), true);
+		const char* cgaName = ChangeExtension(fileName, ".cga");
+		loadedName = cgaName;
+		dmg = DMG_Open(cgaName, true);
 	}
 	if (dmg == 0)
 	{
@@ -798,17 +814,12 @@ bool VID_LoadDataFile (const char* fileName)
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
 	}
-	DebugPrintf("DMG_Open completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tOpen));
-
-	DebugPrintf("Opened data file: version=%d mode=%d target=%ux%u\n",
-		(int)dmg->version, (int)dmg->colorMode, (unsigned)dmg->targetWidth, (unsigned)dmg->targetHeight);
+	DebugPrintf("Loaded %s in %lu ms\n", loadedName, (unsigned long)(GetMilliseconds() - tOpen));
 
 	if (scratchBuffer != 0)
 		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
 
 	uint8_t requiredPlanes = GetRequiredDisplayPlanes(dmg);
-	DebugPrintf("Display check: requiredPlanes=%u displayPlanes=%u isAGA=%d\n",
-		(unsigned)requiredPlanes, (unsigned)displayPlanes, isAGA ? 1 : 0);
 	if (dmg->version == DMG_Version5 && (dmg->targetWidth != 320 || dmg->targetHeight != 200))
 	{
 		DebugPrintf("Unsupported DAT5 target size %ux%u\n", (unsigned)dmg->targetWidth, (unsigned)dmg->targetHeight);
@@ -836,10 +847,7 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	uint32_t requiredImageCache = 0;
 	if (dmg->version == DMG_Version5)
-	{
 		requiredImageCache = GetRecommendedDAT5ImageCacheSize(dmg);
-		DebugPrintf("DAT5 planar cache requirement: %u bytes\n", (unsigned)requiredImageCache);
-	}
 
 	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
@@ -847,7 +855,6 @@ bool VID_LoadDataFile (const char* fileName)
 		memcpy(charset, DefaultCharset, 1024);
 		memcpy(charset + 1024, DefaultCharset, 1024);
 	}
-	DebugPrintf("Charsets ready after %lu ms\n", (unsigned long)(GetMilliseconds() - t0));
 
 	uint32_t datSize = File_GetSize(dmg->file);
 	uint32_t freeMemory = AvailMem(0);
@@ -857,57 +864,37 @@ bool VID_LoadDataFile (const char* fileName)
 
 	if (freeMemory > datSize + 65536)			// Everything fits
 	{
-		uint32_t tCache = GetMilliseconds();
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
-		DebugPrintf("File cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 		freeMemory = AvailMem(0);
 		if (freeMemory >= 32768)
 		{
-			tCache = GetMilliseconds();
 			uint32_t cacheBytes = GetDesiredImageCacheSize(dmg, freeMemory, requiredImageCache);
 			DMG_SetupImageCache(dmg, cacheBytes);
-			DebugPrintf("Image cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 		}
 	}
 	else if (freeMemory > datSize + 32768)		// DAT barely fits
 	{
-		uint32_t tCache = GetMilliseconds();
 		uint32_t cacheBytes = desiredImageCache;
 		DMG_SetupImageCache(dmg, cacheBytes);
-		DebugPrintf("Image cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
-		tCache = GetMilliseconds();
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
-		DebugPrintf("File cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 	}
 	else if (freeMemory > 0x40000)				// >256K free
 	{
-		uint32_t tCache = GetMilliseconds();
 		uint32_t cacheBytes = desiredImageCache;
 		DMG_SetupImageCache(dmg, cacheBytes);
-		DebugPrintf("Image cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
-		tCache = GetMilliseconds();
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
-		DebugPrintf("File cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 	}
 	else if (freeMemory > 0x20000)				// >128K free
 	{
-		uint32_t tCache = GetMilliseconds();
 		uint32_t cacheBytes = desiredImageCache;
 		DMG_SetupImageCache(dmg, cacheBytes);
-		DebugPrintf("Image cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
-		tCache = GetMilliseconds();
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
-		DebugPrintf("File cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 	}
 	else 
 	{
-		uint32_t tCache = GetMilliseconds();
 		uint32_t cacheBytes = desiredImageCache;
 		DMG_SetupImageCache(dmg, cacheBytes);
-		DebugPrintf("Image cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
-		tCache = GetMilliseconds();
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
-		DebugPrintf("File cache setup completed in %lu ms\n", (unsigned long)(GetMilliseconds() - tCache));
 	}
 
 	if (requiredImageCache > 0 && dmg->cacheSize < requiredImageCache)
@@ -919,8 +906,6 @@ bool VID_LoadDataFile (const char* fileName)
 		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
 		return false;
 	}
-
-	DebugPrintf("Data file ready after %lu ms\n", (unsigned long)(GetMilliseconds() - t0));
 	return true;
 }
 
@@ -955,6 +940,17 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 		
 	if (y >= screenHeight || w < 1 || h < 1)
 		return;
+
+	bool fullScreenClear =
+		originalX <= 0 && originalY <= 0 &&
+		originalW >= screenWidth && originalH >= screenHeight;
+
+	if (fullScreenClear && IsVisiblePlaneTarget() && scratchBuffer != 0)
+	{
+		ClearScratchBuffer(color);
+		PresentScratchBuffer();
+		return;
+	}
 		
 	if (w*h >= 8192)
 		VID_VSync();
@@ -962,7 +958,7 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 	uint8_t planesToClear = TEXT_PLANES;
 	// Keep text/window clears on the low 4 planes so upper picture planes survive.
 	// Only full-screen clears or colors that explicitly use upper bits clear every plane.
-	if ((originalX <= 0 && originalY <= 0 && originalW >= screenWidth && originalH >= screenHeight) ||
+	if (fullScreenClear ||
 		((color >> TEXT_PLANES) != 0))
 		planesToClear = displayPlanes;
 
@@ -992,11 +988,37 @@ void VID_ClearBuffer (bool front)
 		BlitterRect(p[n], 0, 0, screenWidth, screenHeight, 0);
 }
 
+void VID_PresentDefaultScreen()
+{
+	if (scratchBuffer == 0)
+	{
+		VID_ClearBuffer(true);
+		VID_ClearBuffer(false);
+		VID_SetDefaultPalette();
+		VID_ActivatePalette();
+		return;
+	}
+
+	for (uint8_t n = 0; n < displayPlanes; n++)
+		BlitterRect(scratchPlane[n], 0, 0, screenWidth, screenHeight, 0);
+	WaitBlit();
+
+	VID_SetPaletteEntries(DefaultPalette, 16, 0, true, false);
+	PresentScratchBuffer();
+
+	uint8_t** hidden = displaySwap ? frontPlane : backPlane;
+	for (uint8_t n = 0; n < displayPlanes; n++)
+	{
+		BlitterRect(hidden[n], 0, 0, screenWidth, screenHeight, 0);
+		BlitterRect(scratchPlane[n], 0, 0, screenWidth, screenHeight, 0);
+	}
+	WaitBlit();
+}
+
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {
 	if (pictureEntry == 0)
 		return;
-    uint32_t t0 = GetMilliseconds();
 
 	if (x < 0)
 	{
@@ -1021,7 +1043,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex, ImageMode_RGBA32);
 	uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, pictureIndex);
     uint8_t paletteFirst = DMG_GetEntryFirstColor(dmg, pictureIndex);
-    uint32_t tPalette = GetMilliseconds();
 	bool presentingScratch = IsVisiblePlaneTarget();
 	uint8_t** targetPlanes = presentingScratch ? scratchPlane : plane;
 	switch (screenMode)
@@ -1052,10 +1073,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 				VID_CommitPalette(false);
 			break;
 	}
-    DebugPrintf("VID_DisplayPicture(%u): palette phase %lu ms, planes=%u size=%ux%u at %d,%d\n",
-        (unsigned)pictureIndex,
-        (unsigned long)(GetMilliseconds() - tPalette),
-        (unsigned)picturePlanes, (unsigned)w, (unsigned)h, x, y);
 	
 	uint16_t* srcPtr = pictureData;
 	uint32_t off = y*SCR_STRIDEB + (x >> 3);
@@ -1086,10 +1103,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
         WaitBlit();
         if (presentingScratch)
             PresentScratchBuffer();
-        DebugPrintf("VID_DisplayPicture(%u): blit phase %lu ms, total %lu ms\n",
-            (unsigned)pictureIndex,
-            (unsigned long)(GetMilliseconds() - tPalette),
-            (unsigned long)(GetMilliseconds() - t0));
         return;
     }
 
@@ -1178,11 +1191,6 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	if (presentingScratch)
 		PresentScratchBuffer();
-
-    DebugPrintf("VID_DisplayPicture(%u): blit phase %lu ms, total %lu ms\n",
-        (unsigned)pictureIndex,
-        (unsigned long)(GetMilliseconds() - tPalette),
-        (unsigned long)(GetMilliseconds() - t0));
 }
 
 static void VID_DrawCharacterNewFF (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
@@ -1241,7 +1249,7 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
 #if DEBUG_ALLOCS
 	if ((v >> 8) == 0x3C)	// F2
 	{
-		DumpMemory(AvailMem(MEMF_CHIP | MEMF_LARGEST));
+		DumpMemory(AvailMem(MEMF_CHIP), AvailMem(MEMF_CHIP | MEMF_LARGEST));
 		if (key) *key = 0;
 		if (ext) *ext = 0;
 	}
@@ -1323,7 +1331,6 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	if (dmg == 0) 
 		return;
-    uint32_t t0 = GetMilliseconds();
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == 0 || entry->type != DMGEntry_Image)
@@ -1343,16 +1350,6 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		pictureIndex = 0;
 		picturePlanes = TEXT_PLANES;
 	}
-    else
-    {
-        DebugPrintf("VID_LoadPicture(%u): %ux%u %u plane(s), fixed=%d, compressed=%d, load %lu ms\n",
-            (unsigned)picno,
-            (unsigned)entry->width, (unsigned)entry->height,
-            (unsigned)picturePlanes,
-            (entry->flags & DMG_FLAG_FIXED) ? 1 : 0,
-            (entry->flags & DMG_FLAG_COMPRESSED) ? 1 : 0,
-            (unsigned long)(GetMilliseconds() - t0));
-    }
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -1639,9 +1636,11 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		chipRevBits0 = GfxBase->ChipRevBits0;
 	isAGA = (chipRevBits0 & (GFXF_AA_ALICE | GFXF_AA_LISA | GFXF_AA_MLISA)) != 0;
 	copperListBytes = isAGA ? 4096 : 1024;
-	DebugPrintf("VID_Initialize: machine=%d version=%d screenMode=%d requestedPlanes=%u isAGA=%d chipRevBits0=%02x\n",
-		(int)machine, (int)version, (int)screenMode, (unsigned)requestedDisplayPlanes,
-		isAGA ? 1 : 0, (unsigned)chipRevBits0);
+	DebugPrintf("Video: %s %u plane%s%s\n",
+		DescribeScreenMode(screenMode),
+		(unsigned)requestedDisplayPlanes,
+		requestedDisplayPlanes == 1 ? "" : "s",
+		isAGA ? " AGA" : "");
 
 	screenHeight  = 200;
 	screenWidth   = 320;

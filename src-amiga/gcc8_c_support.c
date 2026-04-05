@@ -119,7 +119,8 @@ void KPrintF(const char* fmt, ...) {
 	if(*((UWORD *)UaeDbgLog) == 0x4eb9 || *((UWORD *)UaeDbgLog) == 0xa00e) {
 		UaeDbgLog(86, temp);
 	} else {
-		Write(Output(), (APTR)temp, ln);
+		// Do not use Write since we take over the system
+		// Write(Output(), (APTR)temp, ln);
 	}
 }
 

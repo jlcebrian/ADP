@@ -4,6 +4,10 @@
 #include <os_lib.h>
 #include <dmg.h>
 
+#ifdef _AMIGA
+extern void VID_PresentDefaultScreen();
+#endif
+
 bool		waitingForKey = false;
 bool 		buffering = false;
 uint8_t 	lineHeight;
@@ -11,6 +15,18 @@ uint8_t 	columnWidth;
 uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
+
+void VID_ResetDisplayToDefault()
+{
+#ifdef _AMIGA
+	VID_PresentDefaultScreen();
+#else
+	VID_ClearBuffer(true);
+	VID_ClearBuffer(false);
+	VID_SetDefaultPalette();
+	VID_ActivatePalette();
+#endif
+}
 
 #if HAS_PCX
 static char externalPictureBase[FILE_MAX_PATH];

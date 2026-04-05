@@ -264,10 +264,7 @@ static void FadeOutStep(int elapsed)
 	
 	if (frame >= 16)
 	{
-		VID_ClearBuffer(true);
-		VID_ClearBuffer(false);	
-		VID_SetDefaultPalette();
-		VID_ActivatePalette();
+		VID_ResetDisplayToDefault();
 		VID_Quit();
 	}
 }
@@ -497,10 +494,7 @@ static void FadeOut()
 		}
 		VID_VSync();
 	}
-	VID_ClearBuffer(true);
-	VID_ClearBuffer(false);
-	VID_SetDefaultPalette();
-	VID_ActivatePalette();
+	VID_ResetDisplayToDefault();
 }
 
 // Checks for intro screen files and, if found, updates machine and screenMode accordingly
@@ -557,8 +551,6 @@ bool DDB_RunPlayer()
 		DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
 		return false;
 	}
-
-	DebugPrintf("Initializing video\n");
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
 	DDB_Check(ddbFileName, &machine, &language, &version);
@@ -623,18 +615,12 @@ bool DDB_RunPlayer()
 
 	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
-	uint32_t tAfterDATLoad = 0;
-	VID_GetMilliseconds(&tAfterDATLoad);
-	DebugPrintf("VID_LoadDataFile completed in %lu ms\n", (unsigned long)(tAfterDATLoad - tAfterDDBLoad));
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;
 	#endif
 
 	DDB_CreateInterpreter(ddb, screenMode);
-	uint32_t tAfterInterpreter = 0;
-	VID_GetMilliseconds(&tAfterInterpreter);
-	DebugPrintf("DDB_CreateInterpreter completed in %lu ms\n", (unsigned long)(tAfterInterpreter - tAfterDATLoad));
 	if (interpreter == 0)
 	{
 		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());

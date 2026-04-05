@@ -545,7 +545,7 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 
 #if DEBUG_ALLOCS
 	if (ext && *ext == 0x3C)	// F2
-		DumpMemory(Malloc(-1));
+		DumpMemory(0, Malloc(-1));
 #endif
 }
 

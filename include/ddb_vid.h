@@ -36,6 +36,7 @@ extern void   VID_SaveScreen          ();
 extern void   VID_Scroll              (int x, int y, int w, int h, int lines, uint8_t paper);
 extern void   VID_SetOpBuffer         (SCR_Operation op, bool front);
 extern void   VID_SetDefaultPalette   ();
+extern void   VID_ResetDisplayToDefault();
 extern void   VID_SetPaletteColor     (uint8_t color, uint8_t r, uint8_t g, uint8_t b);
 extern void   VID_SetTextInputMode    (bool enabled);
 extern void   VID_SwapScreen          ();

@@ -727,7 +727,6 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
     if (planes)
         *planes = 4;
 
-    DebugPrintf("DDB_CheckDataFileConfig(%s)\n", fileName);
     File* dat = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
     if (dat != 0)
     {
@@ -746,9 +745,6 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
             uint16_t width = read16BE(header + 0x06);
             uint16_t height = read16BE(header + 0x08);
             uint8_t colorMode = header[0x0E];
-
-            DebugPrintf("Found DAT5 header: colorMode=%d target=%ux%u\n",
-                (int)colorMode, (unsigned)width, (unsigned)height);
 
             if (width == 320 && height == 200)
             {
@@ -775,23 +771,17 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
         }
         else
         {
-            DebugPrintf("Found legacy DAT header\n");
             if (mode)
                 *mode = ScreenMode_VGA16;
             if (planes)
                 *planes = 4;
         }
-
-        if (mode || planes)
-            DebugPrintf("Data file config => screenMode=%d planes=%u\n",
-                mode ? (int)*mode : -1, planes ? (unsigned)*planes : 0);
         return true;
     }
 
     File* ega = File_Open(ChangeExtension(fileName, ".ega"), ReadOnly);
     if (ega != 0)
     {
-        DebugPrintf("Found EGA data file for %s\n", fileName);
         if (mode) *mode = ScreenMode_EGA;
         if (planes) *planes = 4;
         File_Close(ega);
@@ -801,14 +791,12 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
     File* cga = File_Open(ChangeExtension(fileName, ".cga"), ReadOnly);
     if (cga != 0)
     {
-        DebugPrintf("Found CGA data file for %s\n", fileName);
         if (mode) *mode = ScreenMode_CGA;
         if (planes) *planes = 4;
         File_Close(cga);
         return true;
     }
 
-    DebugPrintf("No data file config found for %s\n", fileName);
     return false;
 }
 

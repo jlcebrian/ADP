@@ -4,8 +4,13 @@
 #ifdef _AMIGA
 
 #include "video.h"
+#include "timer.h"
 
 #include <proto/dos.h>
+
+#ifndef DEBUG_FILE_IO
+#define DEBUG_FILE_IO 0
+#endif
 
 struct FindFileInternal
 {
@@ -18,9 +23,19 @@ static int filesOpen = 0;
 
 File* File_Open(const char *file, FileOpenMode mode)
 {
+#if DEBUG_FILE_IO
+	uint32_t t0 = GetMilliseconds();
+#endif
 	CallingDOS();
 	File* result = (File*)Open(file, mode == ReadOnly ? MODE_OLDFILE : MODE_READWRITE);
 	AfterCallingDOS();
+#if DEBUG_FILE_IO
+	DebugPrintf("File_Open(%s,%s) => %p in %lu ms\n",
+		file,
+		mode == ReadOnly ? "r" : "rw",
+		result,
+		(unsigned long)(GetMilliseconds() - t0));
+#endif
 
 	if (result != 0)
 		filesOpen++;
@@ -37,9 +52,19 @@ File* File_Create(const char *file)
 
 uint64_t File_Read(File* file, void* buffer, uint64_t size)
 {
+#if DEBUG_FILE_IO
+	uint32_t t0 = GetMilliseconds();
+#endif
 	CallingDOS();
 	uint64_t result = Read((BPTR)file, buffer, size);
 	AfterCallingDOS();
+#if DEBUG_FILE_IO
+	DebugPrintf("File_Read(%p,%lu) => %lu in %lu ms\n",
+		file,
+		(unsigned long)size,
+		(unsigned long)result,
+		(unsigned long)(GetMilliseconds() - t0));
+#endif
 	return result;
 }
 
@@ -53,20 +78,48 @@ uint64_t File_Write(File* file, const void* buffer, uint64_t size)
 
 bool File_Seek(File* file, uint64_t offset)
 {
+#if DEBUG_FILE_IO
+	uint32_t t0 = GetMilliseconds();
+#endif
 	CallingDOS();
 	LONG result = Seek((BPTR)file, offset, OFFSET_BEGINNING);
 	AfterCallingDOS();
+#if DEBUG_FILE_IO
+	DebugPrintf("File_Seek(%p,%lu) => %ld in %lu ms\n",
+		file,
+		(unsigned long)offset,
+		(long)result,
+		(unsigned long)(GetMilliseconds() - t0));
+#endif
 	return result != -1;
 }
 
 uint64_t File_GetSize(File* file)
 {
+#if DEBUG_FILE_IO
+	uint32_t t0 = GetMilliseconds();
+#endif
 	CallingDOS();
-	LONG pos  = Seek((BPTR)file, 0, OFFSET_CURRENT);
-	Seek((BPTR)file, 0, OFFSET_END);
-	LONG size  = Seek((BPTR)file, 0, OFFSET_CURRENT);
-	Seek((BPTR)file, pos, OFFSET_BEGINNING);
+	LONG size = -1;
+	FileInfoBlock fib;
+	if (ExamineFH((BPTR)file, &fib))
+	{
+		size = fib.fib_Size;
+	}
+	else
+	{
+		LONG pos = Seek((BPTR)file, 0, OFFSET_CURRENT);
+		Seek((BPTR)file, 0, OFFSET_END);
+		size = Seek((BPTR)file, 0, OFFSET_CURRENT);
+		Seek((BPTR)file, pos, OFFSET_BEGINNING);
+	}
 	AfterCallingDOS();
+#if DEBUG_FILE_IO
+	DebugPrintf("File_GetSize(%p) => %lu in %lu ms\n",
+		file,
+		(unsigned long)size,
+		(unsigned long)(GetMilliseconds() - t0));
+#endif
 	return size;
 }
 

@@ -598,11 +598,6 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
         dmg->screenMode = ScreenMode_SHiRes;
 
     const uint32_t entryCount = dmg->lastEntry - dmg->firstEntry + 1;
-    DebugPrintf("DAT5: reading %lu entry headers (%u-%u), mode=%u target=%ux%u\n",
-        (unsigned long)entryCount,
-        (unsigned)dmg->firstEntry, (unsigned)dmg->lastEntry,
-        (unsigned)dmg->colorMode,
-        (unsigned)dmg->targetWidth, (unsigned)dmg->targetHeight);
     dmg->entryBlock = Allocate<DMG_Entry>("DAT5 entries", entryCount);
     if (dmg->entryBlock == 0)
     {
@@ -704,11 +699,6 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
     }
 
     Free(buffer);
-    DebugPrintf("DAT5: loaded %lu image(s), %lu audio sample(s), %lu compressed, %lu palette prefix(es)\n",
-        (unsigned long)imageCount,
-        (unsigned long)audioCount,
-        (unsigned long)compressedCount,
-        (unsigned long)paletteCount);
     return true;
 }
 
@@ -743,18 +733,11 @@ static bool DMG_LoadDAT5Palette(DMG* dmg, uint8_t index, DMG_Entry* entry)
     if (dmg == 0 || entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0)
         return true;
     if (entry->RGB32PaletteV5 != 0)
-    {
-        DebugPrintf("DAT5 palette %u: cached (%u colors)\n", (unsigned)index, (unsigned)entry->paletteColors);
         return true;
-    }
 
     const uint8_t* fileData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->paletteColors * 3);
     if (fileData != 0)
-    {
-        DebugPrintf("DAT5 palette %u: file cache hit at %lu (%lu bytes)\n",
-            (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)(entry->paletteColors * 3));
         return DMG_DecodeDAT5PaletteBytes(entry, fileData);
-    }
 
     uint8_t palData[256 * 3];
     if (entry->paletteColors > 256)
@@ -767,8 +750,6 @@ static bool DMG_LoadDAT5Palette(DMG* dmg, uint8_t index, DMG_Entry* entry)
         DMG_SetError(DMG_ERROR_READING_FILE);
         return false;
     }
-    DebugPrintf("DAT5 palette %u: file read at %lu (%lu bytes)\n",
-        (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)(entry->paletteColors * 3));
     return DMG_DecodeDAT5PaletteBytes(entry, palData);
 }
 
@@ -1144,7 +1125,6 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 
 	if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
 	{
-		DebugPrintf("DMG_Open: detected DAT5 header\n");
 		success = DMG_ReadDAT5Entries(d);
 		entryCount = d->lastEntry >= d->firstEntry ? (uint16_t)(d->lastEntry - d->firstEntry + 1) : 0;
 	}
@@ -1209,9 +1189,6 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		DMG_Close(d);
 		return 0;
 	}
-	DebugPrintf("DMG_Open: header/entries ready (version=%d screenMode=%d)\n",
-		(int)d->version, (int)d->screenMode);
-
 	if (d->version != DMG_Version5)
     {
 		entryCount = read16(header + 4, d->littleEndian);

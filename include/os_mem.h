@@ -13,7 +13,7 @@
 
 	extern void* AllocateBlock  (const char* reason, size_t bytes, bool zero = true);
 	extern void  Free           (void* block);
-	extern void  DumpMemory     (uint32_t maxb = 0);
+	extern void  DumpMemory     (uint32_t totalFree = 0, uint32_t largestBlock = 0);
 
 #else
 

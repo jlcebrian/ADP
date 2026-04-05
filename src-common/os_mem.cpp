@@ -104,7 +104,7 @@ void Free(void* block)
 	Abort();
 }
 
-void DumpMemory(uint32_t maxb)
+void DumpMemory(uint32_t totalFree, uint32_t largestBlock)
 {
 	SanityCheck();
 
@@ -172,25 +172,18 @@ void DumpMemory(uint32_t maxb)
 	y += 10;
 
 	char buf[64];
-	void *allocs[256+64];
-	int n;
-	for (n = 0; n < 256; n++)
+	buf[0] = 0;
+	if (totalFree > 0)
 	{
-		allocs[n] = AllocateBlock("MEMTEST", 1024);
-		if (allocs[n] == 0)
-			break;
+		LongToChar(totalFree / 1024, buf, 10);
+		StrCat(buf, sizeof(buf), "K free");
 	}
-	for (int i = 0; i < n; i++)
-		Free(allocs[i]);
-
-	buf[0] = ' ';
-	LongToChar(n, buf+1, 10);
-	StrCat(buf, sizeof(buf), "K free ");
-	if (maxb > 0)
+	if (largestBlock > 0)
 	{
-		StrCat(buf, sizeof(buf), "/ ");
-		LongToChar(maxb, buf+StrLen(buf), 10);
-		StrCat(buf, sizeof(buf), " maxb ");
+		if (buf[0] != 0)
+			StrCat(buf, sizeof(buf), " / ");
+		LongToChar(largestBlock / 1024, buf + StrLen(buf), 10);
+		StrCat(buf, sizeof(buf), "K largest");
 	}
 	VID_ClearAllPlanes(6, 2, 6 * StrLen(buf), 8, 0);
 	for (int n = 0; buf[n]; n++)

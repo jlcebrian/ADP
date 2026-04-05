@@ -68,11 +68,6 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 
 		const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
 		uint8_t* scratch = 0;
-        if (payloadData != 0)
-        {
-            DebugPrintf("DAT5 planar %u: payload file cache hit at %lu (%lu bytes)\n",
-                (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
-        }
 		if (payloadData == 0)
 		{
 			if (bufferSize >= requiredSize + entry->length)
@@ -90,8 +85,6 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 				DMG_SetError(DMG_ERROR_READING_FILE);
 				return 0;
 			}
-            DebugPrintf("DAT5 planar %u: payload file read at %lu (%lu bytes)\n",
-                (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
 			payloadData = scratch;
 		}
 
@@ -115,8 +108,6 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 	const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
 	if (payloadData != 0)
 	{
-        DebugPrintf("DAT5 planar %u: payload file cache hit at %lu (%lu bytes)\n",
-            (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
         if (!DMG_EnsureDAT5PaletteFromPayload(entry, payloadData))
             return 0;
 		MemCopy(buffer, payloadData + paletteBytes, requiredSize);
@@ -139,8 +130,6 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return 0;
 	}
-    DebugPrintf("DAT5 planar %u: payload file read at %lu (%lu bytes)\n",
-        (unsigned)index, (unsigned long)entry->fileOffset, (unsigned long)entry->length);
     if (!DMG_EnsureDAT5PaletteFromPayload(entry, scratch))
         return 0;
     MemCopy(buffer, scratch + paletteBytes, requiredSize);
@@ -270,13 +259,9 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		buffer = (uint8_t*)(cache + 1);
 		if (cache->populated)
-        {
-            DebugPrintf("Planar image %u: image cache hit (%u bytes)\n", (unsigned)index, (unsigned)requiredSize);
 			return buffer;
-        }
 		bufferSize = cache->size;
 		cache->populated = true;
-        DebugPrintf("Planar image %u: image cache miss, populating (%u bytes)\n", (unsigned)index, (unsigned)requiredSize);
 	}
 #endif
 
@@ -284,8 +269,6 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		buffer = DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 		bufferSize = DMG_GetTemporaryBufferSize();
-        DebugPrintf("Planar image %u: using temporary buffer (%u bytes available, %u required)\n",
-            (unsigned)index, (unsigned)bufferSize, (unsigned)requiredSize);
 		if (bufferSize < requiredSize)
 		{
 			DMG_Warning("Entry %d: Internal buffer too small for entry (%d bytes required)", index, requiredSize);
