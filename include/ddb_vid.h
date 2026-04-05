@@ -23,6 +23,7 @@ extern void   VID_DrawText            (int x, int y, const char* text, uint8_t i
 extern void   VID_GetKey              (uint8_t* key, uint8_t* ext, uint8_t* modifiers);
 extern void   VID_GetMilliseconds     (uint32_t* time);
 extern void   VID_GetPaletteColor     (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b);
+extern uint16_t VID_GetPaletteSize    ();
 extern void   VID_GetPictureInfo      (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h);
 extern void   VID_LoadPicture         (uint8_t picno, DDB_ScreenMode screenMode);
 extern void   VID_MainLoop            (DDB_Interpreter* i, void (*callback)(int elapsed));

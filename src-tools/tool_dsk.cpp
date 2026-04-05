@@ -775,7 +775,8 @@ static bool Dir (int argc, char* argv[])
 					char timeStr[20] = "";
 					if (result.modifyTime != 0)
 					{
-						struct tm* t = localtime(&result.modifyTime);
+						time_t modified = (time_t)result.modifyTime;
+						struct tm* t = localtime(&modified);
 						if (t)
 							strftime(timeStr, sizeof(timeStr), "%d-%m-%y %H:%M", t);
 					}
@@ -792,7 +793,8 @@ static bool Dir (int argc, char* argv[])
 					char timeStr[20] = "";
 					if (result.modifyTime != 0)
 					{
-						struct tm* t = localtime(&result.modifyTime);
+						time_t modified = (time_t)result.modifyTime;
+						struct tm* t = localtime(&modified);
 						if (t)
 							strftime(timeStr, sizeof(timeStr), "%d-%m-%y %H:%M", t);
 					}

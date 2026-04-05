@@ -561,6 +561,11 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 	if (b) *b = palette[color][2];
 }
 
+uint16_t VID_GetPaletteSize()
+{
+	return 16;
+}
+
 void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h)
 {
 	if (pictureEntry == 0 || pictureOrigin != dmg)

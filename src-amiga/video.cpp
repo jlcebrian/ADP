@@ -11,6 +11,7 @@
 #include <os_lib.h>
 #include <os_file.h>
 #include <dmg.h>
+#include <dmg_font.h>
 
 #include "keyboard.h"
 #include "timer.h"
@@ -42,6 +43,7 @@ extern LONG os_blockCount;
 extern LONG os_totalAllocated;
 
 bool	 supportsOpenFileDialog = false;
+DDB_Machine screenMachine = DDB_MACHINE_IBMPC;
 
 bool     isPAL = false;
 static bool isAGA = false;
@@ -378,6 +380,18 @@ void VID_ActivateCharset()
 	}
 }
 
+void VID_SetCharset(const uint8_t* newCharset)
+{
+	MemCopy(charset, newCharset, 2048);
+	VID_ActivateCharset();
+}
+
+void VID_SetCharsetWidth(uint8_t width)
+{
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = width;
+}
+
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
 	File* file = File_Open(filename);
@@ -395,6 +409,25 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 	File_Seek(file, 128);
 	File_Read(file, ptr, 2048);
 	File_Close(file);
+	VID_ActivateCharset();
+	return true;
+}
+
+static bool LoadSINTACFont(const char* filename)
+{
+	DMG_Font* font = Allocate<DMG_Font>("SINTAC Font");
+	if (font == 0)
+		return false;
+
+	if (!DMG_ReadSINTACFont(filename, font))
+	{
+		Free(font);
+		return false;
+	}
+
+	MemCopy(charset, font->bitmap8, sizeof(font->bitmap8));
+	MemCopy(charWidth, font->width8, sizeof(font->width8));
+	Free(font);
 	VID_ActivateCharset();
 	return true;
 }
@@ -849,11 +882,15 @@ bool VID_LoadDataFile (const char* fileName)
 	if (dmg->version == DMG_Version5)
 		requiredImageCache = GetRecommendedDAT5ImageCacheSize(dmg);
 
-	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	bool fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
+		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
+
+	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		memcpy(charset, DefaultCharset, 1024);
 		memcpy(charset + 1024, DefaultCharset, 1024);
+		VID_ActivateCharset();
 	}
 
 	uint32_t datSize = File_GetSize(dmg->file);
@@ -1297,6 +1334,15 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 	}
 }
 
+uint16_t VID_GetPaletteSize()
+{
+	if (displayPlanes == 8 && isAGA)
+		return 256;
+	if (displayPlanes > 4)
+		return 32;
+	return 16;
+}
+
 void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h)
 {
 	if (pictureEntry == 0 || pictureOrigin != dmg)
@@ -1636,6 +1682,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		chipRevBits0 = GfxBase->ChipRevBits0;
 	isAGA = (chipRevBits0 & (GFXF_AA_ALICE | GFXF_AA_LISA | GFXF_AA_MLISA)) != 0;
 	copperListBytes = isAGA ? 4096 : 1024;
+	screenMachine = machine;
 	DebugPrintf("Video: %s %u plane%s%s\n",
 		DescribeScreenMode(screenMode),
 		(unsigned)requestedDisplayPlanes,

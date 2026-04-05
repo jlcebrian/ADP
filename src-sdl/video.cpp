@@ -594,6 +594,11 @@ void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 	*b = (c >> 0) & 0xFF;
 }
 
+uint16_t VID_GetPaletteSize()
+{
+	return 256;
+}
+
 void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 {
 	palette[color] = (r << 16) | (g << 8) | b;
@@ -1447,11 +1452,8 @@ bool VID_LoadDataFile(const char* fileName)
 	}
 
 	bool fontLoaded = false;
-	if (screenMachine == DDB_MACHINE_IBMPC)
-	{
-		fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
-			LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
-	}
+	fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
+		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
 
 	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))

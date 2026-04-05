@@ -16,6 +16,7 @@ static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
+static uint16_t    fadePaletteSize = 16;
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -198,7 +199,7 @@ static void WaitForKeyUpdate(int elapsed)
 #if _WEB
 
 static int frame;
-static uint8_t r[16], g[16], b[16];
+static uint8_t r[256], g[256], b[256];
 
 static PlayerState state = Player_Starting;
 static DDB*        ddb;
@@ -252,7 +253,7 @@ static const char* GetSnapshot(int index)
 
 static void FadeOutStep(int elapsed)
 {
-	for (int i = 0; i < 16; i++)
+	for (uint16_t i = 0; i < fadePaletteSize; i++)
 	{
 		uint8_t r2 = r[i] * (15 - frame) / 15;
 		uint8_t g2 = g[i] * (15 - frame) / 15;
@@ -271,7 +272,10 @@ static void FadeOutStep(int elapsed)
 
 static void FadeOut()
 {
-	for (int i = 0; i < 16; i++)
+	fadePaletteSize = VID_GetPaletteSize();
+	if (fadePaletteSize > 256)
+		fadePaletteSize = 256;
+	for (uint16_t i = 0; i < fadePaletteSize; i++)
 		VID_GetPaletteColor(i, &r[i], &g[i], &b[i]);
 	frame = 0;
 	FadeOutStep(0);
@@ -479,13 +483,15 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 static void FadeOut()
 {
-
-	uint8_t r[16], g[16], b[16];
-	for (int i = 0; i < 16; i++)
+	uint16_t fadePaletteSize = VID_GetPaletteSize();
+	if (fadePaletteSize > 256)
+		fadePaletteSize = 256;
+	uint8_t r[256], g[256], b[256];
+	for (uint16_t i = 0; i < fadePaletteSize; i++)
 		VID_GetPaletteColor(i, &r[i], &g[i], &b[i]);
 	for (int frame = 0; frame < 16; frame++)
 	{
-		for (int i = 0; i < 16; i++)
+		for (uint16_t i = 0; i < fadePaletteSize; i++)
 		{
 			uint8_t r2 = r[i] * (15 - frame) / 15;
 			uint8_t g2 = g[i] * (15 - frame) / 15;
