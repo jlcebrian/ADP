@@ -1087,7 +1087,9 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 
-	size_t fileSize = File_GetSize(file);
+	size_t fileSize = File_GetSizeByName(filename);
+	if (fileSize == 0)
+		fileSize = File_GetSize(file);
 	DebugPrintf("DMG_Open(%s): size=%lu bytes\n", filename, (unsigned long)fileSize);
 	if (fileSize < DMG_MIN_FILE_SIZE)
 	{

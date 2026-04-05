@@ -1056,7 +1056,9 @@ DDB* DDB_Load(const char* filename)
 		return 0;
 	}
 
-	uint64_t fileSize = File_GetSize(file);
+	uint64_t fileSize = File_GetSizeByName(filename);
+	if (fileSize == 0)
+		fileSize = File_GetSize(file);
 	uint8_t* memory = 0;
 	uint8_t* data = 0;
 

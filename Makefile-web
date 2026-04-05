@@ -17,7 +17,7 @@ CPPFLAGS += -g -DVERSION=$(VERSION)
 
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 
-DIRS = src-common/ src-sdl/ src-unix/
+DIRS = src-common/ src-salvador/ src-sdl/ src-unix/
 VPATH = $(DIRS) src-tools/
 
 SRCS := \

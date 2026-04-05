@@ -13,7 +13,7 @@ CPPFLAGS += `sdl2-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 LDFLAGS += `sdl2-config --libs`
 
-DIRS = src-common/ 
+DIRS = src-common/ src-salvador/
 VPATH = $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = dmg_edit img ddb_writ cli_parser

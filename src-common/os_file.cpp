@@ -234,6 +234,16 @@ File* File_Create(const char* fileName)
 	return Native_Create(fileName);
 }
 
+uint64_t File_GetSizeByName(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return 0;
+	uint64_t size = File_GetSize(file);
+	File_Close(file);
+	return size;
+}
+
 bool File_FindFirst (const char* pattern, FindFileResults* results)  
 { 
 	if (mountedDisk)
@@ -273,6 +283,17 @@ File *File_Create(const char *file)
 {
 	FILE* f = fopen(file, "wb");
 	return (File*) f;
+}
+
+uint64_t File_GetSizeByName(const char* file)
+{
+	FILE* f = fopen(file, "rb");
+	if (f == 0)
+		return 0;
+	fseek(f, 0, SEEK_END);
+	long size = ftell(f);
+	fclose(f);
+	return (uint64_t)size;
 }
 
 uint64_t File_GetPosition(File *file)

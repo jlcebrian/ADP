@@ -19,6 +19,10 @@ struct FindFileInternal
 	FileInfoBlock info;
 };
 
+typedef char FindFileInternalFitsInResults[
+	sizeof(FindFileInternal) <= sizeof(((FindFileResults*)0)->internalData) ? 1 : -1
+];
+
 static int filesOpen = 0;
 
 File* File_Open(const char *file, FileOpenMode mode)
@@ -48,6 +52,26 @@ File* File_Create(const char *file)
 	File* result = (File*)Open(file, MODE_NEWFILE);
 	AfterCallingDOS();
 	return result;
+}
+
+uint64_t File_GetSizeByName(const char* file)
+{
+	CallingDOS();
+	BPTR lock = Lock(file, ACCESS_READ);
+	if (lock == 0)
+	{
+		AfterCallingDOS();
+		return 0;
+	}
+
+	uint64_t size = 0;
+	FileInfoBlock fib;
+	if (Examine(lock, &fib))
+		size = fib.fib_Size;
+
+	UnLock(lock);
+	AfterCallingDOS();
+	return size;
 }
 
 uint64_t File_Read(File* file, void* buffer, uint64_t size)
@@ -101,12 +125,16 @@ uint64_t File_GetSize(File* file)
 #endif
 	CallingDOS();
 	LONG size = -1;
-	FileInfoBlock fib;
-	if (ExamineFH((BPTR)file, &fib))
+	// ExamineFH() is not available on Kickstart 1.3 / DOS v34 (A500-era ROMs).
+	// Use it only when the DOS library is new enough, otherwise fall back to Seek().
+	if (DOSBase != 0 && DOSBase->dl_lib.lib_Version >= 36)
 	{
-		size = fib.fib_Size;
+		FileInfoBlock fib;
+		if (ExamineFH((BPTR)file, &fib))
+			size = fib.fib_Size;
 	}
-	else
+
+	if (size < 0)
 	{
 		LONG pos = Seek((BPTR)file, 0, OFFSET_CURRENT);
 		Seek((BPTR)file, 0, OFFSET_END);

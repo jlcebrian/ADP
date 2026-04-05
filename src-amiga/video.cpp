@@ -68,8 +68,8 @@ static uint8_t  requestedDisplayPlanes = TEXT_PLANES;
 static uint32_t screenBytesPerPlane = SCR_BPNEXTB;
 static uint32_t screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
 static uint32_t activePalette[256];
-static uint16_t activePaletteAGAHigh[256];
-static uint16_t activePaletteAGALow[256];
+static uint16_t* activePaletteAGAHigh = 0;
+static uint16_t* activePaletteAGALow = 0;
 static uint32_t savedPalette[256];
 static uint16_t savedPaletteColors = 16;
 
@@ -150,10 +150,15 @@ static void PresentScratchBuffer()
 	else
 	{
 		uint16_t* program = BeginCopperBuild();
-		uint16_t* end = SetVisiblePlanes(scratchPlane, program);
+		uint16_t* end = program;
+		end = SetScreenLayout(end);
+		end = SetBitPlanes(end);
+		end = SetVisiblePlanes(scratchPlane, end);
 		VID_VSync();
 		end = AppendCopperPalette(end);
 		RunCopperProgram(program, end);
+		copper1 = program;
+		activeCopperList = (program == copperLists[1]) ? 1 : 0;
 	}
 
 	if (displaySwap)
@@ -291,6 +296,8 @@ static inline uint16_t EncodeColor24Low(uint32_t rgb)
 
 static inline void SetEncodedAGAPalette(uint8_t color, uint32_t rgb)
 {
+	if (activePaletteAGAHigh == 0 || activePaletteAGALow == 0)
+		return;
 	activePaletteAGAHigh[color] = EncodeColor24High(rgb);
 	activePaletteAGALow[color] = EncodeColor24Low(rgb);
 }
@@ -314,6 +321,9 @@ static void SetPlanePointers(uint8_t* buffer, uint8_t** out)
 
 static void UploadAGAPalette(uint16_t count)
 {
+	if (activePaletteAGAHigh == 0 || activePaletteAGALow == 0)
+		return;
+
 	uint16_t colors = count > 256 ? 256 : count;
 	uint16_t banks = (colors + 31) >> 5;
 	const uint16_t* srcHigh = activePaletteAGAHigh;
@@ -1699,6 +1709,16 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 
 	memcpy(charset,      DefaultCharset, 1024);
 	memcpy(charset+1024, DefaultCharset, 1024);
+	if (isAGA)
+	{
+		activePaletteAGAHigh = Allocate<uint16_t>("AGA palette high", 256);
+		activePaletteAGALow = Allocate<uint16_t>("AGA palette low", 256);
+		if (activePaletteAGAHigh == 0 || activePaletteAGALow == 0)
+		{
+			VID_Finish();
+			return false;
+		}
+	}
 	charsetWords = (uint16_t(*)[256][8])AllocMem(8192, MEMF_CHIP | MEMF_CLEAR);
 	rotationTable = (uint16_t*)AllocMem(8 * 256 * sizeof(uint16_t), MEMF_CLEAR);
 	if (charsetWords == 0 || rotationTable == 0)
@@ -1756,6 +1776,16 @@ void VID_Finish ()
 	{
 		FreeMem(rotationTable, 8 * 256 * sizeof(uint16_t));
 		rotationTable = 0;
+	}
+	if (activePaletteAGAHigh)
+	{
+		Free(activePaletteAGAHigh);
+		activePaletteAGAHigh = 0;
+	}
+	if (activePaletteAGALow)
+	{
+		Free(activePaletteAGALow);
+		activePaletteAGALow = 0;
 	}
 
 	if (copperLists[0])

@@ -112,11 +112,12 @@ void StopSample()
 
 	if (playing)
 	{
-		if (CheckIO((IORequest *)req))
+		if (!CheckIO((IORequest *)req))
 		{
 			DebugPrintf("Aborting audio playback\n");
 			AbortIO((IORequest *)req);
 		}
+		WaitIO((IORequest *)req);
 		playing = false;
 	}
 }
@@ -127,11 +128,11 @@ void CloseAudio()
 	{
 		StopSample();
 		
-		if (CheckIO((IORequest *)req))
+		if (!CheckIO((IORequest *)req))
 		{
 			AbortIO((IORequest *)req);
-			WaitIO((IORequest *)req);
 		}
+		WaitIO((IORequest *)req);
 
 		DebugPrintf("Closing audio.device\n");
 		CloseDevice((IORequest *)req);

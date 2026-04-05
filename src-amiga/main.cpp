@@ -123,15 +123,14 @@ void FreeSystem()
 
 int main ()
 {
-	const char* msg = "ADP " VERSION_STR "\n";
-
 	SysBase       = *((struct ExecBase**)4UL);
 	custom        = (Custom*)0xdff000;			// ?? Shouldn't be dynamic?
 	GfxBase       = (struct GfxBase *)OpenLibrary((CONST_STRPTR)"graphics.library",0);
 	DOSBase       = (struct DosLibrary*)OpenLibrary((CONST_STRPTR)"dos.library", 0);
 	IntuitionBase = (struct IntuitionBase*)OpenLibrary((CONST_STRPTR)"intuition.library", 0);
 
-	PrintToOutput(msg);	
+	// const char* msg = "ADP " VERSION_STR "\n";
+	// PrintToOutput(msg);	
 	
 	uint32_t freeMemory = AvailMem(0);
 	DebugPrintf("Free memory on startup: %u bytes\n", freeMemory);

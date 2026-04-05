@@ -70,6 +70,8 @@ static void EnumFiles(const char* pattern = "*")
 
 	fileCount = 0;
 	nameBuffer = Allocate<char>("Temporary filenames", NAME_BUFFER_SIZE);
+	if (nameBuffer == 0)
+		return;
 	
 	if (File_FindFirst(pattern, &r))
 	{
@@ -619,8 +621,11 @@ bool DDB_RunPlayer()
 	DebugPrintf("DDB_Load completed in %lu ms\n", (unsigned long)(tAfterDDBLoad - tLoadStart));
 	VID_ShowProgressBar(64);
 
-	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName)) 
+	{
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+	}
+
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;

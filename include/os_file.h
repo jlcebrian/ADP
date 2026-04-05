@@ -40,7 +40,7 @@ struct FindFileResults
 	int      attributes;
 	uint32_t modifyTime;
 
-	uint8_t  internalData[300];
+	uint8_t  internalData[384];
 };
 
 extern bool OS_FindFirstFile (const char* pattern, FindFileResults* results);
@@ -69,6 +69,7 @@ struct File
 extern bool     File_MountDisk (const char* file);
 extern File*    File_Open      (const char* file, FileOpenMode mode = ReadOnly);
 extern File*    File_Create    (const char* file);
+extern uint64_t File_GetSizeByName(const char* file);
 extern bool     File_FindFirst (const char* pattern, FindFileResults* results);
 extern bool     File_FindNext  (FindFileResults* results);
 
@@ -88,6 +89,7 @@ struct File;
 
 extern File*       File_Open           (const char* file, FileOpenMode mode = ReadOnly);
 extern File*       File_Create         (const char* file);
+extern uint64_t    File_GetSizeByName  (const char* file);
 extern uint64_t    File_GetSize        (File* file);
 extern uint64_t    File_Read           (File* file, void* buffer, uint64_t bytes);
 extern uint64_t    File_Write          (File* file, const void* buffer, uint64_t bytes);

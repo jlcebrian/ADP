@@ -83,6 +83,7 @@ static bool createDAT5 = false;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
+static bool compressionEnabled = true;
 
 typedef enum
 {
@@ -91,10 +92,13 @@ typedef enum
     REMAP_RESERVE,
     REMAP_STD,
     REMAP_DARK,
+    REMAP_RANGE,
 }
 RemapMode;
 
 static RemapMode remapMode = REMAP_NONE;
+static int remapRangeFirst = 0;
+static int remapRangeLast = 0;
 static uint8_t priorityEntries[256];
 static int priorityEntryCount = 0;
 
@@ -203,6 +207,8 @@ static void PrintHelp()
     printf("                up to 16 slots, or as many as the mode still allows\n");
     printf("   remap:std  Remap DAT5 palettes using the standard bright-slot order\n");
     printf("   remap:dark Remap DAT5 palettes strictly from dark to bright\n");
+    printf("   remap:A-B  Shift image palette indices into color range A-B when it fits\n");
+    printf("   compression:# Set image compression for a/n/u (0 or 1)\n");
     printf("   priority:#,#... Prioritize physical DAT order for these entries on n/u\n");
     printf("   mode:<id>  When creating a DAT5: cga, ega, i16, i32, i256\n");
     printf("   screen:WxH When creating a DAT5: 320x200, 640x200 or 640x400\n");
@@ -718,6 +724,53 @@ static void ReindexPaletteReserve(uint8_t* pixels, uint32_t pixelCount, uint32_t
     if (lastColor) *lastColor = reserve + *paletteSize - 1;
 }
 
+static void ReindexPaletteRange(uint8_t* pixels, uint32_t pixelCount, int paletteSize, int paletteLimit, int* firstColor, int* lastColor)
+{
+    if (paletteSize <= 0)
+    {
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = 0;
+        return;
+    }
+
+    int effectiveFirst = remapRangeFirst;
+    int effectiveLast = remapRangeLast;
+    if (effectiveFirst >= paletteLimit)
+    {
+        ShowWarning("Requested remap range starts outside the DAT mode palette; keeping default palette placement");
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = paletteSize - 1;
+        return;
+    }
+    if (effectiveLast >= paletteLimit)
+    {
+        ShowWarning("Requested remap range exceeds the DAT mode palette; clamping to the mode limit");
+        effectiveLast = paletteLimit - 1;
+    }
+
+    int available = effectiveLast - effectiveFirst + 1;
+    if (available <= 0)
+    {
+        ShowWarning("Requested remap range is empty for this DAT mode; keeping default palette placement");
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = paletteSize - 1;
+        return;
+    }
+
+    if (paletteSize > available)
+    {
+        ShowWarning("Image palette does not fit in requested remap range; keeping default palette placement");
+        if (firstColor) *firstColor = 0;
+        if (lastColor) *lastColor = paletteSize - 1;
+        return;
+    }
+
+    for (uint32_t i = 0; i < pixelCount; i++)
+        pixels[i] = (uint8_t)(pixels[i] + effectiveFirst);
+    if (firstColor) *firstColor = effectiveFirst;
+    if (lastColor) *lastColor = effectiveFirst + paletteSize - 1;
+}
+
 static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int* paletteSize, int paletteLimit, int* firstColor, int* lastColor)
 {
     if (firstColor) *firstColor = 0;
@@ -735,6 +788,9 @@ static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* pa
             break;
         case REMAP_DARK:
             ReindexPaletteDark(pixels, pixelCount, palette, *paletteSize);
+            break;
+        case REMAP_RANGE:
+            ReindexPaletteRange(pixels, pixelCount, *paletteSize, paletteLimit, firstColor, lastColor);
             break;
         default:
             break;
@@ -1421,6 +1477,22 @@ static bool ParseRemapMode(const char* token, RemapMode* mode)
         *mode = REMAP_STD;
     else if (stricmp(value, "dark") == 0)
         *mode = REMAP_DARK;
+    else if (isdigit(*value))
+    {
+        char* end = 0;
+        long first = strtol(value, &end, 10);
+        if (end == value || *end != '-')
+            return false;
+        const char* lastPtr = end + 1;
+        if (!isdigit(*lastPtr))
+            return false;
+        long last = strtol(lastPtr, &end, 10);
+        if (*end != 0 || first < 0 || first > 255 || last < 0 || last > 255 || last < first)
+            return false;
+        remapRangeFirst = (int)first;
+        remapRangeLast = (int)last;
+        *mode = REMAP_RANGE;
+    }
     else
         return false;
     return true;
@@ -1437,6 +1509,11 @@ static bool IsCreateToken(const char* token)
     return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0;
 }
 
+static bool IsCompressionToken(const char* token)
+{
+    return strnicmp(token, "compression:", 12) == 0;
+}
+
 static bool IsPriorityToken(const char* token)
 {
     return strnicmp(token, "priority:", 9) == 0;
@@ -1448,6 +1525,7 @@ static bool IsEntryChangeToken(const char* token)
         IsTargetedFileToken(token) ||
         IsImageToken(token) ||
         IsRemapToken(token) ||
+        IsCompressionToken(token) ||
         IsPriorityToken(token) ||
         IsPropertyToken(token) ||
         IsCreateToken(token);
@@ -1470,6 +1548,8 @@ static bool AddPriorityEntry(int value)
     priorityEntries[priorityEntryCount++] = (uint8_t)value;
     return true;
 }
+
+static bool ParseOptionValue(const char* ptr, int* value);
 
 static bool ParsePriorityToken(const char* token)
 {
@@ -1513,6 +1593,19 @@ static bool ParsePriorityToken(const char* token)
             return false;
         ptr++;
     }
+    return true;
+}
+
+static bool ParseCompressionToken(const char* token)
+{
+    if (!IsCompressionToken(token))
+        return false;
+
+    int value = 0;
+    if (!ParseOptionValue(token + 12, &value) || (value != 0 && value != 1))
+        return false;
+
+    compressionEnabled = value != 0;
     return true;
 }
 
@@ -1836,6 +1929,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
     }
+    if (paletteSize > 0)
+        lastColor = paletteSize - 1;
 
     uint32_t size = width * height;
     if (dmg->version == DMG_Version5)
@@ -1881,10 +1976,18 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Unable to encode image \"%s\" for DAT5 mode\n", path);
             return false;
         }
-        if (!CompressDAT5Image(outBuffer, encodedSize, &storedBuffer, &storedSize, &compressed))
+        if (compressionEnabled)
         {
-            fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
-            return false;
+            if (!CompressDAT5Image(outBuffer, encodedSize, &storedBuffer, &storedSize, &compressed))
+            {
+                fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
+                return false;
+            }
+        }
+        else
+        {
+            storedBuffer = outBuffer;
+            storedSize = encodedSize;
         }
         if (!DMG_SetEntryPaletteRange(dmg, targetIndex, palette, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
         {
@@ -1912,20 +2015,25 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Legacy DAT formats only support up to 16 colors. Use DAT5 mode:i16/mode:i32/mode:i256.\n");
             return false;
         }
-        uint8_t* outBuffer = buffer + size;
-        uint16_t compressedSize = 0;
+        uint8_t* storedBuffer = buffer;
+        uint16_t compressedSize = (uint16_t)size;
         bool compressed = false;
-        if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
+        if (compressionEnabled)
         {
-            fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", path, DMG_GetErrorString());
-            return false;
+            uint8_t* outBuffer = buffer + size;
+            if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
+            {
+                fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", path, DMG_GetErrorString());
+                return false;
+            }
+            storedBuffer = outBuffer;
         }
         if (!DMG_SetEntryPalette(dmg, targetIndex, palette))
         {
             fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
             return false;
         }
-        if (!DMG_SetImageData(dmg, targetIndex, outBuffer, width, height, compressedSize, compressed))
+        if (!DMG_SetImageData(dmg, targetIndex, storedBuffer, width, height, compressedSize, compressed))
         {
             fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
             return false;
@@ -1969,6 +2077,16 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             if (!ParseRemapMode(token, &remapMode))
             {
                 fprintf(stderr, "Error: Invalid remap mode: \"%s\"\n", token);
+                return false;
+            }
+            continue;
+        }
+
+        if (IsCompressionToken(token))
+        {
+            if (!ParseCompressionToken(token))
+            {
+                fprintf(stderr, "Error: Invalid compression setting: \"%s\"\n", token);
                 return false;
             }
             continue;
@@ -2163,11 +2281,19 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                     DMG_Close(out);
                     return false;
                 }
-                if (!CompressDAT5Image(outPtr, encodedSize, &storedBuffer, &storedSize, &compressed))
+                if (compressionEnabled)
                 {
-                    fprintf(stderr, "%03d: Error: Unable to compress DAT5 image\n", n);
-                    DMG_Close(out);
-                    return false;
+                    if (!CompressDAT5Image(outPtr, encodedSize, &storedBuffer, &storedSize, &compressed))
+                    {
+                        fprintf(stderr, "%03d: Error: Unable to compress DAT5 image\n", n);
+                        DMG_Close(out);
+                        return false;
+                    }
+                }
+                else
+                {
+                    storedBuffer = outPtr;
+                    storedSize = encodedSize;
                 }
                 if (!DMG_SetImageDataEx(out, n, storedBuffer, width, height, storedSize, compressed, entry->bitDepth))
                 {
@@ -2185,13 +2311,19 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 continue;
             }
 
-			if (!CompressImage(inPtr, size, outPtr, size, &compressed, &compressedSize, debug))
-			{
-				fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outPtr, DMG_GetErrorString());
-				DMG_Close(out);
-				return false;
-			}
-			if (!DMG_SetImageData(out, n, outPtr, width, height, compressedSize, compressed))
+            uint8_t* storedBuffer = inPtr;
+            compressedSize = (uint16_t)size;
+            if (compressionEnabled)
+            {
+			    if (!CompressImage(inPtr, size, outPtr, size, &compressed, &compressedSize, debug))
+			    {
+				    fprintf(stderr, "Error: Unable to compress image \"%s\": %s\n", outPtr, DMG_GetErrorString());
+				    DMG_Close(out);
+				    return false;
+			    }
+                storedBuffer = outPtr;
+            }
+			if (!DMG_SetImageData(out, n, storedBuffer, width, height, compressedSize, compressed))
 			{
 				fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
 				DMG_Close(out);
@@ -2227,6 +2359,14 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
             if (!ParseRemapMode(tokens[i], &remapMode))
             {
                 fprintf(stderr, "Error: Invalid remap mode: \"%s\"\n", tokens[i]);
+                return false;
+            }
+        }
+        else if (IsCompressionToken(tokens[i]))
+        {
+            if (!ParseCompressionToken(tokens[i]))
+            {
+                fprintf(stderr, "Error: Invalid compression setting: \"%s\"\n", tokens[i]);
                 return false;
             }
         }
@@ -2382,6 +2522,9 @@ int main (int argc, char *argv[])
 
 	DMG_SetWarningHandler(ShowWarning);
     remapMode = REMAP_NONE;
+    remapRangeFirst = 0;
+    remapRangeLast = 0;
+    compressionEnabled = true;
     ResetPriorityEntries();
 
 	if (strlen(commandLine.arguments[0]) > 1000)

@@ -18,7 +18,7 @@ CPPFLAGS += -O2
 CPPFLAGS += `libpng-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 
-DIRS = src-common/
+DIRS = src-common/ src-salvador/
 VPATH = $(DIRS) src-sdl/ src-unix/ src-tools/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = dmg_edit img ddb_writ cli_parser

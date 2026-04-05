@@ -1,17 +1,22 @@
 #include <dmg.h>
 #include <os_lib.h>
 
+#if defined(_UNIX) || defined(_OSX) || defined(_WEB)
+#define DMG_USE_SALVADOR_COMPRESSOR 1
+#endif
+
+#if DMG_USE_SALVADOR_COMPRESSOR
 extern "C" {
-int zx0_quiet = 1;
-#include "../src-zx0/memory.c"
-#include "../src-zx0/optimize.c"
-#include "../src-zx0/compress.c"
+#include "../src-salvador/libsalvador.h"
 }
+#endif
 
 namespace
 {
 #ifdef _AMIGA
     extern "C" void zx0_decompress(const uint8_t* input, uint8_t* output);
+    extern "C" void zx0_decompress_fast(const uint8_t* input, uint8_t* output);
+    static const uint32_t ZX0_FAST_68K_MAX_OUTPUT = 65535;
 #else
     struct ZX0_State
     {
@@ -105,8 +110,10 @@ bool DMG_DecompressZX0(const uint8_t* data, uint32_t dataLength, uint8_t* buffer
 {
 #ifdef _AMIGA
     (void)dataLength;
-    (void)outputSize;
-    zx0_decompress(data, buffer);
+    if (outputSize <= ZX0_FAST_68K_MAX_OUTPUT)
+        zx0_decompress_fast(data, buffer);
+    else
+        zx0_decompress(data, buffer);
     return true;
 #else
     ZX0_State state;
@@ -177,27 +184,43 @@ COPY_FROM_NEW_OFFSET:
 
 uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* outputSize)
 {
-    const int offsetLimit = 2176;
-    int size = 0;
-    int delta = 0;
-    uint8_t* inputCopy = (uint8_t*)OSAlloc(dataLength);
-    if (inputCopy == 0)
-    {
-        if (outputSize)
-            *outputSize = 0;
-        return 0;
-    }
-
-    MemCopy(inputCopy, data, dataLength);
-    uint8_t* compressed = compress(optimize(inputCopy, (int)dataLength, 0, offsetLimit), inputCopy, (int)dataLength, 0, FALSE, TRUE, &size, &delta);
-    OSFree(inputCopy);
+#if !DMG_USE_SALVADOR_COMPRESSOR
+    (void)data;
+    (void)dataLength;
+    if (outputSize)
+        *outputSize = 0;
+    return 0;
+#else
+    const uint32_t maxCompressedSize = (uint32_t)salvador_get_max_compressed_size((size_t)dataLength);
+    uint8_t* compressed = (uint8_t*)OSAlloc(maxCompressedSize);
     if (compressed == 0)
     {
         if (outputSize)
             *outputSize = 0;
         return 0;
     }
+
+    const size_t compressedSize = salvador_compress(
+        data,
+        compressed,
+        (size_t)dataLength,
+        (size_t)maxCompressedSize,
+        FLG_IS_INVERTED,
+        0,
+        0,
+        0,
+        0);
+
+    if (compressedSize == (size_t)-1)
+    {
+        OSFree(compressed);
+        if (outputSize)
+            *outputSize = 0;
+        return 0;
+    }
+
     if (outputSize)
-        *outputSize = (uint32_t)size;
+        *outputSize = (uint32_t)compressedSize;
     return compressed;
+#endif
 }
