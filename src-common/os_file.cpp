@@ -89,7 +89,7 @@ File *Native_Open(const char *name, FileOpenMode mode)
 
 File *Native_Create(const char *name)
 {
-	FILE* nativeFile = fopen(name, "wb");
+	FILE* nativeFile = fopen(name, "wb+");
 	if (nativeFile == 0)
 		return 0;
 
@@ -281,7 +281,7 @@ File *File_Open(const char *file, FileOpenMode mode)
 
 File *File_Create(const char *file)
 {
-	FILE* f = fopen(file, "wb");
+	FILE* f = fopen(file, "wb+");
 	return (File*) f;
 }
 

@@ -3,6 +3,8 @@
 #include <os_types.h>
 #include <os_file.h>
 
+#define DISK_SIZE_880KB		901120
+#define DISK_SIZE_1760KB	1802240
 #define DISK_SIZE_720KB		737280
 #define DISK_SIZE_1440KB	1474560
 #define DISK_SIZE_2880KB	2949120
@@ -73,6 +75,8 @@ extern uint64_t             DIM_GetFreeSpace      (DIM_Disk* disk);
 extern void                 DIM_DumpInfo          (DIM_Disk* disk);
 extern uint32_t             DIM_GetVolumeLabel    (DIM_Disk* disk, char* buffer, uint32_t bufferSize);
 extern bool                 DIM_SetVolumeLabel    (DIM_Disk* disk, const char* label);
+extern bool                 DIM_ReadBootBlock     (DIM_Disk* disk, void* buffer, uint32_t size);
+extern bool                 DIM_WriteBootBlock    (DIM_Disk* disk, const void* buffer, uint32_t size);
 extern void					DIM_CloseDisk         (DIM_Disk* disk);
 
 extern DIM_Error			DIM_GetError          (void);

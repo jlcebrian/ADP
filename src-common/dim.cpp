@@ -561,6 +561,30 @@ bool DIM_SetVolumeLabel(DIM_Disk* disk, const char* label)
 	}
 }
 
+bool DIM_ReadBootBlock(DIM_Disk* disk, void* buffer, uint32_t size)
+{
+	switch (disk->type)
+	{
+		case DIM_ADF:
+			return ADF_ReadBootBlock(disk->adf, buffer, size);
+		default:
+			DIM_SetError(DIMError_CommandNotSupported);
+			return false;
+	}
+}
+
+bool DIM_WriteBootBlock(DIM_Disk* disk, const void* buffer, uint32_t size)
+{
+	switch (disk->type)
+	{
+		case DIM_ADF:
+			return ADF_WriteBootBlock(disk->adf, buffer, size);
+		default:
+			DIM_SetError(DIMError_CommandNotSupported);
+			return false;
+	}
+}
+
 void DIM_DumpInfo (DIM_Disk* disk)
 {
 	switch (disk->type)

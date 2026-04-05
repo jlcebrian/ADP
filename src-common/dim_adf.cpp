@@ -15,6 +15,8 @@ const int64_t AMIGA_EPOCH_OFFSET = 252460800;
 
 static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex);
 static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset);
+static void ADF_UpdateChecksumSized(uint8_t* block, uint32_t blockSize, uint32_t checksumOffset);
+static uint32_t ADF_GetFloppyRootBlock(uint32_t numBlocks);
 
 static void fix32(ADF_RootBlock* root)
 {
@@ -47,6 +49,11 @@ static void fix32(ADF_HeaderBlock* header)
 			*(uint32_t*)ptr = read32(ptr, false);
 		ptr += 4;
 	}
+}
+
+static uint32_t ADF_GetFloppyRootBlock(uint32_t numBlocks)
+{
+    return numBlocks / 2;
 }
 
 bool ADF_LoadBitmapFromDisk (ADF_Disk* disk)
@@ -134,7 +141,7 @@ ADF_Disk* ADF_OpenDisk (const char* filename)
 	disk->file = file;
 	disk->size = (uint32_t)File_GetSize(file);
 	disk->numBlocks = disk->size / 512;
-	disk->rootBlock = read32(&disk->boot[8], false);
+	disk->rootBlock = ADF_GetFloppyRootBlock(disk->numBlocks);
 	
 	bool ok = false;
 
@@ -556,15 +563,21 @@ bool ADF_ChangeDirectory (ADF_Disk* disk, const char* name)
 //  Write support helpers
 // ---------------------------------------------------------------------------
 
-static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset)
+static void ADF_UpdateChecksumSized(uint8_t* block, uint32_t blockSize, uint32_t checksumOffset)
 {
     uint32_t sum = 0;
     uint32_t* ptr = (uint32_t*)block;
+    uint32_t count = blockSize / 4;
     
     ptr[checksumOffset / 4] = 0;
-    for (int i = 0; i < 128; i++)
+    for (uint32_t i = 0; i < count; i++)
         sum += fix32(ptr[i]); 
     ptr[checksumOffset / 4] = fix32(-sum);
+}
+
+static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset)
+{
+    ADF_UpdateChecksumSized(block, 512, checksumOffset);
 }
 
 // Standard Amiga Int'l Hash function
@@ -830,7 +843,7 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
 
     // 1. Setup Layout
     uint32_t numBlocks   = size / 512;
-    uint32_t rootBlock   = numBlocks / 2; // 880
+    uint32_t rootBlock   = ADF_GetFloppyRootBlock(numBlocks);
     uint32_t bitmapBlock = rootBlock + 1; // 881
 
     // 2. Erase Disk (Write Zeros)
@@ -849,15 +862,15 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
     // CRITICAL FIX: Write the Root Block pointer at offset 8 (Big Endian)
     // ADF_OpenDisk reads this to find the filesystem.
     uint32_t* bootVals = (uint32_t*)buffer;
-    bootVals[2] = fix32(rootBlock); // Offset 8 = Index 2 of uint32 array
+    bootVals[2] = fix32(880); // Floppy bootblock field is 880 for both DD and HD
 
-    // Calculate Checksum (Amiga Bootblock checksum is over 1024 bytes usually, 
-    // but for non-bootable disks, a valid checksum on sector 0 is often sufficient/ignored,
-    // provided the DOS signature is present).
-    ADF_UpdateChecksum(buffer, 4); 
+    uint8_t bootBlock[1024];
+    memset(bootBlock, 0, sizeof(bootBlock));
+    memcpy(bootBlock, buffer, 512);
+    ADF_UpdateChecksumSized(bootBlock, sizeof(bootBlock), 4);
 
     File_Seek(f, 0);
-    File_Write(f, buffer, 512);
+    File_Write(f, bootBlock, sizeof(bootBlock));
 
     // 4. Create Root Block
     ADF_RootBlock root;
@@ -924,6 +937,40 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
 
     // 6. Return handle
     return ADF_OpenDisk(filename);
+}
+
+bool ADF_ReadBootBlock(ADF_Disk* disk, void* buffer, uint32_t size)
+{
+    if (size < sizeof(disk->boot))
+    {
+        DIM_SetError(DIMError_InvalidFile);
+        return false;
+    }
+    memcpy(buffer, disk->boot, sizeof(disk->boot));
+    return true;
+}
+
+bool ADF_WriteBootBlock(ADF_Disk* disk, const void* buffer, uint32_t size)
+{
+    if (size < sizeof(disk->boot))
+    {
+        DIM_SetError(DIMError_InvalidFile);
+        return false;
+    }
+
+    uint8_t boot[1024];
+    memcpy(boot, buffer, sizeof(boot));
+    write32(&boot[8], 880, false);
+    ADF_UpdateChecksumSized(boot, sizeof(boot), 4);
+
+    if (!File_Seek(disk->file, 0) || File_Write(disk->file, boot, sizeof(boot)) != sizeof(boot))
+    {
+        DIM_SetError(DIMError_WriteError);
+        return false;
+    }
+
+    memcpy(disk->boot, boot, sizeof(disk->boot));
+    return true;
 }
 
 static bool ADF_LinkToParent(ADF_Disk* disk, uint32_t parentBlock, uint32_t childBlock, const char* name)
@@ -1053,6 +1100,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
 
     ADF_HeaderBlock* currentBlock = &mainHeader;
     uint32_t currentBlockIndex = headerBlockIndex;
+    int currentEntries = 0;
 
     const uint8_t* byteData = (const uint8_t*)data;
     uint32_t remaining = dataSize;
@@ -1060,7 +1108,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
     
     uint32_t dataPayloadSize = (disk->fs == ADF_OFS) ? 488 : 512;
     uint32_t headerSize      = (disk->fs == ADF_OFS) ? 24  : 0;
-    uint32_t ofsSequence     = 0;
+    uint32_t ofsSequence     = 1;
     uint32_t previousOfsDataBlock = 0;
 
     while (remaining > 0)
@@ -1086,9 +1134,11 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
         
         currentBlock->dataBlocks[tableIndex] = dataBlockIndex;
         tableIndex--;
+        currentEntries++;
 
         if (tableIndex < 0)
         {
+            currentBlock->highSeq = currentEntries;
             uint32_t newExtIndex = ADF_AllocBlock(disk);
             if (newExtIndex == ADF_INVALID_BLOCK)
             {
@@ -1115,6 +1165,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
             currentBlock = &extBlock;
             currentBlockIndex = newExtIndex;
             tableIndex = 71; 
+            currentEntries = 0;
         }
 
         uint32_t writeSize = remaining > dataPayloadSize ? dataPayloadSize : remaining;
@@ -1151,6 +1202,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
     {
         currentBlock->type = ADF_EXT_TYPE;
         currentBlock->headerKey = headerBlockIndex; 
+        currentBlock->highSeq = currentEntries;
         currentBlock->secondaryType = ADF_ST_FILE;
         
         fix32(currentBlock); 
@@ -1162,7 +1214,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
     mainHeader.type = 2;
     mainHeader.secondaryType = ADF_ST_FILE;
     mainHeader.headerKey = headerBlockIndex;
-    mainHeader.highSeq = 0;
+    mainHeader.highSeq = currentBlock == &mainHeader ? currentEntries : 72;
     mainHeader.dataSize = 0; 
     mainHeader.protectionFlags = 0;
     mainHeader.fileSize = dataSize;

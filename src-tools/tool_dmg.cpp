@@ -1519,6 +1519,240 @@ static bool IsPriorityToken(const char* token)
     return strnicmp(token, "priority:", 9) == 0;
 }
 
+static bool HasWildcardChars(const char* token)
+{
+    return token != 0 && (strchr(token, '*') != 0 || strchr(token, '?') != 0);
+}
+
+static bool WildcardMatch(const char* pattern, const char* text)
+{
+    while (*pattern != 0)
+    {
+        if (*pattern == '*')
+        {
+            pattern++;
+            if (*pattern == 0)
+                return true;
+            while (*text != 0)
+            {
+                if (WildcardMatch(pattern, text))
+                    return true;
+                text++;
+            }
+            return false;
+        }
+        if (*text == 0)
+            return false;
+        if (*pattern != '?' && tolower((unsigned char)*pattern) != tolower((unsigned char)*text))
+            return false;
+        pattern++;
+        text++;
+    }
+    return *text == 0;
+}
+
+static const char* GetLastPathSeparator(const char* path)
+{
+    const char* slash = strrchr(path, '/');
+    const char* backslash = strrchr(path, '\\');
+    if (slash == 0)
+        return backslash;
+    if (backslash == 0)
+        return slash;
+    return slash > backslash ? slash : backslash;
+}
+
+static char* DuplicateString(const char* text)
+{
+    size_t len = strlen(text) + 1;
+    char* copy = (char*)malloc(len);
+    if (copy != 0)
+        memcpy(copy, text, len);
+    return copy;
+}
+
+static int CompareStringsIgnoreCase(const void* a, const void* b)
+{
+    const char* sa = *(const char* const*)a;
+    const char* sb = *(const char* const*)b;
+    return stricmp(sa, sb);
+}
+
+static bool ExpandWildcardToken(const char* token, const char** outTokens, int* outCount)
+{
+    if (!HasWildcardChars(token))
+        return false;
+    if (IsSelectionToken(token) || IsPropertyToken(token) || IsRemapToken(token) || IsCompressionToken(token) || IsPriorityToken(token) || IsCreateToken(token))
+        return false;
+
+    const char* pattern = token;
+    if (IsTargetedFileToken(token))
+        return false;
+    const char* colon = strchr(token, ':');
+    if (colon != 0 && colon != token && isdigit((unsigned char)*token))
+        return false;
+
+    FindFileResults results;
+    char* matches[CLI_MAX_ARGUMENTS];
+    int matchCount = 0;
+    if (File_FindFirst(pattern, &results))
+    {
+        do
+        {
+            if ((results.attributes & FileAttribute_Directory) != 0)
+                continue;
+
+            char fullPath[FILE_MAX_PATH];
+            const char* separator = GetLastPathSeparator(pattern);
+            if (strchr(results.fileName, '/') != 0 || strchr(results.fileName, '\\') != 0 || separator == 0)
+            {
+                StrCopy(fullPath, sizeof(fullPath), results.fileName);
+            }
+            else
+            {
+                size_t prefixLength = (size_t)(separator - pattern + 1);
+                if (prefixLength >= sizeof(fullPath))
+                    continue;
+                memcpy(fullPath, pattern, prefixLength);
+                fullPath[prefixLength] = 0;
+                StrCat(fullPath, sizeof(fullPath), results.fileName);
+            }
+
+            if (!WildcardMatch(pattern, fullPath))
+                continue;
+
+            matches[matchCount] = DuplicateString(fullPath);
+            if (matches[matchCount] == 0)
+            {
+                for (int i = 0; i < matchCount; i++)
+                    free(matches[i]);
+                fprintf(stderr, "Error: Out of memory expanding wildcard \"%s\"\n", token);
+                exit(1);
+            }
+            matchCount++;
+            if (matchCount >= CLI_MAX_ARGUMENTS)
+                break;
+        } while (File_FindNext(&results));
+    }
+
+    if (matchCount == 0)
+        return false;
+
+    qsort(matches, matchCount, sizeof(matches[0]), CompareStringsIgnoreCase);
+    for (int i = 0; i < matchCount; i++)
+        outTokens[(*outCount)++] = matches[i];
+    return true;
+}
+
+static int GetPriorityRank(uint8_t index)
+{
+    for (int i = 0; i < priorityEntryCount; i++)
+    {
+        if (priorityEntries[i] == index)
+            return i;
+    }
+    return 0x7FFF;
+}
+
+static bool TryGetDirectTargetIndexForCreate(const char* token, int* targetIndex)
+{
+    const char* colon = strchr(token, ':');
+    const char* slash = strrchr(token, '/');
+    const char* backslash = strrchr(token, '\\');
+    const char* filepart = slash ? slash + 1 : backslash ? backslash + 1 : token;
+
+    if (colon != 0 && colon != token && isdigit(*token))
+    {
+        int value = atoi(token);
+        if (value < 0 || value > 255)
+            return false;
+        *targetIndex = value;
+        return true;
+    }
+
+    if (isdigit(*filepart))
+    {
+        int value = atoi(filepart);
+        if (value >= 0 && value < 256)
+        {
+            *targetIndex = value;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool BuildDirectCreatePriorityArguments(int tokenCount, const char* tokens[], const char** reorderedTokens)
+{
+    struct ImageTokenInfo
+    {
+        const char* token;
+        int targetIndex;
+        int originalOrder;
+    };
+
+    ImageTokenInfo imageTokens[CLI_MAX_ARGUMENTS];
+    int imageCount = 0;
+    int outCount = 0;
+
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* token = tokens[i];
+        if (token == 0 || *token == 0)
+            continue;
+
+        bool selection[256];
+        if (ParseSelectionToken(token, selection))
+            return false;
+        if (IsPropertyToken(token))
+            return false;
+
+        if (IsTargetedFileToken(token) || IsImageToken(token))
+        {
+            int targetIndex = -1;
+            if (!TryGetDirectTargetIndexForCreate(token, &targetIndex))
+                return false;
+            imageTokens[imageCount].token = token;
+            imageTokens[imageCount].targetIndex = targetIndex;
+            imageTokens[imageCount].originalOrder = imageCount;
+            imageCount++;
+        }
+        else
+        {
+            reorderedTokens[outCount++] = token;
+        }
+    }
+
+    if (imageCount == 0)
+        return false;
+
+    for (int i = 0; i < imageCount - 1; i++)
+    {
+        for (int j = i + 1; j < imageCount; j++)
+        {
+            int ai = GetPriorityRank((uint8_t)imageTokens[i].targetIndex);
+            int aj = GetPriorityRank((uint8_t)imageTokens[j].targetIndex);
+            bool swap = false;
+            if (ai != aj)
+                swap = ai < aj ? false : true;
+            else
+                swap = imageTokens[i].originalOrder > imageTokens[j].originalOrder;
+            if (swap)
+            {
+                ImageTokenInfo tmp = imageTokens[i];
+                imageTokens[i] = imageTokens[j];
+                imageTokens[j] = tmp;
+            }
+        }
+    }
+
+    for (int i = 0; i < imageCount; i++)
+        reorderedTokens[outCount++] = imageTokens[i].token;
+
+    return true;
+}
+
 static bool IsEntryChangeToken(const char* token)
 {
     return IsSelectionToken(token) ||
@@ -2133,9 +2367,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 {
 	int n, i;
     uint8_t rebuildOrder[256];
-    uint32_t reusedOffsets[256];
-    uint8_t reusedEntries[256];
-    int reusedCount = 0;
     uint8_t firstEntry = dmg->firstEntry;
     uint8_t lastEntry = dmg->lastEntry;
     if (dmg->version == DMG_Version5)
@@ -2185,22 +2416,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
 
-		for (int reuse = 0; reuse < reusedCount; reuse++)
-		{
-			if (reusedOffsets[reuse] == entry->fileOffset)
-			{
-				uint8_t sourceIndex = reusedEntries[reuse];
-				outEntry->fileOffset = out->entries[sourceIndex]->fileOffset;
-				printf("%03d: Reusing data from %03d\n", n, sourceIndex);
-				DMG_UpdateEntry(out, n);
-				break;
-			}
-		}
-		if (outEntry->fileOffset != 0)
-		{
-			continue;
-		}
-
 		if (entry->type == DMGEntry_Audio)
 		{
 			uint16_t size = entry->length;
@@ -2217,8 +2432,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				return false;
 			}
 			printf("%03d: Added audio (%5d bytes, %s)\n", n, size, DMG_DescribeFreq((DMG_KHZ)entry->x));
-            reusedOffsets[reusedCount] = entry->fileOffset;
-            reusedEntries[reusedCount++] = (uint8_t)n;
 		}
 
 		if (entry->type == DMGEntry_Image)
@@ -2306,8 +2519,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 printf("%03d: Added image (%5u bytes%s)\n", n, storedSize, compressed ? ", ZX0" : "");
                 if (compressed)
                     OSFree(storedBuffer);
-                reusedOffsets[reusedCount] = entry->fileOffset;
-                reusedEntries[reusedCount++] = (uint8_t)n;
                 continue;
             }
 
@@ -2330,8 +2541,6 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				return false;
 			}
 			printf("%03d: Added image (%5d bytes%s)\n", n, compressedSize, compressed ? ", compressed" : "");
-            reusedOffsets[reusedCount] = entry->fileOffset;
-            reusedEntries[reusedCount++] = (uint8_t)n;
 		}
 		else
 		{
@@ -2461,6 +2670,7 @@ int main (int argc, char *argv[])
 {
 	DMG* dmg = NULL;
 	const char* outputFileName;
+    const char* workingFileName = 0;
 	int n;
     int exitCode = 0;
     char parseError[256];
@@ -2536,12 +2746,41 @@ int main (int argc, char *argv[])
 
     const char** remainingArgs = commandLine.arguments + 1;
     int remainingArgCount = commandLine.argumentCount - 1;
+    const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
+    bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
+    int expandedArgCount = 0;
+    const char* reorderedCreateArgs[CLI_MAX_ARGUMENTS];
+    bool createPriorityHandledDirectly = false;
+
+    for (int i = 0; i < remainingArgCount; i++)
+    {
+        int before = expandedArgCount;
+        if (ExpandWildcardToken(remainingArgs[i], expandedArgs, &expandedArgCount))
+        {
+            for (int n = before; n < expandedArgCount; n++)
+                expandedArgOwned[n] = true;
+            continue;
+        }
+        expandedArgs[expandedArgCount] = remainingArgs[i];
+        expandedArgOwned[expandedArgCount] = false;
+        expandedArgCount++;
+    }
+    remainingArgs = expandedArgs;
+    remainingArgCount = expandedArgCount;
 
     if (action == ACTION_NEW && !ParseCreateArguments(remainingArgCount, remainingArgs))
         return 1;
 
+    if (action == ACTION_NEW && priorityEntryCount > 0)
+    {
+        createPriorityHandledDirectly = BuildDirectCreatePriorityArguments(remainingArgCount, remainingArgs, reorderedCreateArgs);
+        if (createPriorityHandledDirectly)
+            remainingArgs = reorderedCreateArgs;
+    }
+
 	if (action == ACTION_NEW)
 	{
+        workingFileName = ChangeExtension(filename, ".wrk");
         if (createDAT5)
         {
             uint8_t firstEntry = 0;
@@ -2552,13 +2791,13 @@ int main (int argc, char *argv[])
                 return 1;
             }
             InferDAT5CreateRange(remainingArgCount, remainingArgs, &firstEntry, &lastEntry);
-            dmg = DMG_CreateDAT5(filename, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
+            dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
         }
         else
-		    dmg = DMG_Create(filename);
+		    dmg = DMG_Create(workingFileName);
 		if (dmg == NULL)
 		{
-			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", filename, DMG_GetErrorString());
+			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", workingFileName, DMG_GetErrorString());
 			return 1;
 		}
 		printf("Created new DAT file \"%s\"\n", filename);
@@ -2599,32 +2838,34 @@ int main (int argc, char *argv[])
                 {
                     DMG_Close(dmg);
                     dmg = NULL;
-                    remove(filename);
+                    if (workingFileName != 0)
+                        remove(workingFileName);
                 }
                 exitCode = 1;
             }
-            else if (action == ACTION_NEW && (priorityEntryCount > 0 || HasBufferedEntries(dmg)))
+            else if (action == ACTION_NEW && !createPriorityHandledDirectly && (priorityEntryCount > 0 || HasBufferedEntries(dmg)))
             {
-                const char* reorderedFileName = ChangeExtension(filename, ".new");
-                if (!RebuildDAT(dmg, reorderedFileName))
+                remove(filename);
+                if (!RebuildDAT(dmg, filename))
                 {
                     exitCode = 1;
                     break;
                 }
                 DMG_Close(dmg);
                 dmg = NULL;
+                if (workingFileName != 0)
+                    remove(workingFileName);
+            }
+            else if (action == ACTION_NEW)
+            {
+                DMG_Close(dmg);
+                dmg = NULL;
                 remove(filename);
-                if (rename(reorderedFileName, filename) != 0)
+                if (rename(workingFileName, filename) != 0)
                 {
-                    fprintf(stderr, "Error: Failed to replace \"%s\" with reordered file \"%s\"\n", filename, reorderedFileName);
+                    fprintf(stderr, "Error: Failed to rename \"%s\" to \"%s\"\n", workingFileName, filename);
                     exitCode = 1;
                     break;
-                }
-                dmg = DMG_Open(filename, false);
-                if (dmg == NULL)
-                {
-                    fprintf(stderr, "Error: Failed to reopen reordered \"%s\": %s\n", filename, DMG_GetErrorString());
-                    exitCode = 1;
                 }
             }
 			break;
@@ -2683,6 +2924,12 @@ int main (int argc, char *argv[])
 	}
 	if (dmg != NULL)
 		DMG_Close(dmg);
+
+    for (int i = 0; i < expandedArgCount; i++)
+    {
+        if (expandedArgOwned[i])
+            free((void*)expandedArgs[i]);
+    }
 
 	return exitCode;
 }

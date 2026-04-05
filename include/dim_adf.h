@@ -150,3 +150,5 @@ bool       ADF_RemoveFile      (ADF_Disk* disk, const char* path);
 bool       ADF_RemoveDirectory (ADF_Disk* disk, const char* path);
 bool       ADF_MakeDirectory   (ADF_Disk* disk, const char* path);
 bool       ADF_WriteFile       (ADF_Disk* disk, const char* path, const void* data, uint32_t dataSize);
+bool       ADF_ReadBootBlock   (ADF_Disk* disk, void* buffer, uint32_t size);
+bool       ADF_WriteBootBlock  (ADF_Disk* disk, const void* buffer, uint32_t size);

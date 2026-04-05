@@ -36,6 +36,9 @@ typedef enum
 	ACTION_CAT,
 	ACTION_HEXCAT,
 	ACTION_SETVOL,
+	ACTION_SETBOOT,
+	ACTION_GETBOOT,
+	ACTION_ADDTREE,
 	ACTION_INTERACTIVE,
 }
 Action;
@@ -92,6 +95,11 @@ commands[] =
 	{ "dump",     ACTION_HEXCAT,     MODE_EXISTING_DISK },
 	{ "setvol",   ACTION_SETVOL,     MODE_EXISTING_DISK },
 	{ "label",    ACTION_SETVOL,     MODE_EXISTING_DISK },
+	{ "boot",     ACTION_SETBOOT,    MODE_EXISTING_DISK },
+	{ "setboot",  ACTION_SETBOOT,    MODE_EXISTING_DISK },
+	{ "getboot",  ACTION_GETBOOT,    MODE_EXISTING_DISK },
+	{ "addtree",  ACTION_ADDTREE,    MODE_EXISTING_DISK },
+	{ "puttree",  ACTION_ADDTREE,    MODE_EXISTING_DISK },
 	{ "shell",    ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ "i",        ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ NULL }
@@ -110,7 +118,11 @@ static void ParseOptions (int *argc, char *argv[], const char* config);
 static bool RunCommand (Action action, int argc, char *argv[]);
 
 static bool AddFiles (int argc, char *argv[]);
+static bool AddTree  (int argc, char *argv[]);
 static bool Extract  (int argc, char *argv[]);
+static bool SetBoot  (int argc, char *argv[]);
+static bool GetBoot  (int argc, char *argv[]);
+static char* FindLastPathSeparator(char* path);
 
 static inline char ToUpper(char c)
 {
@@ -126,6 +138,13 @@ static inline char ToLower(char c)
 		return c - ('A' - 'a');
 	else
 		return c;
+}
+
+static char* FindLastPathSeparator(char* path)
+{
+	char* slash = (char*)strrchr(path, '/');
+	char* bslash = (char*)strrchr(path, '\\');
+	return slash > bslash ? slash : bslash;
 }
 
 void TracePrintf(const char* format, ...)
@@ -153,11 +172,14 @@ static void PrintHelp(int argc, char *argv[])
                         printf("    /L    Lowercase filenames\n");
                         return;
                     case ACTION_CREATEDISK:
-                        printf("Usage: dsk mkdisk disk.img\n\n");
+                        printf("Usage: dsk mkdisk disk.img [size|dd|hd]\n\n");
                         printf("    Create a new empty disk image\n");
                         printf("    The disk format is chosen based on the file extension:\n");
                         printf("      .adf  - Amiga Disk File (ADF)\n");
                         printf("      .dsk  - FAT Disk Image (FAT12)\n");
+                        printf("    Presets:\n");
+                        printf("      dd    - 880K for .adf, 720K for .dsk\n");
+                        printf("      hd    - 1760K for .adf, 1440K for .dsk\n");
                         return;
                     case ACTION_INFO:
                         printf("Usage: dsk info disk.img\n\n");
@@ -203,6 +225,20 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    If no label is provided, the volume label will be cleared.\n");
 						printf("    Not all disk formats support volume labels.\n");
 						return;
+					case ACTION_SETBOOT:
+						printf("Usage: dsk setboot disk.adf source.adf|bootblock.bin\n\n");
+						printf("    Copy a 1024-byte Amiga bootblock into an ADF image.\n");
+						printf("    If source is an .adf, its bootblock is copied.\n");
+						return;
+					case ACTION_GETBOOT:
+						printf("Usage: dsk getboot disk.adf output.bin\n\n");
+						printf("    Extract the 1024-byte Amiga bootblock from an ADF image.\n");
+						return;
+					case ACTION_ADDTREE:
+						printf("Usage: dsk addtree disk.img hostdir [destdir]\n\n");
+						printf("    Recursively copy a host directory tree into the disk image.\n");
+						printf("    Files keep their relative paths inside the image.\n");
+						return;
 					case ACTION_INTERACTIVE:
 						printf("Usage: dsk shell disk.img\n\n");
 						printf("    Open the disk image and enter an interactive shell.\n");
@@ -239,6 +275,9 @@ static void PrintHelp(int argc, char *argv[])
 	printf("    mkdir     Make a directory in disk image\n");
 	printf("    chdir     Change current directory\n");
 	printf("    setvol    Set or clear the volume label\n");
+	printf("    setboot   Set ADF bootblock from ADF or raw 1024-byte file\n");
+	printf("    getboot   Extract ADF bootblock to a host file\n");
+	printf("    addtree   Recursively add a host directory tree\n");
 	printf("    shell     Open an interactive shell\n");
 	printf("    help      Show extended command help\n");
 	printf("\nAdditional interactive-only commands: LDIR, LCD/LCHDIR, PUT, GET, EXIT\n");
@@ -474,6 +513,28 @@ static bool CheckExtension(const char* filename, const char* ext)
 	return stricmp(p + 1, ext) == 0;
 }
 
+static int ResolveDiskPresetSize(const char* diskName, const char* preset)
+{
+	bool isADF = CheckExtension(diskName, "adf");
+	bool isDSK = CheckExtension(diskName, "dsk");
+
+	if (stricmp(preset, "dd") == 0)
+	{
+		if (isADF)
+			return DISK_SIZE_880KB;
+		if (isDSK)
+			return DISK_SIZE_720KB;
+	}
+	else if (stricmp(preset, "hd") == 0)
+	{
+		if (isADF)
+			return DISK_SIZE_1760KB;
+		if (isDSK)
+			return DISK_SIZE_1440KB;
+	}
+	return 0;
+}
+
 static void ParseOptions (int *argc, char *argv[], const char* config)
 {
 	for (int n = 0; n < *argc; n++)
@@ -486,7 +547,7 @@ static void ParseOptions (int *argc, char *argv[], const char* config)
 				{
 					if (!config[c])
 					{
-						printf("Unknown option \"%c\"\n", config[c]);
+						printf("Unknown option \"%c\"\n", argv[n][i]);
 						break;
 					}
 					if (ToUpper(argv[n][i]) == ToUpper(config[c]))
@@ -507,6 +568,7 @@ static void ParseOptions (int *argc, char *argv[], const char* config)
 			for (int i = n+1; i < *argc; i++)
 				argv[i-1] = argv[i];
 			(*argc) -= 1;
+			n--;
 		}
 	}
 }
@@ -589,35 +651,44 @@ static bool Cat (int argc, char *argv[], bool hexMode)
 	bool singleFile = false;
 	uint32_t bufferSize = 0;
 	uint8_t* buffer = NULL;
+	char savedCwd[FILE_MAX_PATH];
+	if (DIM_GetCWD(disk, savedCwd, sizeof(savedCwd)) == 0)
+		savedCwd[0] = 0;
 
 	if (argc > 0)
 		pattern = argv[0];
 	if (pattern != NULL)
 	{
-		if (strchr(pattern, '?') == NULL && strchr(pattern, '*') == NULL)
-		{
-			singleFile = true;
-			if (DIM_ChangeDirectory(disk, pattern))
-			{
-				argc--, argv++;
-				pattern = argc > 0 ? argv[0] : "*";
-			}
-		}
-		char* pathSeparator = (char *)strrchr(pattern, '\\');
+		char pathBuffer[FILE_MAX_PATH];
+		StrCopy(pathBuffer, sizeof(pathBuffer), pattern);
+		char* pathSeparator = FindLastPathSeparator(pathBuffer);
 		if (pathSeparator != NULL)
 		{
 			*pathSeparator = 0;
-			if (pathSeparator > pattern && !DIM_ChangeDirectory(disk, pattern))
+			if (pathSeparator > pathBuffer && !DIM_ChangeDirectory(disk, pathBuffer))
 			{
-				printf("Error: Cannot change directory to %s\n", pattern);
+				printf("Error: Cannot change directory to %s\n", pathBuffer);
 				return false;
 			}
 			pattern = pathSeparator + 1;
+		}
+
+		if (strchr(pattern, '?') == NULL && strchr(pattern, '*') == NULL)
+		{
+			singleFile = true;
+			if (DIM_FindFile(disk, &result, pattern))
+			{
+				goto process_results;
+			}
+			DIM_ChangeDirectory(disk, savedCwd);
+			printf("File not found\n");
+			return true;
 		}
 	}
 
 	if (DIM_FindFirstFile(disk, &result, pattern))
 	{
+process_results:
 		do
 		{
 			if (!singleFile)
@@ -687,17 +758,19 @@ static bool Cat (int argc, char *argv[], bool hexMode)
 				if (singleFile)
 				{
 					printf("%s: it's a directory\n", result.fileName);
+					DIM_ChangeDirectory(disk, savedCwd);
 					return false;
 				}
 			}
 		}
-		while (DIM_FindNextFile(disk, &result));
+		while (!singleFile && DIM_FindNextFile(disk, &result));
 	}
 
 	if (fileCount == 0)
 		printf("File not found\n");
 	if (buffer)
 		Free(buffer);
+	DIM_ChangeDirectory(disk, savedCwd);
 	return true;
 }
 
@@ -715,6 +788,19 @@ static bool Dir (int argc, char* argv[])
 		pattern = argv[0];
 	if (pattern != NULL)
 	{
+		char pathBuffer[FILE_MAX_PATH];
+		StrCopy(pathBuffer, sizeof(pathBuffer), pattern);
+		char* pathSeparator = FindLastPathSeparator(pathBuffer);
+		if (pathSeparator != NULL)
+		{
+			*pathSeparator = 0;
+			if (pathSeparator > pathBuffer && !DIM_ChangeDirectory(disk, pathBuffer))
+			{
+				printf("Error: Cannot change directory to %s\n", pathBuffer);
+				return false;
+			}
+			pattern = pathSeparator + 1;
+		}
 		if (strchr(pattern, '?') == NULL && strchr(pattern, '*') == NULL)
 		{
 			if (DIM_ChangeDirectory(disk, pattern))
@@ -722,17 +808,6 @@ static bool Dir (int argc, char* argv[])
 				argc--, argv++;
 				pattern = argc > 0 ? argv[0] : "*";
 			}
-		}
-		char* pathSeparator = (char *)strrchr(pattern, '\\');
-		if (pathSeparator != NULL)
-		{
-			*pathSeparator = 0;
-			if (pathSeparator > pattern && !DIM_ChangeDirectory(disk, pattern))
-			{
-				printf("Error: Cannot change directory to %s\n", pattern);
-				return false;
-			}
-			pattern = pathSeparator + 1;
 		}
 	}
 
@@ -841,6 +916,9 @@ static bool CreateDisk(int argc, char *argv[])
         {
             diskFileName = command;
         }
+        else if ((size = ResolveDiskPresetSize(diskFileName, argv[n])) != 0)
+        {
+        }
         else if (isdigit(argv[n][0]))
         {
             int sizeKB = atoi(argv[n]);
@@ -851,6 +929,11 @@ static bool CreateDisk(int argc, char *argv[])
                     sizeKB *= 1024;
             }
             size = sizeKB * 1024;
+        }
+        else
+        {
+            printf("Unknown disk size preset: %s\n", argv[n]);
+            return false;
         }
     }
 	if (diskFileName == NULL && argc > 0)
@@ -923,22 +1006,71 @@ static bool DeleteFiles (int argc, char *argv[])
 	return true;
 }
 
-static bool AddFile (const char* filename)
+static bool EnsureDiskDirectoryPath(const char* path)
+{
+	if (path == NULL || path[0] == 0)
+		return true;
+
+	char savedCwd[FILE_MAX_PATH];
+	if (DIM_GetCWD(disk, savedCwd, sizeof(savedCwd)) == 0)
+		savedCwd[0] = 0;
+
+	if (!DIM_ChangeDirectory(disk, "\\"))
+		return false;
+
+	const char* ptr = path;
+	char component[64];
+	while (*ptr)
+	{
+		const char* sep = ptr;
+		while (*sep && *sep != '/' && *sep != '\\')
+			sep++;
+		size_t len = sep - ptr;
+		if (len > 0)
+		{
+			if (len >= sizeof(component))
+			{
+				DIM_ChangeDirectory(disk, savedCwd);
+				DIM_SetError(DIMError_CommandNotSupported);
+				return false;
+			}
+			memcpy(component, ptr, len);
+			component[len] = 0;
+			if (!DIM_ChangeDirectory(disk, component))
+			{
+				if (!DIM_MakeDirectory(disk, component) || !DIM_ChangeDirectory(disk, component))
+				{
+					DIM_ChangeDirectory(disk, savedCwd);
+					return false;
+				}
+			}
+		}
+		ptr = (*sep) ? sep + 1 : sep;
+	}
+
+	DIM_ChangeDirectory(disk, savedCwd);
+	return true;
+}
+
+static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 {
 	static size_t bufferSize = 0;
 	static uint8_t* buffer = NULL;
+	char savedCwd[FILE_MAX_PATH];
+	if (DIM_GetCWD(disk, savedCwd, sizeof(savedCwd)) == 0)
+		savedCwd[0] = 0;
 
-	File* file = File_Open(filename);
+	File* file = File_Open(hostFileName);
 	if (file == NULL)
 	{
-		printf("%s: file not found\n", filename);
+		printf("%s: file not found\n", hostFileName);
 		return false;
 	}
 	uint64_t size = File_GetSize(file);
 	uint64_t freeSpace = DIM_GetFreeSpace(disk);
 	if (freeSpace < size)
 	{
-		printf("%s: no enough space left on disk\n", filename);
+		printf("%s: no enough space left on disk\n", hostFileName);
 		File_Close(file);
 		return false;
 	}
@@ -955,30 +1087,64 @@ static bool AddFile (const char* filename)
 	}
 	if (File_Read(file, buffer, size) != size)
 	{
-		printf("%s: error reading file\n", filename);
+		printf("%s: error reading file\n", hostFileName);
 		File_Close(file);
 		return false;
 	}
 	File_Close(file);
 
-	const char* ptr = filename;
-	const char* base = ptr;
-	while (*ptr != 0)
+	char diskPath[FILE_MAX_PATH];
+	if (diskFileName != NULL && diskFileName[0] != 0)
 	{
-		if (*ptr == '/' || *ptr == '\\' || *ptr == ':')
-			base = ptr + 1;
-		ptr++;
+		strncpy(diskPath, diskFileName, sizeof(diskPath));
+		diskPath[sizeof(diskPath) - 1] = 0;
 	}
-	if (!DIM_WriteFile(disk, base, buffer, (uint32_t)size))
+	else
+	{
+		const char* ptr = hostFileName;
+		const char* base = ptr;
+		while (*ptr != 0)
+		{
+			if (*ptr == '/' || *ptr == '\\' || *ptr == ':')
+				base = ptr + 1;
+			ptr++;
+		}
+		strncpy(diskPath, base, sizeof(diskPath));
+		diskPath[sizeof(diskPath) - 1] = 0;
+	}
+
+	char* slash = strrchr(diskPath, '/');
+	char* bslash = strrchr(diskPath, '\\');
+	char* sep = slash > bslash ? slash : bslash;
+	if (sep != NULL)
+	{
+		*sep = 0;
+		if (!EnsureDiskDirectoryPath(diskPath))
+		{
+			printf("%s: %s\n", diskPath, DIM_GetErrorString());
+			DIM_ChangeDirectory(disk, savedCwd);
+			return false;
+		}
+		*sep = '/';
+	}
+
+	if (!DIM_WriteFile(disk, diskPath, buffer, (uint32_t)size))
     {
-		printf("%s: %s\n", base, DIM_GetErrorString());
+		printf("%s: %s\n", diskPath, DIM_GetErrorString());
+		DIM_ChangeDirectory(disk, savedCwd);
         return false;
     }
 	else
     {
-		printf("%s: %d bytes written\n", base, (uint32_t)size);
+		printf("%s: %d bytes written\n", diskPath, (uint32_t)size);
+		DIM_ChangeDirectory(disk, savedCwd);
         return true;
     }
+}
+
+static bool AddFile (const char* filename)
+{
+	return AddFileToDisk(filename, NULL);
 }
 
 static bool AddFiles (int argc, char *argv[])
@@ -1029,6 +1195,89 @@ static bool AddFiles (int argc, char *argv[])
         AddFile(argv[0]);
 	}
 	return ok;
+}
+
+static bool AddTreeRecursive(const char* hostDir, const char* destDir)
+{
+	char savedCwd[FILE_MAX_PATH];
+	if (!OS_GetCurrentDirectory(savedCwd, sizeof(savedCwd)))
+		savedCwd[0] = 0;
+	if (!OS_ChangeDirectory(hostDir))
+	{
+		printf("%s: directory not found\n", hostDir);
+		return false;
+	}
+
+	if (destDir != NULL && destDir[0] != 0 && !EnsureDiskDirectoryPath(destDir))
+	{
+		printf("%s: %s\n", destDir, DIM_GetErrorString());
+		OS_ChangeDirectory(savedCwd);
+		return false;
+	}
+
+	bool ok = true;
+	FindFileResults results;
+	if (OS_FindFirstFile("*", &results))
+	{
+		do
+		{
+			if (strcmp(results.fileName, ".") == 0 || strcmp(results.fileName, "..") == 0)
+				continue;
+
+			char nextDest[FILE_MAX_PATH];
+			if (destDir != NULL && destDir[0] != 0)
+			{
+				size_t destLen = strlen(destDir);
+				size_t nameLen = strlen(results.fileName);
+				if (destLen + 1 + nameLen >= sizeof(nextDest))
+				{
+					printf("%s/%s: path too long\n", destDir, results.fileName);
+					ok = false;
+					continue;
+				}
+				memcpy(nextDest, destDir, destLen);
+				nextDest[destLen] = '/';
+				memcpy(nextDest + destLen + 1, results.fileName, nameLen + 1);
+			}
+			else
+			{
+				if (strlen(results.fileName) >= sizeof(nextDest))
+				{
+					printf("%s: path too long\n", results.fileName);
+					ok = false;
+					continue;
+				}
+				strcpy(nextDest, results.fileName);
+			}
+
+			if (results.attributes & FileAttribute_Directory)
+			{
+				if (!AddTreeRecursive(results.fileName, nextDest))
+					ok = false;
+			}
+			else if (!AddFileToDisk(results.fileName, nextDest))
+			{
+				ok = false;
+			}
+		}
+		while (OS_FindNextFile(&results));
+	}
+
+	OS_ChangeDirectory(savedCwd);
+	return ok;
+}
+
+static bool AddTree(int argc, char* argv[])
+{
+	if (argc < 1)
+	{
+		printf("%s: missing host directory\n", diskFileName);
+		return false;
+	}
+
+	const char* hostDir = argv[0];
+	const char* destDir = argc > 1 ? argv[1] : "";
+	return AddTreeRecursive(hostDir, destDir);
 }
 
 static bool Extract (int argc, char *argv[])
@@ -1100,7 +1349,103 @@ static bool Extract (int argc, char *argv[])
 	if (fileCount > 0)
 		printf("%d File(s) extracted\n", fileCount - errorCount);
 	else
-		printf("No files found\n");
+	printf("No files found\n");
+	return true;
+}
+
+static bool SetBoot(int argc, char* argv[])
+{
+	if (argc < 1)
+	{
+		printf("%s: missing boot source\n", diskFileName);
+		return false;
+	}
+	if (disk->type != DIM_ADF)
+	{
+		printf("%s: bootblocks are only supported for ADF images\n", diskFileName);
+		return false;
+	}
+
+	uint8_t boot[1024];
+	const char* source = argv[0];
+	const char* extension = strrchr(source, '.');
+	if (extension && stricmp(extension, ".adf") == 0)
+	{
+		DIM_Disk* sourceDisk = DIM_OpenDisk(source);
+		if (!sourceDisk)
+		{
+			printf("%s: %s\n", source, DIM_GetErrorString());
+			return false;
+		}
+		bool ok = DIM_ReadBootBlock(sourceDisk, boot, sizeof(boot));
+		if (!ok)
+			printf("%s: %s\n", source, DIM_GetErrorString());
+		DIM_CloseDisk(sourceDisk);
+		if (!ok)
+			return false;
+	}
+	else
+	{
+		File* file = File_Open(source);
+		if (!file)
+		{
+			printf("%s: file not found\n", source);
+			return false;
+		}
+		if (File_Read(file, boot, sizeof(boot)) != sizeof(boot))
+		{
+			printf("%s: bootblock must be exactly 1024 bytes\n", source);
+			File_Close(file);
+			return false;
+		}
+		File_Close(file);
+	}
+
+	if (!DIM_WriteBootBlock(disk, boot, sizeof(boot)))
+	{
+		printf("%s: %s\n", diskFileName, DIM_GetErrorString());
+		return false;
+	}
+
+	printf("%s: bootblock written\n", diskFileName);
+	return true;
+}
+
+static bool GetBoot(int argc, char* argv[])
+{
+	if (argc < 1)
+	{
+		printf("%s: missing output file name\n", diskFileName);
+		return false;
+	}
+	if (disk->type != DIM_ADF)
+	{
+		printf("%s: bootblocks are only supported for ADF images\n", diskFileName);
+		return false;
+	}
+
+	uint8_t boot[1024];
+	if (!DIM_ReadBootBlock(disk, boot, sizeof(boot)))
+	{
+		printf("%s: %s\n", diskFileName, DIM_GetErrorString());
+		return false;
+	}
+
+	File* file = File_Create(argv[0]);
+	if (!file)
+	{
+		printf("%s: cannot create file\n", argv[0]);
+		return false;
+	}
+	bool ok = File_Write(file, boot, sizeof(boot)) == sizeof(boot);
+	File_Close(file);
+	if (!ok)
+	{
+		printf("%s: write error\n", argv[0]);
+		return false;
+	}
+
+	printf("%s: bootblock extracted\n", argv[0]);
 	return true;
 }
 
@@ -1119,6 +1464,8 @@ static bool RunCommand (Action action, int argc, char *argv[])
 			return CreateDisk(argc, argv);
 		case ACTION_ADD:
 			return AddFiles(argc, argv);
+		case ACTION_ADDTREE:
+			return AddTree(argc, argv);
 		case ACTION_DELETE:
 			return DeleteFiles(argc, argv);
 		case ACTION_EXTRACT:
@@ -1137,6 +1484,10 @@ static bool RunCommand (Action action, int argc, char *argv[])
 			return Cat(argc, argv, true);
 		case ACTION_SETVOL:
 			return SetVol(argc, argv);
+		case ACTION_SETBOOT:
+			return SetBoot(argc, argv);
+		case ACTION_GETBOOT:
+			return GetBoot(argc, argv);
 		case ACTION_INTERACTIVE:
 			return RunInteractiveSession();
 	}
@@ -1181,15 +1532,16 @@ static bool RunCommandLine (int argc, char *argv[])
 		{
 			if (stricmp(commands[n].command, argv[0]) == 0)
 			{
+				int commandArgc = argc - 1;
+				char** commandArgv = argv + 1;
 				options = commands[n].defaultOptions;
-				if (commands[n].options)
-					ParseOptions(&argc, argv, commands[n].options);
 				if (commands[n].mode != MODE_NO_DISK)
 				{
-					if (diskFileName == NULL && argc > 1)
+					if (diskFileName == NULL && commandArgc > 0)
 					{
-						diskFileName = argv[1];
-						argc--, argv++;
+						diskFileName = commandArgv[0];
+						commandArgc--;
+						commandArgv++;
 					}
 					if (diskFileName == NULL)
 					{
@@ -1206,8 +1558,9 @@ static bool RunCommandLine (int argc, char *argv[])
 						}
 					}
 				}
-				argc--, argv++;
-				return RunCommand(commands[n].action, argc, argv);
+				if (commands[n].options)
+					ParseOptions(&commandArgc, commandArgv, commands[n].options);
+				return RunCommand(commands[n].action, commandArgc, commandArgv);
 			}
 		}
 		if (diskFileName == NULL)

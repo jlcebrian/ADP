@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 struct FindFileInternal
 {
@@ -17,12 +18,23 @@ struct FindFileInternal
 void FillFindFileResults (FindFileResults* results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
+	char fullPath[FILE_MAX_PATH * 2];
 
 	StrCopy(results->fileName, sizeof(results->fileName), i->path);
 	StrCat(results->fileName, sizeof(results->fileName), i->direntp->d_name);
 	results->attributes = 0;
 	results->fileSize = 0;
 	results->description[0] = 0;
+
+	StrCopy(fullPath, sizeof(fullPath), results->fileName);
+	struct stat st;
+	if (stat(fullPath, &st) == 0)
+	{
+		if (S_ISDIR(st.st_mode))
+			results->attributes |= FileAttribute_Directory;
+		else
+			results->fileSize = (uint32_t)st.st_size;
+	}
 }
 
 bool OS_FindFirstFile(const char *pattern, FindFileResults *results)
