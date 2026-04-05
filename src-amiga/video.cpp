@@ -72,6 +72,9 @@ static uint32_t screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
 static uint32_t activePalette[256];
 static uint16_t* activePaletteAGAHigh = 0;
 static uint16_t* activePaletteAGALow = 0;
+static uint32_t frontPalette[256];
+static uint32_t backPalette[256];
+static uint32_t scratchPalette[256];
 static uint32_t savedPalette[256];
 static uint16_t savedPaletteColors = 16;
 
@@ -82,6 +85,7 @@ static uint16_t*  pictureData = 0;
 static uint32_t   pictureStride;
 static uint32_t   picturePlaneStride;
 static uint8_t    picturePlanes = TEXT_PLANES;
+static bool       picturePlaneMajor = false;
 
 uint16_t  (*charsetWords)[256][8] = 0;
 static uint16_t* rotationTable = 0;
@@ -100,7 +104,99 @@ static void SetPlanePointers(uint8_t* buffer, uint8_t** out);
 static void ProgramDisplay();
 static void VID_CommitPalette(bool waitForVBlank);
 static void VID_StagePaletteColor(uint8_t color, uint8_t r, uint8_t g, uint8_t b);
+static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t firstColor = 0, bool clearOutside = true, bool immediate = true);
 static uint16_t* AppendCopperPalette(uint16_t* copListEnd);
+
+static uint16_t GetDisplayPaletteCapacity()
+{
+	if (displayPlanes == 8 && isAGA)
+		return 256;
+	if (displayPlanes > 4)
+		return 32;
+	return 16;
+}
+
+static uint32_t* GetVisiblePaletteStore()
+{
+	return displaySwap ? backPalette : frontPalette;
+}
+
+static uint32_t* GetHiddenPaletteStore()
+{
+	return displaySwap ? frontPalette : backPalette;
+}
+
+static uint32_t* GetPlaneTargetPaletteStore()
+{
+	if (plane[0] == frontBuffer)
+		return frontPalette;
+	if (plane[0] == backBuffer)
+		return backPalette;
+	return GetVisiblePaletteStore();
+}
+
+static void CopyPaletteStore(uint32_t* dst, const uint32_t* src)
+{
+	MemCopy(dst, src, sizeof(activePalette));
+}
+
+static bool PaletteStoreNeedsUpdate(const uint32_t* store, const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside)
+{
+	uint16_t limit = GetDisplayPaletteCapacity();
+	if (firstColor > limit)
+		return false;
+	if (count > limit - firstColor)
+		count = limit - firstColor;
+
+	for (uint16_t n = 0; n < count; n++)
+	{
+		if (store[firstColor + n] != palette[n])
+			return true;
+	}
+
+	if (clearOutside)
+	{
+		for (uint16_t n = 0; n < firstColor; n++)
+		{
+			if (store[n] != 0)
+				return true;
+		}
+		for (uint16_t n = firstColor + count; n < limit; n++)
+		{
+			if (store[n] != 0)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static void UpdatePaletteStore(uint32_t* store, const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside)
+{
+	uint16_t limit = GetDisplayPaletteCapacity();
+	if (firstColor > limit)
+		return;
+	if (count > limit - firstColor)
+		count = limit - firstColor;
+
+	if (clearOutside)
+	{
+		for (uint16_t n = 0; n < firstColor; n++)
+			store[n] = 0;
+		for (uint16_t n = firstColor + count; n < limit; n++)
+			store[n] = 0;
+	}
+
+	for (uint16_t n = 0; n < count; n++)
+		store[firstColor + n] = palette[n];
+}
+
+static void ApplyPaletteStore(const uint32_t* store, bool waitForVBlank)
+{
+	CopyPaletteStore(activePalette, store);
+	VID_SetPaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
+	VID_CommitPalette(waitForVBlank);
+}
 
 static bool IsVisiblePlaneTarget()
 {
@@ -133,6 +229,9 @@ static void ClearScratchBuffer(uint8_t color)
 
 static void PresentScratchBuffer()
 {
+	CopyPaletteStore(activePalette, scratchPalette);
+	VID_SetPaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
+
 	if (isAGA && displayPlanes == 8)
 	{
 		VID_VSync();
@@ -166,18 +265,27 @@ static void PresentScratchBuffer()
 	if (displaySwap)
 	{
 		uint8_t* oldVisible = backBuffer;
+		uint32_t oldPalette[256];
+		CopyPaletteStore(oldPalette, backPalette);
 		backBuffer = scratchBuffer;
 		scratchBuffer = oldVisible;
 		SetPlanePointers(backBuffer, backPlane);
+		CopyPaletteStore(backPalette, scratchPalette);
+		CopyPaletteStore(scratchPalette, oldPalette);
 	}
 	else
 	{
 		uint8_t* oldVisible = frontBuffer;
+		uint32_t oldPalette[256];
+		CopyPaletteStore(oldPalette, frontPalette);
 		frontBuffer = scratchBuffer;
 		scratchBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
+		CopyPaletteStore(frontPalette, scratchPalette);
+		CopyPaletteStore(scratchPalette, oldPalette);
 	}
 	SetPlanePointers(scratchBuffer, scratchPlane);
+	CopyPaletteStore(activePalette, GetVisiblePaletteStore());
 	if (dmg != 0)
 		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
 	UpdateDrawPlanes();
@@ -705,6 +813,7 @@ static void VID_CommitPalette(bool waitForVBlank)
 
 void VID_ActivatePalette()
 {
+	CopyPaletteStore(GetVisiblePaletteStore(), activePalette);
 	VID_CommitPalette(true);
 }
 
@@ -726,7 +835,7 @@ static uint16_t* AppendCopperPalette(uint16_t* copListEnd)
 	return copListEnd;
 }
 
-static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t firstColor = 0, bool clearOutside = true, bool immediate = true)
+static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool immediate)
 {
 	uint16_t maxColors = (displayPlanes == 8 && isAGA) ? 256 : 32;
 	if (firstColor >= maxColors)
@@ -773,6 +882,7 @@ static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t fi
 
 void VID_SetPalette (uint32_t* palette)
 {
+	UpdatePaletteStore(GetVisiblePaletteStore(), palette, 16, 0, true);
 	VID_SetPaletteEntries(palette, 16);
 }
 
@@ -799,6 +909,7 @@ bool VID_LoadDataFile (const char* fileName)
 	pictureStride = 0;
 	picturePlaneStride = 0;
 	picturePlanes = TEXT_PLANES;
+	picturePlaneMajor = false;
 
 	if (dmg != 0)
 	{
@@ -1045,6 +1156,8 @@ void VID_PresentDefaultScreen()
 		VID_ClearBuffer(false);
 		VID_SetDefaultPalette();
 		VID_ActivatePalette();
+		CopyPaletteStore(frontPalette, activePalette);
+		CopyPaletteStore(backPalette, activePalette);
 		return;
 	}
 
@@ -1053,7 +1166,9 @@ void VID_PresentDefaultScreen()
 	WaitBlit();
 
 	VID_SetPaletteEntries(DefaultPalette, 16, 0, true, false);
+	UpdatePaletteStore(scratchPalette, DefaultPalette, 16, 0, true);
 	PresentScratchBuffer();
+	CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
 
 	uint8_t** hidden = displaySwap ? frontPlane : backPlane;
 	for (uint8_t n = 0; n < displayPlanes; n++)
@@ -1092,8 +1207,12 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex, ImageMode_RGBA32);
 	uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, pictureIndex);
     uint8_t paletteFirst = DMG_GetEntryFirstColor(dmg, pictureIndex);
-	bool presentingScratch = IsVisiblePlaneTarget();
+	bool presentingScratch = false;
+	bool paletteChangeNeeded = false;
+	bool shouldUpdatePalette = false;
+	bool clearOutside = true;
 	uint8_t** targetPlanes = presentingScratch ? scratchPlane : plane;
+	uint32_t* targetPaletteStore = GetPlaneTargetPaletteStore();
 	switch (screenMode)
 	{
 		default:
@@ -1103,12 +1222,11 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		case ScreenMode_SHiRes:
 			if (dmg->version == DMG_Version5 || ((pictureEntry->flags & DMG_FLAG_FIXED) && plane[0] == frontBuffer))
 			{
+				shouldUpdatePalette = true;
+				clearOutside = paletteFirst == 0;
 				// TODO: This is a hack to fix the palette for V1
 				if (dmg->version == DMG_Version1)
 					pictureEntry->RGB32Palette[15] = 0xFFFFFFFF;
-				VID_SetPaletteEntries(palette, paletteSize, paletteFirst, paletteFirst == 0, !presentingScratch);
-				if (!presentingScratch)
-					VID_CommitPalette(false);
 			}
 			break;
 
@@ -1116,11 +1234,31 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			break;
 
 		case ScreenMode_CGA:
-			VID_SetPaletteEntries(DMG_GetCGAMode(pictureEntry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan,
-				4, 0, true, !presentingScratch);
-			if (!presentingScratch)
-				VID_CommitPalette(false);
+			palette = DMG_GetCGAMode(pictureEntry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+			paletteSize = 4;
+			paletteFirst = 0;
+			shouldUpdatePalette = true;
+			clearOutside = true;
 			break;
+	}
+
+	if (shouldUpdatePalette)
+	{
+		paletteChangeNeeded = PaletteStoreNeedsUpdate(targetPaletteStore, palette, paletteSize, paletteFirst, clearOutside);
+		presentingScratch = IsVisiblePlaneTarget() && paletteChangeNeeded;
+		if (presentingScratch)
+		{
+			CopyPaletteStore(scratchPalette, GetVisiblePaletteStore());
+			UpdatePaletteStore(scratchPalette, palette, paletteSize, paletteFirst, clearOutside);
+			targetPaletteStore = scratchPalette;
+			targetPlanes = scratchPlane;
+		}
+		else
+		{
+			UpdatePaletteStore(targetPaletteStore, palette, paletteSize, paletteFirst, clearOutside);
+			if (IsVisiblePlaneTarget() && paletteChangeNeeded)
+				ApplyPaletteStore(targetPaletteStore, false);
+		}
 	}
 	
 	uint16_t* srcPtr = pictureData;
@@ -1128,6 +1266,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	bool skipLastByte = (w & 15) != 0;
     bool canUseBlitter =
         pictureData != 0 &&
+		picturePlaneMajor &&
         pictureStride == SCR_STRIDEW &&
         x >= 0 &&
         y >= 0 &&
@@ -1140,10 +1279,11 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	if (picturePlanes > displayPlanes)
 		return;
 
+	if (presentingScratch)
+		CopyScreenBuffer(GetVisiblePlanes(), scratchPlane);
+
     if (canUseBlitter)
     {
-        if (presentingScratch)
-            CopyScreenBuffer(GetVisiblePlanes(), scratchPlane);
         for (uint8_t i = 0; i < picturePlanes; i++)
         {
             uint8_t* srcPlane = (uint8_t*)pictureData + i * picturePlaneStride * 2;
@@ -1151,9 +1291,107 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
         }
         WaitBlit();
         if (presentingScratch)
+		{
             PresentScratchBuffer();
+			CopyScreenBuffer(GetVisiblePlanes(), displaySwap ? frontPlane : backPlane);
+			CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
+		}
         return;
     }
+
+	if (!picturePlaneMajor)
+	{
+		if (off & 1)
+		{
+			uint8_t* p[MAX_PLANES];
+			for (uint8_t i = 0; i < picturePlanes; i++)
+				p[i] = targetPlanes[i] + off;
+
+			pinc <<= 1;
+			a--;
+			pinc += 2;
+
+			uint8_t* s = (uint8_t*)srcPtr;
+
+			do
+			{
+				uint8_t* n = s + pictureStride * 2;
+				for (int32_t b = w - 1; b > 0; b--)
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+					{
+						p[i][0] = *s++;
+						p[i][1] = *s++;
+						p[i] += 2;
+					}
+				}
+				if (skipLastByte)
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+					{
+						p[i][0] = *s;
+						s += 2;
+						p[i] += pinc;
+					}
+				}
+				else
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+					{
+						p[i][0] = *s++;
+						p[i][1] = *s++;
+						p[i] += pinc;
+					}
+				}
+
+				s = n;
+			}
+			while (a--);
+		}
+		else
+		{
+			uint16_t* p[MAX_PLANES];
+			for (uint8_t i = 0; i < picturePlanes; i++)
+				p[i] = (uint16_t*)(targetPlanes[i] + off);
+
+			a--;
+			pinc++;
+
+			do
+			{
+				uint16_t* n = srcPtr + pictureStride;
+
+				for (int32_t b = w - 1; b > 0; b--)
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+						*p[i]++ = *srcPtr++;
+				}
+				if (skipLastByte)
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+						*p[i] = *srcPtr++ | (*p[i] & 0x00FF);
+				}
+				else
+				{
+					for (uint8_t i = 0; i < picturePlanes; i++)
+						*p[i] = *srcPtr++;
+				}
+
+				for (uint8_t i = 0; i < picturePlanes; i++)
+					p[i] += pinc;
+				srcPtr = n;
+			}
+			while (a--);
+		}
+
+		if (presentingScratch)
+		{
+			PresentScratchBuffer();
+			CopyScreenBuffer(GetVisiblePlanes(), displaySwap ? frontPlane : backPlane);
+			CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
+		}
+		return;
+	}
 
 	if (off & 1)
 	{
@@ -1239,7 +1477,11 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 
 	if (presentingScratch)
+	{
 		PresentScratchBuffer();
+		CopyScreenBuffer(GetVisiblePlanes(), displaySwap ? frontPlane : backPlane);
+		CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
+	}
 }
 
 static void VID_DrawCharacterNewFF (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
@@ -1398,8 +1640,17 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	pictureEntry  = entry;
 	pictureIndex  = picno;
 	picturePlanes = entry->bitDepth ? entry->bitDepth : TEXT_PLANES;
-	pictureStride = (entry->width + 15) / 16;
-	picturePlaneStride = pictureStride * entry->height;
+	picturePlaneMajor = dmg->version == DMG_Version5;
+	if (picturePlaneMajor)
+	{
+		pictureStride = (entry->width + 15) / 16;
+		picturePlaneStride = pictureStride * entry->height;
+	}
+	else
+	{
+		pictureStride = picturePlanes * ((entry->width + 15) / 16);
+		picturePlaneStride = 0;
+	}
 	pictureData   = (uint16_t*) DMG_GetEntryDataPlanar(dmg, picno);
 	if (pictureData == 0 || picturePlanes > displayPlanes)
 	{
@@ -1407,6 +1658,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		pictureOrigin = 0;
 		pictureIndex = 0;
 		picturePlanes = TEXT_PLANES;
+		picturePlaneMajor = false;
 	}
 }
 
@@ -1503,6 +1755,7 @@ __attribute__((noinline))
 void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 {
 	activePalette[color] = (r << 16) | (g << 8) | b;
+	GetVisiblePaletteStore()[color] = activePalette[color];
 	SetEncodedAGAPalette(color, activePalette[color]);
 	if (!isAGA || displayPlanes != 8 || color < 32)
 		VID_SetColor(color, EncodeColor12(r, g, b));
@@ -1520,9 +1773,8 @@ void VID_RestoreScreen ()
 	uint8_t* front = displaySwap ? backBuffer : frontBuffer;
 	uint8_t* back = displaySwap ? frontBuffer : backBuffer;
 	memcpy(front, back, screenAllocate);
-	MemCopy(activePalette, savedPalette, sizeof(activePalette));
-	VID_SetPaletteEntries(activePalette, savedPaletteColors);
-	VID_ActivatePalette();
+	CopyPaletteStore(GetVisiblePaletteStore(), GetHiddenPaletteStore());
+	ApplyPaletteStore(GetVisiblePaletteStore(), true);
 }
 
 void VID_SaveScreen ()
@@ -1532,6 +1784,7 @@ void VID_SaveScreen ()
 	uint8_t* front = displaySwap ? backBuffer : frontBuffer;
 	uint8_t* back = displaySwap ? frontBuffer : backBuffer;
 	memcpy(back, front, screenAllocate);
+	CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
 	MemCopy(savedPalette, activePalette, sizeof(activePalette));
 	savedPaletteColors = (displayPlanes == 8 && isAGA) ? 256 : (displayPlanes > 4 ? 32 : 16);
 }
@@ -1571,6 +1824,7 @@ void VID_SwapScreen ()
 		end = SetVisiblePlanes(frontPlane, end);
 
 	CommitCopperBuild(program, end);
+	ApplyPaletteStore(GetVisiblePaletteStore(), false);
 
 	if (displaySwap) {
 		DebugPrintf("Display swapped\n");
