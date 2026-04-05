@@ -9,10 +9,10 @@
 #include <proto/dos.h>
 #include <devices/audio.h>
 #include <devices/serial.h>
-#include <inline/alib.h>
 
 #include "gcc8_c_support.h"
 #include "audio.h"
+#include "old_exec.h"
 #include "video.h"
 
 static bool     soundOpen = false;
@@ -44,12 +44,10 @@ bool OpenAudio()
 		}
 		else
 		{
-			req = (IOAudio*)AllocMem(sizeof(IOAudio), MEMF_ANY | MEMF_PUBLIC | MEMF_CLEAR);
-			if (req == 0)
-			{
-				PrintToOutput("Error allocating audio IO request\n");
+			if (!OldExec_CreateIORequest(&port, (IORequest**)&req, sizeof(IOAudio), PrintToOutput,
+				"Error creating audio message port\n",
+				"Error allocating audio IO request\n"))
 				return false;
-			}
 		}
 
 		static UBYTE channels[] = {1,2,4,8};
@@ -99,7 +97,7 @@ void PlaySample(uint8_t* sample, uint32_t length, uint32_t hz, uint32_t volume)
 	req->ioa_Period = period;
 	req->ioa_Volume = volume;
 	req->ioa_Cycles = 1;
-	BeginIO((struct IORequest *)req);
+	OldExec_BeginIO((struct IORequest *)req);
 	playing = true;
 
 	// DebugPrintf("Playing sample at %p: %ld bytes, %ld hz, %ld period, %ld volume\n", sample, length, hz, period, volume);
@@ -127,19 +125,13 @@ void CloseAudio()
 	if (soundOpen)
 	{
 		StopSample();
-		
-		if (!CheckIO((IORequest *)req))
-		{
-			AbortIO((IORequest *)req);
-		}
-		WaitIO((IORequest *)req);
 
 		DebugPrintf("Closing audio.device\n");
 		CloseDevice((IORequest *)req);
 
 		if (SysBase->SoftVer < 39)
 		{
-			FreeMem(req, sizeof(IOAudio));
+			OldExec_DeleteIORequest(port, (IORequest *)req, sizeof(IOAudio));
 		}
 		else
 		{
@@ -147,6 +139,8 @@ void CloseAudio()
 			DeleteMsgPort(port);
 		}
 
+		req = 0;
+		port = 0;
 		soundOpen = false;
 	}
 }

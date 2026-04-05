@@ -30,6 +30,8 @@
 #include <proto/graphics.h>
 #include <proto/intuition.h>
 
+extern struct View* ActiView;
+
 #define INLINE __attribute__((always_inline)) inline 
 
 #ifndef DEBUG_MEMORY
@@ -1679,6 +1681,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		return true;
 	initialized = true;
 
+	ActiView = GfxBase->ActiView;
 	CloseWorkBench();
 	OpenTimer();
 
@@ -1763,6 +1766,7 @@ void VID_Finish ()
 	initialized = false;
 
 	FreeSystem();
+	OpenWorkBench();
 	
 	CloseTimer();
 	VID_FinishTextDraw();
@@ -1821,8 +1825,6 @@ void VID_Finish ()
 	requestedDisplayPlanes = TEXT_PLANES;
 	screenBytesPerPlane = SCR_BPNEXTB;
 	screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
-
-	OpenWorkBench();
 }
 
 #endif

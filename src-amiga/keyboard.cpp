@@ -7,6 +7,7 @@
 
 #include "gcc8_c_support.h"
 #include "keyboard.h"
+#include "old_exec.h"
 
 #include <exec/execbase.h>
 #include <exec/devices.h>
@@ -266,13 +267,10 @@ void OpenKeyboard()
 		}
 		else
 		{
-			req = (struct IOStdReq*)AllocMem(sizeof(IOStdReq), MEMF_ANY | MEMF_PUBLIC | MEMF_CLEAR);
-			if (req == 0)
-			{
-				PrintToOutput("Error allocating keyboard IO request\n");
+			if (!OldExec_CreateIORequest(&port, (IORequest**)&req, sizeof(IOStdReq), PrintToOutput,
+				"Error creating keyboard message port\n",
+				"Error allocating keyboard IO request\n"))
 				return;
-			}
-			memset(req, 0, sizeof(IOStdReq));
 		}
 
 		if (OpenDevice("input.device",0,(IORequest *)req,0) != 0)
@@ -304,20 +302,23 @@ void CloseKeyboard()
 		req->io_Command = IND_REMHANDLER;
 		
 		SendIO ((IORequest *)req);
-		if (CheckIO((IORequest *)req) != 0)
+		if (CheckIO((IORequest *)req) == 0)
 			WaitIO((IORequest *)req);
 		
 		CloseDevice((IORequest *)req);
 
 		if (SysBase->SoftVer < 39)
 		{
-			FreeMem(req, sizeof(IOStdReq));
+			OldExec_DeleteIORequest(port, (IORequest *)req, sizeof(IOStdReq));
 		}
 		else
 		{
 			DeleteIORequest((IORequest *)req);
 			DeleteMsgPort(port);
 		}
+		req = 0;
+		port = 0;
+		kbOpen = false;
 	}
 }
 

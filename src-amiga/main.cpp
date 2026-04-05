@@ -46,7 +46,6 @@ void PrintToOutput(const char* msg)
 void TakeSystem() 
 {
 	DebugPrintf("TakeSystem\n");
-	ActiView = GfxBase->ActiView;
 
 	LoadView(0);
 	WaitTOF();
@@ -114,6 +113,8 @@ void FreeSystem()
 
 	for (int n = 0; n < 8; n++)
 		custom->sprpt[n] = (APTR)(((uint32_t)savedSprpt[n * 2 + 0] << 16) | savedSprpt[n * 2 + 1]);
+
+	custom->dmacon = DMAF_SETCLR | DMAF_SPRITE;
 
 	for(int a = 0; a < 32 ; a++)
 		custom->color[a] = savedColors[a];

@@ -10,11 +10,17 @@
 #include <proto/dos.h>
 
 #include "gcc8_c_support.h"
+#include "old_exec.h"
 
 static bool timerOpened = false;
 
 static timerequest* req;
 static MsgPort* port;
+
+static void PrintTimerError(const char* msg)
+{
+	DebugPrintf("%s", msg);
+}
 
 void OpenTimer()
 {
@@ -39,13 +45,10 @@ void OpenTimer()
 	}
 	else
 	{
-		req = (struct timerequest*)AllocMem(sizeof(timerequest), MEMF_ANY | MEMF_PUBLIC);
-		if (req == 0)
-		{
-			DebugPrintf("Error allocating timer IO request\n");
+		if (!OldExec_CreateIORequest(&port, (IORequest**)&req, sizeof(timerequest), PrintTimerError,
+			"Error creating timer message port\n",
+			"Error allocating timer IO request\n"))
 			return;
-		}
-		memset(req, 0, sizeof(timerequest));
 	}
 		
 	if (OpenDevice("timer.device", UNIT_MICROHZ, (IORequest *)req, 0) != 0)
@@ -83,7 +86,7 @@ void CloseTimer()
 	}
 	else
 	{
-		FreeMem(req, sizeof(timerequest));
+		OldExec_DeleteIORequest(port, (IORequest *)req, sizeof(timerequest));
 	}
 
 	req = 0;

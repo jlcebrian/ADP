@@ -34,16 +34,18 @@ objects := $(cpp_objects) $(c_objects) $(s_objects) $(zx0_s_object) $(zx0_fast_s
 exename = adp
 program = out/amiga/$(exename)
 OUT = $(program)
+BOOTBLOCK = src-amiga/bootblock.bin
+STARTUP_SEQUENCE = src-amiga/Startup-Sequence
+FLOPPY_DIR = out/amiga/floppy
+ADF_STAGE_DIR = out/amiga/adf-stage
 ADF = $(OUT).adf
-ADFDIR = out/amiga/floppy
-BOOTBLOCK = support/amiga/bootblock.bin
 ADF_FORMAT ?= dd
 ELF_DUMP = $(OUT).objdump
 CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
 OBJDUMP = m68k-amiga-elf-objdump
 #SHRINKLER = Shrinkler
-SHRINKLER = cranker -q -d black
+SHRINKLER = cranker -q 
 DSK = out/dsk
 
 ifdef WINDOWS
@@ -74,8 +76,9 @@ ASFLAGS = -Wa,-g,--register-prefix-optional,-I$(SDKDIR),-D
 LDFLAGS = -Wl,--emit-relocs,-Ttext=0,-Map=$(OUT).map 
 VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -dwarf=3 -quiet -x -I. -I$(SDKDIR)
 
-all: $(OUT).exe
+.PHONY: all clean adf
 
+all: $(OUT).exe
 adf: $(ADF)
 
 ifndef WINDOWS
@@ -89,23 +92,21 @@ $(OUT).exe: $(OUT).elf
 	@elf2hunk $(OUT).elf $(OUT).exe -s
 	@$(SHRINKLER) $(OUT).exe $(OUT).exe
 
-$(ADF): $(OUT).exe $(BOOTBLOCK)
+$(ADF_STAGE_DIR):
+	mkdir -p "$(ADF_STAGE_DIR)/S"
+
+$(ADF_STAGE_DIR)/S/Startup-Sequence: $(STARTUP_SEQUENCE) | $(ADF_STAGE_DIR)
+	cp "$(STARTUP_SEQUENCE)" "$@"
+
+$(ADF_STAGE_DIR)/ADP.EXE: $(OUT).exe | $(ADF_STAGE_DIR)
+	cp "$(OUT).exe" "$@"
+
+$(ADF): $(OUT).exe $(BOOTBLOCK) $(STARTUP_SEQUENCE) $(DSK) $(ADF_STAGE_DIR)/S/Startup-Sequence $(ADF_STAGE_DIR)/ADP.EXE
 	$(info Building $(ADF))
-	@$(MAKE) -f Makefile-linux $(DSK)
-	@$(RM) $@
-ifdef WINDOWS
-	@$(DSK) mkdisk $@ $(ADF_FORMAT)
-	@$(DSK) $@ setboot $(BOOTBLOCK)
-	@if exist "$(ADFDIR)" $(DSK) $@ addtree "$(ADFDIR)"
-	@$(DSK) $@ add $(OUT).exe
-else
-	@$(DSK) mkdisk $@ $(ADF_FORMAT)
-	@$(DSK) $@ setboot $(BOOTBLOCK)
-	@if [ -d "$(ADFDIR)" ]; then \
-		$(DSK) $@ addtree "$(ADFDIR)"; \
-	fi
-	@$(DSK) $@ add $(OUT).exe
-endif
+	$(DSK) mkdisk $@ $(ADF_FORMAT)
+	$(DSK) $@ setboot $(BOOTBLOCK)
+	$(DSK) $@ addtree "$(FLOPPY_DIR)"
+	$(DSK) $@ addtree "$(ADF_STAGE_DIR)"
 
 $(OUT).elf: $(objects)
 	$(info Linking $(program).elf)
@@ -123,6 +124,7 @@ ifdef WINDOWS
 	@del /q obj\amiga\*.o obj\amiga\*.objdump out\amiga\$(exename).* out\amiga\$(exename).objdump
 else
 	@$(RM) obj/amiga/*.o obj/amiga/*.objdump obj/amiga/*.o.s out/amiga/$(exename).* out/amiga/$(exename).objdump
+	@$(RM) -r "$(ADF_STAGE_DIR)"
 endif
 
 -include $(objects:.o=.d)

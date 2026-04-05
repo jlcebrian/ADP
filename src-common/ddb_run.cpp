@@ -3993,7 +3993,7 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 	i->flags = i->buffer;
 	i->objloc = i->buffer + 256;
 	i->ramSaveArea = i->buffer + i->saveStateSize;
-	i->keyClick = 0;
+	i->keyClick = 2;
 	if (i->ddb->version == DDB_VERSION_PAWS)
 		i->visited = i->buffer + 256 + ddb->numObjects;
 

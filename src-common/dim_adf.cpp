@@ -16,6 +16,7 @@ const int64_t AMIGA_EPOCH_OFFSET = 252460800;
 static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex);
 static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset);
 static void ADF_UpdateChecksumSized(uint8_t* block, uint32_t blockSize, uint32_t checksumOffset);
+static void ADF_UpdateBootBlockChecksum(uint8_t* block, uint32_t blockSize, uint32_t checksumOffset);
 static uint32_t ADF_GetFloppyRootBlock(uint32_t numBlocks);
 
 static void fix32(ADF_RootBlock* root)
@@ -568,16 +569,33 @@ static void ADF_UpdateChecksumSized(uint8_t* block, uint32_t blockSize, uint32_t
     uint32_t sum = 0;
     uint32_t* ptr = (uint32_t*)block;
     uint32_t count = blockSize / 4;
-    
     ptr[checksumOffset / 4] = 0;
     for (uint32_t i = 0; i < count; i++)
-        sum += fix32(ptr[i]); 
+        sum += fix32(ptr[i]);
     ptr[checksumOffset / 4] = fix32(-sum);
 }
 
 static void ADF_UpdateChecksum(uint8_t* block, uint32_t checksumOffset)
 {
     ADF_UpdateChecksumSized(block, 512, checksumOffset);
+}
+
+static void ADF_UpdateBootBlockChecksum(uint8_t* block, uint32_t blockSize, uint32_t checksumOffset)
+{
+    uint32_t sum = 0;
+    uint32_t* ptr = (uint32_t*)block;
+    uint32_t count = blockSize / 4;
+
+    ptr[checksumOffset / 4] = 0;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        uint32_t value = fix32(ptr[i]);
+        uint32_t previous = sum;
+        sum += value;
+        if (sum < previous)
+            sum++;
+    }
+    ptr[checksumOffset / 4] = fix32(~sum);
 }
 
 // Standard Amiga Int'l Hash function
@@ -867,7 +885,7 @@ ADF_Disk* ADF_CreateDisk(const char* filename, uint32_t size)
     uint8_t bootBlock[1024];
     memset(bootBlock, 0, sizeof(bootBlock));
     memcpy(bootBlock, buffer, 512);
-    ADF_UpdateChecksumSized(bootBlock, sizeof(bootBlock), 4);
+    ADF_UpdateBootBlockChecksum(bootBlock, sizeof(bootBlock), 4);
 
     File_Seek(f, 0);
     File_Write(f, bootBlock, sizeof(bootBlock));
@@ -961,7 +979,7 @@ bool ADF_WriteBootBlock(ADF_Disk* disk, const void* buffer, uint32_t size)
     uint8_t boot[1024];
     memcpy(boot, buffer, sizeof(boot));
     write32(&boot[8], 880, false);
-    ADF_UpdateChecksumSized(boot, sizeof(boot), 4);
+    ADF_UpdateBootBlockChecksum(boot, sizeof(boot), 4);
 
     if (!File_Seek(disk->file, 0) || File_Write(disk->file, boot, sizeof(boot)) != sizeof(boot))
     {
