@@ -21,6 +21,16 @@ const char* diskFileName = NULL;
 DIM_Disk* disk = NULL;
 int options;
 
+static const uint8_t DefaultAmigaBootBlockPrefix[] =
+{
+	0x44,0x4f,0x53,0x00,0xe3,0x3d,0x0e,0x73,0x00,0x00,0x03,0x70,0x43,0xfa,0x00,0x3e,
+	0x70,0x25,0x4e,0xae,0xfd,0xd8,0x4a,0x80,0x67,0x0c,0x22,0x40,0x08,0xe9,0x00,0x06,
+	0x00,0x22,0x4e,0xae,0xfe,0x62,0x43,0xfa,0x00,0x18,0x4e,0xae,0xff,0xa0,0x4a,0x80,
+	0x67,0x0a,0x20,0x40,0x20,0x68,0x00,0x16,0x70,0x00,0x4e,0x75,0x70,0xff,0x4e,0x75,
+	0x64,0x6f,0x73,0x2e,0x6c,0x69,0x62,0x72,0x61,0x72,0x79,0x00,0x65,0x78,0x70,0x61,
+	0x6e,0x73,0x69,0x6f,0x6e,0x2e,0x6c,0x69,0x62,0x72,0x61,0x72,0x79,0x00
+};
+
 typedef enum
 {
 	ACTION_HELP,
@@ -123,6 +133,7 @@ static bool Extract  (int argc, char *argv[]);
 static bool SetBoot  (int argc, char *argv[]);
 static bool GetBoot  (int argc, char *argv[]);
 static char* FindLastPathSeparator(char* path);
+static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNameSize, char* diskFileName, size_t diskFileNameSize);
 
 static inline char ToUpper(char c)
 {
@@ -186,9 +197,12 @@ static void PrintHelp(int argc, char *argv[])
                         printf("    Show information about the given disk image\n");
                         return;
 					case ACTION_ADD:
-						printf("Usage: dsk add disk.img hostfile [hostfile2 ...]\n\n");
+						printf("Usage: dsk add disk.img hostfile[:diskpath] [hostfile2[:diskpath2] ...]\n\n");
 						printf("    Copy one or more host files into the disk image.\n");
-						printf("    Directory paths in hostfile are stripped inside the image.\n");
+						printf("    Directory paths in hostfile are stripped inside the image unless diskpath is supplied.\n");
+						printf("    Examples:\n");
+						printf("      dsk add disk.adf foo.txt\n");
+						printf("      dsk add disk.adf foo.txt:S/foo.txt\n");
 						return;
 					case ACTION_DELETE:
 						printf("Usage: dsk del disk.img pattern [pattern2 ...]\n\n");
@@ -226,8 +240,9 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    Not all disk formats support volume labels.\n");
 						return;
 					case ACTION_SETBOOT:
-						printf("Usage: dsk setboot disk.adf source.adf|bootblock.bin\n\n");
+						printf("Usage: dsk setboot disk.adf [source.adf|bootblock.bin|default]\n\n");
 						printf("    Copy a 1024-byte Amiga bootblock into an ADF image.\n");
+						printf("    If no source is supplied, the built-in default Amiga bootblock is used.\n");
 						printf("    If source is an .adf, its bootblock is copied.\n");
 						return;
 					case ACTION_GETBOOT:
@@ -275,7 +290,7 @@ static void PrintHelp(int argc, char *argv[])
 	printf("    mkdir     Make a directory in disk image\n");
 	printf("    chdir     Change current directory\n");
 	printf("    setvol    Set or clear the volume label\n");
-	printf("    setboot   Set ADF bootblock from ADF or raw 1024-byte file\n");
+	printf("    setboot   Set ADF bootblock from built-in default, ADF, or raw 1024-byte file\n");
 	printf("    getboot   Extract ADF bootblock to a host file\n");
 	printf("    addtree   Recursively add a host directory tree\n");
 	printf("    shell     Open an interactive shell\n");
@@ -1147,33 +1162,82 @@ static bool AddFile (const char* filename)
 	return AddFileToDisk(filename, NULL);
 }
 
+static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNameSize, char* diskFileName, size_t diskFileNameSize)
+{
+	const char* split = NULL;
+	const char* ptr = spec;
+	while (*ptr)
+	{
+		if (*ptr == ':')
+		{
+			bool isWindowsDrive = (ptr == spec + 1 && isalpha((unsigned char)spec[0]));
+			if (!isWindowsDrive)
+				split = ptr;
+		}
+		ptr++;
+	}
+
+	if (split == NULL)
+	{
+		strncpy(hostFileName, spec, hostFileNameSize);
+		hostFileName[hostFileNameSize - 1] = 0;
+		diskFileName[0] = 0;
+		return true;
+	}
+
+	size_t hostLen = split - spec;
+	size_t diskLen = strlen(split + 1);
+	if (hostLen == 0 || hostLen >= hostFileNameSize || diskLen >= diskFileNameSize)
+		return false;
+
+	memcpy(hostFileName, spec, hostLen);
+	hostFileName[hostLen] = 0;
+	memcpy(diskFileName, split + 1, diskLen + 1);
+	return true;
+}
+
 static bool AddFiles (int argc, char *argv[])
 {
 	bool ok = true;
 
 	for (; argc > 0; argc--, argv++)
 	{
-        if (strchr(argv[0], '*') != NULL || strchr(argv[0], '?') != NULL)
+		char hostFileName[FILE_MAX_PATH];
+		char diskPath[FILE_MAX_PATH];
+		if (!ParseAddSpec(argv[0], hostFileName, sizeof(hostFileName), diskPath, sizeof(diskPath)))
+		{
+			printf("%s: invalid add specification\n", argv[0]);
+			ok = false;
+			continue;
+		}
+
+        if (strchr(hostFileName, '*') != NULL || strchr(hostFileName, '?') != NULL)
         {
             FindFileResults results;
-            char *dirSep = strrchr(argv[0], '/');
+            char *dirSep = strrchr(hostFileName, '/');
             if (!dirSep)
-                dirSep = strrchr(argv[0], '\\');
+                dirSep = strrchr(hostFileName, '\\');
             if (dirSep)
             {
                 char savedChar = *dirSep;
                 *dirSep = 0;
-                if (!OS_ChangeDirectory(argv[0]))
+                if (!OS_ChangeDirectory(hostFileName))
                 {
-                    printf("%s: directory not found\n", argv[0]);
+                    printf("%s: directory not found\n", hostFileName);
                     ok = false;
                     *dirSep = savedChar;
                     continue;
                 }
                 *dirSep = savedChar;
-                argv[0] = dirSep + 1;
+                memmove(hostFileName, dirSep + 1, strlen(dirSep + 1) + 1);
             }
-            if (OS_FindFirstFile(argv[0], &results))
+            if (diskPath[0] != 0)
+            {
+                printf("%s: wildcard host patterns cannot be combined with a disk destination path\n", argv[0]);
+                ok = false;
+                continue;
+            }
+            if (OS_FindFirstFile(hostFileName, &results))
             {
                 do
                 {
@@ -1186,13 +1250,14 @@ static bool AddFiles (int argc, char *argv[])
             }
             else
             {
-                printf("%s: file not found\n", argv[0]);
+                printf("%s: file not found\n", hostFileName);
                 ok = false;
             }
             continue;
         }
 
-        AddFile(argv[0]);
+		if (!AddFileToDisk(hostFileName, diskPath[0] ? diskPath : NULL))
+			ok = false;
 	}
 	return ok;
 }
@@ -1355,11 +1420,6 @@ static bool Extract (int argc, char *argv[])
 
 static bool SetBoot(int argc, char* argv[])
 {
-	if (argc < 1)
-	{
-		printf("%s: missing boot source\n", diskFileName);
-		return false;
-	}
 	if (disk->type != DIM_ADF)
 	{
 		printf("%s: bootblocks are only supported for ADF images\n", diskFileName);
@@ -1367,38 +1427,46 @@ static bool SetBoot(int argc, char* argv[])
 	}
 
 	uint8_t boot[1024];
-	const char* source = argv[0];
-	const char* extension = strrchr(source, '.');
-	if (extension && stricmp(extension, ".adf") == 0)
+	const char* source = argc > 0 ? argv[0] : NULL;
+	if (source == NULL || source[0] == 0 || stricmp(source, "default") == 0)
 	{
-		DIM_Disk* sourceDisk = DIM_OpenDisk(source);
-		if (!sourceDisk)
-		{
-			printf("%s: %s\n", source, DIM_GetErrorString());
-			return false;
-		}
-		bool ok = DIM_ReadBootBlock(sourceDisk, boot, sizeof(boot));
-		if (!ok)
-			printf("%s: %s\n", source, DIM_GetErrorString());
-		DIM_CloseDisk(sourceDisk);
-		if (!ok)
-			return false;
+		memset(boot, 0, sizeof(boot));
+		memcpy(boot, DefaultAmigaBootBlockPrefix, sizeof(DefaultAmigaBootBlockPrefix));
 	}
 	else
 	{
-		File* file = File_Open(source);
-		if (!file)
+		const char* extension = strrchr(source, '.');
+		if (extension && stricmp(extension, ".adf") == 0)
 		{
-			printf("%s: file not found\n", source);
-			return false;
+			DIM_Disk* sourceDisk = DIM_OpenDisk(source);
+			if (!sourceDisk)
+			{
+				printf("%s: %s\n", source, DIM_GetErrorString());
+				return false;
+			}
+			bool ok = DIM_ReadBootBlock(sourceDisk, boot, sizeof(boot));
+			if (!ok)
+				printf("%s: %s\n", source, DIM_GetErrorString());
+			DIM_CloseDisk(sourceDisk);
+			if (!ok)
+				return false;
 		}
-		if (File_Read(file, boot, sizeof(boot)) != sizeof(boot))
+		else
 		{
-			printf("%s: bootblock must be exactly 1024 bytes\n", source);
+			File* file = File_Open(source);
+			if (!file)
+			{
+				printf("%s: file not found\n", source);
+				return false;
+			}
+			if (File_Read(file, boot, sizeof(boot)) != sizeof(boot))
+			{
+				printf("%s: bootblock must be exactly 1024 bytes\n", source);
+				File_Close(file);
+				return false;
+			}
 			File_Close(file);
-			return false;
 		}
-		File_Close(file);
 	}
 
 	if (!DIM_WriteBootBlock(disk, boot, sizeof(boot)))
@@ -1407,7 +1475,10 @@ static bool SetBoot(int argc, char* argv[])
 		return false;
 	}
 
-	printf("%s: bootblock written\n", diskFileName);
+	if (source == NULL || source[0] == 0 || stricmp(source, "default") == 0)
+		printf("%s: default bootblock written\n", diskFileName);
+	else
+		printf("%s: bootblock written\n", diskFileName);
 	return true;
 }
 
