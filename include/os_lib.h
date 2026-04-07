@@ -16,7 +16,10 @@ extern void TracePrintf(const char* format, ...);
 #endif
 
 #ifdef _DEBUGPRINT
-#  ifdef _STDCLIB
+#  if defined(_ATARIST)
+	extern void DebugPrintfImpl(const char* format, ...);
+#    define DebugPrintf(...) DebugPrintfImpl(__VA_ARGS__)
+#  elif defined(_STDCLIB)
 #    include <stdio.h>
 #    define DebugPrintf(...) printf(__VA_ARGS__)
 #  elif defined(_AMIGA)

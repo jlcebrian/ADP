@@ -225,44 +225,54 @@ bool DMG_CopyImageData(uint8_t* ptr, uint16_t length, uint8_t* output, int pixel
 
 uint8_t* DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width)
 {
-	uint8_t*  ptr = (uint8_t*)data;
-	uint8_t*  end = (uint8_t*)(data + length);
-	uint32_t* out = (uint32_t*)buffer;
+	uint32_t widthBlocks = (width + 7) >> 3;
+	uint32_t widthWords = (width + 15) >> 4;
+	uint32_t srcRowBytes = widthBlocks * 4;
+	uint32_t dstRowBytes = widthWords * 8;
+	if (srcRowBytes == 0)
+		return buffer;
 
-	uint32_t splitCounter = 0;
-	if (width & 0xF)
-		splitCounter = 1 + (width >> 4);
-
-	while (ptr < end)
+	uint32_t height = (uint32_t)length / srcRowBytes;
+	for (uint32_t row = height; row-- > 0; )
 	{
-		uint32_t a = 0;
-		uint32_t b = 0;
+		uint8_t* src = data + row * srcRowBytes + srcRowBytes;
+		uint8_t* dst = buffer + row * dstRowBytes + dstRowBytes;
+		uint32_t remainingBlocks = widthBlocks;
 
-		if (!--splitCounter)
+		if ((remainingBlocks & 1) != 0)
 		{
-			splitCounter = 1 + (width >> 4);
-			a |= ptr[0] << 24;
-			a |= ptr[1] << 8;
-			b |= ptr[2] << 24;
-			b |= ptr[3] << 8;
-			*out++ = a;
-			*out++ = b;
-			ptr   += 4;
+			src -= 4;
+			dst -= 8;
+			uint8_t p0 = src[0];
+			uint8_t p1 = src[1];
+			uint8_t p2 = src[2];
+			uint8_t p3 = src[3];
+			uint32_t a = ((uint32_t)p0 << 24) | ((uint32_t)p1 << 8);
+			uint32_t b = ((uint32_t)p2 << 24) | ((uint32_t)p3 << 8);
+			((uint32_t*)dst)[0] = a;
+			((uint32_t*)dst)[1] = b;
+			remainingBlocks--;
 		}
-		else
-		{
-			a |= ptr[0] << 24;
-			a |= ptr[1] << 8;
-			b |= ptr[2] << 24;
-			b |= ptr[3] << 8;
-			a |= ptr[4] << 16;
-			a |= ptr[5];
-			b |= ptr[6] << 16;
-			b |= ptr[7];
 
-			*out++ = a;
-			*out++ = b;
-			ptr   += 8;
+		while (remainingBlocks > 0)
+		{
+			src -= 8;
+			dst -= 8;
+			uint8_t p0a = src[0];
+			uint8_t p1a = src[1];
+			uint8_t p2a = src[2];
+			uint8_t p3a = src[3];
+			uint8_t p0b = src[4];
+			uint8_t p1b = src[5];
+			uint8_t p2b = src[6];
+			uint8_t p3b = src[7];
+			uint32_t a = ((uint32_t)p0a << 24) | ((uint32_t)p0b << 16) |
+				((uint32_t)p1a << 8) | (uint32_t)p1b;
+			uint32_t b = ((uint32_t)p2a << 24) | ((uint32_t)p2b << 16) |
+				((uint32_t)p3a << 8) | (uint32_t)p3b;
+			((uint32_t*)dst)[0] = a;
+			((uint32_t*)dst)[1] = b;
+			remainingBlocks -= 2;
 		}
 	}
 	return buffer;

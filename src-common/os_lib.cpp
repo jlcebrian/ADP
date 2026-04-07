@@ -1,6 +1,28 @@
 #include <os_lib.h>
 #include <os_file.h>
 
+#if defined(_ATARIST) && defined(_DEBUGPRINT)
+#include <stdarg.h>
+#include <stdio.h>
+#include <osbind.h>
+
+void DebugPrintfImpl(const char* format, ...)
+{
+	char formatted[512];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(formatted, sizeof(formatted), format, args);
+	va_end(args);
+
+	for (size_t readPos = 0; formatted[readPos] != 0; ++readPos)
+	{
+		if (formatted[readPos] == '\n')
+			Bconout(1, '\r');
+		Bconout(1, formatted[readPos]);
+	}
+}
+#endif
+
 static char const digits[16] =
 {
 	'0','1','2','3','4','5','6','7','8','9',

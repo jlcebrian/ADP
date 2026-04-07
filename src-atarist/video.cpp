@@ -157,9 +157,9 @@ static uint16_t ColorValue(uint8_t r, uint8_t g, uint8_t b)
 
 void VID_WaitForKey()
 {
-	while (!KeyboardHit());
 	while (KeyboardHit())
 		GetKey();
+	while (!KeyboardHit());
 }
 
 bool VID_AnyKey ()

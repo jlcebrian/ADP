@@ -174,6 +174,7 @@ static void ShowLoaderPrompt(int parts, DDB_Language language)
 
 static void LoaderScreenUpdate(int elapsed)
 {
+	(void)elapsed;
 	if (VID_AnyKey())
 	{
 		uint8_t key = 0, ext = 0;
@@ -190,6 +191,7 @@ static void LoaderScreenUpdate(int elapsed)
 
 static void WaitForKeyUpdate(int elapsed)
 {
+	(void)elapsed;
 	if (VID_AnyKey())
 	{
 		uint8_t key = 0, ext = 0;
@@ -646,9 +648,7 @@ bool DDB_RunPlayer()
 		VID_RestoreScreen();
 
 		DDB_Interpreter* i = interpreter;
-		uint8_t key, ext;
 		VID_MainLoop(0, WaitForKeyUpdate);
-		VID_GetKey(&key, &ext, 0);
 		interpreter = i;
 	}
 	if (scrCount > 0)
