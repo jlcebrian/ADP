@@ -374,9 +374,9 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	item->size = size;
 	item->time = useCounter++;
 	item->index = index;
+	item->imageMode = ImageMode_Raw;
 	item->buffer = (entry->flags & DMG_FLAG_BUFFERED) != 0;
 	item->populated = false;
-	item->processed = false;
 
 	dmg->cacheFree -= required;
 #if DEBUG_IMAGE_CACHE

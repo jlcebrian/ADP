@@ -237,36 +237,6 @@ static DMG_Cache* FindImageCacheItem(uint8_t index, const void* payload)
 	return 0;
 }
 
-static bool PromoteCurrentPictureToPlaneMajor(DMG_Cache* imageCache)
-{
-	if (pictureData == 0 || pictureEntry == 0)
-		return false;
-	if (picturePlaneMajor)
-		return true;
-	if (pictureOrigin == 0 ||
-		(pictureOrigin->version != DMG_Version1 && pictureOrigin->version != DMG_Version2))
-		return false;
-	if (picturePlanes > displayPlanes)
-		return false;
-
-	if (imageCache != 0 && imageCache->processed)
-		picturePlaneMajor = true;
-	else
-	{
-		uint32_t dataSize = DMG_CalculateRequiredSize(pictureEntry, ImageMode_PlanarST);
-		if (!DMG_RepackClassicPlanar(pictureEntry, (uint8_t*)pictureData, dataSize, scratchBuffer, screenAllocate))
-			return false;
-		picturePlaneMajor = true;
-		if (imageCache != 0)
-			imageCache->processed = true;
-	}
-
-	uint32_t widthWords = (uint32_t)(pictureEntry->width + 15) >> 4;
-	pictureStride = widthWords;
-	picturePlaneStride = pictureStride * pictureEntry->height;
-	return true;
-}
-
 static void ClearScratchBuffer(uint8_t color)
 {
 	for (uint8_t p = 0; p < displayPlanes; p++)
@@ -1398,15 +1368,10 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		}
 	}
 
-	DMG_Cache* imageCache = pictureData != 0 ? FindImageCacheItem((uint8_t)pictureIndex, pictureData) : 0;
 	if (!picturePlaneMajor)
 	{
-		PromoteCurrentPictureToPlaneMajor(imageCache);
-		if (!picturePlaneMajor)
-		{
-			DebugPrintf("WARNING: Unable to promote picture to plane major");
-			return;
-		}
+		DebugPrintf("WARNING: Picture is not in native plane-major format");
+		return;
 	}
 
 	if (picturePlanes > displayPlanes)
@@ -1552,30 +1517,14 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	pictureEntry  = entry;
 	pictureIndex  = picno;
 	picturePlanes = entry->bitDepth ? entry->bitDepth : TEXT_PLANES;
-	picturePlaneMajor = dmg->version == DMG_Version5 || (entry->flags & DMG_FLAG_PLANAR_MAJOR) != 0;
 	uint32_t widthWords = (uint32_t)(entry->width + 15) >> 4;
-	DMG_Cache* imageCache = 0;
-	if (picturePlaneMajor)
-	{
-		pictureStride = widthWords;
-		picturePlaneStride = pictureStride * entry->height;
-	}
-	else
-	{
-		pictureStride = picturePlanes * widthWords;
-		picturePlaneStride = 0;
-	}
-	pictureData   = (uint16_t*) DMG_GetEntryDataPlanar(dmg, picno);
+	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData != 0)
-		imageCache = FindImageCacheItem(picno, pictureData);
-	if (pictureData != 0 && (entry->flags & DMG_FLAG_PLANAR_MAJOR) != 0)
 	{
 		picturePlaneMajor = true;
 		pictureStride = widthWords;
 		picturePlaneStride = pictureStride * entry->height;
 	}
-	if (pictureData != 0)
-		PromoteCurrentPictureToPlaneMajor(imageCache);
 	if (pictureData == 0 || picturePlanes > displayPlanes)
 	{
 		pictureEntry = 0;

@@ -156,14 +156,17 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
             return 0;
     }
 
-    if (mode == ImageMode_Indexed || mode == ImageMode_IndexedCGA || mode == ImageMode_IndexedEGA)
+	DMG_ImageMode layoutMode = DMG_GetImageLayoutMode(mode);
+	DMG_ColorPaletteMode paletteMode = DMG_GetImageColorPaletteMode(mode);
+
+	if (layoutMode == ImageMode_Indexed)
     {
-        if (mode == ImageMode_IndexedCGA)
+		if (paletteMode == ColorPaletteMode_CGA)
         {
             for (uint32_t i = 0; i < indexedSize; i++)
                 buffer[i] &= 0x03;
         }
-        else if (mode == ImageMode_IndexedEGA)
+		else if (paletteMode == ColorPaletteMode_EGA)
         {
             for (uint32_t i = 0; i < indexedSize; i++)
                 buffer[i] &= 0x0F;
@@ -173,16 +176,16 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
         return buffer;
     }
 
-    if (mode == ImageMode_Packed || mode == ImageMode_PackedCGA || mode == ImageMode_PackedEGA)
+	if (layoutMode == ImageMode_Packed)
     {
-        if (dmg->colorMode == DMG_DAT5_COLORMODE_CGA && mode == ImageMode_PackedCGA)
+		if (dmg->colorMode == DMG_DAT5_COLORMODE_CGA && paletteMode == ColorPaletteMode_CGA)
         {
             MemCopy(buffer, fileData, imageDataLength);
             if (tempFileData)
                 Free(tempFileData);
             return buffer;
         }
-        if (dmg->colorMode == DMG_DAT5_COLORMODE_EGA && mode == ImageMode_PackedEGA)
+		if (dmg->colorMode == DMG_DAT5_COLORMODE_EGA && paletteMode == ColorPaletteMode_EGA)
         {
             MemCopy(buffer, fileData, imageDataLength);
             if (tempFileData)
@@ -195,14 +198,14 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
         return 0;
     }
 
-    if (mode == ImageMode_RGBA32 || mode == ImageMode_RGBA32CGA || mode == ImageMode_RGBA32EGA)
+	if (layoutMode == ImageMode_RGBA32)
     {
         uint32_t* dst = (uint32_t*)buffer;
         uint32_t* colors = entry->RGB32PaletteV5;
         uint8_t firstColor = entry->firstColor;
-        if (mode == ImageMode_RGBA32CGA)
+		if (paletteMode == ColorPaletteMode_CGA)
             colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
-        else if (mode == ImageMode_RGBA32EGA)
+		else if (paletteMode == ColorPaletteMode_EGA)
             colors = EGAPalette;
         else if (colors == 0)
             colors = DMG_GetEntryPalette(dmg, index, mode);
@@ -210,17 +213,17 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
         for (int32_t i = (int32_t)indexedSize - 1; i >= 0; i--)
         {
             uint8_t color = buffer[i];
-            if (mode == ImageMode_RGBA32 && (color < firstColor || color > entry->lastColor))
+			if (paletteMode == ColorPaletteMode_Native && (color < firstColor || color > entry->lastColor))
                 dst[i] = 0xFF000000;
             else
-                dst[i] = colors[mode == ImageMode_RGBA32 ? (color - firstColor) : color];
+				dst[i] = colors[paletteMode == ColorPaletteMode_Native ? (color - firstColor) : color];
         }
         if (tempFileData)
             Free(tempFileData);
         return buffer;
     }
 
-    if (mode == ImageMode_Planar || mode == ImageMode_PlanarST)
+	if (layoutMode == ImageMode_Planar || layoutMode == ImageMode_PlanarST)
     {
         if (tempFileData)
             Free(tempFileData);
@@ -237,6 +240,8 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 {
 	bool success;
+	DMG_ImageMode layoutMode = DMG_GetImageLayoutMode(mode);
+	DMG_ColorPaletteMode paletteMode = DMG_GetImageColorPaletteMode(mode);
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	if (entry == 0)
 		return 0;
@@ -307,16 +312,30 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 
 	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
-		if (dmg->version == DMG_Version1_EGA)
+        if (false)
+        {
+        }
+        #if DMG_SUPPORT_EGA_SOURCES
+        else if (dmg->version == DMG_Version1_EGA)
 		{
 			success = DMG_DecompressEGA(fileData, entry->length, buffer, entry->width, entry->height);
 		}
-		else if (dmg->version == DMG_Version1_CGA)
+        #endif
+        #if DMG_SUPPORT_CGA_SOURCES
+        else if (dmg->version == DMG_Version1_CGA)
 		{
 			success = DMG_DecompressCGA(fileData, entry->length, buffer, entry->width, entry->height);
 		}
+        #endif
 		else
 		{
+            #if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+            if (!DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
+            {
+                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+                return 0;
+            }
+            #endif
 			uint16_t mask = read16(fileData, dmg->littleEndian);
 			uint32_t pixels = entry->width * entry->height;
 			if (dmg->version != DMG_Version2)
@@ -324,9 +343,9 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				success = DMG_DecompressOldRLE(fileData+2, mask, 
 					entry->length-2, buffer, pixels, dmg->littleEndian);
 			}
-			else if (!dmg->littleEndian && mode == ImageMode_PlanarST)
+            else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian) && layoutMode == ImageMode_PlanarST)
 			{
-				success = DMG_DecompressNewRLEPlanar(fileData+2, mask, 
+                success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, pixels, dmg->littleEndian);
 				if (success)
 					return buffer;
@@ -345,49 +364,37 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		if (entry->length != expectedSize)
 			success = false;
-		else if (dmg->version == DMG_Version1_EGA)
+        #if DMG_SUPPORT_EGA_SOURCES
+        else if (dmg->version == DMG_Version1_EGA)
 			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
-		else if (dmg->version == DMG_Version1_CGA)
+        #endif
+        #if DMG_SUPPORT_CGA_SOURCES
+        else if (dmg->version == DMG_Version1_CGA)
 			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+        #endif
+        #if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 		else if (dmg->littleEndian)
 			success = DMG_CopyImageData(fileData, entry->length, buffer, packedSize);
-		else if (mode != ImageMode_PlanarST)
+        #endif
+		else if (layoutMode != ImageMode_PlanarST)
 			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
 		else
-			return DMG_Planar8To16(fileData, buffer, packedSize, entry->width);
+            return DMG_ConvertPlanar8ToPlanarST(fileData, buffer, packedSize, entry->width);
 	}
-	if (success && mode != ImageMode_Packed)
+	if (success && layoutMode != ImageMode_Packed)
 	{
 		uint32_t *ptr;
 		uint32_t *colors;
 		int n;
 			
-		switch (mode)
+		switch (layoutMode)
 		{
 			case ImageMode_Raw:
 			case ImageMode_Packed:
 				break;
-			case ImageMode_PackedEGA:
-			{
-				for (n = requiredSize - 1; n > 0; n--)
-				{
-					buffer[n] = entry->EGAPalette[buffer[n] & 0x0F] |
-						(entry->EGAPalette[buffer[n] >> 4] << 4);
-				}
-				break;
-			}
-			case ImageMode_PackedCGA:
-			{
-				for (n = requiredSize - 1; n > 0; n--)
-				{
-					buffer[n] = entry->CGAPalette[buffer[n] & 0x0F] |
-						(entry->CGAPalette[buffer[n] >> 4] << 4);
-				}
-				break;
-			}
 			case ImageMode_PlanarST:
 			{
-				DMG_ConvertChunkyToPlanar(buffer, requiredSize, entry->width);
+                DMG_ConvertPackedToPlanarST(buffer, requiredSize, entry->width);
 				break;
 			}
             case ImageMode_Planar:
@@ -404,44 +411,32 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 					return 0;
 				}
 				ptr = (uint32_t *)buffer + 2*requiredSize;
-				for (n = requiredSize - 1; n > 0; n--) 
-				{
-					*--ptr = entry->RGB32Palette[buffer[n] & 0x0F];
-					*--ptr = entry->RGB32Palette[buffer[n] >> 4];
-				}
-				break;
-			}
-			case ImageMode_RGBA32EGA:
-			{
-				if (bufferSize < requiredSize * 8)
-				{
-					DMG_Warning("Entry %d: Buffer too small for RGBA32 image (%d bytes required)", index, requiredSize * 4);
-					DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
-					return 0;
-				}
-				ptr = (uint32_t *)buffer + 2*requiredSize;
-				for (n = requiredSize - 1; n > 0; n--) 
-				{
-					*--ptr = entry->EGAPalette[buffer[n] & 0x0F];
-					*--ptr = entry->EGAPalette[buffer[n] >> 4];
-				}
-				break;
-			}
-			case ImageMode_RGBA32CGA:
-			{
-				if (bufferSize < requiredSize * 8)
-				{
-					DMG_Warning("Entry %d: Buffer too small for RGBA32 image (%d bytes required)", index, requiredSize * 4);
-					DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
-					return 0;
-				}
-				colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
-				ptr = (uint32_t *)buffer + 2*requiredSize;
-				for (n = requiredSize - 1; n > 0; n--) 
-				{
-					*--ptr = colors[buffer[n] & 0x0F];
-					*--ptr = colors[buffer[n] >> 4];
-				}
+                if (paletteMode == ColorPaletteMode_CGA)
+                {
+                    colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+                    for (n = requiredSize - 1; n > 0; n--)
+                    {
+                        *--ptr = colors[buffer[n] & 0x0F];
+                        *--ptr = colors[buffer[n] >> 4];
+                    }
+                }
+                else if (paletteMode == ColorPaletteMode_EGA)
+                {
+                    for (n = requiredSize - 1; n > 0; n--)
+                    {
+                        *--ptr = entry->EGAPalette[buffer[n] & 0x0F];
+                        *--ptr = entry->EGAPalette[buffer[n] >> 4];
+                    }
+                }
+                else
+                {
+                    colors = entry->RGB32Palette;
+                    for (n = requiredSize - 1; n > 0; n--)
+                    {
+                        *--ptr = colors[buffer[n] & 0x0F];
+                        *--ptr = colors[buffer[n] >> 4];
+                    }
+                }
 				break;
 			}
 			case ImageMode_Indexed:
@@ -449,30 +444,21 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				uint8_t* ptr = buffer + (requiredSize/2) - 1;
 				for (n = requiredSize; n > 1; )
 				{
-					buffer[--n] = *ptr & 0x0F;
-					buffer[--n] = *ptr-- >> 4;
-				}
-				break;
-			}
-			case ImageMode_IndexedCGA:
-			{
-				uint8_t* ptr = buffer + (requiredSize/2) - 1;
-				for (n = requiredSize; n > 1; )
-				{
-					buffer[--n] = entry->CGAPalette[*ptr & 0x0F];
-					buffer[--n] = entry->CGAPalette[*ptr-- >> 4];
-				}
-				break;
-			}
-			case ImageMode_IndexedEGA:
-			{
-				uint8_t* ptr = buffer + (requiredSize/2) - 1;
-				for (n = requiredSize; n > 1; )
-				{
-					buffer[--n] = entry->EGAPalette[*ptr & 0x0F];
-					buffer[--n] = entry->EGAPalette[*ptr-- >> 4];
-				}
-				break;
+					if (paletteMode == ColorPaletteMode_CGA)
+						buffer[--n] = entry->CGAPalette[*ptr & 0x0F];
+					else if (paletteMode == ColorPaletteMode_EGA)
+                        buffer[--n] = entry->EGAPalette[*ptr & 0x0F];
+                    else
+                        buffer[--n] = *ptr & 0x0F;
+
+                    if (paletteMode == ColorPaletteMode_CGA)
+                        buffer[--n] = entry->CGAPalette[*ptr-- >> 4];
+                    else if (paletteMode == ColorPaletteMode_EGA)
+                        buffer[--n] = entry->EGAPalette[*ptr-- >> 4];
+                    else
+                        buffer[--n] = *ptr-- >> 4;
+                }
+                break;
 			}
 		}
 	}
@@ -484,4 +470,13 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	}
 
 	return buffer;
+}
+
+uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
+{
+    #if defined(_AMIGA) || defined(_ATARIST)
+    return DMG_GetEntryDataPlanar(dmg, index);
+    #else
+	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
+    #endif
 }

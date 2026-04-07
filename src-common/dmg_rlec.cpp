@@ -7,6 +7,9 @@
 
 bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
 {
+	#if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+	(void)littleEndian;
+	#endif
 	uint32_t nibbles = 0;
 	uint8_t color = 0;
 	uint8_t repetitions;
@@ -41,7 +44,11 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 				break;
 			}
 
+			#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 			nibbles = fix32(*data++, littleEndian);
+			#else
+			nibbles = *data++;
+			#endif
 			nibbleCount = 8;
 		}
 
@@ -74,7 +81,11 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 					DMG_SetError(DMG_ERROR_TRUNCATED_DATA_STREAM);
 					break;
 				}
+				#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 				nibbles = fix32(*data++, littleEndian);
+				#else
+				nibbles = *data++;
+				#endif
 				nibbleCount = 8;
 			}
 

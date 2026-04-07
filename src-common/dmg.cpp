@@ -24,6 +24,8 @@ static void    (*dmg_warningHandler)(const char* message) = 0;
 static uint8_t*  dmgTemporaryBuffer = 0;
 static uint32_t  dmgTemporaryBufferSize = 0;
 
+void DMG_InitializeOldRLETables();
+
 static void DMG_ParseClassicEntryHeader(DMG* dmg, DMG_Entry* entry, const uint8_t* header)
 {
 	uint16_t v = read16(header, dmg->littleEndian);
@@ -221,7 +223,7 @@ bool DMG_CopyImageData(uint8_t* ptr, uint16_t length, uint8_t* output, int pixel
 	return true;
 }
 
-uint8_t* DMG_Planar8To16(uint8_t* data, uint8_t* buffer, int length, uint32_t width)
+uint8_t* DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width)
 {
 	uint8_t*  ptr = (uint8_t*)data;
 	uint8_t*  end = (uint8_t*)(data + length);
@@ -293,7 +295,7 @@ bool DMG_Planar8ToPacked (const uint8_t* ptr, uint16_t length, uint8_t* output, 
 	return ptr == end && output == outputEnd;
 }
 
-void DMG_ConvertChunkyToPlanar(uint8_t *buffer, uint32_t bufferSize, uint32_t width)
+void DMG_ConvertPackedToPlanarST(uint8_t *buffer, uint32_t bufferSize, uint32_t width)
 {
 	uint32_t *out = (uint32_t*)buffer;
 	uint8_t *in = (uint8_t*)buffer;
@@ -321,16 +323,12 @@ void DMG_ConvertChunkyToPlanar(uint8_t *buffer, uint32_t bufferSize, uint32_t wi
 			if (c & 0x08) p1 |= mask0;
 			mask0 >>= 1;
 			mask1 >>= 1;
-			if (++x == width && mask0)
-			{
-				x = 0;
-				n -= 4;
-				break;
-			}
 		} while (mask0);
 
 		*out++ = p0;
 		*out++ = p1;
+		if (++x == width)
+			x = 0;
 	}
 }
 
@@ -388,11 +386,11 @@ bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t heigh
                         break;
                     if ((value >> bit) & 1)
                         dst[x] |= planeMask;
-                }
-            }
-        }
-    }
-    return true;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 static bool DMG_ReadDAT5Entries(DMG* dmg)
@@ -1019,8 +1017,10 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 
+	#if !defined(_AMIGA)
 	if (d->version == DMG_Version1)
 		DMG_InitializeOldRLETables();
+	#endif
 
 	if (!DMG_PreallocateZX0Scratch(d))
 	{
@@ -1085,6 +1085,9 @@ uint8_t DMG_GetEntryFirstColor(DMG* dmg, uint8_t index)
 
 void DMG_Close(DMG* d)
 {
+	if (d == 0)
+		return;
+
 #ifndef NO_CACHE
 	DMG_FreeImageCache(d);
 #endif
@@ -1094,15 +1097,18 @@ void DMG_Close(DMG* d)
         if (d->entries[i] != 0 && d->entries[i]->RGB32PaletteV5 != 0)
             Free(d->entries[i]->RGB32PaletteV5);
     }
-    if (d->entryBlock != 0)
-        Free(d->entryBlock);
-    else
+	if (d->version == DMG_Version5)
     {
-        for (int i = 0; i < 256; i++)
-        {
-            if (d->entries[i] != 0)
-                Free(d->entries[i]);
-        }
+		if (d->entryBlock != 0)
+			Free(d->entryBlock);
+	}
+	else
+	{
+		for (int i = 0; i < 256; i++)
+		{
+			if (d->entries[i] != 0)
+				Free(d->entries[i]);
+		}
     }
 
     if (d->zx0Scratch != 0 && d->zx0ScratchOwned)
@@ -1168,12 +1174,11 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 {
 	uint16_t width  = entry->width;
 	uint16_t height = entry->height;
+	DMG_ImageMode layoutMode = DMG_GetImageLayoutMode(mode);
 
-	switch (mode)
+	switch (layoutMode)
 	{
 		case ImageMode_Packed:
-		case ImageMode_PackedEGA:
-		case ImageMode_PackedCGA:
             if (dmg != 0 && dmg->version == DMG_Version5)
             {
                 if (entry->bitDepth <= 4)
@@ -1191,13 +1196,9 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 			return ((width + 15) & ~15) * height / 2;
 
 		case ImageMode_RGBA32:
-		case ImageMode_RGBA32EGA:
-		case ImageMode_RGBA32CGA:
 			return width * height * 4;
 
 		case ImageMode_Indexed:
-		case ImageMode_IndexedCGA:
-		case ImageMode_IndexedEGA:
 			return width * height;
 
 		case ImageMode_Audio:

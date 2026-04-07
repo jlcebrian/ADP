@@ -9,100 +9,12 @@
 extern "C" void DecompressRLE (const void* data, uint32_t dataSize,
 	void* output, uint32_t outputSize, uint16_t rleMask);
 
-#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO
-extern "C" bool DecompressOldRLEToSTAsmOriginalPrototype(const void* data, uint32_t dataSize,
-	void* output, uint32_t pixels, uint16_t rleMask);
-#elif defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO
-extern "C" bool DecompressOldRLEToSTAsmExperimental(const void* data, uint32_t dataSize,
+#if defined(_AMIGA) && HAS_ASM_RLE
+extern "C" bool DecompressOldRLEToPlanar8Asm(const void* data, uint32_t dataSize,
 	void* output, uint32_t pixels, uint16_t rleMask);
 #endif
 
-#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_PLANAR_ASM
-extern "C" bool DecompressOldRLEToPlanarAsm(const void* data, uint32_t dataSize,
-	void* output, uint32_t pixels, uint16_t rleMask, uint32_t planeStride);
-#endif
-
-#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_PLANAR_ASM && VERIFY_OLD_RLE_PLANAR_ASM
-static bool DMG_RunAndVerifyOldRLEToPlanarAsm(const DMG_Entry* entry, DMG* dmg,
-	const uint8_t* data, uint16_t rleMask, uint16_t dataLength,
-	uint8_t* buffer, uint32_t outputSize, uint32_t pixels, uint8_t index)
-{
-	DebugPrintf("Comparing old RLE vs Planar ASM");
-
-	const uint32_t guardBytes = 32;
-	const uint8_t guardPattern = 0xA5;
-	uint8_t* asmStorage = Allocate<uint8_t>("old-rle-planar-asm-output", outputSize + guardBytes * 2, false);
-	uint8_t* refStorage = Allocate<uint8_t>("old-rle-planar-ref-output", outputSize + guardBytes * 2, false);
-	if (asmStorage == 0 || refStorage == 0)
-	{
-		DebugPrintf("WARNING: unable to allocate old-RLE planar verification buffers");
-		if (asmStorage != 0)
-			Free(asmStorage);
-		if (refStorage != 0)
-			Free(refStorage);
-		return false;
-	}
-	uint8_t* asmOutput = asmStorage + guardBytes;
-	uint8_t* refOutput = refStorage + guardBytes;
-
-	MemSet(asmStorage, guardPattern, outputSize + guardBytes * 2);
-	MemSet(refStorage, guardPattern, outputSize + guardBytes * 2);
-	MemClear(asmOutput, outputSize);
-	MemClear(refOutput, outputSize);
-
-	uint32_t planeStride = outputSize >> 2;
-	bool asmOk = DecompressOldRLEToPlanarAsm(data, dataLength, asmOutput, pixels, rleMask, planeStride);
-	bool refOk = DMG_DecompressOldRLEToST_COnly(data, rleMask, dataLength, refOutput, (int)pixels);
-	if (refOk)
-		refOk = DMG_RepackClassicPlanar(entry, refOutput, outputSize, dmg->zx0Scratch, dmg->zx0ScratchSize);
-
-	for (uint32_t guard = 0; guard < guardBytes; guard++)
-	{
-		if (asmStorage[guard] != guardPattern || asmStorage[guardBytes + outputSize + guard] != guardPattern)
-		{
-			DebugPrintf("WARNING: old-RLE planar ASM wrote outside output buffer in image %d", index);
-			asmOk = false;
-			break;
-		}
-	}
-
-	if (!asmOk || !refOk)
-	{
-		DebugPrintf("WARNING: old-RLE planar verification setup failed (asm=%d ref=%d)", asmOk ? 1 : 0, refOk ? 1 : 0);
-		if (refOk)
-			MemCopy(buffer, refOutput, outputSize);
-		Free(refStorage);
-		Free(asmStorage);
-		return refOk;
-	}
-
-	// if (MemComp(asmOutput, refOutput, outputSize) != 0)
-	uint32_t wordCount = outputSize >> 1;
-	uint16_t* asmWords = (uint16_t*)asmOutput;
-	uint16_t* refWords = (uint16_t*)refOutput;
-	for (uint32_t word = 0; word < wordCount; word++)
-	{
-		if (asmWords[word] != refWords[word])
-		{
-			DebugPrintf("WARNING: old-RLE planar ASM mismatch in image %d at %p, word %lu (asm=%04x ref=%04x)",
-				index, &asmWords[word], (unsigned long)word, asmWords[word], refWords[word]);
-			MemCopy(buffer, asmOutput, outputSize);
-			Free(refStorage);
-			Free(asmStorage);
-			return true;
-			break;
-		}
-	}
-
-	DebugPrintf("Both versions match (%d bytes image, %d size output)", dataLength, outputSize);
-	MemCopy(buffer, asmOutput, outputSize);
-	Free(refStorage);
-	Free(asmStorage);
-	return true;
-}
-#endif
-
-bool DMG_RepackClassicPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize)
+bool DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize)
 {
 	if (entry == 0 || data == 0 || scratch == 0)
 		return false;
@@ -134,7 +46,7 @@ bool DMG_RepackClassicPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dat
 	return true;
 }
 
-static bool DMG_ConvertOldRLEPrototypeToPlanar(const DMG_Entry* entry, const uint8_t* data,
+static bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
 	uint32_t packedSize, uint8_t* output, uint32_t outputSize)
 {
 	if (entry == 0 || data == 0 || output == 0)
@@ -317,7 +229,7 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 	return buffer;
 }
 
-bool DMG_DecompressNewRLEPlanar (const uint8_t* d, uint16_t rleMask, 
+bool DMG_DecompressNewRLEToPlanarST (const uint8_t* d, uint16_t rleMask, 
 	uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian)
 {
 #if HAS_ASM_RLE
@@ -419,6 +331,50 @@ bool DMG_DecompressNewRLEPlanar (const uint8_t* d, uint16_t rleMask,
 #endif
 }
 
+#if defined(_AMIGA) && HAS_ASM_RLE
+static bool DMG_DecompressOldRLEToNativeAmiga(const DMG_Entry* entry, DMG* dmg,
+	const uint8_t* fileData, bool fileDataSharesOutputBuffer,
+	uint8_t* buffer, uint32_t bufferSize, uint32_t requiredSize,
+	uint16_t mask, DMG_ImageMode* outputMode)
+{
+	const uint8_t* oldRLEData = fileData + 2;
+	uint32_t prototypePackedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * 4;
+	if (prototypePackedSize > requiredSize)
+	{
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return false;
+	}
+
+	uint8_t* oldRLEOutput = 0;
+	if (!fileDataSharesOutputBuffer && bufferSize >= requiredSize + prototypePackedSize)
+		oldRLEOutput = buffer + requiredSize;
+	else if (fileDataSharesOutputBuffer && bufferSize >= requiredSize + entry->length + prototypePackedSize)
+		oldRLEOutput = buffer + requiredSize;
+	else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= prototypePackedSize)
+		oldRLEOutput = dmg->zx0Scratch;
+	else
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+
+	if (!DecompressOldRLEToPlanar8Asm(oldRLEData, entry->length - 2, oldRLEOutput, requiredSize * 2, mask))
+	{
+		DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
+		return false;
+	}
+
+	if (!DMG_ConvertPlanar8ToPlanar(entry, oldRLEOutput, prototypePackedSize, buffer, requiredSize))
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+
+	*outputMode = ImageMode_Planar;
+	return true;
+}
+#endif
+
 uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 {
 	bool success;
@@ -442,17 +398,10 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		buffer = (uint8_t*)(cache + 1);
 		if (cache->populated)
-		{
-			if (cache->processed)
-				entry->flags |= DMG_FLAG_PLANAR_MAJOR;
-			else
-				entry->flags &= ~DMG_FLAG_PLANAR_MAJOR;
 			return buffer;
-		}
 		bufferSize = cache->size;
 	}
 #endif
-	entry->flags &= ~DMG_FLAG_PLANAR_MAJOR;
 
 	if (buffer == 0 || bufferSize < requiredSize)
 	{
@@ -476,7 +425,10 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		uint8_t* result = DMG_GetEntryDataPlanarV5(dmg, index, entry, buffer, bufferSize);
 		if (result != 0 && cache != 0)
+		{
 			cache->populated = true;
+			cache->imageMode = ImageMode_Planar;
+		}
 		return result;
 	}
 
@@ -501,160 +453,64 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		}
 	}
 
-	bool chunky = false;
-	bool planarMajorOutput = false;
+	DMG_ImageMode outputMode = ImageMode_PlanarST;
 
 	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
-		if (dmg->version == DMG_Version1_EGA)
+		if (false)
+		{
+		}
+		#if DMG_SUPPORT_EGA_SOURCES
+		else if (dmg->version == DMG_Version1_EGA)
 		{
 			success = DMG_DecompressEGA(fileData, entry->length, buffer, entry->width, entry->height);
-			chunky = true;
+			outputMode = ImageMode_Packed;
 		}
+		#endif
+		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
 		{
 			success = DMG_DecompressCGA(fileData, entry->length, buffer, entry->width, entry->height);
-			chunky = true;
+			outputMode = ImageMode_Packed;
 		}
+		#endif
 		else
 		{
+			#if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+			if (!DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
+			{
+				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				if (cache != 0)
+					cache->populated = false;
+				return 0;
+			}
+			#endif
 			uint16_t mask = read16(fileData, dmg->littleEndian);
 			if (dmg->version != DMG_Version2)
 			{
 				uint32_t t0, t1;
-				uint32_t prototypeToPlanarMs = 0;
 				VID_GetMilliseconds(&t0);
-				const uint8_t* oldRLEData = fileData + 2;
-				uint8_t* oldRLEOutput = buffer;
-				bool prototypeNeedsPlanarConvert = false;
-				uint32_t prototypePackedSize = 0;
-				#if defined(_AMIGA) && HAS_ASM_RLE && (OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO || OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO)
-				if (!dmg->littleEndian)
-				{
-					prototypePackedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * 4;
-					if (prototypePackedSize > requiredSize)
-					{
-						DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-						return 0;
-					}
-
-					if ((!fileDataSharesOutputBuffer && bufferSize >= requiredSize + prototypePackedSize) ||
-						(fileDataSharesOutputBuffer && bufferSize >= requiredSize + entry->length + prototypePackedSize))
-					{
-						oldRLEOutput = buffer + requiredSize;
-						prototypeNeedsPlanarConvert = true;
-					}
-					else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= prototypePackedSize)
-					{
-						oldRLEOutput = dmg->zx0Scratch;
-						prototypeNeedsPlanarConvert = true;
-					}
-					else
-						DebugPrintf("WARNING: old-RLE prototype path skipped; no scratch buffer available for direct planar conversion");
-
-					if (prototypeNeedsPlanarConvert && oldRLEOutput == buffer && fileDataSharesOutputBuffer && bufferSize < requiredSize + entry->length)
-					{
-						if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length && oldRLEOutput != dmg->zx0Scratch)
-						{
-							MemCopy(dmg->zx0Scratch, fileData, entry->length);
-							oldRLEData = dmg->zx0Scratch + 2;
-						}
-						else
-						{
-							DebugPrintf("WARNING: old-RLE prototype path skipped due to overlapping input/output buffers");
-							prototypeNeedsPlanarConvert = false;
-							oldRLEOutput = buffer;
-						}
-					}
-				}
+				#if defined(_AMIGA) && HAS_ASM_RLE
+				success = DMG_DecompressOldRLEToNativeAmiga(entry, dmg, fileData,
+					fileDataSharesOutputBuffer, buffer, bufferSize, requiredSize, mask, &outputMode);
+				#else
+				success = DMG_DecompressOldRLEToPlanarST(fileData+2, mask,
+					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 				#endif
-				#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_PLANAR_ASM
-				if (!dmg->littleEndian)
-				{
-					if (fileDataSharesOutputBuffer && bufferSize < requiredSize + entry->length)
-					{
-						if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length)
-						{
-							MemCopy(dmg->zx0Scratch, fileData, entry->length);
-							oldRLEData = dmg->zx0Scratch + 2;
-						}
-						else
-							DebugPrintf("WARNING: old-RLE planar ASM skipped due to input/output buffer overlap");
-					}
-					uint32_t planeStride = requiredSize >> 2;
-					if (oldRLEData != fileData + 2 || !fileDataSharesOutputBuffer || bufferSize >= requiredSize + entry->length)
-					{
-						#if VERIFY_OLD_RLE_PLANAR_ASM
-						success = DMG_RunAndVerifyOldRLEToPlanarAsm(entry, dmg, oldRLEData, mask,
-							entry->length - 2, buffer, requiredSize, requiredSize * 2, index);
-						#else
-						success = DecompressOldRLEToPlanarAsm(oldRLEData, entry->length - 2,
-							buffer, requiredSize * 2, mask, planeStride);
-						#endif
-						planarMajorOutput = success;
-						if (!success)
-							DebugPrintf("WARNING: old-RLE planar ASM deferred to PlanarST path");
-					}
-					else
-						success = DMG_DecompressOldRLEToST(oldRLEData, mask,
-							entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
-				}
-				else
-				#endif
-				#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO
-				if (!dmg->littleEndian && prototypeNeedsPlanarConvert)
-				{
-					success = DecompressOldRLEToSTAsmOriginalPrototype(oldRLEData, entry->length - 2,
-						oldRLEOutput, requiredSize * 2, mask);
-					if (success)
-					{
-						uint32_t tConvert0, tConvert1;
-						VID_GetMilliseconds(&tConvert0);
-						success = DMG_ConvertOldRLEPrototypeToPlanar(entry, oldRLEOutput,
-							prototypePackedSize, buffer, requiredSize);
-						VID_GetMilliseconds(&tConvert1);
-						prototypeToPlanarMs = tConvert1 - tConvert0;
-						planarMajorOutput = success;
-					}
-				}
-				else
-				#endif
-				#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO
-				if (!dmg->littleEndian && prototypeNeedsPlanarConvert)
-				{
-					success = DecompressOldRLEToSTAsmExperimental(oldRLEData, entry->length - 2,
-						oldRLEOutput, requiredSize * 2, mask);
-					if (success)
-					{
-						uint32_t tConvert0, tConvert1;
-						VID_GetMilliseconds(&tConvert0);
-						success = DMG_ConvertOldRLEPrototypeToPlanar(entry, oldRLEOutput,
-							prototypePackedSize, buffer, requiredSize);
-						VID_GetMilliseconds(&tConvert1);
-						prototypeToPlanarMs = tConvert1 - tConvert0;
-						planarMajorOutput = success;
-					}
-				}
-				else
-				#endif
-				{
-					success = DMG_DecompressOldRLEToST(oldRLEData, mask,
-						entry->length-2, oldRLEOutput, requiredSize*2, dmg->littleEndian);
-				}
 				VID_GetMilliseconds(&t1);
-				if (planarMajorOutput)
+				if (outputMode == ImageMode_Planar)
+				{
 					DebugPrintf("Decompressed old RLE image %d directly to Planar in %dms", index, t1-t0);
+				}
 				else
+				{
 					DebugPrintf("Decompressed old RLE image %d in %dms", index, t1-t0);
-				#if defined(_AMIGA) && HAS_ASM_RLE && (OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO || OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO)
-					if (success && prototypeNeedsPlanarConvert)
-						DebugPrintf("Converted old RLE prototype image %d directly to Planar in %dms (%d bytes)", index, prototypeToPlanarMs, prototypePackedSize);
-				#endif
+				}
 			}
-			else if (!dmg->littleEndian)
+			else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
 			{
 				DebugPrintf("Decompressing new RLE image %d (fast)", index);
-				success = DMG_DecompressNewRLEPlanar(fileData+2, mask, 
+				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, entry->width, dmg->littleEndian);
 			}
 			else
@@ -674,27 +530,33 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			DebugPrintf("WARNING: expectedSize(%d) != packedSize(%d) in image %d", expectedSize, packedSize, index);
 			success = false;
 		}
+		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
 		{
 			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
-			chunky = true;
+			outputMode = ImageMode_Packed;
 		}
+		#endif
+		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
 		{
 			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
-			chunky = true;
+			outputMode = ImageMode_Packed;
 		}
+		#endif
+		#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 		else if (dmg->littleEndian)
 		{
 			success = DMG_CopyImageData(fileData, entry->length, buffer, packedSize);
-			chunky = true;
+			outputMode = ImageMode_Packed;
 		}
+		#endif
 		else
 		{
 			uint32_t t0, t1;
 			DebugPrintf("Converting raw planar image %d to PlanarST", index);
 			VID_GetMilliseconds(&t0);
-			DMG_Planar8To16(fileData, buffer, packedSize, entry->width);
+			DMG_ConvertPlanar8ToPlanarST(fileData, buffer, packedSize, entry->width);
 			VID_GetMilliseconds(&t1);
 			DebugPrintf("Converted raw planar image %d to PlanarST in %dms", index, t1-t0);
 			success = true;
@@ -703,21 +565,22 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 
 	if (success)
 	{
-		if (chunky)
+		if (outputMode == ImageMode_Packed)
 		{
 			uint32_t t0, t1;
 			VID_GetMilliseconds(&t0);
-			DMG_ConvertChunkyToPlanar(buffer, requiredSize, entry->width);
+			DMG_ConvertPackedToPlanarST(buffer, requiredSize, entry->width);
 			VID_GetMilliseconds(&t1);
 			DebugPrintf("Converted chunky image %d to planar in %dms", index, t1-t0);
+			outputMode = ImageMode_PlanarST;
 		}
 
 		#ifdef _AMIGA
-		if (!planarMajorOutput)
+		if (outputMode == ImageMode_PlanarST)
 		{
 			uint32_t t0, t1;
 			VID_GetMilliseconds(&t0);
-			if (!DMG_RepackClassicPlanar(entry, buffer, requiredSize, dmg->zx0Scratch, dmg->zx0ScratchSize))
+			if (!DMG_ConvertPlanarSTToPlanar(entry, buffer, requiredSize, dmg->zx0Scratch, dmg->zx0ScratchSize))
 			{
 				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 				if (cache != 0)
@@ -726,11 +589,10 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			}
 			VID_GetMilliseconds(&t1);
 			DebugPrintf("Converted PlanarST image %d to Planar in %dms", index, t1-t0);
+			outputMode = ImageMode_Planar;
 		}
-		if (planarMajorOutput)
-			entry->flags |= DMG_FLAG_PLANAR_MAJOR;
 		if (cache != 0)
-			cache->processed = true;
+			cache->imageMode = outputMode;
 		#endif
 
 		if (cache != 0)

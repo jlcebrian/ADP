@@ -5,6 +5,9 @@
 
 bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
 {
+	#if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+	(void)littleEndian;
+	#endif
 	uint32_t nibbles = 0;
 	uint8_t color = 0;
 	uint8_t repetitions;
@@ -47,13 +50,21 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 				uint8_t temp[4] = { 0, 0, 0, 0 };
 				for (uint16_t i = 0; i < remaining; i++)
 					temp[i] = ptr[i];
+				#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 				nibbles = read32(temp, littleEndian);
+				#else
+				nibbles = read32(temp, DMG_HOST_LITTLE_ENDIAN);
+				#endif
 				ptr += remaining;
 				remaining = 0;
 			}
 			else
 			{
+				#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 				nibbles = read32(ptr, littleEndian);
+				#else
+				nibbles = read32(ptr, DMG_HOST_LITTLE_ENDIAN);
+				#endif
 				ptr += 4;
 				remaining -= 4;
 			}
@@ -93,7 +104,11 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 					break;
 				}
 
+				#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 				nibbles = read32(ptr, littleEndian);
+				#else
+				nibbles = read32(ptr, DMG_HOST_LITTLE_ENDIAN);
+				#endif
 				ptr += 4;
 				remaining -= 4;
 				nibbleCount = 8;

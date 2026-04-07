@@ -75,16 +75,30 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 
 	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
-		if (dmg->version == DMG_Version1_EGA)
+		if (false)
+		{
+		}
+		#if DMG_SUPPORT_EGA_SOURCES
+		else if (dmg->version == DMG_Version1_EGA)
 		{
 			success = DMG_DecompressEGA(fileData, entry->length, buffer, entry->width, entry->height);
 		}
+		#endif
+		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
 		{
 			success = DMG_DecompressCGA(fileData, entry->length, buffer, entry->width, entry->height);
 		}
+		#endif
 		else
 		{
+			#if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+			if (!DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
+			{
+				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				return 0;
+			}
+			#endif
 			uint16_t mask = read16(fileData, dmg->littleEndian);
 			if (dmg->version != DMG_Version2)
 			{
@@ -106,12 +120,18 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		if (entry->length != expectedSize)
 			success = false;
+		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
 			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		#endif
+		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
 			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		#endif
+		#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 		else if (dmg->littleEndian)
 			success = DMG_CopyImageData(fileData, entry->length, buffer, packedSize);
+		#endif
 		else 
 			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
 	}

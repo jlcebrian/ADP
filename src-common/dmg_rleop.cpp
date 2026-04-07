@@ -4,23 +4,22 @@
 #include <os_bito.h>
 #include <os_mem.h>
 
-#ifndef VERIFY_OLD_RLE_ASM
-#define VERIFY_OLD_RLE_ASM 0
-#endif
+#if defined(_AMIGA)
 
-#ifndef VERIFY_OLD_RLE_ST_ASM
-#ifdef VERIFY_OLD_RLE_ASM
-#define VERIFY_OLD_RLE_ST_ASM VERIFY_OLD_RLE_ASM
+__attribute__((noinline, used))
+bool DMG_DecompressOldRLEToPlanarST (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
+{
+	(void)data;
+	(void)rleMask;
+	(void)dataLength;
+	(void)buffer;
+	(void)pixels;
+	(void)littleEndian;
+	DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+	return false;
+}
+
 #else
-#define VERIFY_OLD_RLE_ST_ASM 0
-#endif
-#endif
-
-#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM
-extern "C" bool DecompressOldRLEToSTAsm(const void* data, uint32_t dataSize,
-	void* output, uint32_t pixels, uint16_t rleMask);
-#define DecompressOldRLEToSTAsmSelected DecompressOldRLEToSTAsm
-#endif
 
 static const uint16_t prefixMask16[17] =
 {
@@ -53,11 +52,6 @@ extern "C"
 	__attribute__((used, externally_visible)) uint32_t DMGOldRLEPackedColorBits3[256] = {};
 }
 static bool packedColorBitsInitialized = false;
-
-static uint32_t DMG_GetOldRLEToSTOutputSize(int pixels)
-{
-	return (uint32_t)(((pixels + 15) >> 4) * 8);
-}
 
 void DMG_InitializeOldRLETables()
 {
@@ -199,62 +193,14 @@ static bool DMG_DecompressOldRLEToST_C(const uint8_t* data, uint16_t rleMask, ui
     return true;
 }
 
-bool DMG_DecompressOldRLEToST_COnly(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels)
-{
-	return DMG_DecompressOldRLEToST_C(data, rleMask, dataLength, buffer, pixels);
-}
-
-#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM && VERIFY_OLD_RLE_ST_ASM
-static bool DMG_RunAndVerifyOldRLEToSTAsm(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels)
-{
-	uint32_t outputSize = DMG_GetOldRLEToSTOutputSize(pixels);
-	uint8_t* asmOutput = Allocate<uint8_t>("old-rle-asm-output", outputSize, false);
-	if (asmOutput == 0)
-	{
-		DebugPrintf("WARNING: unable to allocate old-RLE ASM temporary buffer");
-		return DMG_DecompressOldRLEToST_COnly(data, rleMask, dataLength, buffer, pixels);
-	}
-
-	MemClear(asmOutput, outputSize);
-	if (!DecompressOldRLEToSTAsmSelected(data, dataLength, asmOutput, (uint32_t)pixels, rleMask))
-	{
-		DebugPrintf("WARNING: old-RLE ASM deferred to C");
-		DMG_DecompressOldRLEToST_COnly(data, rleMask, dataLength, buffer, pixels);
-		Free(asmOutput);
-		return true;
-	}
-
-	DMG_DecompressOldRLEToST_COnly(data, rleMask, dataLength, buffer, pixels);
-	if (MemComp(asmOutput, buffer, outputSize) != 0)
-	{
-		uint32_t wordCount = outputSize >> 1;
-		uint16_t* asmWords = (uint16_t*)asmOutput;
-		uint16_t* refWords = (uint16_t*)buffer;
-		for (uint32_t index = 0; index < wordCount; index++)
-		{
-			if (asmWords[index] != refWords[index])
-			{
-				DebugPrintf("WARNING: old-RLE ASM mismatch at word %lu (asm=%04x ref=%04x)",
-					(unsigned long)index, asmWords[index], refWords[index]);
-				break;
-			}
-		}
-	}
-	else
-		MemCopy(buffer, asmOutput, outputSize);
-
-	Free(asmOutput);
-	return true;
-}
-#endif
-
 __attribute__((noinline, used))
-bool DMG_DecompressOldRLEToST (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
+bool DMG_DecompressOldRLEToPlanarST (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
 {
-	#if _BIG_ENDIAN
-	bool shouldSwap = littleEndian;
+	#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+	bool shouldSwap = !DMG_IsHostByteOrder(littleEndian);
 	#else
-	bool shouldSwap = !littleEndian;
+	(void)littleEndian;
+	bool shouldSwap = false;
 	#endif
 
 	if (shouldSwap)
@@ -267,14 +213,7 @@ bool DMG_DecompressOldRLEToST (const uint8_t* data, uint16_t rleMask, uint16_t d
 			src[n] = fix32(src[n], littleEndian);
 	}
 
-	#if defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM && VERIFY_OLD_RLE_ST_ASM
-	if (!shouldSwap)
-		return DMG_RunAndVerifyOldRLEToSTAsm(data, rleMask, dataLength, buffer, pixels);
-	#elif defined(_AMIGA) && HAS_ASM_RLE && OLD_RLE_ROUTINE == OLD_RLE_ROUTINE_ST_ASM
-	if (!shouldSwap && DecompressOldRLEToSTAsmSelected(data, dataLength, buffer, (uint32_t)pixels, rleMask))
-		return true;
-	DebugPrintf("WARNING: old-RLE ASM deferred to C");
-	#endif
-
-	return DMG_DecompressOldRLEToST_COnly(data, rleMask, dataLength, buffer, pixels);
+	return DMG_DecompressOldRLEToST_C(data, rleMask, dataLength, buffer, pixels);
 }
+
+#endif

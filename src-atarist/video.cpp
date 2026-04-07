@@ -612,7 +612,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	pictureEntry  = entry;
 	pictureIndex  = picno;
 	pictureStride = 4 * ((entry->width+15) / 16);
-	pictureData   = (uint16_t*) DMG_GetEntryDataPlanar(dmg, picno);
+	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == 0)
 	{
 		VID_ShowError(DMG_GetErrorString());
@@ -844,7 +844,7 @@ void VID_PlaySample (uint8_t no, int* duration)
 	DMG_Entry* entry = DMG_GetEntry(dmg, no);
 	if (entry == NULL || entry->type != DMGEntry_Audio)
 		return;
-	uint8_t* audioData = DMG_GetEntryDataPlanar(dmg, no);
+	uint8_t* audioData = DMG_GetEntryDataNative(dmg, no);
 	if (audioData == 0)
 		return;
 

@@ -34,48 +34,138 @@ enum DMG_Error
 	DMG_ERROR_INVALID_IMAGE,
 };
 
-enum DMG_ImageFormat
-{
-	Image_ARGB32,			// True color, 4 byter per color, 0xAARRGBB (native endianess)
-	Image_ARGB16,			// True color, 2 bytes per color, 0xARGB (native endianess)
-	Image_Chunky256,		// Indexed, 1 color per byte
-	Image_Chunky16,			// Indexed, 2 colors per byte
-	Image_Chunky4,			// Indexed, 4 colors per byte (CGA)
-	Image_Planar16Byte,		// 4 planes, 8 bits per pixel, successive planes
-	Image_Planar16Word,		// 4 planes, 16 bits per pixel, successive planes (Atari ST)
-	Image_Planar16Line,		// 4 planes, interleaved image lines
-	
-	Image_CompressedCGA,	// Old .CGA compression
-	Image_CompressedEGA,	// Old .EGA compression
-	Image_CompressedOldRLE,	// Old .DAT compression
-	Image_CompressedNewRLE,	// New .DAT compression
-
-	Image_Raw,				// As present in file (i.e. compressed bytestream)
-};
-
 enum DMG_ImageMode
 {
-	ImageMode_Packed	        = 0x00,		// packed 16 bits, 2 colors per byte
-	ImageMode_PackedEGA         = 0x01,
-	ImageMode_PackedCGA         = 0x02,
-	ImageMode_RGBA32	        = 0x10,		// 4 bytes per pixel, little endian, 0xAARRGGBB format
-	ImageMode_RGBA32EGA	        = 0x11,
-	ImageMode_RGBA32CGA	        = 0x12,
-	ImageMode_PlanarST          = 0x20,     // Atari ST format (P0P0P1P1P2P2P3P3)
-	ImageMode_PlanarInterleaved = 0x21,     // Interleaved bitplanes (P0P1P2P3)
-	ImageMode_PlanarFalcon      = 0x22,     // Atari Falcon format (P0P0P1P1P2P2P3P3P4P4P5P5P6P6P7P7)
-    ImageMode_Planar            = 0x23,     // One complete bitmap per plane 
-	ImageMode_Indexed	        = 0x40,		// 1 byte per pixel, regardless of color depth
-	ImageMode_IndexedEGA        = 0x41,
-	ImageMode_IndexedCGA        = 0x42,
+	ImageMode_Packed            = 0x00,		// Packed indexed pixels, 2 colors per byte
+	ImageMode_PackedEGA         = 0x01,		// Legacy compatibility: Packed + EGA palette mode
+	ImageMode_PackedCGA         = 0x02,		// Legacy compatibility: Packed + CGA palette mode
+	ImageMode_RGBA32            = 0x10,		// 4 bytes per pixel, native-endian 0xAARRGGBB
+	ImageMode_RGBA32EGA         = 0x11,		// Legacy compatibility: RGBA32 + EGA palette mode
+	ImageMode_RGBA32CGA         = 0x12,		// Legacy compatibility: RGBA32 + CGA palette mode
+	ImageMode_PlanarST          = 0x20,     // Atari ST interleaved words (P0P0P1P1P2P2P3P3)
+    ImageMode_Planar            = 0x24,     // One complete bitmap per plane
+	ImageMode_Planar8           = 0x25,     // 8-pixel interleaved bitplanes (P0P1P2P3)
+	ImageMode_PlanarFalcon      = 0x26,     // Atari Falcon interleaved words
+	ImageMode_Indexed           = 0x40,		// 1 byte per pixel, regardless of color depth
+	ImageMode_IndexedEGA        = 0x41,		// Legacy compatibility: Indexed + EGA palette mode
+	ImageMode_IndexedCGA        = 0x42,		// Legacy compatibility: Indexed + CGA palette mode
 	ImageMode_Raw               = 0xFF,
 	ImageMode_Audio             = 0xFF,
 };
 
-#define DMG_IS_INDEXED(mode) (((mode) & 0xF0) == 0x40)
-#define DMG_IS_RGBA32(mode)  (((mode) & 0xF0) == 0x10)
-#define DMG_IS_EGA(mode) 	 (((mode) & 0x0F) == 0x01)
-#define DMG_IS_CGA(mode)     (((mode) & 0x0F) == 0x02)	
+enum DMG_ColorPaletteMode
+{
+	ColorPaletteMode_Native = 0,
+	ColorPaletteMode_EGA    = 1,
+	ColorPaletteMode_CGA    = 2,
+};
+
+static inline DMG_ImageMode DMG_GetImageLayoutMode(DMG_ImageMode mode)
+{
+	switch (mode)
+	{
+		case ImageMode_PackedEGA:
+		case ImageMode_PackedCGA:
+			return ImageMode_Packed;
+
+		case ImageMode_RGBA32EGA:
+		case ImageMode_RGBA32CGA:
+			return ImageMode_RGBA32;
+
+		case ImageMode_IndexedEGA:
+		case ImageMode_IndexedCGA:
+			return ImageMode_Indexed;
+
+		default:
+			return mode;
+	}
+}
+
+static inline DMG_ColorPaletteMode DMG_GetImageColorPaletteMode(DMG_ImageMode mode)
+{
+	switch (mode)
+	{
+		case ImageMode_PackedEGA:
+		case ImageMode_RGBA32EGA:
+		case ImageMode_IndexedEGA:
+			return ColorPaletteMode_EGA;
+
+		case ImageMode_PackedCGA:
+		case ImageMode_RGBA32CGA:
+		case ImageMode_IndexedCGA:
+			return ColorPaletteMode_CGA;
+
+		default:
+			return ColorPaletteMode_Native;
+	}
+}
+
+#define DMG_IS_INDEXED(mode) (DMG_GetImageLayoutMode((DMG_ImageMode)(mode)) == ImageMode_Indexed)
+#define DMG_IS_RGBA32(mode)  (DMG_GetImageLayoutMode((DMG_ImageMode)(mode)) == ImageMode_RGBA32)
+#define DMG_IS_EGA(mode) 	 (DMG_GetImageColorPaletteMode((DMG_ImageMode)(mode)) == ColorPaletteMode_EGA)
+#define DMG_IS_CGA(mode)     (DMG_GetImageColorPaletteMode((DMG_ImageMode)(mode)) == ColorPaletteMode_CGA)
+
+#ifdef _BIG_ENDIAN
+#define DMG_HOST_LITTLE_ENDIAN false
+#else
+#define DMG_HOST_LITTLE_ENDIAN true
+#endif
+
+static inline bool DMG_IsHostByteOrder(bool littleEndian)
+{
+	return littleEndian == DMG_HOST_LITTLE_ENDIAN;
+}
+
+static inline bool DMG_IsClassicNativeDATByteOrder(bool littleEndian)
+{
+	return littleEndian == false;
+}
+
+#ifndef DMG_NATIVE_IMAGE_MODE
+#if defined(_AMIGA)
+#define DMG_NATIVE_IMAGE_MODE ImageMode_Planar
+#elif defined(_ATARIST)
+#define DMG_NATIVE_IMAGE_MODE ImageMode_PlanarST
+#else
+#define DMG_NATIVE_IMAGE_MODE ImageMode_Indexed
+#endif
+#endif
+
+#ifndef DMG_NATIVE_COLOR_PALETTE_MODE
+#define DMG_NATIVE_COLOR_PALETTE_MODE ColorPaletteMode_Native
+#endif
+
+#ifndef DMG_SUPPORT_NATIVE_DAT_ONLY
+#if defined(_AMIGA) || defined(_ATARIST)
+#define DMG_SUPPORT_NATIVE_DAT_ONLY 1
+#else
+#define DMG_SUPPORT_NATIVE_DAT_ONLY 0
+#endif
+#endif
+
+#ifndef DMG_SUPPORT_CGA_SOURCES
+#if defined(_AMIGA) || defined(_ATARIST)
+#define DMG_SUPPORT_CGA_SOURCES 0
+#else
+#define DMG_SUPPORT_CGA_SOURCES 1
+#endif
+#endif
+
+#ifndef DMG_SUPPORT_EGA_SOURCES
+#if defined(_AMIGA) || defined(_ATARIST)
+#define DMG_SUPPORT_EGA_SOURCES 0
+#else
+#define DMG_SUPPORT_EGA_SOURCES 1
+#endif
+#endif
+
+#ifndef DMG_SUPPORT_CROSS_ENDIAN_SOURCES
+#if defined(_AMIGA) || defined(_ATARIST)
+#define DMG_SUPPORT_CROSS_ENDIAN_SOURCES 0
+#else
+#define DMG_SUPPORT_CROSS_ENDIAN_SOURCES 1
+#endif
+#endif
 
 enum DMG_EntryType
 {
@@ -134,7 +224,6 @@ typedef enum
     DMG_FLAG_PROCESSED     = 0x0010,
     DMG_FLAG_AMIPALHACK    = 0x0020,
     DMG_FLAG_CGAMODE       = 0x0040,
-	DMG_FLAG_PLANAR_MAJOR  = 0x0080,
 }
 DMG_FLAGS;
 
@@ -177,9 +266,9 @@ struct DMG_Cache
 	uint32_t    size;
 	uint32_t    time;
 	uint8_t     index;
+	uint8_t     imageMode;
 	bool        buffer;
 	bool        populated;
-	bool        processed;
 };
 
 struct DMG
@@ -216,16 +305,6 @@ struct DMG
 
 extern DMG* dmg;
 
-#define OLD_RLE_ROUTINE_C 0
-#define OLD_RLE_ROUTINE_ST_ASM 1
-#define OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO 2
-#define OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO 3
-#define OLD_RLE_ROUTINE_PLANAR_ASM 4
-
-#ifndef OLD_RLE_ROUTINE
-#define OLD_RLE_ROUTINE OLD_RLE_ROUTINE_PLANAR_ASM
-#endif
-
 DMG*		DMG_Open			   (const char* filename, bool readOnly);
 DMG*		DMG_OpenFromFile	   (File* file);
 DMG*        DMG_Create             (const char* filename);
@@ -233,8 +312,13 @@ DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colo
 DMG_Entry*	DMG_GetEntry		   (DMG* dmg, uint8_t index);
 bool        DMG_UpdateEntry        (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
+uint8_t*    DMG_GetEntryDataNative (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
+
+#if defined(_AMIGA) || defined(_ATARIST)
 uint8_t*    DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index);
+#endif
+
 uint32_t*   DMG_GetEntryPalette    (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint16_t    DMG_GetEntryPaletteSize(DMG* dmg, uint8_t index);
 uint8_t     DMG_GetEntryFirstColor (DMG* dmg, uint8_t index);
@@ -276,7 +360,7 @@ void        DMG_FreeTemporaryBuffer    ();
 bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
 bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
 bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* output, int pixels);
-uint8_t*    DMG_Planar8To16            (uint8_t* data, uint8_t* buffer, int length, uint32_t width);
+uint8_t*    DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width);
 bool        DMG_UnpackBitplaneBytes    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 bool        DMG_UnpackChunkyPixels     (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 
@@ -287,16 +371,14 @@ bool        DMG_ReadPCXPalette         (const char* fileName, uint32_t* palette)
 bool        DMG_DecompressPCX          (const char* fileName, uint8_t* buffer, uint16_t* bufferSize, int* width, int* height, uint32_t* palette);
 #endif
 bool        DMG_DecompressOldRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
-bool        DMG_DecompressOldRLEToST   (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
-bool        DMG_DecompressOldRLEToST_COnly(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels);
-void        DMG_InitializeOldRLETables ();
+bool        DMG_DecompressOldRLEToPlanarST(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
 bool        DMG_DecompressNewRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
-bool        DMG_DecompressNewRLEPlanar (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian);
+bool        DMG_DecompressNewRLEToPlanarST(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian);
 bool        DMG_DecompressZX0          (const uint8_t* data, uint32_t dataLength, uint8_t* buffer, uint32_t outputSize);
 uint8_t*    DMG_CompressZX0            (const uint8_t* data, uint32_t dataLength, uint32_t* outputSize);
 bool        DMG_Planar8ToPacked        (const uint8_t* data, uint16_t length, uint8_t* output, int pixels, uint32_t width);
-void        DMG_ConvertChunkyToPlanar  (uint8_t *buffer, uint32_t bufferSize, uint32_t width);
-bool        DMG_RepackClassicPlanar    (const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize);
+void        DMG_ConvertPackedToPlanarST(uint8_t *buffer, uint32_t bufferSize, uint32_t width);
+bool        DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize);
 
 uint32_t    DMG_CalculateRequiredSize  (DMG_Entry* entry, DMG_ImageMode mode);
 
