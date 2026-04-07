@@ -69,6 +69,7 @@ typedef void (*MainLoopCallback)(int elapsed);
 #define SCR_ClearBuffer      VID_ClearBuffer
 #define SCR_DisplayPicture   VID_DisplayPicture
 #define SCR_DrawCharacter    VID_DrawCharacter
+#define SCR_DrawTextSpan     VID_DrawTextSpan
 #define SCR_GetKey           VID_GetKey
 #define SCR_GetMilliseconds  VID_GetMilliseconds
 #define SCR_GetPaletteColor  VID_GetPaletteColor
@@ -118,6 +119,7 @@ extern void SCR_ClearBuffer      (bool front);
 extern void SCR_ConsumeBuffer    ();
 extern void SCR_DisplayPicture   (int x, int y, int w, int h, DDB_ScreenMode mode);
 extern void SCR_DrawCharacter    (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper);
+extern void SCR_DrawTextSpan     (int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper);
 extern void SCR_GetKey           (uint8_t* key, uint8_t* ext, uint8_t* modifiers);
 extern void SCR_GetMilliseconds  (uint32_t* time);
 extern void SCR_GetPaletteColor  (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b);

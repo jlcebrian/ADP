@@ -48,8 +48,12 @@ int MemComp(void* dst, const void* src, size_t size)
 	uint8_t* dstPtr = (uint8_t*)dst;
 	uint8_t* srcPtr = (uint8_t*)src;
 	while (size--)
+	{
 		if (*dstPtr != *srcPtr)
 			return *dstPtr - *srcPtr;
+		dstPtr++;
+		srcPtr++;
+	}
 	return 0;
 }
 

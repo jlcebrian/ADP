@@ -185,16 +185,21 @@ void VID_ShowProgressBar(uint16_t amount)
 	VID_Clear(x+2, y+2, amount*60/255, 8, 15);
 }
 
-#ifndef HAS_DRAWTEXT
+#if !defined(HAS_DRAWTEXT) && !defined(_AMIGA)
+
+void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
+{
+	for (uint16_t n = 0; n < length && x < screenWidth; n++)
+	{
+		uint8_t ch = text[n];
+		VID_DrawCharacter(x, y, ch, ink, paper);
+		x += charWidth[ch];
+	}
+}
 
 void VID_DrawText(int x, int y, const char* text, uint8_t ink, uint8_t paper)
 {
-	while (*text && x < screenWidth)
-	{
-		VID_DrawCharacter(x, y, (uint8_t)*text, ink, paper);
-		x += charWidth[(uint8_t)*text];
-		text++;
-	}
+	VID_DrawTextSpan(x, y, (const uint8_t*)text, (uint16_t)StrLen(text), ink, paper);
 }
 
 #endif

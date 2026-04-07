@@ -1,4 +1,5 @@
 #include <dmg.h>
+#include <dmg_pack.h>
 #include <img.h>
 #include <cli_parser.h>
 #include <ddb.h>

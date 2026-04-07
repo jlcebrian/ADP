@@ -62,37 +62,18 @@
      Compressed image data
     ───────────────────────
 
-    Image compression follows a simple RLE algorithm. The first two bytes
-    in the image data are a 16 bit mask. For every color from 0 to 15, if 
-    the corresponding bit is set, the color requires a repeat value 0-15
-    which will follow the color in the image data. If the bit is not set, 
-    the color is stored in the image as is, and no repeat value is present.
+    The compression algorithm is similar to the previous version,
+    but it has been simplified for speed.
 
-    After those two bytes, the image data follows, organized as a string
-    of nibbles (values from 0-15). The values are stored in groups of 8
-    using the following bit pattern:
+    The first two bytes are still a 16 bit mask. For every corresponding
+    bit set, the color requires a repeat value 0-15 which will follow the
+    color in the image data. If the bit is not set, the color is stored
+    in the image as is, and no repeat value is present.
 
-    Bit			31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 
-    Color		 0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
-    ColorBit	 0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1
-
-    Bit         15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-    Color		 0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
-    ColorBit 	 2  2  2  2  2  2  2  2  3  3  3  3  3  3  3  3
-    
-    So, in order to extract the first nibble, you should read
-    bits 31, 23, 15 and 7, and shift them into position:
-
-        Color := ((N & 0x8000) shr 31) or 
-                 ((N & 0x0800) shr 22) or
-                 ((N & 0x0080) shr 13) or
-                 ((N & 0x0008) shr  4)
-
-    You can then shift the value N one bit to the left and repeat
-    the process to extract the next 7 nibbles.
-
-    This wierd bit pattern resembles the Atari ST display memory
-    layout and was simplified in later versions of the file.
+    After that, the image data follows, organized as a string of nibbles.
+    Nibbles are stored in packs of 8. For every 4 bytes in the image data,
+    the corresponding nibbles must be processed in reverse order (i.e.
+    the first nibble is stored in the lower 4 bits of the last byte).
 
     ─────────────────────────
      Uncompressed image data
@@ -186,18 +167,37 @@
      Compressed image data
     ───────────────────────
 
-    The compression algorithm is similar to the previous version,
-    but it has been simplified for speed.
+    Image compression follows a simple RLE algorithm. The first two bytes
+    in the image data are a 16 bit mask. For every color from 0 to 15, if 
+    the corresponding bit is set, the color requires a repeat value 0-15
+    which will follow the color in the image data. If the bit is not set, 
+    the color is stored in the image as is, and no repeat value is present.
 
-    The first two bytes are still a 16 bit mask. For every corresponding
-    bit set, the color requires a repeat value 0-15 which will follow the
-    color in the image data. If the bit is not set, the color is stored
-    in the image as is, and no repeat value is present.
+    After those two bytes, the image data follows, organized as a string
+    of nibbles (values from 0-15). The values are stored in groups of 8
+    using the following bit pattern:
 
-    After that, the image data follows, organized as a string of nibbles.
-    Nibbles are stored in packs of 8. For every 4 bytes in the image data,
-    the corresponding nibbles must be processed in reverse order (i.e.
-    the first nibble is stored in the lower 4 bits of the last byte).
+    Bit         31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 
+    Color        0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
+    ColorBit     0  0  0  0  0  0  0  0  1  1  1  1  1  1  1  1
+
+    Bit         15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+    Color        0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
+    ColorBit     2  2  2  2  2  2  2  2  3  3  3  3  3  3  3  3
+    
+    So, in order to extract the first nibble, you should read
+    bits 31, 23, 15 and 7, and shift them into position:
+
+        Color := ((N & 0x80000000) shr 31) or 
+                 ((N & 0x00800000) shr 22) or
+                 ((N & 0x00008000) shr 13) or
+                 ((N & 0x00000080) shr  4)
+
+    You can then shift the value N one bit to the left and repeat
+    the process to extract the next 7 nibbles.
+
+    This wierd bit pattern resembles the Atari ST display memory
+    layout and was simplified in later versions of the file.
 
     Uncompressed images are stored in the same way as in the previous
     version of the file (using the Atari ST screen memory layout).

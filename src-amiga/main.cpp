@@ -138,8 +138,10 @@ int main ()
 
 	// WORD savedDMACON = custom->dmacon;
 
+	#ifndef NO_SAMPLES
 	ConvertSample(beepSample, beepSampleSize);
 	ConvertSample(clickSample, clickSampleSize);
+	#endif
 
 	OpenKeyboard();
 	OpenAudio();

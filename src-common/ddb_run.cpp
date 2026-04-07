@@ -86,6 +86,93 @@ static const char* TranslateCharForTrace(uint8_t c)
 }
 #endif
 
+#ifdef DEBUG_TEXT_TIMINGS
+typedef struct DDB_OutputMessageTimingFrame
+{
+	uint32_t startWaitMs;
+	uint32_t flushCalls;
+	uint32_t drawnChars;
+} DDB_OutputMessageTimingFrame;
+
+static DDB_OutputMessageTimingFrame outputMessageTimingFrame[64];
+static uint32_t outputMessageTimingWaitMs = 0;
+static uint32_t outputMessageTimingDepth = 0;
+
+static const char* GetMessageTimingTypeName(DDB_MsgType type)
+{
+	switch (type)
+	{
+		case DDB_MSG:
+			return "MSG";
+		case DDB_SYSMSG:
+			return "SYSMSG";
+		case DDB_OBJNAME:
+			return "OBJNAME";
+		case DDB_LOCDESC:
+			return "LOCDESC";
+		default:
+			return "UNKNOWN";
+	}
+}
+
+static void TimedOutputWaitForKey()
+{
+	uint32_t startMs = 0;
+	uint32_t endMs = 0;
+	VID_GetMilliseconds(&startMs);
+	SCR_WaitForKey();
+	VID_GetMilliseconds(&endMs);
+	outputMessageTimingWaitMs += endMs - startMs;
+}
+
+static void DDB_OutputMessageAddFlushChars(uint32_t drawnChars)
+{
+	if (outputMessageTimingDepth == 0)
+		return;
+
+	DDB_OutputMessageTimingFrame* frame = &outputMessageTimingFrame[outputMessageTimingDepth - 1];
+	frame->flushCalls++;
+	frame->drawnChars += drawnChars;
+}
+
+static void ReportOutputMessageTiming(DDB_MsgType type, uint16_t msgId, uint32_t waitMs, uint32_t activeMs, uint32_t flushCalls, uint32_t drawnChars, uint32_t emittedChars, uint32_t tokenRefs)
+{
+	DebugPrintf(
+		"OM %s%d a=%lu fc=%lu dc=%lu w=%lu c=%lu t=%lu\n",
+		GetMessageTimingTypeName(type),
+		(unsigned long)msgId,
+		(unsigned long)activeMs,
+		(unsigned long)flushCalls,
+		(unsigned long)drawnChars,
+		(unsigned long)waitMs,
+		(unsigned long)emittedChars,
+		(unsigned long)tokenRefs);
+}
+#endif
+
+static void WriteTranscriptChar(uint8_t ch)
+{
+	if (transcriptFile == 0)
+		return;
+
+	if (ch < 16 || ch > 127)
+	{
+		char buffer[24] = "\\x";
+		char* ptr = LongToChar(ch, buffer + 2, 16);
+		File_Write(transcriptFile, buffer, ptr - buffer);
+	}
+	else if (ch < 32)
+	{
+		static const char* spanishChars[] = { "º", "¡", "¿", "«", "»", "á", "é", "í", "ó", "ú", "ñ", "Ñ", "ç", "Ç", "ü", "Ü" };
+		const char* ptr = spanishChars[ch - 16];
+		File_Write(transcriptFile, ptr, StrLen(ptr));
+	}
+	else
+	{
+		File_Write(transcriptFile, &ch, 1);
+	}
+}
+
 void DDB_SetupInkMap (DDB_Interpreter* i)
 {
 	switch (i->ddb->target)
@@ -405,7 +492,11 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 		SCR_DrawCharacter(x, w->posY, *ptr, ink, paper);
 		x += charWidth[(uint8_t)*ptr];
 	}
+	#ifdef DEBUG_TEXT_TIMINGS
+	TimedOutputWaitForKey();
+	#else
 	SCR_WaitForKey();
+	#endif
 	SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, paper);
 
 	if (i->flags[Flag_TimeoutFlags] & Timeout_MorePrompt)
@@ -584,6 +675,10 @@ void DDB_GetCurrentColors (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper
 
 void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 {
+	#ifdef _DEBUGPRINT
+	uint32_t drawnChars = 0;
+	#endif
+
 	// TODO: This logic is incorrect. The pending buffer should know which window
 	// it was written to, and the flush should only flush that window. The current
 	// implementation sometimes writes garbage to the unintended window.
@@ -607,33 +702,8 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		maxX = cellX*8 + cellW*8;
 	}
 
-	if (w->posX >= w->x)
-	{
-		int wordWidth = 0;
-		for (int n = 0; n < i->pendingPtr ; n++)
-		{
-			uint8_t ch = i->pending[n];
-			uint8_t width = charWidth[ch];
-			#if HAS_PAWS
-			if (pawsMode && ch < 32)
-			{
-				if (ch == 6)
-					break;
-				continue;
-			}
-			else
-			#endif
-			if (ch < 16)
-				continue;
-			if (i->pending[n] == ' ')
-				break;
-			wordWidth += width;
-		}
-		if (w->posX + wordWidth > maxX && w->posX > w->x)
-			DDB_NewLineAtWindow(i, w);
-	}
-
-	for (int n = 0; n < i->pendingPtr ; n++)
+	uint8_t spanChars[sizeof(i->pending)];
+	for (int n = 0; n < i->pendingPtr; )
 	{
 		uint8_t ch = i->pending[n];
 
@@ -643,39 +713,38 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			switch (ch)
 			{
 				case 16:		// Ink
-					w->ink = (w->ink & 0xF8) | (i->pending[n+1] & 0x07);
-					n++;
+					w->ink = (w->ink & 0xF8) | (i->pending[n + 1] & 0x07);
+					n += 2;
 					continue;
 				case 17:		// Paper
-					w->paper = (w->paper & 0xF8) | (i->pending[n+1] & 0x07);
-					n++;
+					w->paper = (w->paper & 0xF8) | (i->pending[n + 1] & 0x07);
+					n += 2;
 					continue;
 				case 18:		// Flash
-					n++;
-					w->flags = (w->flags & ~Win_Flash) | ((i->pending[n] & 0x01) ? Win_Flash : 0);
+					w->flags = (w->flags & ~Win_Flash) | ((i->pending[n + 1] & 0x01) ? Win_Flash : 0);
+					n += 2;
 					continue;
 				case 19:		// Bright
-					n++;
-					w->flags = (w->flags & ~Win_Bright) | ((i->pending[n] & 0x01) ? Win_Bright : 0);
+					w->flags = (w->flags & ~Win_Bright) | ((i->pending[n + 1] & 0x01) ? Win_Bright : 0);
+					n += 2;
 					continue;
 				case 20:		// Inverse
-				{
-					n++;
-					w->flags = (w->flags & ~Win_Inverse) | ((i->pending[n] & 0x01) ? Win_Inverse : 0);
+					w->flags = (w->flags & ~Win_Inverse) | ((i->pending[n + 1] & 0x01) ? Win_Inverse : 0);
+					n += 2;
 					continue;
-				}
 				case 1:
 				case 2:
 				case 3:
 				case 4:
 				case 5:
 					DDB_SetCharset(i->ddb, ch);
+					n++;
 					continue;
 				default:
 					DebugPrintf("Unknown PAWS control code %d\n", ch);
+					n++;
 					break;
 			}
-			// TODO: Color & charset changes
 			continue;
 		}
 		else
@@ -693,48 +762,134 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 					w->graphics = false;
 					break;
 			}
+			n++;
 			continue;
 		}
-		if (w->graphics || forceGraphics) ch |= 0x80;
 
-		int width = charWidth[ch];
-		if (w->posX + width > maxX)
+		if (ch != ' ' && ch != 0xA0 && w->posX > w->x)
 		{
-			if (ch == ' ' || ch == 0xA0) {
-				w->posX = maxX;
+			int wordWidth = 0;
+			for (int wordIndex = n; wordIndex < i->pendingPtr; wordIndex++)
+			{
+				uint8_t wordCh = i->pending[wordIndex];
+
+				#if HAS_PAWS
+				if (pawsMode && wordCh < 32)
+					break;
+				#endif
+
+				if (wordCh < 16 || wordCh == ' ' || wordCh == 0xA0)
+					break;
+
+				if (w->graphics || forceGraphics)
+					wordCh |= 0x80;
+
+				wordWidth += charWidth[wordCh];
+			}
+
+			if (w->posX + wordWidth > maxX)
+			{
+				DDB_NewLineAtWindow(i, w);
 				continue;
 			}
-			DDB_NewLineAtWindow(i, w);
 		}
 
 		uint8_t ink, paper;
 		DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
-		SCR_DrawCharacter(w->posX, w->posY, ch, ink, paper);
-		w->posX += width;
+		int spanLength = 0;
+		int spanWidth = 0;
+		int lastBreakIndex = -1;
+		int lastBreakLength = 0;
+		int lastBreakWidth = 0;
+		int nextIndex = n;
 
-        if (transcriptFile)
-        {
-            if (ch < 16 || ch > 127)
-            {
-                char buffer[24] = "\\x";
-                char* ptr = LongToChar(ch, buffer + 2, 16);
-                File_Write(transcriptFile, buffer, ptr - buffer);
-            }
-            else if (ch < 32)
-            {
-                static const char* spanishChars[] = { "º","¡","¿","«","»","á","é","í","ó","ú","ñ","Ñ","ç","Ç","ü","Ü" };
-                const char* ptr = spanishChars[ch - 16];
-                File_Write(transcriptFile, ptr, StrLen(ptr));
-            }
-            else
-            {
-                File_Write(transcriptFile, &ch, 1);
-            }
-        }
+		while (nextIndex < i->pendingPtr)
+		{
+			uint8_t spanCh = i->pending[nextIndex];
+
+			#if HAS_PAWS
+			if (pawsMode && spanCh < 32)
+				break;
+			#endif
+
+			if (spanCh < 16)
+				break;
+
+			if (w->graphics || forceGraphics)
+				spanCh |= 0x80;
+
+			int width = charWidth[spanCh];
+			if (w->posX + spanWidth + width > maxX)
+			{
+				if (lastBreakIndex >= 0)
+				{
+					nextIndex = lastBreakIndex;
+					spanLength = lastBreakLength;
+					spanWidth = lastBreakWidth;
+				}
+				break;
+			}
+
+			spanChars[spanLength++] = spanCh;
+			spanWidth += width;
+			nextIndex++;
+
+			if (spanCh == ' ' || spanCh == 0xA0)
+			{
+				lastBreakIndex = nextIndex;
+				lastBreakLength = spanLength;
+				lastBreakWidth = spanWidth;
+			}
+		}
+
+		if (spanLength == 0)
+		{
+			uint8_t singleCh = ch;
+			if (w->graphics || forceGraphics)
+				singleCh |= 0x80;
+
+			int width = charWidth[singleCh];
+			if (w->posX + width > maxX)
+			{
+				if (singleCh == ' ' || singleCh == 0xA0)
+				{
+					w->posX = maxX;
+					n++;
+					continue;
+				}
+
+				DDB_NewLineAtWindow(i, w);
+				continue;
+			}
+
+			spanChars[0] = singleCh;
+			spanLength = 1;
+			spanWidth = width;
+			nextIndex = n + 1;
+		}
+
+		SCR_DrawTextSpan(w->posX, w->posY, spanChars, (uint16_t)spanLength, ink, paper);
+		w->posX += spanWidth;
+		n = nextIndex;
+
+		#ifdef _DEBUGPRINT
+		drawnChars += (uint32_t)spanLength;
+		#endif
+
+		if (transcriptFile)
+		{
+			for (int spanIndex = 0; spanIndex < spanLength; spanIndex++)
+				WriteTranscriptChar(spanChars[spanIndex]);
+		}
 	}
 	i->pendingPtr = 0;
 
 	i->keyChecked = false;
+
+	#ifdef DEBUG_TEXT_TIMINGS
+	if (outputMessageTimingDepth != 0)
+		DDB_OutputMessageAddFlushChars(drawnChars);
+	#endif
 }
 
 void DDB_Flush (DDB_Interpreter* i)
@@ -842,8 +997,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case 19:
 				case 20:
 					w->flags |= Win_ExpectingCodeByte;
-					if (i->pendingPtr >= sizeof(i->pending)) {
-						DebugPrintf("Output buffer overflow\n", stderr);
+					if (i->pendingPtr >= sizeof(i->pending) - 1) {
 						DDB_FlushWindow(i, w);
 					}
 					i->pending[i->pendingPtr++] = c;
@@ -922,7 +1076,11 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					if (i->ddb->version != DDB_VERSION_PAWS)
 					{
 						DDB_FlushWindow(i, w);
+						#ifdef DEBUG_TEXT_TIMINGS
+						TimedOutputWaitForKey();
+						#else
 						SCR_WaitForKey();
+						#endif
 						DDB_ResetScrollCounts(i);
 						w->smooth = 1;
 						return;
@@ -932,15 +1090,13 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 		}
 	}
 
-	if (i->pendingPtr >= sizeof(i->pending)) {
-		DebugPrintf("Output buffer overflow\n");
+	if (i->pendingPtr >= sizeof(i->pending) - 1) {
 		DDB_FlushWindow(i, w);
 	}
 
-	if (i->pendingPtr > 0 && i->pending[i->pendingPtr - 1] == ' ' && c != ' ')
-		DDB_FlushWindow(i, w);
-
 	i->pending[i->pendingPtr++] = c;
+	if (i->pendingPtr >= sizeof(i->pending) / 2 && (c < 16 || c == ' ' || (uint8_t)c == 0xA0))
+		DDB_FlushWindow(i, w);
 }
 
 void DDB_OutputChar (DDB_Interpreter* i, char c)
@@ -963,6 +1119,12 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 {
 	DDB* ddb = i->ddb;
 	uint8_t* ptr;
+	#ifdef _DEBUGPRINT
+	uint32_t startMs = 0;
+	uint32_t endMs = 0;
+	uint32_t emittedChars = 0;
+	uint32_t tokenRefs = 0;
+	#endif
 
 	switch (type)
 	{
@@ -989,6 +1151,16 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
 		return false;
+
+	#ifdef DEBUG_TEXT_TIMINGS
+	VID_GetMilliseconds(&startMs);
+	uint32_t frameIndex = outputMessageTimingDepth < 64 ? outputMessageTimingDepth : 63;
+	outputMessageTimingFrame[frameIndex].startWaitMs = outputMessageTimingWaitMs;
+	outputMessageTimingFrame[frameIndex].flushCalls = 0;
+	outputMessageTimingFrame[frameIndex].drawnChars = 0;
+	if (outputMessageTimingDepth < 64)
+		outputMessageTimingDepth++;
+	#endif
 
 	TRACE("%s%d: \"", DDB_MessageTypeNames[type], msgId);
 
@@ -1019,19 +1191,43 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 			for (;;)
 			{
 				OutputCharToWindow(i, w, *token & 0x7F);
+				#ifdef _DEBUGPRINT
+				emittedChars++;
+				#endif
 				TRACE(TranslateCharForTrace(*token & 0x7F));
 				if (*token >= 128)
 					break;
 				token++;
 			}
+			#ifdef _DEBUGPRINT
+			tokenRefs++;
+			#endif
 		}
 		else
 		{
 			OutputCharToWindow(i, w, c);
+			#ifdef _DEBUGPRINT
+			emittedChars++;
+			#endif
 			TRACE(TranslateCharForTrace(c));
 		}
 	}
 	TRACE("\" ");
+
+	#ifdef _DEBUGPRINT
+	#ifdef DEBUG_TEXT_TIMINGS
+	VID_GetMilliseconds(&endMs);
+	if (outputMessageTimingDepth != 0)
+		outputMessageTimingDepth--;
+	uint32_t wallMs = endMs - startMs;
+	uint32_t waitMs = outputMessageTimingWaitMs - outputMessageTimingFrame[frameIndex].startWaitMs;
+	uint32_t activeMs = wallMs > waitMs ? wallMs - waitMs : 0;
+	uint32_t flushCalls = outputMessageTimingFrame[frameIndex].flushCalls;
+	uint32_t drawnChars = outputMessageTimingFrame[frameIndex].drawnChars;
+	ReportOutputMessageTiming(type, msgId, waitMs, activeMs, flushCalls, drawnChars, emittedChars, tokenRefs);
+	#endif
+	#endif
+
 	return true;
 }
 

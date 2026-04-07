@@ -1,6 +1,7 @@
 #include <dmg.h>
 #include <ddb.h>
 #include <ddb_pal.h>
+#include <ddb_vid.h>
 #include <os_mem.h>
 #include <os_lib.h>
 #include <os_bito.h>
@@ -22,6 +23,18 @@ static DMG_Error dmgError = DMG_ERROR_NONE;
 static void    (*dmg_warningHandler)(const char* message) = 0;
 static uint8_t*  dmgTemporaryBuffer = 0;
 static uint32_t  dmgTemporaryBufferSize = 0;
+
+static void DMG_ParseClassicEntryHeader(DMG* dmg, DMG_Entry* entry, const uint8_t* header)
+{
+	uint16_t v = read16(header, dmg->littleEndian);
+	entry->flags &= ~DMG_FLAG_COMPRESSED;
+	entry->width = v & 0x7FFF;
+	if ((v & 0x8000) != 0)
+		entry->flags |= DMG_FLAG_COMPRESSED;
+	v = read16(header + 2, dmg->littleEndian);
+	entry->height = v & 0x7FFF;
+	entry->length = read16(header + 4, dmg->littleEndian);
+}
 
 static bool DMG_PreallocateZX0Scratch(DMG* dmg)
 {
@@ -199,123 +212,6 @@ const char* DMG_GetErrorString()
 	}
 }
 
-bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
-{
-	uint32_t nibbles = 0;
-	uint8_t color = 0;
-	uint8_t repetitions;
-	const uint8_t* start = data;
-	int nibbleCount = 0;
-
-	uint8_t outc = 0;
-	bool outcm = false;
-
-	DMG_SetError(DMG_ERROR_NONE);
-
-	while (pixels > 0)
-	{
-		if (nibbleCount == 0)
-		{
-			if (dataLength < 4)
-			{
-				if (dataLength == 0)
-				{
-					while (pixels-- > 0)
-					{
-						if (outcm)
-							*buffer++ = color | (outc << 4);
-						else 
-							outc = color;
-						outcm = !outcm;
-					}
-					break;
-				}
-				uint8_t buf[4] = { 0, 0, 0, 0 };
-				uint8_t *b = buf;
-				while (dataLength-- > 0)
-					*b++ = *data++;
-				nibbles = read32(buf, littleEndian);
-			}
-			else
-			{
-				nibbles = read32(data, littleEndian);
-				data += 4;
-				dataLength -= 4;
-			}
-			nibbleCount = 8;
-		}
-		
-		nibbleCount--;
-		color = 
-			((nibbles & 0x00000080) >> 4) |
-			((nibbles & 0x00008000) >> 13) |
-			((nibbles & 0x00800000) >> 22) |
-			((nibbles & 0x80000000) >> 31);
-		nibbles <<= 1;
-		
-		if (outcm)
-			*buffer++ = color | (outc << 4);
-		else 
-			outc = color;
-		outcm = !outcm;
-
-		pixels--;
-		if (pixels == 0)
-			break;
-
-		if ((rleMask & (1 << color)) != 0) 
-		{
-			if (nibbleCount == 0)
-			{
-				if (dataLength < 4)
-				{
-					while (pixels-- > 0)
-					{
-						if (outcm)
-							*buffer++ = color | (outc << 4);
-						else 
-							outc = color;
-						outcm = !outcm;
-					}
-					break;
-				}
-				nibbles = read32(data, littleEndian);
-				data += 4;
-				dataLength -= 4;
-				nibbleCount = 8;
-			}
-
-			nibbleCount--;
-			repetitions = 
-				((nibbles & 0x00000080) >> 4) |
-				((nibbles & 0x00008000) >> 13) |
-				((nibbles & 0x00800000) >> 22) |
-				((nibbles & 0x80000000) >> 31);
-			nibbles <<= 1;
-
-			if (pixels < repetitions)
-				repetitions = pixels;
-
-			pixels -= repetitions;
-			while (repetitions-- > 0)
-			{
-				if (outcm)
-					*buffer++ = color | (outc << 4);
-				else 
-					outc = color;
-				outcm = !outcm;
-			}
-		}
-	}
-
-	if (outcm)
-		*buffer++ = (outc << 4);
-
-	if (dataLength > 4)
-		DMG_Warning("Data stream contains %d extra bytes (at offset %d)", dataLength, (int)(data - start));
-	return true;
-}
-
 bool DMG_CopyImageData(uint8_t* ptr, uint16_t length, uint8_t* output, int pixels)
 {
 	uint32_t outputSize = (pixels + 1) & ~1;
@@ -463,33 +359,6 @@ bool DMG_UnpackChunkyPixels(const uint8_t* input, uint16_t width, uint16_t heigh
     return true;
 }
 
-bool DMG_PackChunkyPixels(const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
-{
-    if (bitsPerPixel != 2 && bitsPerPixel != 4)
-        return false;
-
-    const uint32_t pixels = (uint32_t)width * height;
-    const uint8_t mask = (1u << bitsPerPixel) - 1;
-    uint8_t value = 0;
-    int bitsFilled = 0;
-
-    for (uint32_t i = 0; i < pixels; i++)
-    {
-        value = (uint8_t)((value << bitsPerPixel) | (input[i] & mask));
-        bitsFilled += bitsPerPixel;
-        if (bitsFilled == 8)
-        {
-            *output++ = value;
-            value = 0;
-            bitsFilled = 0;
-        }
-    }
-
-    if (bitsFilled != 0)
-        *output = (uint8_t)(value << (8 - bitsFilled));
-    return true;
-}
-
 bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
 {
     if (bitsPerPixel == 0 || bitsPerPixel > 8)
@@ -520,42 +389,6 @@ bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t heigh
                     if ((value >> bit) & 1)
                         dst[x] |= planeMask;
                 }
-            }
-        }
-    }
-    return true;
-}
-
-bool DMG_PackBitplaneBytes(const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
-{
-    if (bitsPerPixel == 0 || bitsPerPixel > 8)
-        return false;
-
-    const uint32_t wordsPerRow = (width + 15) >> 4;
-    const uint32_t planeStride = wordsPerRow * height * 2;
-    MemClear(output, planeStride * bitsPerPixel);
-
-    for (uint8_t plane = 0; plane < bitsPerPixel; plane++)
-    {
-        uint8_t* planePtr = output + plane * planeStride;
-        uint8_t planeMask = (uint8_t)(1u << plane);
-        for (uint16_t y = 0; y < height; y++)
-        {
-            const uint8_t* src = input + y * width;
-            uint8_t* rowPtr = planePtr + y * wordsPerRow * 2;
-            for (uint32_t wordIndex = 0; wordIndex < wordsPerRow; wordIndex++)
-            {
-                uint16_t baseX = (uint16_t)(wordIndex << 4);
-                uint16_t word = 0;
-                for (uint16_t bit = 0; bit < 16; bit++)
-                {
-                    uint16_t x = (uint16_t)(baseX + bit);
-                    if (x < width && (src[x] & planeMask))
-                        word |= (uint16_t)(0x8000 >> bit);
-                }
-                uint8_t* dst = rowPtr + wordIndex * 2;
-                dst[0] = (uint8_t)(word >> 8);
-                dst[1] = (uint8_t)word;
             }
         }
     }
@@ -760,7 +593,6 @@ static bool DMG_LoadDAT5Palette(DMG* dmg, uint8_t index, DMG_Entry* entry)
 DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 {
 	uint8_t header[6];
-	uint16_t v;
 
 	DMG_SetError(DMG_ERROR_NONE);
 	if (dmg == 0)
@@ -774,21 +606,23 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 	if ((dmg->entries[n]->flags & DMG_FLAG_PROCESSED) != 0)
 		return dmg->entries[n];
 
-	if (DMG_ReadFromFile(dmg, dmg->entries[n]->fileOffset, header, 6) != 6)
+	const uint8_t* cachedHeader = (const uint8_t*)DMG_GetFromFileCache(dmg, dmg->entries[n]->fileOffset, sizeof(header));
+	if (cachedHeader != 0)
+		MemCopy(header, cachedHeader, sizeof(header));
+	else if (DMG_ReadFromFile(dmg, dmg->entries[n]->fileOffset, header, sizeof(header)) != sizeof(header))
 	{
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return 0;
 	}
 
-	v = read16(header, dmg->littleEndian);
-	dmg->entries[n]->width = v & 0x7FFF;
-    if ((v & 0x8000) != 0)
-	    dmg->entries[n]->flags |= DMG_FLAG_COMPRESSED;
-	v = read16(header + 2, dmg->littleEndian);
-    // if ((v & 0x8000) != 0)   // Should already be correctly set from flags
-    //     dmg->entries[n]->type = DMGEntry_Audio;
-	dmg->entries[n]->height = v & 0x7FFF;
-	dmg->entries[n]->length = read16(header + 4, dmg->littleEndian);
+	DMG_ParseClassicEntryHeader(dmg, dmg->entries[n], header);
+
+	if (dmg->entries[n]->type == DMGEntry_Image &&
+		(dmg->entries[n]->width == 0 || dmg->entries[n]->height == 0 || dmg->entries[n]->length == 0))
+	{
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return 0;
+	}
 
 	// Actual limits should be related to screen mode
 	if (dmg->entries[n]->type == DMGEntry_Image && (dmg->entries[n]->width > 1024 || dmg->entries[n]->height > 1024))
@@ -1090,7 +924,6 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 	size_t fileSize = File_GetSizeByName(filename);
 	if (fileSize == 0)
 		fileSize = File_GetSize(file);
-	DebugPrintf("DMG_Open(%s): size=%lu bytes\n", filename, (unsigned long)fileSize);
 	if (fileSize < DMG_MIN_FILE_SIZE)
 	{
 		DMG_SetError(DMG_ERROR_FILE_TOO_SMALL);
@@ -1185,6 +1018,9 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		DMG_Close(d);
 		return 0;
 	}
+
+	if (d->version == DMG_Version1)
+		DMG_InitializeOldRLETables();
 
 	if (!DMG_PreallocateZX0Scratch(d))
 	{
@@ -1294,9 +1130,13 @@ uint32_t DMG_ReadFromFile (DMG* dmg, uint32_t offset, void* buffer, uint32_t siz
 
 	while (size > 0)
 	{
+		if (offset >= dmg->fileCacheSize)
+			break;
+
 		int block = offset / dmg->fileCacheBlockSize;
 		uint32_t skip  = offset % dmg->fileCacheBlockSize;
 		uint32_t count = dmg->fileCacheBlockSize - skip;
+		uint32_t valid = dmg->fileCacheSize - offset;
 		if (block >= DMG_CACHE_BLOCKS)
 			break;
 		if (dmg->fileCacheBlocks[block] == 0)
@@ -1304,6 +1144,10 @@ uint32_t DMG_ReadFromFile (DMG* dmg, uint32_t offset, void* buffer, uint32_t siz
 
 		if (count > size)
 			count = size;
+		if (count > valid)
+			count = valid;
+		if (count == 0)
+			break;
 
 		MemCopy (buffer, dmg->fileCacheBlocks[block] + skip, count);
 		size -= count;

@@ -44,7 +44,7 @@ extern void     OSFree     (void* mem);
 
 // Memory/string functions
 
-//extern void*       MemSet     (void* mem, uint8_t val,     size_t size);
+extern void*       MemSet     (void* mem, uint8_t val,     size_t size);
 extern void*       MemClear   (void* mem, size_t size);
 extern void*       MemMove    (void* dst, const void* src, size_t size);
 extern void*       MemCopy    (void* dst, const void* src, size_t size);

@@ -4,8 +4,16 @@
 
 VERSION ?= BETA0.3
 DEBUG_MEMORY ?= 0
-DEBUGPRINT ?= 0
+DEBUGPRINT ?= 1
 DEBUG_ALLOCS ?= 0
+
+#OLD_RLE_ROUTINE ?= OLD_RLE_ROUTINE_PLANAR_ASM
+#OLD_RLE_ROUTINE ?= OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO
+OLD_RLE_ROUTINE ?= OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO
+
+VERIFY_OLD_RLE_ASM ?= 0
+VERIFY_OLD_RLE_ST_ASM ?= 0
+VERIFY_OLD_RLE_PLANAR_ASM ?= $(VERIFY_OLD_RLE_ASM)
 
 ifdef OS
 	WINDOWS = 1
@@ -13,7 +21,11 @@ ifdef OS
 endif
 
 subdirs := src-amiga/ src-common/
-VPATH = $(subdirs)
+prototype_vasm_subdirs :=
+ifneq ($(filter OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO,$(OLD_RLE_ROUTINE)),)
+prototype_vasm_subdirs += src-amiga/prototypes/
+endif
+VPATH = $(subdirs) $(prototype_vasm_subdirs)
 cpp_sources := $(wildcard *.cpp) $(wildcard $(addsuffix *.cpp,$(subdirs)))
 cpp_objects := $(addprefix obj/amiga/,$(patsubst %.cpp,%.o,$(notdir $(cpp_sources))))
 c_sources := $(wildcard *.c) $(wildcard $(addsuffix *.c,$(subdirs)))
@@ -24,7 +36,7 @@ zx0_s_source := src-zx0/unzx0_68k.s
 zx0_s_object := obj/amiga/unzx0_68k.o
 zx0_fast_s_source := src-zx0/unzx0_68k_fast.s
 zx0_fast_s_object := obj/amiga/unzx0_68k_fast.o
-vasm_sources := $(wildcard *.asm) $(wildcard $(addsuffix *.asm, $(subdirs)))
+vasm_sources := $(wildcard *.asm) $(wildcard $(addsuffix *.asm, $(subdirs) $(prototype_vasm_subdirs)))
 vasm_objects := $(addprefix obj/amiga/, $(patsubst %.asm,%.o,$(notdir $(vasm_sources))))
 objects := $(cpp_objects) $(c_objects) $(s_objects) $(zx0_s_object) $(zx0_fast_s_object) $(vasm_objects)
 
@@ -61,9 +73,16 @@ endif
 CCFLAGS += -DVERSION=$(VERSION) 
 CCFLAGS += -DDEBUG_MEMORY=$(DEBUG_MEMORY)
 CCFLAGS += -DDEBUG_ALLOCS=$(DEBUG_ALLOCS)
+CCFLAGS += -DVERIFY_OLD_RLE_ASM=$(VERIFY_OLD_RLE_ASM)
+CCFLAGS += -DVERIFY_OLD_RLE_ST_ASM=$(VERIFY_OLD_RLE_ST_ASM)
+CCFLAGS += -DVERIFY_OLD_RLE_PLANAR_ASM=$(VERIFY_OLD_RLE_PLANAR_ASM)
+CCFLAGS += -DOLD_RLE_ROUTINE=$(OLD_RLE_ROUTINE)
+CCFLAGS += -DNO_SAMPLES
 CCFLAGS += -Os
 ifeq ($(DEBUGPRINT),1)
 CCFLAGS += -D_DEBUGPRINT
+#CCFLAGS += -DDEBUG_IMAGE_CACHE
+#CCFLAGS += -DDEBUG_FILE_CACHE
 endif
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes

@@ -629,7 +629,7 @@ struct DDB_Interpreter
 	uint8_t*        quotedString;
 	uint8_t			quotedStringLength;
 
-	uint8_t			pending[64];
+	uint8_t			pending[128];
 	uint8_t			pendingPtr;
 };
 

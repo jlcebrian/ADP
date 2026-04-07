@@ -55,19 +55,21 @@ enum DMG_ImageFormat
 
 enum DMG_ImageMode
 {
-	ImageMode_Packed	  = 0x00,		// packed 16 bits, 2 colors per byte
-	ImageMode_PackedEGA   = 0x01,
-	ImageMode_PackedCGA   = 0x02,
-	ImageMode_RGBA32	  = 0x10,		// 4 bytes per pixel, little endian, 0xAARRGGBB format
-	ImageMode_RGBA32EGA	  = 0x11,
-	ImageMode_RGBA32CGA	  = 0x12,
-	ImageMode_PlanarST    = 0x20,       // Atari ST format (P0P0P1P1P2P2P3P3...)
-    ImageMode_Planar      = 0x24,       // One complete bitmap per plane 
-	ImageMode_Indexed	  = 0x40,		// 1 byte per pixel, regardless of color depth
-	ImageMode_IndexedEGA  = 0x41,
-	ImageMode_IndexedCGA  = 0x42,
-	ImageMode_Raw         = 0xFF,
-	ImageMode_Audio       = 0xFF,
+	ImageMode_Packed	        = 0x00,		// packed 16 bits, 2 colors per byte
+	ImageMode_PackedEGA         = 0x01,
+	ImageMode_PackedCGA         = 0x02,
+	ImageMode_RGBA32	        = 0x10,		// 4 bytes per pixel, little endian, 0xAARRGGBB format
+	ImageMode_RGBA32EGA	        = 0x11,
+	ImageMode_RGBA32CGA	        = 0x12,
+	ImageMode_PlanarST          = 0x20,     // Atari ST format (P0P0P1P1P2P2P3P3)
+	ImageMode_PlanarInterleaved = 0x21,     // Interleaved bitplanes (P0P1P2P3)
+	ImageMode_PlanarFalcon      = 0x22,     // Atari Falcon format (P0P0P1P1P2P2P3P3P4P4P5P5P6P6P7P7)
+    ImageMode_Planar            = 0x23,     // One complete bitmap per plane 
+	ImageMode_Indexed	        = 0x40,		// 1 byte per pixel, regardless of color depth
+	ImageMode_IndexedEGA        = 0x41,
+	ImageMode_IndexedCGA        = 0x42,
+	ImageMode_Raw               = 0xFF,
+	ImageMode_Audio             = 0xFF,
 };
 
 #define DMG_IS_INDEXED(mode) (((mode) & 0xF0) == 0x40)
@@ -132,6 +134,7 @@ typedef enum
     DMG_FLAG_PROCESSED     = 0x0010,
     DMG_FLAG_AMIPALHACK    = 0x0020,
     DMG_FLAG_CGAMODE       = 0x0040,
+	DMG_FLAG_PLANAR_MAJOR  = 0x0080,
 }
 DMG_FLAGS;
 
@@ -176,6 +179,7 @@ struct DMG_Cache
 	uint8_t     index;
 	bool        buffer;
 	bool        populated;
+	bool        processed;
 };
 
 struct DMG
@@ -201,6 +205,7 @@ struct DMG
 	uint32_t    fileCacheBlockSize;
 	uint8_t*    fileCacheBlocks[128];
 	uint32_t    fileCacheOffset;
+	uint32_t    fileCacheSize;
     uint8_t*    zx0Scratch;
     uint32_t    zx0ScratchSize;
     bool        zx0ScratchOwned;
@@ -210,6 +215,16 @@ struct DMG
 };
 
 extern DMG* dmg;
+
+#define OLD_RLE_ROUTINE_C 0
+#define OLD_RLE_ROUTINE_ST_ASM 1
+#define OLD_RLE_ROUTINE_ST_ASM_ORIGINAL_PROTO 2
+#define OLD_RLE_ROUTINE_ST_ASM_EXPERIMENTAL_PROTO 3
+#define OLD_RLE_ROUTINE_PLANAR_ASM 4
+
+#ifndef OLD_RLE_ROUTINE
+#define OLD_RLE_ROUTINE OLD_RLE_ROUTINE_PLANAR_ASM
+#endif
 
 DMG*		DMG_Open			   (const char* filename, bool readOnly);
 DMG*		DMG_OpenFromFile	   (File* file);
@@ -263,8 +278,6 @@ bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, ui
 bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* output, int pixels);
 uint8_t*    DMG_Planar8To16            (uint8_t* data, uint8_t* buffer, int length, uint32_t width);
 bool        DMG_UnpackBitplaneBytes    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
-bool        DMG_PackBitplaneBytes      (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
-bool        DMG_PackChunkyPixels       (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 bool        DMG_UnpackChunkyPixels     (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 
 bool        DMG_DecompressCGA          (const uint8_t* data, uint16_t dataLength, uint8_t* buffer, int width, int height);
@@ -274,12 +287,16 @@ bool        DMG_ReadPCXPalette         (const char* fileName, uint32_t* palette)
 bool        DMG_DecompressPCX          (const char* fileName, uint8_t* buffer, uint16_t* bufferSize, int* width, int* height, uint32_t* palette);
 #endif
 bool        DMG_DecompressOldRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
+bool        DMG_DecompressOldRLEToST   (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
+bool        DMG_DecompressOldRLEToST_COnly(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels);
+void        DMG_InitializeOldRLETables ();
 bool        DMG_DecompressNewRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);
 bool        DMG_DecompressNewRLEPlanar (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian);
 bool        DMG_DecompressZX0          (const uint8_t* data, uint32_t dataLength, uint8_t* buffer, uint32_t outputSize);
 uint8_t*    DMG_CompressZX0            (const uint8_t* data, uint32_t dataLength, uint32_t* outputSize);
 bool        DMG_Planar8ToPacked        (const uint8_t* data, uint16_t length, uint8_t* output, int pixels, uint32_t width);
 void        DMG_ConvertChunkyToPlanar  (uint8_t *buffer, uint32_t bufferSize, uint32_t width);
+bool        DMG_RepackClassicPlanar    (const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize);
 
 uint32_t    DMG_CalculateRequiredSize  (DMG_Entry* entry, DMG_ImageMode mode);
 

@@ -49,6 +49,14 @@ void BlitterCopy (
 	void* dst,  uint16_t dstX, uint16_t dstY, 
 	uint16_t w, uint16_t h, bool solid)
 {
+	BlitterCopyStride(src, SCR_STRIDEB, srcX, srcY, dst, SCR_STRIDEB, dstX, dstY, w, h, solid);
+}
+
+void BlitterCopyStride (
+	void* src,  uint16_t srcStrideBytes, uint16_t srcX, uint16_t srcY,
+	void* dst,  uint16_t dstStrideBytes, uint16_t dstX, uint16_t dstY,
+	uint16_t w, uint16_t h, bool solid)
+{
 	uint16_t startX[2] = {srcX, dstX};
 	uint16_t startXWord[2], endXWord[2], numWords[2], wordOffset[2];
 
@@ -62,8 +70,13 @@ void BlitterCopy (
 
 	uint16_t widthWords = MAX(numWords[0], numWords[1]);
 	int16_t  shift = (uint16_t)wordOffset[1] - (uint16_t)wordOffset[0];
-	uint16_t srcMod = SCR_STRIDEB - (widthWords * 2);
-	uint16_t dstMod = SCR_STRIDEB - (widthWords * 2);
+	uint16_t srcMod = srcStrideBytes - (widthWords * 2);
+	uint16_t dstMod = dstStrideBytes - (widthWords * 2);
+	bool fullWordAligned =
+		shift == 0 &&
+		wordOffset[0] == 0 &&
+		wordOffset[1] == 0 &&
+		(w & 0x0F) == 0;
 
 	bool descending = shift < 0;
 
@@ -71,10 +84,10 @@ void BlitterCopy (
 	uint16_t startYOffset = descending ? (h - 1) : 0;
 
 	uint32_t srcStart = (uint32_t)src +
-						((srcY + startYOffset) * SCR_STRIDEB) +
+						((srcY + startYOffset) * srcStrideBytes) +
 						((startXWord[0] + startXOffset) * 2);
 	uint32_t dstStart = (uint32_t)dst +
-						((dstY + startYOffset) * SCR_STRIDEB) +
+						((dstY + startYOffset) * dstStrideBytes) +
 						((startXWord[1] + startXOffset) * 2);
 
 	uint16_t leftMask = (uint16_t)(0xFFFFU << (wordOffset[0] + MAX(0, 0x10 - (wordOffset[0] + w)))) >> wordOffset[0];
@@ -86,6 +99,20 @@ void BlitterCopy (
 		rightMask = 0xFFFFU << MIN(0x10, ((startXWord[0] + widthWords) << 4) - (srcX + w));
 
 	WaitForBlitter();
+
+	if (solid && fullWordAligned)
+	{
+		custom->bltcon0 = BLTCON0_USEB | BLTCON0_USED | 0xCC;
+		custom->bltcon1 = descending ? BLTCON1_DESC : 0;
+		custom->bltbmod = srcMod;
+		custom->bltdmod = dstMod;
+		custom->bltafwm = 0xFFFF;
+		custom->bltalwm = 0xFFFF;
+		custom->bltbpt = (void*)srcStart;
+		custom->bltdpt = (void*)dstStart;
+		custom->bltsize = (h << BLTSIZE_H0_SHF) | widthWords;
+		return;
+	}
 
 	// A = Mask of bits inside copy region
 	// B = Source data

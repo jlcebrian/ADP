@@ -6,13 +6,17 @@
 #define DEBUG_IMAGE_CACHE 0
 #endif
 
+#ifndef DEBUG_FILE_CACHE
+#define DEBUG_FILE_CACHE 0
+#endif
+
 static uint32_t useCounter = 0;
 
 void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(uint16_t))
 {
 	uint32_t blockSize = freeMemory;
 
-#if DEBUG_IMAGE_CACHE
+#if DEBUG_FILE_CACHE
 	DebugPrintf("Setting up file cache (%ld bytes per alloc)\n", (long)blockSize);
 #endif
 
@@ -27,6 +31,7 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 	
 	dmg->fileCacheOffset = 0;
 	dmg->fileCacheBlockSize = 0;
+	dmg->fileCacheSize = 0;
     uint32_t fileCacheEnd = 0;
     bool haveBufferedRange = false;
 
@@ -67,7 +72,7 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 	if (blockSize > remaining || blockSize == 0)
 		blockSize = remaining;
 
-#if DEBUG_IMAGE_CACHE
+#if DEBUG_FILE_CACHE
 	DebugPrintf("File cache source range: offset=%lu size=%lu bytes\n",
 		(unsigned long)dmg->fileCacheOffset, (unsigned long)remaining);
 #endif
@@ -99,7 +104,7 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 
 		uint32_t amount = blockSize > remaining ? remaining : blockSize;
 		uint32_t blockOffset = dmg->fileCacheOffset + (cacheableSize - remaining);
-#if DEBUG_IMAGE_CACHE
+#if DEBUG_FILE_CACHE
 		DebugPrintf("File cache block %d: reading %lu bytes from file offset %lu\n",
 			n, (unsigned long)amount, (unsigned long)blockOffset);
 #endif
@@ -140,8 +145,9 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 			break;
 	}
 	dmg->fileCacheBlockSize = blockSize;
+	dmg->fileCacheSize = cacheableSize - remaining;
 
-#if DEBUG_IMAGE_CACHE
+#if DEBUG_FILE_CACHE
 	DebugPrintf("File cache allocated: %ld bytes x %ld block(s)\n", (long)blockSize, (long)(n+1));
 #endif
 }
@@ -153,6 +159,10 @@ void* DMG_GetFromFileCache(DMG* dmg, uint32_t offset, uint32_t size)
 	if (offset < dmg->fileCacheOffset)
 		return 0;
 	offset -= dmg->fileCacheOffset;
+	if (offset >= dmg->fileCacheSize)
+		return 0;
+	if (size > dmg->fileCacheSize - offset)
+		return 0;
 
 	int block = offset / dmg->fileCacheBlockSize;
 	uint32_t skip  = offset % dmg->fileCacheBlockSize;
@@ -184,7 +194,12 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 
 	// Minimum size for a non-compressed packed screen
 	if (bytes < 32768)
+	{
+		#if DEBUG_IMAGE_CACHE
+		DebugPrintf("Image cache skipped: requested size too small (%lu)\n", (unsigned long)bytes);
+		#endif
 		return false;
+	}
 
 	while (true)
 	{
@@ -270,7 +285,14 @@ bool DMG_RemoveOlderCacheItem (DMG* dmg, bool force)
 DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_t size)
 {
 	if (dmg->cache == 0)
+	{
+		#if DEBUG_IMAGE_CACHE
+		DebugPrintf("Image cache unavailable: index=%u required=%lu cacheSize=0\n",
+			(unsigned)index,
+			(unsigned long)size);
+		#endif
 		return 0;
+	}
 
 	if (dmg->cacheBitmap[index >> 3] & (1 << (index & 7)))
 	{
@@ -354,6 +376,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	item->index = index;
 	item->buffer = (entry->flags & DMG_FLAG_BUFFERED) != 0;
 	item->populated = false;
+	item->processed = false;
 
 	dmg->cacheFree -= required;
 #if DEBUG_IMAGE_CACHE

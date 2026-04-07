@@ -2,6 +2,10 @@
 
 #include "textdraw.h"
 
+#include <ddb_data.h>
+#include <ddb_scr.h>
+#include "video.h"
+
 #include <exec/memory.h>
 #include <proto/exec.h>
 
@@ -17,12 +21,9 @@ typedef void (*DrawCharacterSolidPatchedAsmFn)(uint8_t* out, const uint16_t* rot
 typedef void (*DrawCharacterTransparentPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in);
 
 static uint8_t* solidTextStubCode = 0;
-static DrawCharacterSolidPatchedAsmFn solidTextStub = 0;
 static const uint32_t solidTextStubSize = 0xE4;
-static uint8_t lastSolidInk = 0xFF;
-static uint8_t lastSolidPaper = 0xFF;
+static uint8_t lastSolidAttributes = 0xFF;
 static uint8_t* transparentTextStubCode = 0;
-static DrawCharacterTransparentPatchedAsmFn transparentTextStub = 0;
 static const uint32_t transparentTextStubSize = 0xD4;
 static uint8_t lastTransparentInk = 0xFF;
 
@@ -51,8 +52,7 @@ bool VID_InitializeTextDraw()
 		return false;
 	}
 
-	lastSolidInk = 0xFF;
-	lastSolidPaper = 0xFF;
+	lastSolidAttributes = 0xFF;
 	lastTransparentInk = 0xFF;
 
 	return true;
@@ -60,10 +60,7 @@ bool VID_InitializeTextDraw()
 
 void VID_FinishTextDraw()
 {
-	solidTextStub = 0;
-	transparentTextStub = 0;
-	lastSolidInk = 0xFF;
-	lastSolidPaper = 0xFF;
+	lastSolidAttributes = 0xFF;
 	lastTransparentInk = 0xFF;
 
 	if (transparentTextStubCode)
@@ -441,56 +438,75 @@ static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex)
 	return paperBit != 0 ? SolidPatchMode_OrMXorO : SolidPatchMode_And;
 }
 
-static bool BuildSolidTextStub(uint8_t ink, uint8_t paper)
+void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
 {
-	if (solidTextStubCode == 0)
-		return false;
-	if (lastSolidInk != ink || lastSolidPaper != paper)
-	{
-		if (!EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper))
-			return false;
-		lastSolidInk = ink;
-		lastSolidPaper = paper;
-	}
-	solidTextStub = (DrawCharacterSolidPatchedAsmFn)solidTextStubCode;
-	return true;
-}
+	if (length == 0 || text == 0)
+		return;
+	if (rotationTable == 0 || charsetWords == 0)
+		return;
 
-static bool BuildTransparentTextStub(uint8_t ink)
-{
-	if (transparentTextStubCode == 0)
-		return false;
-	if (lastTransparentInk != ink)
-	{
-		if (!EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink))
-			return false;
-		lastTransparentInk = ink;
-	}
-	transparentTextStub = (DrawCharacterTransparentPatchedAsmFn)transparentTextStubCode;
-	return true;
-}
-
-bool VID_DrawCharacterSolidPatched(uint8_t* out, const uint16_t* rotation, const uint8_t* in, uint16_t cover, uint8_t ink, uint8_t paper)
-{
+	uint8_t* dst = (charToBack ^ displaySwap) ? backBuffer : frontBuffer;
+	uint8_t* out = dst + y * SCR_STRIDEB + (x >> 3);
+	uint16_t shift = (uint16_t)(x & 0x07);
 	ink &= 0x0F;
+
+	if (paper == 255)
+	{
+		if (lastTransparentInk != ink)
+		{
+			EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink);
+			lastTransparentInk = ink;
+		}
+		
+		for (uint16_t n = 0; n < length && x < screenWidth; n++)
+		{
+			uint8_t ch = text[n];
+			uint8_t width = charWidth[ch];
+
+			const uint16_t* rotation = rotationTable + (shift << 8);
+			const uint8_t* glyph = charset + 8 * ch;
+			((DrawCharacterTransparentPatchedAsmFn)transparentTextStubCode)(out, rotation, glyph);
+
+			x += width;
+			shift += width;
+			out += shift >> 3;
+			shift &= 0x07;
+		}
+		return;
+	}
+
 	paper &= 0x0F;
+	uint8_t attributes = (paper << 4) | ink;
+	if (lastSolidAttributes != attributes)
+	{
+		EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper);
+		lastSolidAttributes = attributes;
+	}
 
-	if (!BuildSolidTextStub(ink, paper))
-		return false;
+	for (uint16_t n = 0; n < length && x < screenWidth; n++)
+	{
+		uint8_t ch = text[n];
+		uint8_t width = charWidth[ch];
 
-	solidTextStub(out, rotation, in, cover);
-	return true;
+		const uint16_t* rotation = rotationTable + (shift << 8);
+		const uint8_t* glyph = charset + 8 * ch;
+		const uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
+		const uint16_t cover = rotation[widthMask8];
+		((DrawCharacterSolidPatchedAsmFn)solidTextStubCode)(out, rotation, glyph, cover);
+
+		x += width;
+		shift += width;
+		out += shift >> 3;
+		shift &= 0x07;
+	}
 }
 
-bool VID_DrawCharacterTransparentPatched(uint8_t* out, const uint16_t* rotation, const uint8_t* in, uint8_t ink)
+// Slow path
+
+void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
-	ink &= 0x0F;
-
-	if (!BuildTransparentTextStub(ink))
-		return false;
-
-	transparentTextStub(out, rotation, in);
-	return true;
+	uint8_t text[2] = { ch, 0 };
+	VID_DrawTextSpan(x, y, text, 1, ink, paper);
 }
 
 #endif

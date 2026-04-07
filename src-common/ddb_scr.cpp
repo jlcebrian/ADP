@@ -106,6 +106,22 @@ void SCR_DrawCharacter(int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 	}
 }
 
+void SCR_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
+{
+	if (buffering)
+	{
+		for (uint16_t n = 0; n < length; n++)
+		{
+			SCR_DrawCharacter(x, y, text[n], ink, paper);
+			x += charWidth[text[n]];
+		}
+	}
+	else
+	{
+		VID_DrawTextSpan(x, y, text, length, ink, paper);
+	}
+}
+
 bool SCR_SampleExists(uint8_t sample)
 {
 	return VID_SampleExists(sample);

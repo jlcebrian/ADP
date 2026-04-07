@@ -19,6 +19,7 @@ extern void   VID_ClearBuffer         (bool front);
 extern void   VID_DisplayPicture      (int x, int y, int w, int h, DDB_ScreenMode screenMode);
 extern bool   VID_DisplaySCRFile      (const char* fileName, DDB_Machine target);
 extern void   VID_DrawCharacter       (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper);
+extern void   VID_DrawTextSpan        (int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper);
 extern void   VID_DrawText            (int x, int y, const char* text, uint8_t ink, uint8_t paper);
 extern void   VID_GetKey              (uint8_t* key, uint8_t* ext, uint8_t* modifiers);
 extern void   VID_GetMilliseconds     (uint32_t* time);

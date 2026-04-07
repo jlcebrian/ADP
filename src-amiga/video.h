@@ -3,7 +3,10 @@
 #include <os_types.h>
 
 extern uint8_t* plane[8];
+extern uint8_t* frontBuffer;
+extern uint8_t* backBuffer;
 extern uint16_t (*charsetWords)[256][8];
+extern uint16_t* rotationTable;
 
 const uint32_t TEXT_PLANES  = 4;
 const uint32_t MAX_PLANES   = 8;
@@ -33,6 +36,8 @@ extern void VID_ActivatePalette();
 extern void VID_PresentDefaultScreen();
 
 extern bool isPAL;
+extern bool displaySwap;
+extern bool charToBack;
 extern bool systemTaken;
 extern bool interruptsTaken;
 
@@ -46,6 +51,11 @@ void FreeSystem();
 void BlitterCopy (
 	void* src, uint16_t srcX, uint16_t srcY, 
 	void* dst, uint16_t dstX, uint16_t dstY, 
+	uint16_t w, uint16_t h, bool solid);
+
+void BlitterCopyStride (
+	void* src, uint16_t srcStrideBytes, uint16_t srcX, uint16_t srcY,
+	void* dst, uint16_t dstStrideBytes, uint16_t dstX, uint16_t dstY,
 	uint16_t w, uint16_t h, bool solid);
 
 void BlitterLine(void* dst, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
