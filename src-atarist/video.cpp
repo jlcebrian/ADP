@@ -6,6 +6,8 @@
 #include <os_char.h>
 #include <os_mem.h>
 
+#include "textdraw.h"
+
 #ifdef _ATARIST
 
 #include <stdio.h>
@@ -45,7 +47,7 @@ bool supportsOpenFileDialog = false;
 #endif
 
 static uint16_t* screen = 0;
-static uint16_t* textScreen = 0;
+uint16_t* textScreen = 0;
 static uint16_t* frontBuffer = 0;
 static uint16_t* backBuffer = 0;
 static uint8_t   backBufferMemory[32768];
@@ -300,8 +302,14 @@ void VID_ClearBuffer (bool front)
 	MemClear(ptr, 32000);
 }
 
+void VID_ClearAllPlanes (int x, int y, int w, int h, uint8_t color)
+{
+	VID_Clear(x, y, w, h, color);
+}
+
 void VID_Finish ()
 {
+	VID_FinishTextDraw();
 	ShowCursor();
 }
 
@@ -365,22 +373,28 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 	Setcolor(color, v);
 }
 
+void VID_ActivatePalette()
+{
+	Vsync();
+	for (int n = 0; n < 16; n++)
+		Setcolor(n, colors[n]);
+}
+
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 {
-	// Special case: handle ST directly
 	if (target == DDB_MACHINE_ATARIST)
 	{
 		uint16_t palette[16];
 		File* file = File_Open(fileName);
 		if (!file) return false;
-		for (int n = 0; n < 16; n++) 
+		for (int n = 0; n < 16; n++)
 			VID_SetPaletteColor16(n, 0);
 		Vsync();
 		File_Seek(file, 2);
 		File_Read(file, palette, 32);
 		File_Read(file, screen, 32000);
 		File_Close(file);
-		for (int n = 0; n < 16; n++) 
+		for (int n = 0; n < 16; n++)
 			VID_SetPaletteColor16(n, palette[n]);
 		return true;
 	}
@@ -390,13 +404,13 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 	uint8_t* buffer = Allocate<uint8_t>("Temporary SCR buffer", 32768);
 	size_t bufferSize = 32768;
 
-	if (SCR_GetScreen(fileName, target, buffer, bufferSize, 
+	if (SCR_GetScreen(fileName, target, buffer, bufferSize,
 	                  output, 320, 200, palette))
 	{
 		uint32_t *out = (uint32_t*)screen;
 		uint8_t *in = output;
 
-		for (int n = 0; n < 16; n++) 
+		for (int n = 0; n < 16; n++)
 			VID_SetPaletteColor(n, 0, 0, 0);
 		Vsync();
 
@@ -409,7 +423,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 
 			do
 			{
-				const uint8_t  c = *in++;
+				const uint8_t c = *in++;
 				if (c & 0x01) p0 |= mask1;
 				if (c & 0x02) p0 |= mask0;
 				if (c & 0x04) p1 |= mask1;
@@ -422,16 +436,16 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 			*out++ = p0;
 			*out++ = p1;
 		}
-		
+
 		Vsync();
-		for (int n = 0; n < 16; n++) 
+		for (int n = 0; n < 16; n++)
 		{
 			uint8_t r = (palette[n] >> 16) & 0xFF;
 			uint8_t g = (palette[n] >>  8) & 0xFF;
 			uint8_t b = (palette[n]      ) & 0xFF;
 			VID_SetPaletteColor(n, r, g, b);
 		}
-		
+
 		Free(buffer);
 		Free(output);
 		return true;
@@ -440,50 +454,6 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 	Free(buffer);
 	Free(output);
 	return false;
-}
-
-void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
-{
-	uint8_t width = charWidth[ch];
-	if (width == 0)
-		return;
-	if (width > 8)
-		width = 8;
-
-	const uint8_t* data = charset + 8 * ch;
-	uint16_t wordOffset = (uint16_t)(x >> 4);
-	uint8_t shift = (uint8_t)(x & 0x0F);
-	uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
-	uint32_t coverBits = ((uint32_t)widthMask8 << 24) >> shift;
-	uint16_t cover0 = (uint16_t)(coverBits >> 16);
-	uint16_t cover1 = (uint16_t)coverBits;
-
-	for (int row = 0; row < 8; row++)
-	{
-		uint16_t* out = textScreen + 80 * (y + row) + 4 * wordOffset;
-		uint32_t glyphBits = ((uint32_t)(data[row] & widthMask8) << 24) >> shift;
-		uint16_t bits0 = (uint16_t)(glyphBits >> 16);
-		uint16_t bits1 = (uint16_t)glyphBits;
-
-		for (int planeIndex = 0; planeIndex < 4; planeIndex++)
-		{
-			uint16_t inkMask = (ink & (1 << planeIndex)) ? 0xFFFF : 0x0000;
-			uint16_t paperMask = (paper != 255 && (paper & (1 << planeIndex))) ? 0xFFFF : 0x0000;
-
-			if (paper == 255)
-			{
-				out[planeIndex] = (out[planeIndex] & ~bits0) | (bits0 & inkMask);
-				if (cover1 != 0)
-					out[planeIndex + 4] = (out[planeIndex + 4] & ~bits1) | (bits1 & inkMask);
-			}
-			else
-			{
-				out[planeIndex] = (out[planeIndex] & ~cover0) | (bits0 & inkMask) | ((cover0 & ~bits0) & paperMask);
-				if (cover1 != 0)
-					out[planeIndex + 4] = (out[planeIndex + 4] & ~cover1) | (bits1 & inkMask) | ((cover1 & ~bits1) & paperMask);
-			}
-		}
-	}
 }
 
 void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
@@ -960,6 +930,8 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 	memset(frontBuffer, 0, 32000);
 	memset(backBuffer, 0, 32000);
 	VID_UpdateScreenPointers();
+	if (!VID_InitializeTextDraw())
+		return false;
 	VID_SetDefaultPalette();
 
 	HideCursor();

@@ -8,9 +8,19 @@ OBJDUMP  = $(PREFIX)objdump
 NM       = $(PREFIX)nm
 VASM     = vasmm68k_mot
 LIBCMINI ?= $(HOME)/libcmini
-UPXFLAGS ?= -q --best --lzma
+UPX ?= 1
+UPXFLAGS ?= -q -5
+OUTDIR := out/atarist
+TARGET := $(OUTDIR)/ad.prg
+DUMP := $(OUTDIR)/player.dump
 
-CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE
+ifeq ($(UPX),1)
+PACK_CMD = upx $(UPXFLAGS) $(TARGET) >/dev/null
+else
+PACK_CMD = true
+endif
+
+CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -Os -fomit-frame-pointer -fno-rtti -fno-exceptions
@@ -22,7 +32,7 @@ LIBS += -L$(LIBCMINI)/lib -lcmini -lgcc -lgem
 
 VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -quiet -x 
 
-all: out/ad.prg
+all: $(TARGET)
 
 DIRS = src-common/ src-atarist/
 VPATH = $(DIRS)
@@ -30,23 +40,33 @@ SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS)))
 
 CPPFILES := 		\
 	ddb_data.cpp	\
+	ddb_draw.cpp	\
+	ddb_dump.cpp	\
 	ddb_inp.cpp		\
 	ddb_pal.cpp		\
 	ddb_play.cpp	\
 	ddb_run.cpp		\
+	ddb_scr.cpp		\
+	ddb_snap.cpp	\
 	ddb_vid.cpp		\
 	ddb.cpp			\
 	dmg_cach.cpp	\
 	dmg_cga.cpp		\
 	dmg_ega.cpp		\
+	dmg_imgc.cpp	\
 	dmg_imgp.cpp	\
 	dmg_rlec.cpp	\
+	dmg_rleo.cpp	\
+	dmg_rleop.cpp	\
+	dmg_univ.cpp	\
+	dmg_zx0.cpp	\
 	dmg.cpp			\
 	os_char.cpp 	\
 	os_lib.cpp		\
 	os_mem.cpp		\
 	os_file.cpp		\
 	scrfile.cpp		\
+	textdraw.cpp	\
 	files.cpp		\
 	player.cpp		\
 	video.cpp
@@ -57,27 +77,27 @@ ASMFILES :=			\
 CPPOBJS := $(patsubst %.cpp,obj/atarist/%.o,$(CPPFILES))
 ASMOBJS := $(patsubst %.asm,obj/atarist/%.o,$(ASMFILES))
 
-out/ad.prg: $(CPPOBJS) $(ASMOBJS)
+$(TARGET): $(CPPOBJS) $(ASMOBJS) | $(OUTDIR)
 	$(CXX) $(LDFLAGS) $(CPPFLAGS) -o $@ $^ $(LIBS)
-	$(OBJDUMP) -S $@ > out/player.dump
-	echo >> out/player.dump
-	echo ------------------------------------------------ >> out/player.dump
-	echo >> out/player.dump
+	$(OBJDUMP) -S $@ > $(DUMP)
+	echo >> $(DUMP)
+	echo ------------------------------------------------ >> $(DUMP)
+	echo >> $(DUMP)
 	$(STRIP) -x $@
-	$(NM) --numeric-sort --print-size $@ >> out/player.dump
-	echo >> out/player.dump
-	echo ------------------------------------------------ >> out/player.dump
-	echo >> out/player.dump
-	$(NM) --print-size --size-sort --radix=d $@ >> out/player.dump
+	$(NM) --numeric-sort --print-size $@ >> $(DUMP)
+	echo >> $(DUMP)
+	echo ------------------------------------------------ >> $(DUMP)
+	echo >> $(DUMP)
+	$(NM) --print-size --size-sort --radix=d $@ >> $(DUMP)
 	$(STRIP) $@
-	upx $(UPXFLAGS) $@ >/dev/null
-	#@cd out && dsk /mnt/f/templos.st add ad.prg
-	#@cd out && dsk /mnt/f/cozumel.st add ad.prg
-	#@cd out && dsk /mnt/f/original.st add ad.prg
-	#@cd out && dsk /mnt/f/chichen.st add ad.prg
+	$(PACK_CMD)
+	@cd out && ./dsk atarist/original.st add atarist/ad.prg
+
+$(OUTDIR):
+	mkdir -p $@
 
 clean:
-	rm -f obj/atarist/*.o out/ad.prg
+	rm -f obj/atarist/*.o $(TARGET) $(DUMP)
 
 -include $(CPPOBJS:.o=.d)
 

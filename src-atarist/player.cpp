@@ -17,6 +17,7 @@
 
 static uint32_t ret;
 static uint16_t defaultPalette[16];
+static uint16_t savedConterm;
 
 static void init()
 {
@@ -24,10 +25,9 @@ static void init()
 	for (int n = 0; n < 16; n++)
 		defaultPalette[n] = Setcolor(n, -1);
 
-#ifndef NO_SAMPLES
-	// Disable key click, keep key repeat
-	*conterm = 2;
-#endif
+	// Disable the TOS key click but preserve repeat and other console flags.
+	savedConterm = *conterm;
+	*conterm = (uint16_t)(savedConterm & ~1u);
 }
 
 static void quit()
@@ -36,6 +36,7 @@ static void quit()
 	memset(Physbase(), 0, 32000);
 	for (int n = 0; n < 16; n++)
 		Setcolor(n, defaultPalette[n]);
+	*conterm = savedConterm;
 
 	Super(ret);
 	Pterm(0);
