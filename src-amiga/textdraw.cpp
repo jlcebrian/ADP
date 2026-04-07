@@ -454,7 +454,8 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	{
 		if (lastTransparentInk != ink)
 		{
-			EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink);
+			if (!EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink))
+				return;
 			lastTransparentInk = ink;
 		}
 		
@@ -479,7 +480,8 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	uint8_t attributes = (paper << 4) | ink;
 	if (lastSolidAttributes != attributes)
 	{
-		EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper);
+		if (!EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper))
+			return;
 		lastSolidAttributes = attributes;
 	}
 

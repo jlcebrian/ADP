@@ -339,6 +339,7 @@ static bool DMG_DecompressOldRLEToNativeAmiga(const DMG_Entry* entry, DMG* dmg,
 {
 	const uint8_t* oldRLEData = fileData + 2;
 	uint32_t prototypePackedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * 4;
+	uint32_t prototypePixels = prototypePackedSize * 2;
 	if (prototypePackedSize > requiredSize)
 	{
 		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
@@ -358,7 +359,7 @@ static bool DMG_DecompressOldRLEToNativeAmiga(const DMG_Entry* entry, DMG* dmg,
 		return false;
 	}
 
-	if (!DecompressOldRLEToPlanar8Asm(oldRLEData, entry->length - 2, oldRLEOutput, requiredSize * 2, mask))
+	if (!DecompressOldRLEToPlanar8Asm(oldRLEData, entry->length - 2, oldRLEOutput, prototypePixels, mask))
 	{
 		DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 		return false;

@@ -4,7 +4,7 @@
 
 VERSION ?= BETA0.3
 DEBUG_MEMORY ?= 0
-DEBUGPRINT ?= 0
+DEBUGPRINT ?= 1
 DEBUG_ALLOCS ?= 0
 
 ifdef OS
@@ -44,8 +44,8 @@ ELF_DUMP = $(OUT).objdump
 CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
 OBJDUMP = m68k-amiga-elf-objdump
-#SHRINKLER = Shrinkler
-SHRINKLER = cranker -q 
+# SHRINKLER = Shrinkler -1
+SHRINKLER = cranker -q  
 DSK = out/dsk
 
 ifdef WINDOWS
