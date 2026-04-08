@@ -1,5 +1,30 @@
 # What's new?
 
+## ADP 0.3
+
+### All versions
+
+* **NEW:** Added a new DAT5 graphics database format, which adds support for 32 and 256 color modes.
+* **NEW:** Added support for proportional SINTAC fonts.
+
+### Desktop & web versions
+
+* **NEW:** Added support for PAWS databases.
+* **NEW:** Added support for 8-bit databases and snapshots, including Spectrum, CPC, MSX and C64 games.
+* **NEW:** Added support for vector graphics / DRAWSTRING pictures for 8-bit databases.
+* **NEW:** Added support for PC DAAD (MS-DOS VGA) games with external PCX images.
+* **NEW:** Added transcript and input file support.
+
+### Amiga
+
+* **NEW:** Added 32 color support through the new DAT5 databases
+* **NEW:** Added 256 color support (AGA machines only).
+* Improved stability and performance.
+
+### Atari ST
+
+* Improved stability and performance.
+
 ## ADP 0.2
 
 ### All versions

@@ -7,7 +7,7 @@
 https://www.adventure-player.com
 </p>
 
-(Note: there is an [English version](README.md) of this file!)
+(Note: there is an [English version](README.txt) of this file!)
 
 El **DAAD** es un sistema de autoría de juegos diseñado para escribir
 aventuras de texto portables a una amplia variedad de ordenadores
@@ -22,12 +22,25 @@ de **Aventuras AD**. En este sentido, se soportan todos los condactos
 originales, incluyendo GFX y SFX, y características tales como
 sonido, animación, doble búfer, o cambios de paleta de color.
 
+Actualmente, ADP soporta tanto las versiones de 16 bits de las
+aventuras (Amiga, Atari ST y PC) como las de 8 bits (Spectrum,
+CPC, MSX, C64 y PCW).
+
+El soporte para las versiones de 8 bits es experimental y aún
+presenta diversos problemas de compatibilidad. También se ha
+añadido soporte experimental para aventuras PAWS. PAWS es una
+herramienta de autoría anterior, creada por Tim Gilberts y
+Graeme Yeandle para ZX Spectrum.
+
 Notablemente, el intérprete cuenta también con versiones para
 Amiga, Atari ST y MS-DOS, por lo que puede sustituir directamente
 a los intérpretes originales para máquinas de 16 bits.
 
 El intérprete puede ejecutarse también en un entorno web, gracias
 a la herramienta Emscripten.
+
+ADP soporta actualmente las extensiones DAAD V3 desarrolladas por
+Carlos Sánchez (Uto) y disponibles en su distribución DAAD Ready.
 
 ### ¿Por qué otro intérprete?
 
@@ -77,9 +90,6 @@ Para ejecutar a una de las versiones de las aventuras de AD,
 basta pues con copiar el ejecutable PLAYER a un directorio
 donde se haya extraido una de las mismas y ejecutarlo allí.
 
-En ocasiones, obtener los ficheros de un aventura no es tarea
-sencilla, pues pueden estar dentro de una imagen de disco tipo
-.ADF, .ST o .IMG y es preciso usar alguna herramienta externa.
 En general, una aventura completa necesita los siguientes ficheros,
 todos ellos con el mismo nombre:
 
@@ -89,6 +99,7 @@ todos ellos con el mismo nombre:
 				Según la versión, puede ser también .EGA o .CGA.
 	*.CHR       Fichero con el juego de caracteres de la aventura.
 				Para ST, habrá también (o en su lugar) un .CH0.
+	*.FNT       Fuente proporcional (si existe, se usará en lugar del .CHR)
 	*.SCR       Pantalla de presentación (normalmente,
 				solo de la primera parte de la aventura).
 ```
@@ -115,42 +126,30 @@ simplemente mostrará gráficos con menos colores.
 Ambos intérpretes funciona sobre modelos base con 512K de RAM,
 pero en caso de contar con RAM adicional, la usarán durante
 el proceso de carga como caché para los gráficos del juego
-(a costa de hacer la carga inicial más lenta). Al igual que 
-los intérpretes originales, están diseñados para ejecutarse
-directamente sobre disquette.
+(a costa de hacer la carga inicial más lenta).
 
-El arranque inicial es más lento que en los intérpetes
-originales, porque examinan el contenido del disquette para
-reconocer el número de partes del juego. Originalmente,
-los intérpretes venían pre-compilados para un número de
-partes exacto y no necesitaban esta operación, que resulta
-especialmente lenta en Amiga.
+En Amiga, los juegos de 256 colores requieren una máquina
+AGA y no funcionarán en OCS/ECS.
 
 ## Compatibilidad
 
-El intérprete soporta las versiones 1 y 2 del DAAD, en
-cualquiera de sus versiones de 16 bits (PC, Atari o Amiga).
-Esto se aplica a todas las versiones del intérprete, por lo que
-es posible jugar a la versión de PC/CGA en Atari, a la versión
-de Amiga en PC, o cualquier otra combinación que queramos.
+Las versiones de Amiga y Atari ST, a diferencia de las de
+escritorio o web, están pensadas para ejecutar aventuras
+del ordenador correspondiente. Desde la versión 0.3 ya no
+intentan ejecutar versiones CGA/EGA en ST/Amiga, para reducir
+el tamaño del ejecutable y mejorar la practicidad.
+
+ADP soporta las versiones 1, 2 y 3 del DAAD.
 
 El soporte de la versión 1 en particular es, y seguirá siendo,
 incompleto. No se ha conservado esta versión del DAAD y el
 actual soporte se ha obtenido mediante ingenería inversa de
 las versiones Atari ST de la Aventura Original y Jabato.
 
-Esencialmente, el intérprete debería poder ejecutar cualquier
-aventura de 16 bits de Aventuras AD tal como fue distribuido
-originalmente, y también cualquier .DDB de 16 bits generado
-con las herramientas disponibles actualmente.
-
-Hay un punto de incompatibilidad entre versiones, y es que los
-ficheros .SCR de Amiga y ST son incompatibles entre sí, sin
-una forma clara de distinguir entre ellos. Si el fichero .DDB
-está marcado con la versión correcta (Amiga o Atari), el
-intérprete podría mostrarla bien, pero en ocasiones la versión
-de Amiga se distribuye con el mismo .DDB que la de Atari, lo
-puede provocar que la pantalla de presentación salga corrupta.
+Las versiones de escritorio y web soportan imágenes de disco
+(.ADF, .DSK) e intentarán encontrar dentro la base de datos y
+los ficheros auxiliares. Este soporte es experimental y espera
+imágenes bien formadas, sin protección de copia ni rarezas.
 
 ## Cambios respecto al DAAD original
 
@@ -184,10 +183,12 @@ Y finalmente, la tecla ESC borra la línea entera.
 
 ### SONIDO DE PULSACIÓN DE TECLA
 
-Originalmente, solo la versión de Atari ST contaba con esta
-funcionalidad. El intérprete actual lo incluye, aunque por
-defecto usa un sonido diferente. F10 durante la entrada
-de texto permite desactivarlo o cambiarlo.
+Las versiones de escritorio y web soportan sonido de pulsación
+de tecla. F10 durante la entrada de texto permite desactivarlo
+o cambiar la muestra usada.
+
+Este soporte se ha eliminado de los reproductores de Amiga y
+Atari ST para reducir el tamaño del ejecutable.
 
 ### SAVE/LOAD
 
@@ -259,9 +260,32 @@ Esta lista es susceptible de cambiar en el futuro,
 pero su principal utilidad es hacer los juegos de
 Aventuras AD más jugables.
 
+## Cómo compilar ADP a partir del código fuente
+
+Debido a las múltiples plataformas soportadas, actualmente **ADP** 
+se compila con Makefiles, por lo que es posible que tengas que 
+instalar manualmente algunas dependencias.
+
+El proceso generará varias herramientas de línea de comandos que 
+aún están en desarrollo y no forman parte de la distribución:
+
+* 	DMG: una herramienta para inspeccionar, extraer, crear y modificar
+	ficheros de base de datos gráfica, incluyendo el nuevo formato
+	DAT 5 exclusivo de ADP. Necesaria para aprovechar el soporte de 32
+	o 256 colores de ADP para tus aventuras.
+
+*	CHR: una herramienta para convertir ficheros de tipos de letra a PNG
+	y de vuelta una vez editados. Puede usarse para personalizar la fuente
+	del juego, pues soporta el nuevo formato proporcional SINTAC de PC DAAD.
+
+*	DSK: una herramienta para crear, modificar e inspeccionar ficheros
+	dentro de imágenes de disco de los ordenadores soportados (disquetes
+	FAT de MS-DOS / ST, ficheros ADF de Amiga, e imágenes PCM para PCW
+	y otros ordenadores de 8 bits).
+
 ## Cómo colaborar con ADP
 
-La versión en inglés de este fichero, [README.md](README.md),
+La versión en inglés de este fichero, [README.txt](README.txt),
 contiene instrucciones detalladas para compilar el programa
 a partir de su código fuente.
 

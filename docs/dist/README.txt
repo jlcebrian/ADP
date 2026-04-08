@@ -7,7 +7,7 @@
 https://www.adventure-player.com
 </p>
 
-(Note: there is a [Spanish version](LEEME.md) of this file!)
+(Note: there is a [Spanish version](LEEME.txt) of this file!)
 
 **DAAD** was an authoring tool designed to write text adventure
 games targetting a number of early 90's home computers. It was 
@@ -17,13 +17,21 @@ developed by Tim Gilberts for the Spanish company **Aventuras AD**.
 adventures made in **DAAD** in modern platforms, with special
 care to support all the features present in games by **Aventuras AD**,
 including palette manipulation, double buffer, and digital sound.
-It currently runs the 16-bits versions of the adventures (Amiga,
-Atari ST and PC) with 8-bit version support planned for later.
+It currently runs both the 16-bits versions of the adventures (Amiga,
+Atari ST and PC) and 8-bit versions (Spectrum, CPC, MSX, C64 and PCW).
+
+The 8-bit version support is experimental and it still has a number
+of compatibility issues. Experimental support has also been added 
+for PAWS adventures. PAWS is an earlier authoring tool by Tim 
+Gilberts and Graeme Yeandle for the ZX Spectrum.
 
 In addition to modern platforms, the ADP interpreter has been
 ported natively to Amiga, Atari ST, and MS-DOS, so it can be
 used as a direct replacement for the original interpreters.
 There is also Emscripten support to embed games in a web page.
+
+ADP currently supports DAAD V3 extensions developed by Carlos
+Sánchez (Uto) and available through his DAAD Ready distribution.
 
 ### Disclaimer
 
@@ -47,12 +55,13 @@ be present in the same folder and with the same name as the DDB:
 		.DDB		Adventure game database
 		.DAT		Graphics database (it can also be .EGA or .CGA)
 		.CHR		Character set (it can also be .CH0 for ST)
+		.FNT		Proportional fonts (used instead of .CHR if present)
 		.SCR		Loading/splash screen (it can also be .EGS, .CGS or .VGS)
 ```
 
 PLAYER simply will run any DDB file it finds in the same folder as
 itself. If multiple DDB files are present in that folder, it will
-request for a 'part #' to the user.
+request for a 'part N' to the user.
 
 When running a game which includes EGA/CGA versions, the specific
 version to run can be specified running PLAYER EGA or PLAYER CGA.
@@ -82,39 +91,26 @@ Both versions will run in base computers with 512K of RAM,
 but any extra RAM found will be used as a cache to speed
 up the loading of images from disk.
 
-As the time of writing this file, both versions are still
-missing digital sample playback support and multiple disk
-distributions (where a multiple part game includes all its
-DDB files in the first disk, but the DAT graphic databases
-are in another disk, making the loader prompt when needed).
+In Amiga, 256 color games require an AGA machine and will
+refuse to run under OCS/ECS.
 
 ## Compatibility
 
-Currently, **ADP** only supports DDB databases compiled for Amiga,
-Atari ST, or IBM PC. Support for additional platforms will be
-coming in a future release.
+Unlike the desktop or web version, the Amiga/Atari ST ones
+are designed to play adventures made for that specific
+computer (so, for example, you can't play CGA/EGA games
+in ST/Amiga). This was changed in version 0.3 in order to
+reduce the EXE size and leave a bit more disk spare room
+and was also not very practical due to bad performance.
 
-At the moment, English databases are completely untested.
-They should work fine, but there may be issues with parsing.
-Bug reports are always welcome.
-
-**ADP** supports both versions 1 and 2 of **DAAD**. Keep in mind that
+**ADP** supports versions 1, 2 and 3 of **DAAD**. Keep in mind that
 no version 1 of the compiler survives, so compatibility will be
 reduced to the existing commercial games (Aventura Original, Jabato).
 
-All **ADP** versions support all target platforms. That means you
-can play PC/EGA versions of games in Atari ST, for example. However,
-performance won't be great, since an optimized image decompressor
-has been provided only for native version 2 .DAT files. This can also
-introduce a few caveats. For example, in some games we've found Amiga 
-versions using DDB files marked for Atari ST. This could produce a 
-corrupted splash screen, although the player will try to guess the 
-correct environment in those cases.
-
-At the moment, disk image files (.ADF, .DSK) are not supported, so
-if you have any Amiga/ST/PC games in that format, you'll have to
-extract the game files first, using an external tool. Direct image
-support is planned for a future release.
+Desktop/web version support disk image files (.ADF, .DSK) and
+will try to find the database and support files inside. This
+support is experimental and expects well formed images without
+copy protection or other shenanigans.
 
 ## Changes and new features
 
@@ -142,10 +138,11 @@ and the ESC key to clear the entire line.
 
 ### Keypress sound
 
-The Atari ST version has keypress 'click' sound by default, so
-this has been implemented for any **ADP** versions which
-supports digital sample playback. Two samples are provided. 
-Press F10 to toggle the key sound or turn it off.
+Desktop/web versions support keypress 'click' sounds. Press
+F10 to toggle the key sound sample or turn it off.
+
+That support has been removed from Atari ST/Amiga players
+to reduce the size of the executable (and be less annoying).
 
 ### SAVE/LOAD
 
@@ -158,7 +155,7 @@ When WHATO does not produce a suitable object, but there is
 an adjective in the user provided phrase (but no noun, and
 no unknown words), WHATO will try to resolve the phrase
 identifying the required object just with the adjective.
-This is an experimental change which makes Templos Sagrados
+This is experimental change which makes Templos Sagrados
 more playable, and it may disappear in a future release.
 
 ### PICTURE
@@ -174,8 +171,8 @@ and clipping windows.
 so you can potentially produce animations with multiple
 pictures. PICTURE will return immediatelly if the intended
 picture is already in RAM. The size of the internal buffer
-varies, but it is guaranteed to be big enough for half
-a screen of pictures.
+varies, but it is guaranteed to be big enough for a full
+screen of pictures.
 
 ### Forced delays
 
@@ -203,7 +200,20 @@ your part in order to install the required dependencies.
 
 Note that the compilation will produce a number of command line tools 
 that are not part of the **ADP** distribution (yet). Those tools are
-a work in progress and are not yet ready to use.
+a work in progress. They include:
+
+* 	DMG: a tool to inspect, extract, create and modify graphic database
+	files, including support for the new DAT 5 format exclusive of ADP.
+	If you are an adventure author and want to take advantage of ADP's
+	32 and 256 colors support, you'd need to use this tool to author them.
+
+*	CHR: a tool to convert charset/font files from/to editable PNGs.
+	You can use this tool to customize the font of your game. It supports
+	the new proportional SINTAC format from PC DAAD.	
+
+*	DSK: a tool to create, modify and inspect files from disk images
+	for the supported computers (MS-DOS/ST FAT diskettes, Amiga ADF
+	files, and PCM disk images for PCW and other 8 bit computers).
 
 ### Windows
 
@@ -228,10 +238,11 @@ a C++ compiler of your choice, and GNU Make.
 For OSX, I'd recommend installing the required dependencies using
 Homebrew, alongside the Xcode command line tools.
 
-Once the requirements are meet, simply compily using Makefile-unix:
+Once the requirements are meet, simply compily using Makefile-linux or
+Makefile-osx depending on your platform:
 
 ```
-$ make -f Makefile-unix
+$ make -f Makefile-linux
 ```
 
 ### Emscripten (web port)
@@ -268,7 +279,7 @@ This version requires a recent version of
 a fork of the legendary Watcom C/C++ compiler with support for a
 more modern C++ language and standard libraries (and many fixes).
 
-Run OWSETENV.bat and build with:
+Run OWSETENV.bat (or setenv.sh depending on your platform) and build with:
 
 ```
 C> wmake -h -f Makefile-dos
@@ -307,9 +318,7 @@ $ PATH=~/.vscode/extensions/bartmanabyss.amiga-debug-1.7.2/bin/win32/opt/bin;%PA
 $ gnumake -f Makefile-amiga
 ```
 
-If you are in Windows, you can also run `build Amiga`, but you'll probably
-have to manually modify the build.bat file in order to fix the right
-path for the toolchain.
+If you are in Windows, you can also run `build Amiga`.
 
 ### Atari ST
 
@@ -323,6 +332,9 @@ You'll need to install at least the following packages:
 * gcc (a modern version, such as 13+)
 * gemlib
 * mintlib
+
+A script is provided for Linux to download the requirements for you,
+but I'd still recommend installing them yourself.
 
 You'll also need a working VASM assembler (http://sun.hasenbraten.de/vasm/),
 and libcmini 0.54. The included Makefile assumes LIBCMINI to be installed
