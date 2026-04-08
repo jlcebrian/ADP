@@ -1,0 +1,17 @@
+{
+    "includePath": [ 
+        "${workspaceFolder}",
+        "${workspaceFolder}/include"
+    ],
+    "defines": [ 
+        "HAS_ASM_RLE", 
+        "NO_BUFFERING", 
+        "BIG_ENDIAN",
+        "_AMIGA",
+        "_DEBUGPRINT"
+    ],
+    "shrinkler": {
+        "fast": "-h -o -1",
+        "slow": "-h -f dff180 -9"
+    }
+}

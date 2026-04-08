@@ -679,9 +679,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	bufferedEntry = entry;
 	bufferedIndex = picno;
 	pictureData   = DMG_GetEntryData(dmg, picno,
-            dmg->version == DMG_Version5 ? ImageMode_Indexed :
-			mode == ScreenMode_CGA ? ImageMode_PackedCGA :
-			mode == ScreenMode_EGA ? ImageMode_PackedEGA : ImageMode_Packed);
+            dmg->version == DMG_Version5 ? ImageMode_Indexed : ImageMode_Packed);
 	if (pictureData == 0)
 	{
 		bufferedEntry = NULL;
@@ -806,7 +804,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 
 	uint8_t* srcPtr = (uint8_t*)pictureData;
 	uint8_t* dstPtr = graphicsBuffer + y * screenWidth + x;
-	uint32_t* filePalette = (uint32_t*)DMG_GetEntryPalette(dmg, bufferedIndex, ImageMode_RGBA32);
+	uint32_t* filePalette = (uint32_t*)DMG_GetEntryPalette(dmg, bufferedIndex);
     if (dmg->version == DMG_Version5)
     {
     	for (int dy = 0; dy < h; dy++, srcPtr += entry->width, dstPtr += screenWidth)

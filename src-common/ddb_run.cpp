@@ -5,6 +5,7 @@
 #include <ddb_vid.h>
 #include <dmg.h>
 #include <os_char.h>
+#include <os_file.h>
 #include <os_mem.h>
 #include <os_lib.h>
 #include <os_bito.h>
@@ -83,70 +84,6 @@ static const char* TranslateCharForTrace(uint8_t c)
 		buffer[1] = 0;
 	}
 	return buffer;
-}
-#endif
-
-#ifdef DEBUG_TEXT_TIMINGS
-typedef struct DDB_OutputMessageTimingFrame
-{
-	uint32_t startWaitMs;
-	uint32_t flushCalls;
-	uint32_t drawnChars;
-} DDB_OutputMessageTimingFrame;
-
-static DDB_OutputMessageTimingFrame outputMessageTimingFrame[64];
-static uint32_t outputMessageTimingWaitMs = 0;
-static uint32_t outputMessageTimingDepth = 0;
-
-static const char* GetMessageTimingTypeName(DDB_MsgType type)
-{
-	switch (type)
-	{
-		case DDB_MSG:
-			return "MSG";
-		case DDB_SYSMSG:
-			return "SYSMSG";
-		case DDB_OBJNAME:
-			return "OBJNAME";
-		case DDB_LOCDESC:
-			return "LOCDESC";
-		default:
-			return "UNKNOWN";
-	}
-}
-
-static void TimedOutputWaitForKey()
-{
-	uint32_t startMs = 0;
-	uint32_t endMs = 0;
-	VID_GetMilliseconds(&startMs);
-	SCR_WaitForKey();
-	VID_GetMilliseconds(&endMs);
-	outputMessageTimingWaitMs += endMs - startMs;
-}
-
-static void DDB_OutputMessageAddFlushChars(uint32_t drawnChars)
-{
-	if (outputMessageTimingDepth == 0)
-		return;
-
-	DDB_OutputMessageTimingFrame* frame = &outputMessageTimingFrame[outputMessageTimingDepth - 1];
-	frame->flushCalls++;
-	frame->drawnChars += drawnChars;
-}
-
-static void ReportOutputMessageTiming(DDB_MsgType type, uint16_t msgId, uint32_t waitMs, uint32_t activeMs, uint32_t flushCalls, uint32_t drawnChars, uint32_t emittedChars, uint32_t tokenRefs)
-{
-	DebugPrintf(
-		"OM %s%d a=%lu fc=%lu dc=%lu w=%lu c=%lu t=%lu\n",
-		GetMessageTimingTypeName(type),
-		(unsigned long)msgId,
-		(unsigned long)activeMs,
-		(unsigned long)flushCalls,
-		(unsigned long)drawnChars,
-		(unsigned long)waitMs,
-		(unsigned long)emittedChars,
-		(unsigned long)tokenRefs);
 }
 #endif
 
@@ -492,11 +429,7 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 		SCR_DrawCharacter(x, w->posY, *ptr, ink, paper);
 		x += charWidth[(uint8_t)*ptr];
 	}
-	#ifdef DEBUG_TEXT_TIMINGS
-	TimedOutputWaitForKey();
-	#else
 	SCR_WaitForKey();
-	#endif
 	SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, paper);
 
 	if (i->flags[Flag_TimeoutFlags] & Timeout_MorePrompt)
@@ -885,11 +818,6 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	i->pendingPtr = 0;
 
 	i->keyChecked = false;
-
-	#ifdef DEBUG_TEXT_TIMINGS
-	if (outputMessageTimingDepth != 0)
-		DDB_OutputMessageAddFlushChars(drawnChars);
-	#endif
 }
 
 void DDB_Flush (DDB_Interpreter* i)
@@ -1076,11 +1004,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 					if (i->ddb->version != DDB_VERSION_PAWS)
 					{
 						DDB_FlushWindow(i, w);
-						#ifdef DEBUG_TEXT_TIMINGS
-						TimedOutputWaitForKey();
-						#else
 						SCR_WaitForKey();
-						#endif
 						DDB_ResetScrollCounts(i);
 						w->smooth = 1;
 						return;
@@ -1119,12 +1043,6 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 {
 	DDB* ddb = i->ddb;
 	uint8_t* ptr;
-	#ifdef _DEBUGPRINT
-	uint32_t startMs = 0;
-	uint32_t endMs = 0;
-	uint32_t emittedChars = 0;
-	uint32_t tokenRefs = 0;
-	#endif
 
 	switch (type)
 	{
@@ -1151,16 +1069,6 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
 		return false;
-
-	#ifdef DEBUG_TEXT_TIMINGS
-	VID_GetMilliseconds(&startMs);
-	uint32_t frameIndex = outputMessageTimingDepth < 64 ? outputMessageTimingDepth : 63;
-	outputMessageTimingFrame[frameIndex].startWaitMs = outputMessageTimingWaitMs;
-	outputMessageTimingFrame[frameIndex].flushCalls = 0;
-	outputMessageTimingFrame[frameIndex].drawnChars = 0;
-	if (outputMessageTimingDepth < 64)
-		outputMessageTimingDepth++;
-	#endif
 
 	TRACE("%s%d: \"", DDB_MessageTypeNames[type], msgId);
 
@@ -1191,42 +1099,19 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 			for (;;)
 			{
 				OutputCharToWindow(i, w, *token & 0x7F);
-				#ifdef _DEBUGPRINT
-				emittedChars++;
-				#endif
 				TRACE(TranslateCharForTrace(*token & 0x7F));
 				if (*token >= 128)
 					break;
 				token++;
 			}
-			#ifdef _DEBUGPRINT
-			tokenRefs++;
-			#endif
 		}
 		else
 		{
 			OutputCharToWindow(i, w, c);
-			#ifdef _DEBUGPRINT
-			emittedChars++;
-			#endif
 			TRACE(TranslateCharForTrace(c));
 		}
 	}
 	TRACE("\" ");
-
-	#ifdef _DEBUGPRINT
-	#ifdef DEBUG_TEXT_TIMINGS
-	VID_GetMilliseconds(&endMs);
-	if (outputMessageTimingDepth != 0)
-		outputMessageTimingDepth--;
-	uint32_t wallMs = endMs - startMs;
-	uint32_t waitMs = outputMessageTimingWaitMs - outputMessageTimingFrame[frameIndex].startWaitMs;
-	uint32_t activeMs = wallMs > waitMs ? wallMs - waitMs : 0;
-	uint32_t flushCalls = outputMessageTimingFrame[frameIndex].flushCalls;
-	uint32_t drawnChars = outputMessageTimingFrame[frameIndex].drawnChars;
-	ReportOutputMessageTiming(type, msgId, waitMs, activeMs, flushCalls, drawnChars, emittedChars, tokenRefs);
-	#endif
-	#endif
 
 	return true;
 }

@@ -16,7 +16,6 @@ static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
-static uint16_t    fadePaletteSize = 16;
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -257,6 +256,7 @@ static const char* GetSnapshot(int index)
 
 static void FadeOutStep(int elapsed)
 {
+	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	for (uint16_t i = 0; i < fadePaletteSize; i++)
 	{
 		uint8_t r2 = r[i] * (15 - frame) / 15;
@@ -276,7 +276,7 @@ static void FadeOutStep(int elapsed)
 
 static void FadeOut()
 {
-	fadePaletteSize = VID_GetPaletteSize();
+	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
 	for (uint16_t i = 0; i < fadePaletteSize; i++)

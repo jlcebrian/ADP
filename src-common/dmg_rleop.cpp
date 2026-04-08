@@ -3,6 +3,7 @@
 #include <os_lib.h>
 #include <os_bito.h>
 #include <os_mem.h>
+#include <os_types.h>
 
 #if defined(_AMIGA)
 
@@ -42,15 +43,13 @@ static const uint16_t prefixMask16[17] =
 	0xFFFFu
 };
 
-extern "C"
-{
-	__attribute__((used, externally_visible)) uint16_t DMGOldRLEFullWordPlanes16[16][4] = {};
-	__attribute__((used, externally_visible)) uint16_t DMGOldRLESpanMask16[17][17] = {};
-	__attribute__((used, externally_visible)) uint32_t DMGOldRLEPackedColorBits0[256] = {};
-	__attribute__((used, externally_visible)) uint32_t DMGOldRLEPackedColorBits1[256] = {};
-	__attribute__((used, externally_visible)) uint32_t DMGOldRLEPackedColorBits2[256] = {};
-	__attribute__((used, externally_visible)) uint32_t DMGOldRLEPackedColorBits3[256] = {};
-}
+uint16_t DMGOldRLEFullWordPlanes16[16][4];
+uint16_t DMGOldRLESpanMask16[17][17];
+uint32_t DMGOldRLEPackedColorBits0[256];
+uint32_t DMGOldRLEPackedColorBits1[256];
+uint32_t DMGOldRLEPackedColorBits2[256];
+uint32_t DMGOldRLEPackedColorBits3[256];
+
 static bool packedColorBitsInitialized = false;
 
 void DMG_InitializeOldRLETables()
@@ -193,7 +192,6 @@ static bool DMG_DecompressOldRLEToST_C(const uint8_t* data, uint16_t rleMask, ui
     return true;
 }
 
-__attribute__((noinline, used))
 bool DMG_DecompressOldRLEToPlanarST (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian)
 {
 	#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES

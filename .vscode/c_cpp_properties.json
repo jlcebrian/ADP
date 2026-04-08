@@ -1,0 +1,71 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include-tools"
+            ],
+            "customConfigurationVariables": {
+                "makefile": "Makefile-linux",
+                "makeExtraArg": ""
+            },
+            "defines": [
+                "HAS_CLIPBOARD",
+                "HAS_SNAPSHOTS",
+                "HAS_DRAWSTRING",
+                "HAS_FULLSCREEN",
+                "HAS_VIRTUALFILESYSTEM",
+                "HAS_PAWS",
+                "HAS_PCX",
+                "TRACE_ON",
+                "_UNIX"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Amiga",
+            "configurationProvider": "BartmanAbyss.amiga-debug",
+            "customConfigurationVariables": {
+                "makefile": "Makefile-amiga",
+                "makeExtraArg": "program=out/amiga/adp"
+            }
+        },
+        {
+            "name": "Atari ST",
+            "includePath": [
+                "${LIBCMINI}/include",
+                "${LIBCMINI}/include/mint",
+                "${workspaceFolder}/include"
+            ],
+            "customConfigurationVariables": {
+                "makefile": "Makefile-atarist",
+                "makeExtraArg": ""
+            },
+            "defines": [
+                
+                "VERSION=ADP",
+                "_STDCLIB",
+                "_ATARIST",
+                "HAS_ASM_RLE",
+                "HAS_DRAWTEXT",
+                "NO_PRINTF",
+                "NO_SAMPLES",
+                "DEBUG_ALLOCS=1",
+                "DEBUG_MEMORY=0",
+                "NO_BUFFERING",
+                "_BIG_ENDIAN",
+                "stricmp=strcasecmp",
+                "strnicmp=strncasecmp"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

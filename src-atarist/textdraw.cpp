@@ -15,47 +15,42 @@ enum SolidPatchMode
 	SolidPatchMode_OrMXorO = 3,
 };
 
-typedef void (*DrawCharacterSolidPatchedAsmFn)(uint16_t* out, const uint16_t* rotation, const uint8_t* in, const uint16_t* cover);
-typedef void (*DrawCharacterTransparentPatchedAsmFn)(uint16_t* out, const uint16_t* rotation, const uint8_t* in);
+enum TextByteAlignment
+{
+	TextByteAlignment_Left = 0,
+	TextByteAlignment_Right = 1,
+	TextByteAlignment_Count = 2,
+};
 
-static uint16_t solidTextStubCode[87];
-static const uint32_t solidTextStubWords = 87;
+typedef void (*DrawCharacterSolidPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in, uint16_t cover);
+typedef void (*DrawCharacterTransparentPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in);
+
+// Worst case today is 79 words: 24-word setup, 8 byte blocks at 6 words each,
+// and a 7-word loop epilogue. Keep one word of slack.
+static const uint32_t solidTextStubWords = 80;
+static uint16_t solidTextStubCode[TextByteAlignment_Count][solidTextStubWords];
 static uint8_t lastSolidAttributes = 0xFF;
-static uint16_t transparentTextStubCode[74];
-static const uint32_t transparentTextStubWords = 74;
+// Worst case today is 71 words: 16-word setup, 8 byte blocks at 6 words each,
+// and a 7-word loop epilogue. Keep one word of slack.
+static const uint32_t transparentTextStubWords = 72;
+static uint16_t transparentTextStubCode[TextByteAlignment_Count][transparentTextStubWords];
 static uint8_t lastTransparentInk = 0xFF;
 static bool textDrawTablesReady = false;
-static uint16_t textRotationTable[16][256][2];
-static uint16_t textCoverTable[16][9][2];
+static uint16_t textRotationTable[8][256];
 
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex);
-static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, uint8_t paper);
-static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink);
+static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, uint8_t paper, bool rightByte);
+static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, bool rightByte);
 
 bool VID_InitializeTextDraw()
 {
 	if (!textDrawTablesReady)
 	{
-		static const uint8_t widthMask[9] =
+		for (int shift = 0; shift < 8; shift++)
 		{
-			0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xFF
-		};
-
-		for (int shift = 0; shift < 16; shift++)
-		{
+			uint16_t* table = textRotationTable[shift];
 			for (int value = 0; value < 256; value++)
-			{
-				uint32_t bits = ((uint32_t)value << 24) >> shift;
-				textRotationTable[shift][value][0] = (uint16_t)(bits >> 16);
-				textRotationTable[shift][value][1] = (uint16_t)bits;
-			}
-
-			for (int width = 0; width <= 8; width++)
-			{
-				uint32_t cover = ((uint32_t)widthMask[width] << 24) >> shift;
-				textCoverTable[shift][width][0] = (uint16_t)(cover >> 16);
-				textCoverTable[shift][width][1] = (uint16_t)cover;
-			}
+				table[value] = (uint16_t)(((uint16_t)value << 8) >> shift);
 		}
 
 		textDrawTablesReady = true;
@@ -82,6 +77,100 @@ struct WordEmitter
 	}
 };
 
+static void EmitSolidByteBlock(WordEmitter& emitter, uint16_t offset, bool secondByte, uint8_t mode)
+{
+	switch (mode)
+	{
+		case SolidPatchMode_And:
+			emitter.Emit((uint16_t)(secondByte ? 0x1A00 : 0x1A01)); // move.b d0/d1,d5
+			break;
+
+		case SolidPatchMode_AndOr:
+			emitter.Emit((uint16_t)(secondByte ? 0x1A00 : 0x1A01)); // move.b d0/d1,d5
+			break;
+
+		case SolidPatchMode_OrM:
+			emitter.Emit((uint16_t)(secondByte ? 0x1A06 : 0x1A07)); // move.b d6/d7,d5
+			break;
+
+		default:
+			emitter.Emit((uint16_t)(secondByte ? 0x1A06 : 0x1A07)); // move.b d6/d7,d5
+			emitter.Emit((uint16_t)(secondByte ? 0xB505 : 0xB905)); // eor.b d2/d4,d5
+			break;
+	}
+
+	if (mode == SolidPatchMode_And || mode == SolidPatchMode_AndOr)
+	{
+		if (offset == 0)
+			emitter.Emit(0xCA10); // and.b (a0),d5
+		else
+		{
+			emitter.Emit(0xCA28); // and.b xxxx(a0),d5
+			emitter.Emit(offset);
+		}
+		if (mode == SolidPatchMode_And)
+			emitter.Emit(0x4E71); // nop
+		else
+			emitter.Emit((uint16_t)(secondByte ? 0x8A02 : 0x8A04)); // or.b d2/d4,d5
+	}
+	else
+	{
+		if (offset == 0)
+			emitter.Emit(0x8A10); // or.b (a0),d5
+		else
+		{
+			emitter.Emit(0x8A28); // or.b xxxx(a0),d5
+			emitter.Emit(offset);
+		}
+		if (mode == SolidPatchMode_OrM)
+			emitter.Emit(0x4E71); // nop
+	}
+
+	if (offset == 0)
+		emitter.Emit(0x1085); // move.b d5,(a0)
+	else
+	{
+		emitter.Emit(0x1145); // move.b d5,xxxx(a0)
+		emitter.Emit(offset);
+	}
+}
+
+static void EmitTransparentByteBlock(WordEmitter& emitter, uint16_t offset, bool secondByte, bool inkBit)
+{
+	if (!inkBit)
+	{
+		emitter.Emit((uint16_t)(secondByte ? 0x1A02 : 0x1A04)); // move.b d2/d4,d5
+		emitter.Emit(0x4605); // not.b d5
+		if (offset == 0)
+			emitter.Emit(0xCA10); // and.b (a0),d5
+		else
+		{
+			emitter.Emit(0xCA28); // and.b xxxx(a0),d5
+			emitter.Emit(offset);
+		}
+	}
+	else
+	{
+		if (offset == 0)
+			emitter.Emit(0x1A10); // move.b (a0),d5
+		else
+		{
+			emitter.Emit(0x1A28); // move.b xxxx(a0),d5
+			emitter.Emit(offset);
+		}
+		emitter.Emit((uint16_t)(secondByte ? 0x8A02 : 0x8A04)); // or.b d2/d4,d5
+		emitter.Emit(0x4E71); // nop
+	}
+
+	if (offset == 0)
+		emitter.Emit(0x1085); // move.b d5,(a0)
+	else
+	{
+		emitter.Emit(0x1145); // move.b d5,xxxx(a0)
+		emitter.Emit(offset);
+	}
+}
+
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex)
 {
 	uint8_t inkBit = (uint8_t)((ink >> planeIndex) & 1);
@@ -91,11 +180,9 @@ static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex)
 	return paperBit != 0 ? SolidPatchMode_OrMXorO : SolidPatchMode_And;
 }
 
-static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, uint8_t paper)
+static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, uint8_t paper, bool rightByte)
 {
 	WordEmitter emitter = { code };
-	static const uint16_t firstWordOffset[4] = { 0, 2, 4, 6 };
-	static const uint16_t secondWordOffset[4] = { 8, 10, 12, 14 };
 
 	emitter.Emit(0x48E7); // movem.l d2-d7/a2,-(sp)
 	emitter.Emit(0x3F20); // movem register mask
@@ -103,87 +190,39 @@ static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t in
 	emitter.Emit(0x0020); // 32(sp)
 	emitter.Emit(0x226F); // move.l 36(sp),a1
 	emitter.Emit(0x0024); // 36(sp)
-	emitter.Emit(0x246F); // move.l 44(sp),a2
-	emitter.Emit(0x002C); // 44(sp)
-	emitter.Emit(0x3C12); // move.w (a2),d6
-	emitter.Emit(0x3E2A); // move.w 2(a2),d7
-	emitter.Emit(0x0002); // 2(a2)
 	emitter.Emit(0x246F); // move.l 40(sp),a2
 	emitter.Emit(0x0028); // 40(sp)
-	emitter.Emit(0x2A0A); // move.l a2,d5
-	emitter.Emit(0x5085); // addq.l #8,d5
+	emitter.Emit(0x3C2F); // move.w 46(sp),d6
+	emitter.Emit(0x002E); // 46(sp)
+	emitter.Emit(0x3006); // move.w d6,d0
+	emitter.Emit(0x4640); // not.w d0
+	emitter.Emit(0x3200); // move.w d0,d1
+	emitter.Emit(0xE049); // lsr.w #8,d1
+	emitter.Emit(0x3E06); // move.w d6,d7
+	emitter.Emit(0xE04F); // lsr.w #8,d7
+	emitter.Emit(0x7607); // moveq #7,d3
 
 	uint16_t loopStart = (uint16_t)(emitter.ptr - code);
 	emitter.Emit(0x7400); // moveq #0,d2
 	emitter.Emit(0x141A); // move.b (a2)+,d2
 	emitter.Emit(0xD442); // add.w d2,d2
-	emitter.Emit(0xD442); // add.w d2,d2
-	emitter.Emit(0x3031); // move.w 0(a1,d2.l),d0
+	emitter.Emit(0x3431); // move.w 0(a1,d2.l),d2
 	emitter.Emit(0x2800); // indexed extension word
-	emitter.Emit(0x3231); // move.w 2(a1,d2.l),d1
-	emitter.Emit(0x2802); // indexed extension word
+	emitter.Emit(0x3802); // move.w d2,d4
+	emitter.Emit(0xE04C); // lsr.w #8,d4
 
 	for (int planeIndex = 0; planeIndex < 4; planeIndex++)
 	{
-		uint16_t firstOffset = firstWordOffset[planeIndex];
-		uint16_t secondOffset = secondWordOffset[planeIndex];
-
-		switch (GetSolidPatchMode(ink, paper, planeIndex))
-		{
-			case SolidPatchMode_And:
-				emitter.Emit(0x3606);       // move.w d6,d3
-				emitter.Emit(0x4643);       // not.w d3
-				emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-				emitter.Emit(firstOffset);  // xxxx displacement
-
-				emitter.Emit(0x3607);       // move.w d7,d3
-				emitter.Emit(0x4643);       // not.w d3
-				emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-				emitter.Emit(secondOffset); // xxxx displacement
-				break;
-
-			case SolidPatchMode_AndOr:
-				emitter.Emit(0x3606);       // move.w d6,d3
-				emitter.Emit(0x4643);       // not.w d3
-				emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-				emitter.Emit(firstOffset);  // xxxx displacement
-				emitter.Emit(0x8168);       // or.w d0,xxxx(a0)
-				emitter.Emit(firstOffset);  // xxxx displacement
-
-				emitter.Emit(0x3607);       // move.w d7,d3
-				emitter.Emit(0x4643);       // not.w d3
-				emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-				emitter.Emit(secondOffset); // xxxx displacement
-				emitter.Emit(0x8368);       // or.w d1,xxxx(a0)
-				emitter.Emit(secondOffset); // xxxx displacement
-				break;
-
-			case SolidPatchMode_OrM:
-				emitter.Emit(0x8D68);       // or.w d6,xxxx(a0)
-				emitter.Emit(firstOffset);  // xxxx displacement
-
-				emitter.Emit(0x8F68);       // or.w d7,xxxx(a0)
-				emitter.Emit(secondOffset); // xxxx displacement
-				break;
-
-			default:
-				emitter.Emit(0x3606);       // move.w d6,d3
-				emitter.Emit(0xB143);       // eor.w d0,d3
-				emitter.Emit(0x8768);       // or.w d3,xxxx(a0)
-				emitter.Emit(firstOffset);  // xxxx displacement
-
-				emitter.Emit(0x3607);       // move.w d7,d3
-				emitter.Emit(0xB343);       // eor.w d1,d3
-				emitter.Emit(0x8768);       // or.w d3,xxxx(a0)
-				emitter.Emit(secondOffset); // xxxx displacement
-				break;
-		}
+		uint16_t firstOffset = (uint16_t)(planeIndex * 2 + (rightByte ? 1 : 0));
+		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + 8) : (planeIndex * 2 + 1));
+		uint8_t mode = GetSolidPatchMode(ink, paper, planeIndex);
+		EmitSolidByteBlock(emitter, firstOffset, false, mode);
+		EmitSolidByteBlock(emitter, secondOffset, true, mode);
 	}
 
 	emitter.Emit(0x41E8);       // lea 160(a0),a0
 	emitter.Emit(0x00A0);       // 160(a0)
-	emitter.Emit(0xB5C5);       // cmpa.l d5,a2
-	emitter.Emit(0x6600);       // bne.w xxxx
+	emitter.Emit(0x51CB);       // dbra d3,loop
 	uint16_t displacement = (uint16_t)(((int32_t)loopStart - (int32_t)(emitter.ptr - code)) * 2);
 	emitter.Emit(displacement); // xxxx displacement
 	emitter.Emit(0x4CDF);       // movem.l (sp)+,d2-d7/a2
@@ -193,11 +232,9 @@ static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t in
 	return (uint32_t)(emitter.ptr - code) <= templateWords;
 }
 
-static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink)
+static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, bool rightByte)
 {
 	WordEmitter emitter = { code };
-	static const uint16_t firstWordOffset[4] = { 0, 2, 4, 6 };
-	static const uint16_t secondWordOffset[4] = { 8, 10, 12, 14 };
 
 	emitter.Emit(0x48E7); // movem.l d2-d7/a2,-(sp)
 	emitter.Emit(0x3F20); // movem register mask
@@ -207,51 +244,29 @@ static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint
 	emitter.Emit(0x0024); // 36(sp)
 	emitter.Emit(0x246F); // move.l 40(sp),a2
 	emitter.Emit(0x0028); // 40(sp)
-	emitter.Emit(0x2A0A); // move.l a2,d5
-	emitter.Emit(0x5085); // addq.l #8,d5
+	emitter.Emit(0x7607); // moveq #7,d3
 
 	uint16_t loopStart = (uint16_t)(emitter.ptr - code);
 	emitter.Emit(0x7400); // moveq #0,d2
 	emitter.Emit(0x141A); // move.b (a2)+,d2
 	emitter.Emit(0xD442); // add.w d2,d2
-	emitter.Emit(0xD442); // add.w d2,d2
-	emitter.Emit(0x3031); // move.w 0(a1,d2.l),d0
+	emitter.Emit(0x3431); // move.w 0(a1,d2.l),d2
 	emitter.Emit(0x2800); // indexed extension word
-	emitter.Emit(0x3231); // move.w 2(a1,d2.l),d1
-	emitter.Emit(0x2802); // indexed extension word
+	emitter.Emit(0x3802); // move.w d2,d4
+	emitter.Emit(0xE04C); // lsr.w #8,d4
 
 	for (int planeIndex = 0; planeIndex < 4; planeIndex++)
 	{
-		uint16_t firstOffset = firstWordOffset[planeIndex];
-		uint16_t secondOffset = secondWordOffset[planeIndex];
+		uint16_t firstOffset = (uint16_t)(planeIndex * 2 + (rightByte ? 1 : 0));
+		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + 8) : (planeIndex * 2 + 1));
 		bool inkBit = ((ink >> planeIndex) & 1) != 0;
-
-		if (!inkBit)
-		{
-			emitter.Emit(0x3600);       // move.w d0,d3
-			emitter.Emit(0x4643);       // not.w d3
-			emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-			emitter.Emit(firstOffset);  // xxxx displacement
-
-			emitter.Emit(0x3601);       // move.w d1,d3
-			emitter.Emit(0x4643);       // not.w d3
-			emitter.Emit(0xC768);       // and.w d3,xxxx(a0)
-			emitter.Emit(secondOffset); // xxxx displacement
-		}
-		else
-		{
-			emitter.Emit(0x8168);       // or.w d0,xxxx(a0)
-			emitter.Emit(firstOffset);  // xxxx displacement
-
-			emitter.Emit(0x8368);       // or.w d1,xxxx(a0)
-			emitter.Emit(secondOffset); // xxxx displacement
-		}
+		EmitTransparentByteBlock(emitter, firstOffset, false, inkBit);
+		EmitTransparentByteBlock(emitter, secondOffset, true, inkBit);
 	}
 
 	emitter.Emit(0x41E8); // lea 160(a0),a0
 	emitter.Emit(0x00A0); // 160(a0)
-	emitter.Emit(0xB5C5); // cmpa.l d5,a2
-	emitter.Emit(0x6600); // bne.w xxxx
+	emitter.Emit(0x51CB); // dbra d3,loop
 	emitter.Emit((uint16_t)(((int32_t)loopStart - (int32_t)(emitter.ptr - code)) * 2)); // xxxx displacement
 	emitter.Emit(0x4CDF); // movem.l (sp)+,d2-d7/a2
 	emitter.Emit(0x04FC); // movem register mask
@@ -271,13 +286,14 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	{
 		if (lastTransparentInk != ink)
 		{
-			EmitTransparentTextStub(transparentTextStubCode, transparentTextStubWords, ink);
+			if (!EmitTransparentTextStub(transparentTextStubCode[TextByteAlignment_Left], transparentTextStubWords, ink, false) ||
+				!EmitTransparentTextStub(transparentTextStubCode[TextByteAlignment_Right], transparentTextStubWords, ink, true))
+				return;
 			lastTransparentInk = ink;
 		}
 
-		DrawCharacterTransparentPatchedAsmFn draw = (DrawCharacterTransparentPatchedAsmFn)transparentTextStubCode;
-		uint16_t wordOffset = (uint16_t)(x >> 4);
-		uint8_t shift = (uint8_t)(x & 0x0F);
+		uint8_t* out = (uint8_t*)textScreen + 160 * y + ((x >> 4) << 3);
+		uint8_t phase = (uint8_t)(x & 0x0F);
 
 		for (uint16_t n = 0; n < length && x < screenWidth; n++)
 		{
@@ -288,12 +304,14 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 			if (width > 8)
 				width = 8;
 
-			draw(textScreen + 80 * y + 4 * wordOffset, &textRotationTable[shift][0][0], charset + 8 * ch);
-
+			TextByteAlignment alignment = (phase & 0x08) != 0 ? TextByteAlignment_Right : TextByteAlignment_Left;
+			uint8_t shift = (uint8_t)(phase & 0x07);
+			DrawCharacterTransparentPatchedAsmFn draw = (DrawCharacterTransparentPatchedAsmFn)transparentTextStubCode[alignment];
+			draw(out, textRotationTable[shift], charset + 8 * ch);
 			x += width;
-			shift += width;
-			wordOffset += shift >> 4;
-			shift &= 0x0F;
+			phase = (uint8_t)(phase + width);
+			out += (phase >> 4) << 3;
+			phase &= 0x0F;
 		}
 		return;
 	}
@@ -302,13 +320,14 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	uint8_t attributes = (uint8_t)((paper << 4) | ink);
 	if (lastSolidAttributes != attributes)
 	{
-		EmitSolidTextStub(solidTextStubCode, solidTextStubWords, ink, paper);
+		if (!EmitSolidTextStub(solidTextStubCode[TextByteAlignment_Left], solidTextStubWords, ink, paper, false) ||
+			!EmitSolidTextStub(solidTextStubCode[TextByteAlignment_Right], solidTextStubWords, ink, paper, true))
+			return;
 		lastSolidAttributes = attributes;
 	}
 
-	DrawCharacterSolidPatchedAsmFn draw = (DrawCharacterSolidPatchedAsmFn)solidTextStubCode;
-	uint16_t wordOffset = (uint16_t)(x >> 4);
-	uint8_t shift = (uint8_t)(x & 0x0F);
+	uint8_t* out = (uint8_t*)textScreen + 160 * y + ((x >> 4) << 3);
+	uint8_t phase = (uint8_t)(x & 0x0F);
 
 	for (uint16_t n = 0; n < length && x < screenWidth; n++)
 	{
@@ -319,12 +338,17 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 		if (width > 8)
 			width = 8;
 
-		draw(textScreen + 80 * y + 4 * wordOffset, &textRotationTable[shift][0][0], charset + 8 * ch, &textCoverTable[shift][width][0]);
-
+		TextByteAlignment alignment = (phase & 0x08) != 0 ? TextByteAlignment_Right : TextByteAlignment_Left;
+		uint8_t shift = (uint8_t)(phase & 0x07);
+		DrawCharacterSolidPatchedAsmFn draw = (DrawCharacterSolidPatchedAsmFn)solidTextStubCode[alignment];
+		const uint16_t* rotation = textRotationTable[shift];
+		uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
+		uint16_t cover = rotation[widthMask8];
+		draw(out, rotation, charset + 8 * ch, cover);
 		x += width;
-		shift += width;
-		wordOffset += shift >> 4;
-		shift &= 0x0F;
+		phase = (uint8_t)(phase + width);
+		out += (phase >> 4) << 3;
+		phase &= 0x0F;
 	}
 }
 

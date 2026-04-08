@@ -748,7 +748,12 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
 
             if (width == 320 && height == 200)
             {
-                if (mode) *mode = (colorMode == DMG_DAT5_COLORMODE_I256) ? ScreenMode_VGA : ScreenMode_VGA16;
+                if (mode) *mode = 
+					(colorMode == DMG_DAT5_COLORMODE_I256) ? ScreenMode_VGA :
+					(colorMode == DMG_DAT5_COLORMODE_I16) ? ScreenMode_VGA16 :
+					(colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
+					(colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
+					 ScreenMode_VGA;
             }
             else if (width == 640 && height == 200)
             {

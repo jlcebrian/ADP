@@ -1050,23 +1050,44 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 	return d;
 }
 
-uint32_t* DMG_GetEntryPalette(DMG* dmg, uint8_t index, DMG_ImageMode mode)
+uint32_t* DMG_GetEntryPalette(DMG* dmg, uint8_t index)
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	if (entry == 0)
 		return 0;
-	if (DMG_IS_CGA(mode))
-		return DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
-	else if (DMG_IS_EGA(mode))
-		return EGAPalette;
-    else if (dmg->version == DMG_Version5)
-    {
-        if (!DMG_LoadDAT5Palette(dmg, index, entry))
-            return 0;
-        return entry->RGB32PaletteV5;
-    }
-	else
-		return entry->RGB32Palette;
+
+	switch (dmg->screenMode)
+	{
+		case ScreenMode_CGA:
+			return DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+		case ScreenMode_EGA:
+			return EGAPalette;
+		default:
+			if (dmg->version == DMG_Version5)
+			{
+				if (!DMG_LoadDAT5Palette(dmg, index, entry))
+					return 0;
+				return entry->RGB32PaletteV5;
+			}
+			else
+				return entry->RGB32Palette;
+	}
+}
+
+uint32_t* DMG_GetEntryStoredPalette(DMG* dmg, uint8_t index)
+{
+	DMG_Entry* entry = DMG_GetEntry(dmg, index);
+	if (entry == 0)
+		return 0;
+
+	if (dmg->version == DMG_Version5)
+	{
+		if (!DMG_LoadDAT5Palette(dmg, index, entry))
+			return 0;
+		return entry->RGB32PaletteV5;
+	}
+
+	return entry->RGB32Palette;
 }
 
 uint16_t DMG_GetEntryPaletteSize(DMG* dmg, uint8_t index)
@@ -1121,8 +1142,8 @@ void DMG_Close(DMG* d)
 		}
     }
 
-    if (d->zx0Scratch != 0 && d->zx0ScratchOwned)
-        Free(d->zx0Scratch);
+	if (d->zx0Scratch != 0 && d->zx0ScratchOwned)
+		Free(d->zx0Scratch);
 
 	File_Close(d->file);
 	Free(d);
@@ -1184,9 +1205,8 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 {
 	uint16_t width  = entry->width;
 	uint16_t height = entry->height;
-	DMG_ImageMode layoutMode = DMG_GetImageLayoutMode(mode);
 
-	switch (layoutMode)
+	switch (mode)
 	{
 		case ImageMode_Packed:
             if (dmg != 0 && dmg->version == DMG_Version5)

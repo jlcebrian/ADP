@@ -12,7 +12,11 @@ build
 *.sce
 *.ddb
 *.10x
-.vscode
+.vscode/*
+!.vscode/amiga.json
+!.vscode/c_cpp_properties.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.rdbg
 
 web-games/*

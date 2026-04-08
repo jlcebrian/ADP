@@ -7,6 +7,8 @@
 
 #ifdef _ATARIST
 
+#include <mint/cookie.h>
+#include <mint/ostruct.h>
 #include <mint/sysvars.h>
 #include <osbind.h>
 
@@ -17,11 +19,65 @@
 
 static uint32_t ret;
 static uint16_t defaultPalette[16];
+static uint16_t savedPalette[256];
 static uint16_t savedConterm;
+static void* savedLogbase;
+static void* savedPhysbase;
+static int16_t savedRez;
+static int16_t savedShift;
+static int16_t savedFalconMode;
+static bool savedFalconModeValid;
+
+enum
+{
+	FalconModeInquire = -1,
+	FalconModeSTLow = 0x0082,
+};
+
+static bool HasFalconVideo()
+{
+	long cookieValue;
+	return Getcookie(C__VDO, &cookieValue) == C_FOUND && cookieValue >= 0x00030000L;
+}
+
+static int16_t FalconSetMode(int16_t mode)
+{
+	return (int16_t)trap_14_ww((short)88, (short)mode);
+}
+
+static void FalconSetScreen(void* logbase, void* physbase, int16_t mode)
+{
+	(void)trap_14_wllww((short)0x05, (long)logbase, (long)physbase,
+		(short)SCR_MODECODE, (short)mode);
+}
 
 static void init()
 {
+	bool hasFalconVideo = HasFalconVideo();
+	int16_t initialFalconMode = hasFalconVideo ? FalconSetMode(FalconModeInquire) : -1;
+
 	ret = Super(0L);
+	savedLogbase = Logbase();
+	savedPhysbase = Physbase();
+	savedRez = Getrez();
+	savedShift = hasFalconVideo ? -1 : EgetShift();
+	savedFalconModeValid = false;
+	if (savedRez != ST_LOW)
+	{
+		EgetPalette(0, 256, savedPalette);
+		if (hasFalconVideo)
+		{
+			savedFalconMode = initialFalconMode;
+			FalconSetScreen(0, 0, FalconModeSTLow);
+			savedFalconModeValid = true;
+		}
+		else
+		{
+			EsetShift(ST_LOW);
+			Setscreen(-1, -1, ST_LOW);
+		}
+	}
+
 	for (int n = 0; n < 16; n++)
 		defaultPalette[n] = Setcolor(n, -1);
 
@@ -37,6 +93,17 @@ static void quit()
 	for (int n = 0; n < 16; n++)
 		Setcolor(n, defaultPalette[n]);
 	*conterm = savedConterm;
+	if (savedRez != ST_LOW)
+	{
+		if (savedFalconModeValid)
+			FalconSetScreen(savedLogbase, savedPhysbase, savedFalconMode);
+		else
+		{
+			Setscreen(savedLogbase, savedPhysbase, -1);
+			EsetShift(savedShift);
+		}
+		EsetPalette(0, 256, savedPalette);
+	}
 
 	Super(ret);
 	Pterm(0);
@@ -63,15 +130,9 @@ int main (int argc, char *argv[])
 {
 	char file[32];
 
-	if (Getrez())
-	{
-		appl_init();
-		form_alert(1, "[4][Solo modo grafico][Ok]");
-		appl_exit();
-		Pterm(0);
-	}
-
 	init();
+
+	DebugPrintf("Free RAM: %d\n", Malloc(-1));
 
 	DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 

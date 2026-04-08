@@ -829,9 +829,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	if (entry->flags & DMG_FLAG_FIXED)
 	{
-		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex, 
-			screenMode == ScreenMode_VGA16 ? ImageMode_RGBA32 :
-			screenMode == ScreenMode_EGA ? ImageMode_RGBA32EGA : ImageMode_RGBA32CGA);
+		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
 		if (dmg->version == DMG_Version1)
 			palette[15] = 0xFFFFFFFF;
 		for (int n = 0; n < 16; n++) {
@@ -1050,6 +1048,11 @@ void VID_GetMilliseconds (uint32_t* time)
 	// regs.h.ah = 0x00;
 	// int386(0x1A, &regs, &regs);
 	// *time = ((regs.w.cx << 16) + regs.w.dx) * 55;
+}
+
+uint16_t VID_GetPaletteSize()
+{
+	return 256;
 }
 
 void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)

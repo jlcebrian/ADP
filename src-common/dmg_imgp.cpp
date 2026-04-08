@@ -46,7 +46,7 @@ bool DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t
 	return true;
 }
 
-static bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
+bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
 	uint32_t packedSize, uint8_t* output, uint32_t outputSize)
 {
 	if (entry == 0 || data == 0 || output == 0)

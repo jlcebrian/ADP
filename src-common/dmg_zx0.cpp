@@ -147,7 +147,7 @@ COPY_LITERALS:
     if (bit)
         goto COPY_FROM_NEW_OFFSET;
 
-COPY_FROM_LAST_OFFSET:
+//COPY_FROM_LAST_OFFSET:
     if (!ZX0_ReadInterlacedEliasGamma(state, false, &length))
         return false;
     if (!ZX0_WriteBytes(state, lastOffset, length))

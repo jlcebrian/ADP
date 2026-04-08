@@ -1,0 +1,71 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "amiga",
+            "request": "launch",
+            "preLaunchTask": "compile",
+            "name": "AROS",
+            "config": "A500",
+            "program": "${workspaceFolder}/out/amiga/adp",
+            "emuargs": [
+                "--floppy_drive_volume=0",
+                "--automatic_input_grab=1",
+                "--keyboard_input_grab=1",
+                "--joystick_port_0_mode=mouse",
+                "--joystick_port_0=mouse",
+                "--joystick_port_1_mode=nothing",
+                "--joystick_port_1=nothing"
+            ],
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "type": "amiga",
+            "request": "launch",
+            "preLaunchTask": "compile",
+            "name": "Amiga 500",
+            "config": "A500",
+            "program": "${workspaceFolder}/out/amiga/adp",
+            "emuargs": [
+                "--floppy_drive_volume=0",
+            ],
+            "chipmem": "512k",
+            "slowmem": "0",
+            "fastmem": "0",
+            "kickstart": "${config:amiga.rom-paths.A500}",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "type": "amiga",
+            "request": "launch",
+            "preLaunchTask": "compile",
+            "name": "Amiga 1200",
+            "config": "A1200",
+            "program": "${workspaceFolder}/out/amiga/adp",
+            "emuargs": [
+                "--floppy_drive_volume=0"
+            ],
+            "kickstart": "${config:amiga.rom-paths.A1200}",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "type": "amiga",
+            "request": "launch",
+            "preLaunchTask": "compile",
+            "name": "Amiga 4000",
+            "config": "A4000",
+            "program": "${workspaceFolder}/out/amiga/adp",
+            "emuargs": [
+                "--floppy_drive_volume=0",
+                "--automatic_input_grab=1",
+                "--keyboard_input_grab=1",
+                "--joystick_port_0_mode=mouse",
+                "--joystick_port_0=mouse",
+                "--joystick_port_1_mode=nothing",
+                "--joystick_port_1=nothing"
+            ],
+            "kickstart": "${config:amiga.rom-paths.A4000}",
+            "internalConsoleOptions": "openOnSessionStart"
+        }        
+    ]
+}

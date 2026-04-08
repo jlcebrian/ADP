@@ -615,7 +615,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	if (w > entry->width)
 		w = entry->width;
 
-	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex, ImageMode_RGBA32);
+	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex);
 	switch (mode)
 	{
 		default:

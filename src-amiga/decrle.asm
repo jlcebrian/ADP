@@ -184,6 +184,3 @@ DecompressRLE
 
 SavedColor	dc.b	0
 EOLShift	dc.b	0
-
-
-		

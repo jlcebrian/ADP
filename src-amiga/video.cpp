@@ -1314,7 +1314,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
     uint16_t copyPixelWidth = (uint16_t)w;
     uint16_t copyPixelHeight = (uint16_t)h;
 
-	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex, ImageMode_RGBA32);
+	uint32_t* palette = DMG_GetEntryPalette(dmg, pictureIndex);
 	uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, pictureIndex);
     uint8_t paletteFirst = DMG_GetEntryFirstColor(dmg, pictureIndex);
 	bool presentingScratch = false;

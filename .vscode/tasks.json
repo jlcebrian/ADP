@@ -1,0 +1,82 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compile",
+            "type": "shell",
+            "linux": {
+                "command": "bash",
+                "args": [
+                    "-lc",
+                    "set -e\nif [ \"${command:cpptools.activeConfigName}\" = \"Amiga\" ]; then\n    export PATH=\"${env:PATH}:${command:amiga.bin-path}/opt/bin:${command:amiga.bin-path}\"\nfi\nset -- -f \"${input:makefile}\" -j4\nif [ -n \"${input:makeExtraArg}\" ]; then\n    set -- \"$@\" \"${input:makeExtraArg}\"\nfi\nexec make \"$@\""
+                ]
+            },
+            "windows": {
+                "command": "${command:amiga.bin-path}\\gnumake.exe",
+                "args": [
+                    "-f", "${input:makefile}",
+                    "-j4",
+                    "${input:makeExtraArg}"
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
+            "problemMatcher": [
+                {
+                    "base": "$gcc",
+                    "fileLocation": "absolute"
+                }
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "linux": {
+                "command": "make",
+                "args": [
+                    "-f", "${input:makefile}", "clean"
+                ]
+            },
+            "windows": {
+                "command": "${command:amiga.bin-path}\\gnumake.exe",
+                "args": [
+                    "-f", "${input:makefile}",
+                    "clean"
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceRoot}"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "makefile",
+            "type": "command",
+            "command": "cpptools.activeConfigCustomVariable",
+            "args": "makefile"
+        },
+        {
+            "id": "makeExtraArg",
+            "type": "command",
+            "command": "cpptools.activeConfigCustomVariable",
+            "args": "makeExtraArg"
+        }
+    ]
+}

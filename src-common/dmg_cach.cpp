@@ -65,8 +65,8 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
     }
 
 	uint32_t fileSize = File_GetSize(dmg->file);
-    if (fileCacheEnd > fileSize)
-        fileCacheEnd = fileSize;
+	if (fileCacheEnd > fileSize)
+		fileCacheEnd = fileSize;
 	uint32_t remaining = fileCacheEnd - dmg->fileCacheOffset;
 	uint32_t cacheableSize = remaining;
 	if (blockSize > remaining || blockSize == 0)
@@ -103,8 +103,8 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 		}
 
 		uint32_t amount = blockSize > remaining ? remaining : blockSize;
-		uint32_t blockOffset = dmg->fileCacheOffset + (cacheableSize - remaining);
 #if DEBUG_FILE_CACHE
+		uint32_t blockOffset = dmg->fileCacheOffset + (cacheableSize - remaining);
 		DebugPrintf("File cache block %d: reading %lu bytes from file offset %lu\n",
 			n, (unsigned long)amount, (unsigned long)blockOffset);
 #endif

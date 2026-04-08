@@ -22,6 +22,8 @@ OBJS = 		     &
 	dmg_imgc.obj &
 	dmg_imgp.obj &
 	dmg_rlec.obj &
+	dmg_rleo.obj &
+	dmg_rleop.obj &
 	dmg_univ.obj &
 	dmg_zx0.obj  &
 	ddb_scr.obj  &

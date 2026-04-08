@@ -1088,7 +1088,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					if (saveToFile && paletteOnly)
 					{
 						outputFileName = MakeFileName(filename, n, "col");
-						palette = (uint32_t*)DMG_GetEntryPalette(dmg, n, extractMode);
+                        palette = (uint32_t*)DMG_GetEntryStoredPalette(dmg, n);
 						success = SaveCOLPalette(outputFileName, palette, DMG_GetEntryPaletteSize(dmg, n));
 						if (!success)
 						{
@@ -1102,7 +1102,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 						outputFileName = MakeFileName(filename, n, "png");
 						if (DMG_IS_INDEXED(extractMode))
 						{
-							palette = DMG_GetEntryPalette(dmg, n, extractMode);
+                            palette = DMG_GetEntryStoredPalette(dmg, n);
 							success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, DMG_GetEntryPaletteSize(dmg, n), 0);
 						}
 						else if (DMG_IS_RGBA32(extractMode))
@@ -1334,7 +1334,7 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
                     printf("     Palette:      ");
                     for (i = 0; i < DMG_GetEntryPaletteSize(dmg, n); i++)
                     {
-                        uint32_t c = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32)[i];
+                        uint32_t c = DMG_GetEntryStoredPalette(dmg, n)[i];
                         printf("%03X ", ((c >> 4) & 0xF) | ((c >> 8) & 0xF0) | ((c >> 12) & 0xF00));
                     }
                     printf("\n");
@@ -2473,7 +2473,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 uint32_t storedSize = 0;
                 uint8_t* storedBuffer = 0;
                 uint32_t paletteBuffer[256];
-                uint32_t* palettePtr = DMG_GetEntryPalette(dmg, n, ImageMode_RGBA32);
+                uint32_t* palettePtr = DMG_GetEntryStoredPalette(dmg, n);
                 int paletteSize = entry->paletteColors;
                 int firstColor = entry->firstColor;
                 int lastColor = entry->lastColor;
