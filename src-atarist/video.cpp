@@ -2,6 +2,7 @@
 #include <ddb_scr.h>
 #include <ddb_pal.h>
 #include <ddb_vid.h>
+#include <ddb_xmsg.h>
 #include <dmg.h>
 #include <os_char.h>
 #include <os_mem.h>
@@ -194,6 +195,16 @@ bool VID_LoadDataFile (const char* fileName)
 
 	uint32_t freeMemory = Malloc(-1);
 	uint32_t datSize = File_GetSize(dmg->file);
+
+	#if HAS_XMSG
+	if (xmsgFilePresent)
+	{
+		if (freeMemory > datSize + 65536)
+			DDB_InitializeXMessageCache(16384);
+		else
+			DDB_InitializeXMessageCache(4096);
+	}
+	#endif
 
 	if (freeMemory > datSize + 32768)			// Everything fits
 	{

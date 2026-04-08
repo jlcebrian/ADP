@@ -23,7 +23,7 @@ else
 PACK_CMD = true
 endif
 
-CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT
+CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT -DHAS_XMSG
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 ifeq ($(DEBUGPRINT),1)
@@ -55,6 +55,7 @@ CPPFILES := 		\
 	ddb_scr.cpp		\
 	ddb_snap.cpp	\
 	ddb_vid.cpp		\
+	ddb_xmsg.cpp	\
 	ddb.cpp			\
 	dmg_cach.cpp	\
 	dmg_cga.cpp		\

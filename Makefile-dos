@@ -1,5 +1,5 @@
 
-OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB -DHAS_PCX
+OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB -DHAS_PCX -DHAS_XMSG
 #OPTIM=-od -d3 -hw
 OPTIM=-otexan -zc -d0 -3r
 #OPTIM=-onatx -oh -ei -zp8 -3
@@ -13,6 +13,7 @@ OBJS = 		     &
 	ddb.obj      &
 	ddb_pal.obj  &
 	ddb_play.obj &
+	ddb_xmsg.obj &
 	dmg.obj      &
 	dmg_font.obj &
 	dmg_pcx.obj  &

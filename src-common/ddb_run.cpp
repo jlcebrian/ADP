@@ -3,6 +3,7 @@
 #include <ddb_pal.h>
 #include <ddb_data.h>
 #include <ddb_vid.h>
+#include <ddb_xmsg.h>
 #include <dmg.h>
 #include <os_char.h>
 #include <os_file.h>
@@ -1039,6 +1040,53 @@ void DDB_OutputText (DDB_Interpreter* i, const char* text)
 	OutputTextToWindow(i, text, &i->win);
 }
 
+static void OutputMessageContents(DDB_Interpreter* i, const uint8_t* ptr, DDB_Window* w)
+{
+	DDB* ddb = i->ddb;
+
+	#if HAS_PAWS
+	uint8_t eof = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
+	#else
+	const uint8_t eof = 0x0A;
+	#endif
+
+	uint8_t firstToken = ddb->firstToken;
+
+	while (true)
+	{
+		uint8_t c = *ptr++ ^ 0xFF;
+		if (c == eof)
+			break;
+		if (c >= firstToken)
+		{
+			if (!ddb->hasTokens)
+			{
+				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
+				continue;
+			}
+			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
+			if (token == 0)
+			{
+				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
+				continue;
+			}
+			for (;;)
+			{
+				OutputCharToWindow(i, w, *token & 0x7F);
+				TRACE(TranslateCharForTrace(*token & 0x7F));
+				if (*token >= 128)
+					break;
+				token++;
+			}
+		}
+		else
+		{
+			OutputCharToWindow(i, w, c);
+			TRACE(TranslateCharForTrace(c));
+		}
+	}
+}
+
 bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t msgId, DDB_Window* w)
 {
 	DDB* ddb = i->ddb;
@@ -1071,50 +1119,12 @@ bool DDB_OutputMessageToWindow (DDB_Interpreter* i, DDB_MsgType type, uint8_t ms
 		return false;
 
 	TRACE("%s%d: \"", DDB_MessageTypeNames[type], msgId);
-
-	#if HAS_PAWS
-	uint8_t eof = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
-	#else
-	const uint8_t eof = 0x0A;
-	#endif
-
-	while (true)
-	{
-		uint8_t c = *ptr++ ^ 0xFF;
-		if (c == eof)
-			break;
-		if (c >= ddb->firstToken)
-		{
-			if (!ddb->hasTokens)
-			{
-				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
-				continue;
-			}
-			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
-			if (token == 0)
-			{
-				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
-				continue;
-			}
-			for (;;)
-			{
-				OutputCharToWindow(i, w, *token & 0x7F);
-				TRACE(TranslateCharForTrace(*token & 0x7F));
-				if (*token >= 128)
-					break;
-				token++;
-			}
-		}
-		else
-		{
-			OutputCharToWindow(i, w, c);
-			TRACE(TranslateCharForTrace(c));
-		}
-	}
+	OutputMessageContents(i, ptr, w);
 	TRACE("\" ");
 
 	return true;
 }
+
 
 bool DDB_OutputMessage (DDB_Interpreter* i, DDB_MsgType type, uint8_t index)
 {
@@ -2162,6 +2172,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				TRACE(" %-3d", param1);
 			else
 				TRACE("    ");
+			if (params > 2)
+				TRACE(" %-3d", code[3]);
 		}
 		else
 		{
@@ -3698,6 +3710,34 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 
+
+			case CONDACT_XMESSAGE:
+			#if HAS_XMSG
+			{
+				if (param1 == 3)
+				{
+					uint16_t offset = param0 + code[3]*256;
+					const uint8_t* msg = DDB_GetXMessage(offset);
+					if (msg != 0)
+					{
+						TRACE("XMSG %d: \"", offset);
+						OutputMessageContents(i, msg, &i->win);
+						TRACE("\"");
+						break;
+					}
+					else
+					{
+						DebugPrintf("[Invalid XMessage %d: %s]", offset, DDB_GetErrorString());
+					}
+				}
+				else
+				{
+					// This is actually an EXTERN, so no third byte
+					params = 2;
+				}
+			}
+			#endif
+				// Fallthrough
 			case CONDACT_EXTERN:
 
 				// This fixes Templos & Chichen, but it is hackish to say the least

@@ -148,6 +148,7 @@ const char* DDB_GetCondactName(DDB_Condact condact)
 
 		case CONDACT_INDIR:   return "INDIR";
 		case CONDACT_SETAT:   return "SETAT";
+		case CONDACT_XMESSAGE:return "XMESSAGE";
 
 		case CONDACT_INVALID: 
 			StrCopy(error, 32, "[Invalid condact 0x00]");
@@ -293,6 +294,8 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 				else
 					print("%d", *code++);
 				if (parameters > 1)
+					print(" %d", *code++);
+				if (parameters > 2)
 					print(" %d", *code++);
 			}
 			if (!indirection)

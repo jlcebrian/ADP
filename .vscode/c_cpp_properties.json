@@ -18,6 +18,7 @@
                 "HAS_VIRTUALFILESYSTEM",
                 "HAS_PAWS",
                 "HAS_PCX",
+                "HAS_XMSG",
                 "TRACE_ON",
                 "_UNIX"
             ],
@@ -52,6 +53,7 @@
                 "_ATARIST",
                 "HAS_ASM_RLE",
                 "HAS_DRAWTEXT",
+                "HAS_XMSG",
                 "NO_PRINTF",
                 "NO_SAMPLES",
                 "DEBUG_ALLOCS=1",

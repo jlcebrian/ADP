@@ -6,6 +6,7 @@
 #include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <ddb_data.h>
+#include <ddb_xmsg.h>
 #include <os_bito.h>
 #include <os_mem.h>
 #include <os_lib.h>
@@ -1117,6 +1118,16 @@ bool VID_LoadDataFile (const char* fileName)
 	DebugPrintf("Free memory: %u bytes (datSize: %u)\n", freeMemory, datSize);
 	uint32_t desiredImageCache = GetDesiredImageCacheSize(dmg, freeMemory, imageCacheReserve);
 	DebugPrintf("Desired image cache: %u bytes\n", (unsigned)desiredImageCache);
+
+	#if HAS_XMSG
+	if (xmsgFilePresent)
+	{
+		if (freeMemory > datSize + 65536)
+			DDB_InitializeXMessageCache(16384);
+		else
+			DDB_InitializeXMessageCache(4096);
+	}
+	#endif
 
 	if (freeMemory > datSize + 65536)			// Everything fits
 	{

@@ -5,6 +5,7 @@
     ],
     "defines": [ 
         "HAS_ASM_RLE", 
+        "HAS_XMSG",
         "NO_BUFFERING", 
         "BIG_ENDIAN",
         "_AMIGA",

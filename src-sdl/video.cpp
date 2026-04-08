@@ -3,6 +3,7 @@
 #include <ddb_pal.h>
 #include <ddb_scr.h>
 #include <ddb_vid.h>
+#include <ddb_xmsg.h>
 #include <dmg.h>
 #include <dmg_font.h>
 #include <os_char.h>
@@ -1404,6 +1405,8 @@ void VID_InitAudio ()
 
 bool VID_LoadDataFile(const char* fileName)
 {
+	DDB_InitializeXMessageCache(65536);
+
 	#if HAS_PCX
 	FreeBufferedPCXPicture();
 	VID_SetExternalPictureBase(0);

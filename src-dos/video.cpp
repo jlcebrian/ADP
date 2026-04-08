@@ -3,6 +3,7 @@
 #include <ddb_vid.h>
 #include <ddb_data.h>
 #include <ddb_scr.h>
+#include <ddb_xmsg.h>
 #include <dmg_font.h>
 #include <os_file.h>
 #include <os_lib.h>
@@ -539,6 +540,7 @@ bool VID_LoadDataFile (const char* fileName)
 	FreeBufferedPCXPicture();
 	VID_SetExternalPictureBase(0);
 	#endif
+
 	columnWidth = 6;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
@@ -587,6 +589,10 @@ bool VID_LoadDataFile (const char* fileName)
 	{
 		// Keep the default fixed-width charset restored above.
 	}
+
+	#if HAS_XMSG
+	DDB_InitializeXMessageCache(32768);
+	#endif
 
 	return true;
 }

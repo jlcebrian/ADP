@@ -1,4 +1,5 @@
 #include <ddb.h>
+#include <ddb_xmsg.h>
 #include <ddb_vid.h>
 #include <dmg.h>
 #include <os_file.h>
@@ -1166,6 +1167,15 @@ DDB* DDB_Load(const char* filename)
 	ddb->target     = (DDB_Machine)(data[1] >> 4);
 	ddb->condactMap = ddb->version == 1 ? version1Condacts : version2Condacts;
 	ddb->firstToken = 128;
+
+	#if HAS_XMSG
+	if (DDB_OpenXMessageFile(filename))
+	{
+		// When there is an XMessage file, EXTERN is replaced by XMESSAGE
+		ddb->condactMap[0x3D].condact    = CONDACT_XMESSAGE;
+		ddb->condactMap[0x3D].parameters = 3;
+	}
+	#endif
 
 	if (ddb->baseOffset == 0)
 	{
