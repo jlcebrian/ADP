@@ -3716,7 +3716,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			{
 				if (param1 == 3)
 				{
-					uint16_t offset = param0 + code[3]*256;
+					uint16_t offset = param0 + param1*256;
 					const uint8_t* msg = DDB_GetXMessage(offset);
 					if (msg != 0)
 					{
@@ -3737,14 +3737,20 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 			}
 			#endif
-				// Fallthrough
+				i->done = true;
+				break;
+
 			case CONDACT_EXTERN:
 
+				#if HAS_SNAPSHOTS
 				// This fixes Templos & Chichen, but it is hackish to say the least
 				// Unfortunately, the only way to improve it is to add a full blown
 				// Z80 CPU emulator to the interpreter, which is not going to happen
 
-				if (i->ddb->externData != 0)
+				if (i->ddb->externData != 0 && 
+					(i->ddb->machine == DDB_MACHINE_SPECTRUM ||
+					 i->ddb->machine == DDB_MACHINE_CPC ||
+					 i->ddb->machine == DDB_MACHINE_MSX))
 				{
 					static uint8_t templosRoutine[] = {
 						0xC5, 				// PUSH BC
@@ -3777,6 +3783,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 							MemCopy(i->flags + param0, data + address, length);
 					}
 				}
+				
+				#endif
 				i->done = true;
 				break;
 

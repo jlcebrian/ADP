@@ -272,7 +272,7 @@ static DDB_CondactMap version2Condacts[128] = {
 	{ CONDACT_RESTART,		  0 },		// 0x75
 	{ CONDACT_TAB,    		  1 },		// 0x76
 	{ CONDACT_COPYOF, 		  2 },		// 0x77
-	{ CONDACT_INVALID,  	  0 },		// 0x78
+	{ CONDACT_XMESSAGE,  	  2 },		// 0x78		- New in DAAD V3
 	{ CONDACT_COPYOO, 		  2 },		// 0x79
 	{ CONDACT_INDIR, 		  1 },		// 0x7A		- New in DAAD V3
 	{ CONDACT_COPYFO, 		  2 },		// 0x7B
@@ -1224,15 +1224,6 @@ DDB* DDB_Load(const char* filename)
 	ddb->target     = (DDB_Machine)(data[1] >> 4);
 	ddb->condactMap = ddb->version == 1 ? version1Condacts : version2Condacts;
 	ddb->firstToken = 128;
-
-	#if HAS_XMSG
-	if (DDB_OpenXMessageFile(filename))
-	{
-		// When there is an XMessage file, EXTERN is replaced by XMESSAGE
-		ddb->condactMap[0x3D].condact    = CONDACT_XMESSAGE;
-		ddb->condactMap[0x3D].parameters = 3;
-	}
-	#endif
 
 	if (ddb->baseOffset == 0)
 	{
