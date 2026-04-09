@@ -30,7 +30,7 @@ enum DMG_Error
 	DMG_ERROR_BUFFER_TOO_SMALL,
 	DMG_ERROR_ENTRY_IS_EMPTY,
 	DMG_ERROR_OUT_OF_MEMORY,
-	DMG_ERROR_DECOMPRESSION_BUFFER_MISSING,
+	DMG_ERROR_TEMPORARY_BUFFER_MISSING,
 	DMG_ERROR_INVALID_IMAGE,
 };
 
@@ -307,8 +307,10 @@ void        DMG_SetWarningHandler  (void (*handler)(const char* message));
 const char* DMG_DescribeFreq       (DMG_KHZ freq);
 
 uint32_t    DMG_GetTemporaryBufferSize ();
+uint8_t*    DMG_GetTemporaryBufferBase ();
 uint8_t*    DMG_GetTemporaryBuffer     (DMG_ImageMode mode);
 bool        DMG_ReserveTemporaryBuffer (uint32_t size);
+bool        DMG_IsTemporaryBufferPointer(const void* ptr);
 void        DMG_FreeTemporaryBuffer    ();
 
 bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);

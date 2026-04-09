@@ -21,6 +21,7 @@ DMG* dmg = 0;
 
 static DMG_Error dmgError = DMG_ERROR_NONE;
 static void    (*dmg_warningHandler)(const char* message) = 0;
+static uint8_t*  dmgTemporaryBufferRaw = 0;
 static uint8_t*  dmgTemporaryBuffer = 0;
 static uint32_t  dmgTemporaryBufferSize = 0;
 
@@ -75,21 +76,32 @@ uint32_t DMG_GetTemporaryBufferSize()
 	return dmgTemporaryBufferSize;
 }
 
+uint8_t* DMG_GetTemporaryBufferBase()
+{
+	return dmgTemporaryBuffer;
+}
+
 bool DMG_ReserveTemporaryBuffer(uint32_t size)
 {
 	if (dmgTemporaryBuffer != 0 && dmgTemporaryBufferSize >= size)
 		return true;
 
-	if (dmgTemporaryBuffer != 0)
+	if (dmgTemporaryBufferRaw != 0)
 	{
-		Free(dmgTemporaryBuffer);
+		Free(dmgTemporaryBufferRaw);
+		dmgTemporaryBufferRaw = 0;
 		dmgTemporaryBuffer = 0;
 		dmgTemporaryBufferSize = 0;
 	}
 
-	dmgTemporaryBuffer = Allocate<uint8_t>("Decompression buffer", size);
-	if (dmgTemporaryBuffer == 0)
+	uint32_t allocationSize = size + 255;
+	dmgTemporaryBufferRaw = Allocate<uint8_t>("DMG Temporary buffer", allocationSize);
+	if (dmgTemporaryBufferRaw == 0)
 		return false;
+
+	dmgTemporaryBuffer = dmgTemporaryBufferRaw;
+	while ((((unsigned long)dmgTemporaryBuffer) & 255u) != 0)
+		dmgTemporaryBuffer++;
 
 	dmgTemporaryBufferSize = size;
 	return true;
@@ -105,11 +117,22 @@ uint8_t* DMG_GetTemporaryBuffer(DMG_ImageMode mode)
 	
 	return dmgTemporaryBuffer;
 }
+
+bool DMG_IsTemporaryBufferPointer(const void* ptr)
+{
+	if (ptr == 0 || dmgTemporaryBuffer == 0 || dmgTemporaryBufferSize == 0)
+		return false;
+
+	const uint8_t* bytePtr = (const uint8_t*)ptr;
+	return bytePtr >= dmgTemporaryBuffer && bytePtr < dmgTemporaryBuffer + dmgTemporaryBufferSize;
+}
+
 void DMG_FreeTemporaryBuffer()
 {
-	if (dmgTemporaryBuffer)
+	if (dmgTemporaryBufferRaw)
 	{
-		Free(dmgTemporaryBuffer);
+		Free(dmgTemporaryBufferRaw);
+		dmgTemporaryBufferRaw = 0;
 		dmgTemporaryBuffer = 0;
 		dmgTemporaryBufferSize = 0;
 	}
@@ -206,8 +229,8 @@ const char* DMG_GetErrorString()
 			return "Entry is empty";
 		case DMG_ERROR_INVALID_IMAGE:
 			return "Invalid image format";
-		case DMG_ERROR_DECOMPRESSION_BUFFER_MISSING:
-			return "Decompression buffer missing";
+		case DMG_ERROR_TEMPORARY_BUFFER_MISSING:
+			return "Temporary buffer missing";
 		default:
 			DMG_Warning("Unknown error code %d", dmgError);
 			return "Unknown error";
@@ -661,7 +684,14 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 {
 	int n, p;
 
-	uint8_t* buffer = Allocate<uint8_t>("DMG temporary buffer", 2560);
+	if (!DMG_ReserveTemporaryBuffer(2560))
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	uint8_t* buffer = DMG_GetTemporaryBufferBase();
+	uint32_t entryCount = 0;
 
 	File_Seek(dmg->file, 0x06);
 	if (File_Read(dmg->file, buffer, 2560) != 2560)
@@ -669,6 +699,33 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return false;
 	}
+
+	for (n = 0; n < 256; n++)
+	{
+		uint8_t* ptr = buffer + n * 10;
+		uint32_t offset = read32(ptr, dmg->littleEndian);
+		if (offset != 0 && (offset < 0xA06 || offset >= dmg->fileSize))
+		{
+			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
+			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
+			return false;
+		}
+		if (offset != 0)
+			entryCount++;
+	}
+
+	if (entryCount != 0)
+	{
+		dmg->entryBlock = Allocate<DMG_Entry>("DMG entries", entryCount);
+		if (dmg->entryBlock == 0)
+		{
+			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+		MemClear(dmg->entryBlock, sizeof(DMG_Entry) * entryCount);
+	}
+
+	uint32_t nextEntry = 0;
 
 	for (n = 0; n < 256; n++)
 	{
@@ -682,19 +739,12 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 		{
 			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
 			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
-			Free(buffer);
 			return false;
 		}
 		if (offset == 0)
 			continue;
 		
-		dmg->entries[n] = Allocate<DMG_Entry>("DMG Entry");
-		if (dmg->entries[n] == 0)
-		{
-			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
-			Free(buffer);
-			return false;
-		}
+		dmg->entries[n] = dmg->entryBlock + nextEntry++;
 		dmg->entries[n]->type = DMGEntry_Image;
 		dmg->entries[n]->bitDepth = version == DMG_Version1_CGA ? 2 : 4;
 		dmg->entries[n]->flags = 0;
@@ -718,7 +768,6 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 			dmg->entries[n]->CGAPalette[p] = p & 0x03;
 		}
 	}
-	Free(buffer);
 	return true;
 }
 
@@ -726,7 +775,14 @@ bool DMG_ReadV1Entries(DMG* dmg)
 {
 	int n, p;
 
-	uint8_t* buffer = Allocate<uint8_t>("DMG Temporary buffer", 44 * 256);
+	if (!DMG_ReserveTemporaryBuffer(44 * 256))
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	uint8_t* buffer = DMG_GetTemporaryBufferBase();
+	uint32_t entryCount = 0;
 
 	File_Seek(dmg->file, 0x06);
 	if (File_Read(dmg->file, buffer, 44 * 256) != 44 * 256)
@@ -734,6 +790,33 @@ bool DMG_ReadV1Entries(DMG* dmg)
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return false;
 	}
+
+	for (n = 0; n < 256; n++)
+	{
+		uint8_t* ptr = buffer + n * 44;
+		uint32_t offset = read32(ptr, dmg->littleEndian);
+		if (offset != 0 && (offset < 0x2C06 || offset >= dmg->fileSize))
+		{
+			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
+			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
+			return false;
+		}
+		if (offset != 0)
+			entryCount++;
+	}
+
+	if (entryCount != 0)
+	{
+		dmg->entryBlock = Allocate<DMG_Entry>("DMG entries", entryCount);
+		if (dmg->entryBlock == 0)
+		{
+			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+		MemClear(dmg->entryBlock, sizeof(DMG_Entry) * entryCount);
+	}
+
+	uint32_t nextEntry = 0;
 
 	for (n = 0; n < 256; n++)
 	{
@@ -750,19 +833,12 @@ bool DMG_ReadV1Entries(DMG* dmg)
 		{
 			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
 			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
-			Free(buffer);
 			return false;
 		}
 		if (offset == 0)
 			continue;
 
-		dmg->entries[n] = Allocate<DMG_Entry>("DMG Entry");
-		if (dmg->entries[n] == 0)
-		{
-			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
-			Free(buffer);
-			return false;
-		}
+		dmg->entries[n] = dmg->entryBlock + nextEntry++;
 		dmg->entries[n]->type = DMGEntry_Image;
 		dmg->entries[n]->bitDepth = 4;
 		dmg->entries[n]->flags = 0;
@@ -786,8 +862,6 @@ bool DMG_ReadV1Entries(DMG* dmg)
 			dmg->entries[n]->RGB32Palette[p] = Pal2RGB(color, false);
 		}
 	}
-
-	Free(buffer);
 	return true;
 }
 
@@ -797,24 +871,55 @@ bool DMG_ReadV2Entries(DMG* dmg)
 	uint8_t sizeBuffer[4];
 	uint32_t size;
 
-	uint8_t* buffer = Allocate<uint8_t>("DMG Temporary buffer", 48 * 256);
+	if (!DMG_ReserveTemporaryBuffer(48 * 256))
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	uint8_t* buffer = DMG_GetTemporaryBufferBase();
+	uint32_t entryCount = 0;
 
 	File_Seek(dmg->file, 0x06);
 	if (File_Read(dmg->file, sizeBuffer, 4) != 4)
 	{
 		DMG_SetError(DMG_ERROR_READING_FILE);
-		Free(buffer);
 		return false;
 	}
 	if (File_Read(dmg->file, buffer, 48 * 256) != 48 * 256)
 	{
 		DMG_SetError(DMG_ERROR_READING_FILE);
-		Free(buffer);
 		return false;
 	}
 	size = read32(sizeBuffer, dmg->littleEndian);
 	if (size != dmg->fileSize)
 		DMG_Warning("Invalid file size %d on header (expected %d)", size, dmg->fileSize);
+
+	for (n = 0; n < 256; n++)
+	{
+		uint8_t* ptr = buffer + n * 48;
+		uint32_t offset = read32(ptr, dmg->littleEndian);
+		if (offset != 0 && (offset < 0x300A || offset >= dmg->fileSize))
+		{
+			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
+			return false;
+		}
+		if (offset != 0)
+			entryCount++;
+	}
+
+	if (entryCount != 0)
+	{
+		dmg->entryBlock = Allocate<DMG_Entry>("DMG entries", entryCount);
+		if (dmg->entryBlock == 0)
+		{
+			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+		MemClear(dmg->entryBlock, sizeof(DMG_Entry) * entryCount);
+	}
+
+	uint32_t nextEntry = 0;
 
 	for (n = 0; n < 256; n++)
 	{
@@ -831,18 +936,11 @@ bool DMG_ReadV2Entries(DMG* dmg)
 		if (offset != 0 && (offset < 0x300A || offset >= dmg->fileSize))
 		{
 			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
-			Free(buffer);
 			return false;
 		}
 		if (offset == 0)
 			continue;
-		dmg->entries[n] = Allocate<DMG_Entry>("DMG Entry");
-		if (dmg->entries[n] == 0)
-		{
-			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
-			Free(buffer);
-			return false;
-		}
+		dmg->entries[n] = dmg->entryBlock + nextEntry++;
 		dmg->entries[n]->type = (flags & 0x0010) ? DMGEntry_Audio : DMGEntry_Image;
 		dmg->entries[n]->bitDepth = 4;
 		dmg->entries[n]->flags = 0;
@@ -873,8 +971,6 @@ bool DMG_ReadV2Entries(DMG* dmg)
             dmg->entries[n]->flags &= ~DMG_FLAG_AMIPALHACK;
         DMG_SetCGAMode(dmg->entries[n], (flags & 0x0001) ? CGA_Red : CGA_Blue);
 	}
-
-	Free(buffer);
 	return true;
 }
 
@@ -924,7 +1020,6 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 	file = File_Open(filename, readOnly ? ReadOnly : ReadWrite);
 	if (file == 0)
 	{
-		DebugPrintf("Unable to open %s\n", filename);
 		DMG_SetError(DMG_ERROR_FILE_NOT_FOUND);
 		return 0;
 	}
@@ -1128,10 +1223,9 @@ void DMG_Close(DMG* d)
         if (d->entries[i] != 0 && d->entries[i]->RGB32PaletteV5 != 0)
             Free(d->entries[i]->RGB32PaletteV5);
     }
-	if (d->version == DMG_Version5)
-    {
-		if (d->entryBlock != 0)
-			Free(d->entryBlock);
+	if (d->entryBlock != 0)
+	{
+		Free(d->entryBlock);
 	}
 	else
 	{

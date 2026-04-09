@@ -4,6 +4,7 @@
 #include <cli_parser.h>
 #include <ddb.h>
 #include <os_lib.h>
+#include <os_mem.h>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -823,7 +824,7 @@ static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t*
         return true;
     }
 
-    OSFree(zx0Data);
+    Free(zx0Data);
     return true;
 }
 

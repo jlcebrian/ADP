@@ -1,7 +1,10 @@
 
 VERSION    ?= BETA0.3
-DEBUGPRINT ?= 1
 LIBCMINI   ?= $(HOME)/libcmini
+
+DEBUGPRINT ?= 1
+DEBUGCACHE ?= 0
+TRACE      ?= 0
 UPX        ?= 1
 UPXFLAGS   ?= -q -5
 
@@ -26,9 +29,15 @@ endif
 CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT -DHAS_XMSG
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
+
 ifeq ($(DEBUGPRINT),1)
+CPPFLAGS += -DDEBUG_IMAGE_CACHE=$(DEBUGCACHE)
 CPPFLAGS += -D_DEBUGPRINT
+ifeq ($(TRACE),1)
+CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
 endif
+endif
+
 CPPFLAGS += -Os -fomit-frame-pointer -fno-rtti -fno-exceptions
 CPPFLAGS += -include include/libcmini_cxx.h
 CPPFLAGS += -I$(LIBCMINI)/include -nostdlib
@@ -60,6 +69,7 @@ CPPFILES := 		\
 	dmg_cach.cpp	\
 	dmg_cga.cpp		\
 	dmg_ega.cpp		\
+	dmg_font.cpp	\
 	dmg_imgc.cpp	\
 	dmg_imgp.cpp	\
 	dmg_rlec.cpp	\
@@ -100,8 +110,7 @@ $(TARGET): $(CPPOBJS) $(ASMOBJS) | $(OUTDIR)
 	$(STRIP) $@
 	$(PACK_CMD)
 	@cd out && ./dsk atarist/original.st add atarist/ad.prg
-	@cp out/atarist/ad.prg out/atarist/cozumel/
-	@cp out/atarist/ad.prg out/atarist/original/
+	@find out/atarist/ -type d -exec cp out/atarist/ad.prg {} \;
 
 $(OUTDIR):
 	mkdir -p $@

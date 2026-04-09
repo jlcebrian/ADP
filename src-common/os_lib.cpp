@@ -95,6 +95,84 @@ const char* ChangeExtension(const char* fileName, const char* extension)
 #include <string.h>
 #include <ctype.h>
 
+#if defined(_ATARIST)
+static uint8_t* osArenaBase = 0;
+static size_t osArenaSize = 0;
+static size_t osArenaUsed = 0;
+
+static bool OSArenaContains(const void* ptr)
+{
+	const uint8_t* bytePtr = (const uint8_t*)ptr;
+	return osArenaBase != 0 && bytePtr >= osArenaBase && bytePtr < osArenaBase + osArenaSize;
+}
+
+size_t OSReserveArena(size_t size)
+{
+	if (osArenaBase != 0)
+		return osArenaSize;
+
+	size &= ~(size_t)15;
+	while (size >= 32768)
+	{
+		uint8_t* block = (uint8_t*)malloc(size);
+		if (block != 0)
+		{
+			osArenaBase = block;
+			osArenaSize = size;
+			osArenaUsed = 0;
+			return size;
+		}
+		size -= 4096;
+		size &= ~(size_t)15;
+	}
+
+	return 0;
+}
+
+void OSReleaseArena()
+{
+	if (osArenaBase != 0)
+		free(osArenaBase);
+	osArenaBase = 0;
+	osArenaSize = 0;
+	osArenaUsed = 0;
+}
+
+size_t OSGetArenaSize()
+{
+	return osArenaSize;
+}
+
+size_t OSGetFree()
+{
+	if (osArenaBase == 0 || osArenaUsed >= osArenaSize)
+		return 0;
+	return osArenaSize - osArenaUsed;
+}
+
+#else
+
+size_t OSReserveArena(size_t size)
+{
+	(void)size;
+	return 0;
+}
+
+void OSReleaseArena()
+{
+}
+
+size_t OSGetArenaSize()
+{
+	return 0;
+}
+
+size_t OSGetFree()
+{
+	return 0;
+}
+#endif
+
 void *MemClear(void *mem, size_t size)
 {
 	return memset(mem, 0, size);
@@ -161,13 +239,41 @@ uint32_t RandInt(uint32_t min, uint32_t max)
 	return min + rand() % (max - min + 1);
 }
 
-void* OSAlloc(size_t size)
+void* OSAlloc(size_t size, OSMemoryPool pool)
 {
+	(void)pool;
+	#if defined(_ATARIST)
+	size = (size + 15) & ~(size_t)15;
+	if (osArenaBase != 0)
+	{
+		if (osArenaUsed + size > osArenaSize)
+		{
+			DebugPrintf("OS arena exhausted: requested=%lu used=%lu size=%lu\n",
+				(unsigned long)size,
+				(unsigned long)osArenaUsed,
+				(unsigned long)osArenaSize);
+			return 0;
+		}
+
+		void* ptr = osArenaBase + osArenaUsed;
+		osArenaUsed += size;
+		return ptr;
+	}
+	#endif
+
 	return malloc(size);
 }
 
 void OSFree(void* ptr)
 {
+	if (ptr == 0)
+		return;
+
+	#if defined(_ATARIST)
+	if (OSArenaContains(ptr))
+		return;
+	#endif
+
 	free(ptr);
 }
 

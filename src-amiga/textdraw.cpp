@@ -11,47 +11,28 @@
 
 enum SolidPatchMode
 {
-	SolidPatchMode_And = 0,
-	SolidPatchMode_AndOr = 1,
-	SolidPatchMode_OrM = 2,
-	SolidPatchMode_OrMXorO = 3,
+	SolidPatchMode_And = 0,      // Clear glyph pixels and preserve paper pixels.
+	SolidPatchMode_AndOr = 1,    // Clear paper pixels, then set glyph pixels.
+	SolidPatchMode_OrM = 2,      // Preserve paper pixels and force glyph pixels on.
+	SolidPatchMode_OrMXorO = 3,  // Force paper pixels on, then toggle glyph pixels back off.
 };
 
 typedef void (*DrawCharacterSolidPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in, uint16_t cover);
 typedef void (*DrawCharacterTransparentPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in);
 
-static uint8_t* solidTextStubCode = 0;
+static uint16_t solidTextStubCode[0xE4 / 2];
 static const uint32_t solidTextStubSize = 0xE4;
 static uint8_t lastSolidAttributes = 0xFF;
-static uint8_t* transparentTextStubCode = 0;
+static uint16_t transparentTextStubCode[0xD4 / 2];
 static const uint32_t transparentTextStubSize = 0xD4;
 static uint8_t lastTransparentInk = 0xFF;
 
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex);
-static bool EmitSolidTextStub(uint8_t* code, uint32_t codeSize, uint8_t ink, uint8_t paper);
-static bool EmitTransparentTextStub(uint8_t* code, uint32_t codeSize, uint8_t ink);
+static bool EmitSolidTextStub(uint16_t* code, uint32_t codeSize, uint8_t ink, uint8_t paper);
+static bool EmitTransparentTextStub(uint16_t* code, uint32_t codeSize, uint8_t ink);
 
 bool VID_InitializeTextDraw()
 {
-	if (solidTextStubCode != 0 && transparentTextStubCode != 0)
-		return true;
-
-	solidTextStubCode = (uint8_t*)AllocMem(solidTextStubSize, MEMF_ANY | MEMF_PUBLIC);
-	if (solidTextStubCode == 0)
-		solidTextStubCode = (uint8_t*)AllocMem(solidTextStubSize, MEMF_ANY);
-	if (solidTextStubCode == 0)
-		return false;
-
-	transparentTextStubCode = (uint8_t*)AllocMem(transparentTextStubSize, MEMF_ANY | MEMF_PUBLIC);
-	if (transparentTextStubCode == 0)
-		transparentTextStubCode = (uint8_t*)AllocMem(transparentTextStubSize, MEMF_ANY);
-	if (transparentTextStubCode == 0)
-	{
-		FreeMem(solidTextStubCode, solidTextStubSize);
-		solidTextStubCode = 0;
-		return false;
-	}
-
 	lastSolidAttributes = 0xFF;
 	lastTransparentInk = 0xFF;
 
@@ -62,17 +43,6 @@ void VID_FinishTextDraw()
 {
 	lastSolidAttributes = 0xFF;
 	lastTransparentInk = 0xFF;
-
-	if (transparentTextStubCode)
-	{
-		FreeMem(transparentTextStubCode, transparentTextStubSize);
-		transparentTextStubCode = 0;
-	}
-	if (solidTextStubCode)
-	{
-		FreeMem(solidTextStubCode, solidTextStubSize);
-		solidTextStubCode = 0;
-	}
 }
 
 struct SolidWordEmitter
@@ -129,7 +99,6 @@ static void EmitUnalignedPlaneBlock(SolidWordEmitter& emitter, int planeIndex, b
 
 		case SolidPatchMode_OrMXorO:
 			emitter.Emit((uint16_t)(rightByte ? 0x1A06 : 0x1A07)); // move.b d6,d5 / move.b d7,d5
-			emitter.Emit((uint16_t)(rightByte ? 0xB505 : 0xB905)); // eor.b d2,d5 / eor.b d4,d5
 			if (offset == 0)
 				emitter.Emit(0x8A10); // or.b (a0),d5
 			else
@@ -137,6 +106,7 @@ static void EmitUnalignedPlaneBlock(SolidWordEmitter& emitter, int planeIndex, b
 				emitter.Emit(0x8A28); // or.b xxxx(a0),d5
 				emitter.Emit(offset); // xxxx displacement
 			}
+			emitter.Emit((uint16_t)(rightByte ? 0xB505 : 0xB905)); // eor.b d2,d5 / eor.b d4,d5
 			break;
 	}
 
@@ -193,7 +163,6 @@ static void EmitAlignedPlaneBlock(SolidWordEmitter& emitter, int planeIndex, uin
 
 		case SolidPatchMode_OrMXorO:
 			emitter.Emit(0x3606); // move.w d6,d3
-			emitter.Emit(0xB543); // eor.w d2,d3
 			if (offset == 0)
 				emitter.Emit(0x8650); // or.w (a0),d3
 			else
@@ -201,6 +170,7 @@ static void EmitAlignedPlaneBlock(SolidWordEmitter& emitter, int planeIndex, uin
 				emitter.Emit(0x8668); // or.w xxxx(a0),d3
 				emitter.Emit(offset); // xxxx displacement
 			}
+			emitter.Emit(0xB543); // eor.w d2,d3
 			break;
 	}
 
@@ -289,12 +259,12 @@ static void EmitTransparentAlignedPlaneBlock(SolidWordEmitter& emitter, int plan
 	}
 }
 
-static bool EmitSolidTextStub(uint8_t* code, uint32_t templateSize, uint8_t ink, uint8_t paper)
+static bool EmitSolidTextStub(uint16_t* code, uint32_t templateSize, uint8_t ink, uint8_t paper)
 {
 	if ((templateSize & 1) != 0)
 		return false;
 
-	SolidWordEmitter emitter = { (uint16_t*)code };
+	SolidWordEmitter emitter = { code };
 
 	emitter.Emit(0x48E7); // movem.l d2-d7/a2,-(sp)
 	emitter.Emit(0x3F20); // movem register mask
@@ -360,15 +330,15 @@ static bool EmitSolidTextStub(uint8_t* code, uint32_t templateSize, uint8_t ink,
 	emitter.Emit(0x04FC); // movem register mask
 	emitter.Emit(0x4E75); // rts
 
-	return (uint32_t)(emitter.ptr - (uint16_t*)code) == (templateSize >> 1);
+	return (uint32_t)(emitter.ptr - code) == (templateSize >> 1);
 }
 
-static bool EmitTransparentTextStub(uint8_t* code, uint32_t templateSize, uint8_t ink)
+static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateSize, uint8_t ink)
 {
 	if ((templateSize & 1) != 0)
 		return false;
 
-	SolidWordEmitter emitter = { (uint16_t*)code };
+	SolidWordEmitter emitter = { code };
 
 	emitter.Emit(0x48E7); // movem.l d2-d7/a2,-(sp)
 	emitter.Emit(0x3F20); // movem register mask
@@ -426,11 +396,12 @@ static bool EmitTransparentTextStub(uint8_t* code, uint32_t templateSize, uint8_
 	emitter.Emit(0x04FC); // movem register mask
 	emitter.Emit(0x4E75); // rts
 
-	return (uint32_t)(emitter.ptr - (uint16_t*)code) == (templateSize >> 1);
+	return (uint32_t)(emitter.ptr - code) == (templateSize >> 1);
 }
 
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex)
 {
+	// Choose the cheapest per-plane operation that converts the existing paper bit into the target ink bit.
 	uint8_t inkBit = (uint8_t)((ink >> planeIndex) & 1);
 	uint8_t paperBit = (uint8_t)((paper >> planeIndex) & 1);
 	if (inkBit != 0)
@@ -442,8 +413,6 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 {
 	if (length == 0 || text == 0)
 		return;
-	if (rotationTable == 0 || charsetWords == 0)
-		return;
 
 	uint8_t* dst = (charToBack ^ displaySwap) ? backBuffer : frontBuffer;
 	uint8_t* out = dst + y * SCR_STRIDEB + (x >> 3);
@@ -454,6 +423,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	{
 		if (lastTransparentInk != ink)
 		{
+			DebugPrintf("Amiga DrawTextSpan transparent emitter: ink=%u paper=255\n", (unsigned)ink);
 			if (!EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink))
 				return;
 			lastTransparentInk = ink;
@@ -464,7 +434,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 			uint8_t ch = text[n];
 			uint8_t width = charWidth[ch];
 
-			const uint16_t* rotation = rotationTable + (shift << 8);
+			const uint16_t* rotation = rotationTable[shift];
 			const uint8_t* glyph = charset + 8 * ch;
 			((DrawCharacterTransparentPatchedAsmFn)transparentTextStubCode)(out, rotation, glyph);
 
@@ -480,6 +450,10 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	uint8_t attributes = (paper << 4) | ink;
 	if (lastSolidAttributes != attributes)
 	{
+		DebugPrintf("Amiga DrawTextSpan solid emitter: ink=%u paper=%u attr=%u\n",
+			(unsigned)ink,
+			(unsigned)paper,
+			(unsigned)attributes);
 		if (!EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper))
 			return;
 		lastSolidAttributes = attributes;
@@ -490,7 +464,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 		uint8_t ch = text[n];
 		uint8_t width = charWidth[ch];
 
-		const uint16_t* rotation = rotationTable + (shift << 8);
+		const uint16_t* rotation = rotationTable[shift];
 		const uint8_t* glyph = charset + 8 * ch;
 		const uint8_t widthMask8 = (uint8_t)(0xFF << (8 - width));
 		const uint16_t cover = rotation[widthMask8];

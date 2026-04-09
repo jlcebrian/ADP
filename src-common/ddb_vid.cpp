@@ -16,7 +16,7 @@ uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
 
-void VID_ResetDisplayToDefault()
+void VID_ResetDisplay()
 {
 #ifdef _AMIGA
 	VID_PresentDefaultScreen();

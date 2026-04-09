@@ -186,7 +186,7 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 		{
 			DDB_Reset(i);
 			DDB_ResetWindows(i);
-			VID_ResetDisplayToDefault();
+			VID_ResetDisplay();
 		}
 		else
 		{

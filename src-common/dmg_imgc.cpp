@@ -28,7 +28,6 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		if (cache->populated)
 			return buffer;
 		bufferSize = cache->size;
-		cache->populated = true;
 	}
 #endif
 
@@ -45,7 +44,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	}
 	if (buffer == 0)
 	{
-		// PANIC: No decompression buffer
+		// PANIC: No temporary buffer
 		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 		return 0;
 	}
@@ -137,10 +136,15 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	}
 	if (!success)
 	{
+		if (cache != 0)
+			cache->populated = false;
 		if (DMG_GetError() == DMG_ERROR_NONE)
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 		return 0;
 	}
+
+	if (cache != 0)
+		cache->populated = true;
 
 	return buffer;
 }

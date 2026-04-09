@@ -1,5 +1,6 @@
 #include <dmg.h>
 #include <os_lib.h>
+#include <os_mem.h>
 
 #if defined(_UNIX) || defined(_OSX) || defined(_WEB)
 #define DMG_USE_SALVADOR_COMPRESSOR 1
@@ -192,7 +193,7 @@ uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* out
     return 0;
 #else
     const uint32_t maxCompressedSize = (uint32_t)salvador_get_max_compressed_size((size_t)dataLength);
-    uint8_t* compressed = (uint8_t*)OSAlloc(maxCompressedSize);
+    uint8_t* compressed = Allocate<uint8_t>("ZX0 compressed", maxCompressedSize, false);
     if (compressed == 0)
     {
         if (outputSize)
@@ -213,7 +214,7 @@ uint8_t* DMG_CompressZX0(const uint8_t* data, uint32_t dataLength, uint32_t* out
 
     if (compressedSize == (size_t)-1)
     {
-        OSFree(compressed);
+        Free(compressed);
         if (outputSize)
             *outputSize = 0;
         return 0;

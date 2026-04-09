@@ -444,8 +444,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	}
 	if (buffer == 0)
 	{
-		// PANIC: No decompression buffer
-		DMG_SetError(DMG_ERROR_DECOMPRESSION_BUFFER_MISSING);
+		// PANIC: No temporary buffer
+		DMG_SetError(DMG_ERROR_TEMPORARY_BUFFER_MISSING);
 		return 0;
 	}
 
@@ -540,15 +540,21 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			}
 			else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
 			{
-				DebugPrintf("Decompressing new RLE image %d (fast)\n", index);
+				uint32_t t0, t1;
+				VID_GetMilliseconds(&t0);
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, entry->width, dmg->littleEndian);
+				VID_GetMilliseconds(&t1);
+				DebugPrintf("Decompressed new RLE image %d in %dms\n", index, t1-t0);
 			}
 			else
 			{
-				DebugPrintf("Decompressing new RLE image %d (slow)\n", index);
+				uint32_t t0, t1;
+				VID_GetMilliseconds(&t0);
 				success = DMG_DecompressNewRLE(fileData+2, mask, 
 					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
+				VID_GetMilliseconds(&t1);
+				DebugPrintf("Decompressed (non-native) new RLE image %d in %dms\n", index, t1-t0);
 			}
 		}
 	}
@@ -585,7 +591,6 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		else
 		{
 			uint32_t t0, t1;
-			DebugPrintf("Converting raw planar image %d to PlanarST\n", index);
 			VID_GetMilliseconds(&t0);
 			DMG_ConvertPlanar8ToPlanarST(fileData, buffer, packedSize, entry->width);
 			VID_GetMilliseconds(&t1);

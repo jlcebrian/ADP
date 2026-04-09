@@ -417,6 +417,9 @@ void SCR_SetTextInputMode(bool enabled)
 
 void SCR_UseInputFile(const char* filename)
 {
+	if (inputFileBegin != 0)
+		Free((void*)inputFileBegin);
+
     File* file = File_Open(filename, ReadOnly);
     if (file == 0)
     {
@@ -427,7 +430,14 @@ void SCR_UseInputFile(const char* filename)
     }
 
     uint64_t fileSize = File_GetSize(file);
-    inputFileBegin = inputFile = (const char*)OSAlloc(fileSize);
+	inputFileBegin = inputFile = (const char*)AllocateBlock("Input file", (size_t)fileSize, false);
+	if (inputFileBegin == 0)
+	{
+		inputFile = 0;
+		inputFileEnd = 0;
+		File_Close(file);
+		return;
+	}
     inputFileEnd = inputFileBegin + File_Read(file, (uint8_t*)inputFile, fileSize);
     File_Close(file);
 

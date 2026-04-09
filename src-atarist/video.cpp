@@ -4,6 +4,7 @@
 #include <ddb_vid.h>
 #include <ddb_xmsg.h>
 #include <dmg.h>
+#include <dmg_font.h>
 #include <os_char.h>
 #include <os_mem.h>
 
@@ -47,11 +48,13 @@ bool supportsOpenFileDialog = false;
 #define MAX_PATH 256
 #endif
 
-static uint16_t* screen = 0;
 uint16_t* textScreen = 0;
+
+static uint16_t* screen = 0;
 static uint16_t* frontBuffer = 0;
 static uint16_t* backBuffer = 0;
-static uint8_t   backBufferMemory[32768];
+static uint8_t*  backBufferMemory = 0;
+static bool      backBufferEnabled = false;
 
 static bool      displaySwap = false;
 static bool      drawToFront = true;
@@ -106,6 +109,17 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 	return true;
 }
 
+static bool LoadSINTACFont(const char* filename)
+{
+	DMG_Font font;
+	if (!DMG_ReadSINTACFont(filename, &font))
+		return false;
+
+	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
+	MemCopy(charWidth, font.width8, sizeof(font.width8));
+	return true;
+}
+
 #define CONSOLE 0x02
 
 static int KeyboardHit()
@@ -121,6 +135,14 @@ static int GetKey()
 static uint32_t _getClock(void)
 {
 	return *((volatile unsigned long *) 0x4baL);
+}
+
+static uint32_t _writePaletteRegisters(void)
+{
+	volatile uint16_t* hwPalette = (volatile uint16_t*)0xFFFF8240L;
+	for (int n = 0; n < 16; n++)
+		hwPalette[n] = colors[n];
+	return 0;
 }
 
 clock_t Clock(void)
@@ -156,6 +178,208 @@ static uint16_t ColorValue(uint8_t r, uint8_t g, uint8_t b)
 	return (uint16_t)b | ((uint16_t)g << 4) | ((uint16_t)r << 8);
 }
 
+static void VID_ApplyPalette(bool waitForVsync)
+{
+	if (waitForVsync)
+		Vsync();
+
+	Supexec(_writePaletteRegisters);
+}
+
+static bool VID_PaletteMatches(const uint32_t* pal)
+{
+	if (pal == 0)
+		return false;
+
+	for (int n = 0; n < 16; n++)
+	{
+		if (palette[n][0] != ((pal[n] >> 16) & 0xFF) ||
+			palette[n][1] != ((pal[n] >> 8) & 0xFF) ||
+			palette[n][2] != (pal[n] & 0xFF))
+			return false;
+	}
+
+	return true;
+}
+
+static void VID_SetPaletteInternal(uint32_t* pal, bool waitForVsync)
+{
+	for (int n = 0; n < 16; n++)
+	{
+		uint8_t r = (pal[n] >> 16) & 0xFF;
+		uint8_t g = (pal[n] >>  8) & 0xFF;
+		uint8_t b = (pal[n]      ) & 0xFF;
+		palette[n][0] = r;
+		palette[n][1] = g;
+		palette[n][2] = b;
+		colors[n] = ColorValue(r, g, b);
+	}
+
+	VID_ApplyPalette(waitForVsync);
+}
+
+static void VID_StagePalette(uint32_t* pal)
+{
+	for (int n = 0; n < 16; n++)
+	{
+		uint8_t r = (pal[n] >> 16) & 0xFF;
+		uint8_t g = (pal[n] >>  8) & 0xFF;
+		uint8_t b = (pal[n]      ) & 0xFF;
+		palette[n][0] = r;
+		palette[n][1] = g;
+		palette[n][2] = b;
+		colors[n] = ColorValue(r, g, b);
+	}
+}
+
+static void VID_BlitPictureTo(uint16_t* dstBase, const uint16_t* srcBase, uint32_t srcStride, int x, int y, int w, int h)
+{
+	const uint16_t* srcPtr = srcBase;
+	uint16_t* dstPtr = dstBase + y * 80 + 4*(x >> 4);
+
+	if (x & 15)
+	{
+		bool extraByte = (w & 15);
+		w >>= 4;
+		if (w == 0)
+		{
+			for (int dy = 0; dy < h; dy++)
+			{
+				const uint8_t* s = (const uint8_t*)srcPtr;
+				uint8_t* d = (uint8_t*)dstPtr;
+				d[1] = s[0];
+				d[3] = s[2];
+				d[5] = s[4];
+				d[7] = s[6];
+				dstPtr += 80;
+				srcPtr += srcStride;
+			}
+		}
+		else
+		{
+			w--;
+			for (int dy = 0; dy < h; dy++)
+			{
+				const uint8_t* s = (const uint8_t*)srcPtr;
+				uint8_t* d = (uint8_t*)dstPtr;
+				d[1] = s[0];
+				d[3] = s[2];
+				d[5] = s[4];
+				d[7] = s[6];
+				d += 8;
+				for (int cx = 0; cx < w; cx++)
+				{
+					d[0] = s[1];
+					d[2] = s[3];
+					d[4] = s[5];
+					d[6] = s[7];
+					s += 8;
+					d[1] = s[0];
+					d[3] = s[2];
+					d[5] = s[4];
+					d[7] = s[6];
+					d += 8;
+				}
+				d[0] = s[1];
+				d[2] = s[3];
+				d[4] = s[5];
+				d[6] = s[7];
+				if (extraByte)
+				{
+					s += 8;
+					d[1] = s[0];
+					d[3] = s[2];
+					d[5] = s[4];
+					d[7] = s[6];
+				}
+
+				dstPtr += 80;
+				srcPtr += srcStride;
+			}
+		}
+	}
+	else
+	{
+		bool extraByte = (w & 15);
+		w >>= 4;
+		if (w == 0)
+		{
+			for (int dy = 0; dy < h; dy++)
+			{
+				const uint8_t* s = (const uint8_t*)srcPtr;
+				uint8_t* d = (uint8_t*)dstPtr;
+				d[0] = s[0];
+				d[2] = s[2];
+				d[4] = s[4];
+				d[6] = s[6];
+				dstPtr += 80;
+				srcPtr += srcStride;
+			}
+		}
+		else
+		{
+			uint32_t rowBytes = (uint32_t)w * 8;
+			if (!extraByte && rowBytes == 160)
+			{
+				memcpy(dstPtr, srcPtr, rowBytes * h);
+			}
+			else
+			{
+				for (int dy = 0; dy < h; dy++)
+				{
+					memcpy(dstPtr, srcPtr, rowBytes);
+					if (extraByte)
+					{
+						const uint8_t* s8 = (const uint8_t*)srcPtr + rowBytes;
+						uint8_t* d8 = (uint8_t*)dstPtr + rowBytes;
+						d8[0] = s8[0];
+						d8[2] = s8[2];
+						d8[4] = s8[4];
+						d8[6] = s8[6];
+					}
+					dstPtr += 80;
+					srcPtr += srcStride;
+				}
+			}
+		}
+		}
+}
+
+static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool paletteUpdated, int x, int y, int w, int h)
+{
+	if (!drawToFront)
+		return false;
+	if (!paletteUpdated)
+		return false;
+	if (pictureData == 0)
+		return false;
+
+	uint8_t* tempBase = DMG_GetTemporaryBufferBase();
+	if (tempBase == 0 || DMG_GetTemporaryBufferSize() < 32000)
+		return false;
+
+	uint16_t* visibleBuffer = displaySwap ? backBuffer : frontBuffer;
+	uint16_t* tempScreen = (uint16_t*)tempBase;
+	const uint16_t* sourcePicture = pictureData;
+	uint32_t sourceStride = pictureStride;
+
+	if (DMG_IsTemporaryBufferPointer(pictureData))
+		return false;
+
+	memcpy(tempScreen, visibleBuffer, 32000);
+	VID_BlitPictureTo(tempScreen, sourcePicture, sourceStride, x, y, w, h);
+	VID_StagePalette(pal);
+
+	// Setscreen becomes active on the next VBL, so switch first, wait once, then latch the palette.
+	Setscreen(-1, tempScreen, -1);
+	Vsync();
+	VID_ApplyPalette(false);
+
+	memcpy(visibleBuffer, tempScreen, 32000);
+	Setscreen(-1, visibleBuffer, -1);
+	return true;
+}
+
 void VID_WaitForKey()
 {
 	while (KeyboardHit())
@@ -170,6 +394,11 @@ bool VID_AnyKey ()
 
 bool VID_LoadDataFile (const char* fileName)
 {
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = 6;
+	memcpy(charset, DefaultCharset, 1024);
+	memcpy(charset + 1024, DefaultCharset, 1024);
+
 	if (dmg != 0)
 	{
 		DMG_Close(dmg);
@@ -186,14 +415,17 @@ bool VID_LoadDataFile (const char* fileName)
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
 	}
-	if (!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+		!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
-		memcpy(charset, DefaultCharset, 1024);
-		memcpy(charset + 1024, DefaultCharset, 1024);
+		// Keep the default fixed-width charset restored above.
 	}
 
-	uint32_t freeMemory = Malloc(-1);
+	uint32_t freeMemory = (uint32_t)OSGetFree();
+	if (freeMemory == 0)
+		freeMemory = Malloc(-1);
 	uint32_t datSize = File_GetSize(dmg->file);
 
 	#if HAS_XMSG
@@ -206,7 +438,15 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	#endif
 
-	if (freeMemory > datSize + 32768)			// Everything fits
+	if (OSGetFree() != 0)
+	{
+		// After interpreter creation there are no further permanent allocations,
+		// so on ST we can give the image cache all arena space left after file cache setup.
+		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
+		freeMemory = (uint32_t)GetMaxAllocatableBlockSize();
+		DMG_SetupImageCache(dmg, freeMemory);
+	}
+	else if (freeMemory > datSize + 32768)			// Everything fits
 	{
 		DMG_SetupFileCache(dmg, 0, VID_ShowProgressBar);
 		freeMemory = Malloc(-1);
@@ -309,6 +549,9 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 
 void VID_ClearBuffer (bool front)
 {
+	if (!front && !backBufferEnabled)
+		return;
+		
 	uint16_t* ptr = front ^ displaySwap ? frontBuffer : backBuffer;
 	MemClear(ptr, 32000);
 }
@@ -322,24 +565,18 @@ void VID_Finish ()
 {
 	VID_FinishTextDraw();
 	ShowCursor();
+
+	if (backBufferMemory != 0)
+	{
+		Free(backBufferMemory);
+		backBufferMemory = 0;
+		backBuffer = 0;
+	}
 }
 
 void VID_SetPalette (uint32_t* pal)
 {
-	for (int n = 0; n < 16; n++)
-	{
-		uint8_t r = (pal[n] >> 16) & 0xFF;
-		uint8_t g = (pal[n] >>  8) & 0xFF;
-		uint8_t b = (pal[n]      ) & 0xFF;
-		palette[n][0] = r;
-		palette[n][1] = g;
-		palette[n][2] = b;
-		colors[n] = ColorValue(r, g, b);
-	}
-
-	Vsync();
-	for (int n = 0; n < 16; n++)
-		Setcolor(n, colors[n]);
+	VID_SetPaletteInternal(pal, true);
 
 #if DEBUG_PALETTE
 	for (int color = 0; color < 16; color++)
@@ -386,44 +623,55 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 
 void VID_ActivatePalette()
 {
-	Vsync();
-	for (int n = 0; n < 16; n++)
-		Setcolor(n, colors[n]);
+	VID_ApplyPalette(true);
 }
 
-bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
+bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	if (target == DDB_MACHINE_ATARIST)
 	{
 		uint16_t palette[16];
 		File* file = File_Open(fileName);
 		if (!file) return false;
-		for (int n = 0; n < 16; n++)
-			VID_SetPaletteColor16(n, 0);
-		Vsync();
+
+		if (fadeIn)
+		{
+			for (int n = 0; n < 16; n++)
+				VID_SetPaletteColor16(n, 0);
+			Vsync();
+		}
+
 		File_Seek(file, 2);
 		File_Read(file, palette, 32);
 		File_Read(file, screen, 32000);
 		File_Close(file);
-		for (int n = 0; n < 16; n++)
-			VID_SetPaletteColor16(n, palette[n]);
+
+		if (fadeIn)
+		{
+			for (int n = 0; n < 16; n++)
+				VID_SetPaletteColor16(n, palette[n]);
+		}
 		return true;
 	}
 
 	uint32_t palette[16];
-	uint8_t* output = Allocate<uint8_t>("Temporary SCR buffer", 320*200);
-	uint8_t* buffer = Allocate<uint8_t>("Temporary SCR buffer", 32768);
 	size_t bufferSize = 32768;
 
-	if (SCR_GetScreen(fileName, target, buffer, bufferSize,
-	                  output, 320, 200, palette))
+	DMG_ReserveTemporaryBuffer(bufferSize);
+	uint8_t* buffer = DMG_GetTemporaryBufferBase();
+
+	if (SCR_GetScreen(fileName, target, buffer + 160, bufferSize - 160,
+	                  buffer, 320, 200, palette))
 	{
 		uint32_t *out = (uint32_t*)screen;
-		uint8_t *in = output;
+		uint8_t *in = buffer;
 
-		for (int n = 0; n < 16; n++)
-			VID_SetPaletteColor(n, 0, 0, 0);
-		Vsync();
+		if (fadeIn)
+		{
+			for (int n = 0; n < 16; n++)
+				VID_SetPaletteColor(n, 0, 0, 0);
+			Vsync();
+		}
 
 		for (int x = 0; x < 320*200; x += 16)
 		{
@@ -448,22 +696,20 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 			*out++ = p1;
 		}
 
-		Vsync();
-		for (int n = 0; n < 16; n++)
+		if (fadeIn)
 		{
-			uint8_t r = (palette[n] >> 16) & 0xFF;
-			uint8_t g = (palette[n] >>  8) & 0xFF;
-			uint8_t b = (palette[n]      ) & 0xFF;
-			VID_SetPaletteColor(n, r, g, b);
+			Vsync();
+			for (int n = 0; n < 16; n++)
+			{
+				uint8_t r = (palette[n] >> 16) & 0xFF;
+				uint8_t g = (palette[n] >>  8) & 0xFF;
+				uint8_t b = (palette[n]      ) & 0xFF;
+				VID_SetPaletteColor(n, r, g, b);
+			}
 		}
 
-		Free(buffer);
-		Free(output);
 		return true;
 	}
-
-	Free(buffer);
-	Free(output);
 	return false;
 }
 
@@ -526,7 +772,13 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 
 #if DEBUG_ALLOCS
 	if (ext && *ext == 0x3C)	// F2
+	{
+		DebugPrintf("Arena total=%lu bytes, arena free=%lu bytes, OS free=%lu bytes\n",
+			(unsigned long)OSGetArenaSize(),
+			(unsigned long)OSGetFree(),
+			(unsigned long)Malloc(-1));
 		DumpMemory(0, Malloc(-1));
+	}
 #endif
 }
 
@@ -607,6 +859,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	DMG_Entry* entry = pictureEntry;
 	if (entry == 0)
 		return;
+	bool paletteUpdated = false;
 
 	if (x < 0)
 	{
@@ -631,12 +884,12 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	{
 		default:
 		case ScreenMode_VGA16:
-			if ((entry->flags & DMG_FLAG_FIXED) && drawToFront)
+			if (entry->flags & DMG_FLAG_FIXED)
 			{
 				// TODO: This is a hack to fix the palette for the old version of the game
 				if (dmg->version == DMG_Version1)
 					entry->RGB32Palette[15] = 0xFFFFFFFF;
-				VID_SetPalette(palette);
+				paletteUpdated = !VID_PaletteMatches(palette);
 			}
 			break;
 
@@ -644,124 +897,47 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			break;
 
 		case ScreenMode_CGA:
-			VID_SetPalette(DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan);
+			if (entry->flags & DMG_FLAG_FIXED)
+			{
+				palette = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+				paletteUpdated = !VID_PaletteMatches(palette);
+			}
 			break;
 	}
 
-	uint16_t* srcPtr = pictureData;
-	uint16_t* dstPtr = screen + y * 80 + 4*(x >> 4);
-	
-	if (x & 15)
-	{
-		bool extraByte = (w & 15);
-		w >>= 4;
-		if (w == 0)
-		{
-			for (int dy = 0; dy < h; dy++)
-			{
-				const uint8_t* s = (uint8_t*)srcPtr;
-				uint8_t* d = (uint8_t*)dstPtr;
-				d[1] = s[0];
-				d[3] = s[2];
-				d[5] = s[4];
-				d[7] = s[6];				
-				dstPtr += 80;
-				srcPtr += pictureStride;
-			}
-		}
-		else
-		{
-			w--;
-			for (int dy = 0; dy < h; dy++)
-			{
-				const uint8_t* s = (uint8_t*)srcPtr;
-				uint8_t* d = (uint8_t*)dstPtr;
-				d[1] = s[0];
-				d[3] = s[2];
-				d[5] = s[4];
-				d[7] = s[6];
-				d += 8;
-				for (int cx = 0; cx < w; cx++)
-				{
-					d[0] = s[1];
-					d[2] = s[3];
-					d[4] = s[5];
-					d[6] = s[7];
-					s += 8;
-					d[1] = s[0];
-					d[3] = s[2];
-					d[5] = s[4];
-					d[7] = s[6];
-					d += 8;
-				}
-				d[0] = s[1];
-				d[2] = s[3];
-				d[4] = s[5];
-				d[6] = s[7];
-				if (extraByte)
-				{
-					s += 8;
-					d[1] = s[0];
-					d[3] = s[2];
-					d[5] = s[4];
-					d[7] = s[6];
-				}
+	if (VID_PresentPictureAtomicallyWithTemporaryBuffer(palette, paletteUpdated, x, y, w, h))
+		return;
 
-				dstPtr += 80;
-				srcPtr += pictureStride;
-			}
-		}
-	}
-	else
+	if (drawToFront)
 	{
-		bool extraByte = (w & 15);
-		w >>= 4;
-		if (w == 0)
-		{
-			for (int dy = 0; dy < h; dy++)
-			{
-				const uint8_t* s = (uint8_t*)srcPtr;
-				uint8_t* d = (uint8_t*)dstPtr;
-				d[0] = s[0];
-				d[2] = s[2];
-				d[4] = s[4];
-				d[6] = s[6];				
-				dstPtr += 80;
-				srcPtr += pictureStride;
-			}
-		}
-		else
-		{
-			for (int dy = 0; dy < h; dy++)
-			{
-				uint32_t* d = (uint32_t*)dstPtr;
-				const uint32_t* s = (uint32_t*)srcPtr;
-				for (int cx = 0; cx < w; cx++)
-				{
-					*d++ = *s++;
-					*d++ = *s++;
-				}
-				if (extraByte)
-				{
-					const uint8_t* s8 = (uint8_t*)s;
-					uint8_t* d8 = (uint8_t*)d;
-					d8[0] = s8[0];
-					d8[2] = d8[2];
-					d8[4] = s8[4];
-					d8[6] = s8[6];
-				}
-				dstPtr += 80;
-				srcPtr += pictureStride;
-			}
-		}
+		Vsync();
+		if (paletteUpdated)
+			VID_SetPaletteInternal(palette, false);
 	}
+	else if (paletteUpdated)
+	{
+		VID_SetPaletteInternal(palette, true);
+	}
+
+	VID_BlitPictureTo(screen, pictureData, pictureStride, x, y, w, h);
 }
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 {
-	uint16_t* scr = screen + 80*y + 4*(x >> 4);
+	if (lines <= 0 || w <= 0 || h <= 0)
+		return;
 
-	h -= lines;
+	if (lines >= h)
+	{
+		VID_Clear(x, y, w, h, paper);
+		return;
+	}
+
+	int clearX = x;
+	int clearY = y + h - lines;
+	int clearW = w;
+	int scrollHeight = h - lines;
+	uint16_t* scr = screen + 80*y + 4*(x >> 4);
 
 	// TODO: needs testing for unaligned cases
 
@@ -772,23 +948,33 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 		if (w < 16-skip)
 			pix &= ~( (0x10000 >> ((x+w) & 15))-1 );
 		uint16_t mask = ~pix;
-		int32_t  max  = h*80;
+		int32_t  max  = scrollHeight*80;
 		uint16_t* inp = scr + 80*lines;
 		for (int32_t off = 0; off < max; off += 80)
 		{
-			scr[off] = (scr[off] & mask) | (inp[off] & pix);
+			uint16_t* out = scr + off;
+			uint16_t* in = inp + off;
+			out[0] = (out[0] & mask) | (in[0] & pix);
+			out[1] = (out[1] & mask) | (in[1] & pix);
+			out[2] = (out[2] & mask) | (in[2] & pix);
+			out[3] = (out[3] & mask) | (in[3] & pix);
 		}
 		
 		int inc = 16-skip;
 		x += inc;
 		w -= inc;
 		scr += 4;
+		if (w <= 0)
+		{
+			VID_Clear(clearX, clearY, clearW, lines, paper);
+			return;
+		}
 	}
 
 	uint16_t* ptr = scr;
 	uint16_t* inp = scr + 80*lines;
 	int       copy = 8*(w >> 4);
-	int       n = h;
+	int       n = scrollHeight;
 	while (n > 0)
 	{
 		memcpy(ptr, inp, copy);
@@ -801,18 +987,20 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 	{
 		uint16_t pix  = ~( (0x10000 >> (w & 15))-1 );
 		uint16_t* out = scr + (copy >> 1);
-		uint16_t* inp = scr + 80*lines;
+		uint16_t* inp = scr + 80*lines + (copy >> 1);
 		uint16_t mask = ~pix;
-		do
+		for (int row = 0; row < scrollHeight; row++)
 		{
-			*out = (*out & mask) | (*inp & pix);
+			out[0] = (out[0] & mask) | (inp[0] & pix);
+			out[1] = (out[1] & mask) | (inp[1] & pix);
+			out[2] = (out[2] & mask) | (inp[2] & pix);
+			out[3] = (out[3] & mask) | (inp[3] & pix);
 			inp += 80;
 			out += 80;
 		}
-		while (h--);
 	}
 
-	VID_Clear(x, y+h, w, lines, paper);
+	VID_Clear(clearX, clearY, clearW, lines, paper);
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -881,6 +1069,9 @@ void VID_SetTextInputMode (bool enabled)
 
 void VID_SwapScreen ()
 {
+	if (!backBufferEnabled)
+		return;
+
 	displaySwap = !displaySwap;
 	VID_UpdateScreenPointers();
 	Setscreen(-1, displaySwap ? backBuffer : frontBuffer, 0);
@@ -888,6 +1079,9 @@ void VID_SwapScreen ()
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
+	if (!backBufferEnabled)
+		return;
+		
 	if (op == SCR_OP_DRAWTEXT)
 		textToFront = front;
 	else if (op == SCR_OP_DRAWPICTURE)
@@ -897,6 +1091,9 @@ void VID_SetOpBuffer (SCR_Operation op, bool front)
 
 void VID_RestoreScreen ()
 {
+	if (!backBufferEnabled)
+		return;
+		
 	uint16_t* front = displaySwap ? backBuffer : frontBuffer;
 	uint16_t* back  = displaySwap ? frontBuffer : backBuffer;
 	memcpy(front, back, 32000);
@@ -904,6 +1101,9 @@ void VID_RestoreScreen ()
 
 void VID_SaveScreen ()
 {
+	if (!backBufferEnabled)
+		return;
+		
 	uint16_t* front = displaySwap ? backBuffer : frontBuffer;
 	uint16_t* back  = displaySwap ? frontBuffer : backBuffer;
 	memcpy(back, front, 32000);
@@ -921,6 +1121,29 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 	quit = false;
 }
 
+void VID_EnableBackBuffer()
+{
+	backBufferEnabled = true;
+
+	if (backBuffer == 0)
+	{
+		backBufferMemory = Allocate<uint8_t>("ST Back Buffer", 32768, false);
+		if (backBufferMemory == 0)
+		{
+			backBufferEnabled = false;
+			return;
+		}
+
+		backBuffer = (uint16_t*)((((unsigned long)backBufferMemory) + 255u) & ~255u);
+		memset(backBuffer, 0, 32000);
+	}
+}
+
+bool VID_IsBackBufferEnabled()
+{
+	return backBufferEnabled;
+}
+
 bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
 {
 	screenWidth  = 320;
@@ -936,10 +1159,18 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 	memcpy(charset + 1024, DefaultCharset, 1024);
 
 	frontBuffer = (uint16_t*)Physbase();
-	backBuffer = (uint16_t*) (((uint32_t)backBufferMemory + 255) & ~255);
-
 	memset(frontBuffer, 0, 32000);
-	memset(backBuffer, 0, 32000);
+
+	if (backBufferEnabled)
+	{
+		if (backBufferMemory == 0)
+			backBufferMemory = Allocate<uint8_t>("ST Back Buffer", 32768, false);
+		if (backBufferMemory == 0)
+			return false;
+		backBuffer = (uint16_t*)((((unsigned long)backBufferMemory) + 255u) & ~255u);
+		memset(backBuffer, 0, 32000);
+	}
+
 	VID_UpdateScreenPointers();
 	if (!VID_InitializeTextDraw())
 		return false;

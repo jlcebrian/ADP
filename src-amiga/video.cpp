@@ -59,37 +59,39 @@ bool     charToBack = false;
 bool     drawToBack = false;
 bool     initialized = false;
 
-uint8_t*    plane[MAX_PLANES];
-uint8_t*	frontBuffer = 0;
-uint8_t*	backBuffer = 0;
-static uint8_t* scratchBuffer = 0;
-uint8_t*    frontPlane[MAX_PLANES];
-uint8_t*    backPlane[MAX_PLANES];
-static uint8_t* scratchPlane[MAX_PLANES];
-static uint8_t  displayPlanes = TEXT_PLANES;
-static uint8_t  requestedDisplayPlanes = TEXT_PLANES;
-static uint32_t screenBytesPerPlane = SCR_BPNEXTB;
-static uint32_t screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
-static uint32_t activePalette[256];
-static uint16_t* activePaletteAGAHigh = 0;
-static uint16_t* activePaletteAGALow = 0;
-static uint32_t frontPalette[256];
-static uint32_t backPalette[256];
-static uint32_t scratchPalette[256];
-static uint32_t savedPalette[256];
-static uint16_t savedPaletteColors = 16;
+uint8_t*    		plane[MAX_PLANES];
+uint8_t*			frontBuffer = 0;
+uint8_t*			backBuffer = 0;
+uint8_t*    		frontPlane[MAX_PLANES];
+uint8_t*    		backPlane[MAX_PLANES];
 
-static DMG*       pictureOrigin;
-static DMG_Entry* pictureEntry = 0;
-static int        pictureIndex = 0;
-static uint16_t*  pictureData = 0;
-static uint32_t   pictureStride;
-static uint32_t   picturePlaneStride;
-static uint8_t    picturePlanes = TEXT_PLANES;
-static bool       picturePlaneMajor = false;
+static bool         backBufferEnabled = false;
+static uint8_t* 	scratchDisplayBuffer = 0;
+static uint8_t* 	scratchDisplayPlane[MAX_PLANES];
+static uint8_t  	displayPlanes = TEXT_PLANES;
+static uint8_t  	requestedDisplayPlanes = TEXT_PLANES;
+static uint32_t 	screenBytesPerPlane = SCR_BPNEXTB;
+static uint32_t 	screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
+static uint32_t 	activePalette[256];
+static uint32_t 	frontPalette[256];
+static uint32_t 	backPalette[256];
+static uint32_t 	scratchDisplayPalette[256];
+static uint32_t 	savedPalette[256];
+static uint16_t 	savedPaletteColors = 16;
 
-uint16_t  (*charsetWords)[256][8] = 0;
-uint16_t* rotationTable = 0;
+static uint16_t* 	activePaletteAGAHigh = 0;
+static uint16_t* 	activePaletteAGALow = 0;
+
+static DMG*       	pictureOrigin;
+static DMG_Entry* 	pictureEntry = 0;
+static int        	pictureIndex = 0;
+static uint16_t*  	pictureData = 0;
+static uint32_t   	pictureStride;
+static uint32_t   	picturePlaneStride;
+static uint8_t    	picturePlanes = TEXT_PLANES;
+static bool       	picturePlaneMajor = false;
+
+uint16_t rotationTable[8][256];
 uint16_t* copper1;
 static uint16_t* copperLists[2] = { 0, 0 };
 static uint8_t activeCopperList = 0;
@@ -238,16 +240,16 @@ static DMG_Cache* FindImageCacheItem(uint8_t index, const void* payload)
 	return 0;
 }
 
-static void ClearScratchBuffer(uint8_t color)
+static void ClearScratchDisplayBuffer(uint8_t color)
 {
 	for (uint8_t p = 0; p < displayPlanes; p++)
-		BlitterRect(scratchPlane[p], 0, 0, screenWidth, screenHeight, (color & (1 << p)) != 0);
+		BlitterRect(scratchDisplayPlane[p], 0, 0, screenWidth, screenHeight, (color & (1 << p)) != 0);
 	WaitBlit();
 }
 
-static void PresentScratchBuffer()
+static void PresentScratchDisplayBuffer()
 {
-	CopyPaletteStore(activePalette, scratchPalette);
+	CopyPaletteStore(activePalette, scratchDisplayPalette);
 	VID_SetPaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
 
 	if (isAGA && displayPlanes == 8)
@@ -255,13 +257,13 @@ static void PresentScratchBuffer()
 		VID_VSync();
 		VID_CommitPalette(false);
 		for (uint16_t i = 0; i < MAX_PLANES; i++)
-			custom->bplpt[i] = (APTR)scratchPlane[i];
+			custom->bplpt[i] = (APTR)scratchDisplayPlane[i];
 
 		uint16_t* program = copperLists[activeCopperList];
 		uint16_t* end = program;
 		end = SetScreenLayout(end);
 		end = SetBitPlanes(end);
-		end = SetVisiblePlanes(scratchPlane, end);
+		end = SetVisiblePlanes(scratchDisplayPlane, end);
 		*end++ = 0xffff;
 		*end++ = 0xfffe;
 		copper1 = program;
@@ -272,7 +274,7 @@ static void PresentScratchBuffer()
 		uint16_t* end = program;
 		end = SetScreenLayout(end);
 		end = SetBitPlanes(end);
-		end = SetVisiblePlanes(scratchPlane, end);
+		end = SetVisiblePlanes(scratchDisplayPlane, end);
 		VID_VSync();
 		end = AppendCopperPalette(end);
 		RunCopperProgram(program, end);
@@ -285,43 +287,43 @@ static void PresentScratchBuffer()
 		uint8_t* oldVisible = backBuffer;
 		uint32_t oldPalette[256];
 		CopyPaletteStore(oldPalette, backPalette);
-		backBuffer = scratchBuffer;
-		scratchBuffer = oldVisible;
+		backBuffer = scratchDisplayBuffer;
+		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(backBuffer, backPlane);
-		CopyPaletteStore(backPalette, scratchPalette);
-		CopyPaletteStore(scratchPalette, oldPalette);
+		CopyPaletteStore(backPalette, scratchDisplayPalette);
+		CopyPaletteStore(scratchDisplayPalette, oldPalette);
 	}
 	else
 	{
 		uint8_t* oldVisible = frontBuffer;
 		uint32_t oldPalette[256];
 		CopyPaletteStore(oldPalette, frontPalette);
-		frontBuffer = scratchBuffer;
-		scratchBuffer = oldVisible;
+		frontBuffer = scratchDisplayBuffer;
+		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
-		CopyPaletteStore(frontPalette, scratchPalette);
-		CopyPaletteStore(scratchPalette, oldPalette);
+		CopyPaletteStore(frontPalette, scratchDisplayPalette);
+		CopyPaletteStore(scratchDisplayPalette, oldPalette);
 	}
-	SetPlanePointers(scratchBuffer, scratchPlane);
+	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
 	CopyPaletteStore(activePalette, GetVisiblePaletteStore());
 	if (dmg != 0)
-		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
+		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 	UpdateDrawPlanes();
 }
 
-static void PresentScratchPlanesOnly()
+static void PresentScratchDisplayPlanesOnly()
 {
 	if (isAGA && displayPlanes == 8)
 	{
 		VID_VSync();
 		for (uint16_t i = 0; i < MAX_PLANES; i++)
-			custom->bplpt[i] = (APTR)scratchPlane[i];
+			custom->bplpt[i] = (APTR)scratchDisplayPlane[i];
 
 		uint16_t* program = copperLists[activeCopperList];
 		uint16_t* end = program;
 		end = SetScreenLayout(end);
 		end = SetBitPlanes(end);
-		end = SetVisiblePlanes(scratchPlane, end);
+		end = SetVisiblePlanes(scratchDisplayPlane, end);
 		*end++ = 0xffff;
 		*end++ = 0xfffe;
 		copper1 = program;
@@ -332,30 +334,30 @@ static void PresentScratchPlanesOnly()
 		uint16_t* end = program;
 		end = SetScreenLayout(end);
 		end = SetBitPlanes(end);
-		end = SetVisiblePlanes(scratchPlane, end);
+		end = SetVisiblePlanes(scratchDisplayPlane, end);
 		CommitCopperBuild(program, end);
 	}
 
 	if (displaySwap)
 	{
 		uint8_t* oldVisible = backBuffer;
-		backBuffer = scratchBuffer;
-		scratchBuffer = oldVisible;
+		backBuffer = scratchDisplayBuffer;
+		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(backBuffer, backPlane);
 	}
 	else
 	{
 		uint8_t* oldVisible = frontBuffer;
-		frontBuffer = scratchBuffer;
-		scratchBuffer = oldVisible;
+		frontBuffer = scratchDisplayBuffer;
+		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
 	}
 
-	SetPlanePointers(scratchBuffer, scratchPlane);
-	CopyPaletteStore(scratchPalette, GetVisiblePaletteStore());
+	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
+	CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
 	CopyPaletteStore(activePalette, GetVisiblePaletteStore());
 	if (dmg != 0)
-		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
+		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 	UpdateDrawPlanes();
 }
 
@@ -550,21 +552,11 @@ static inline void CommitCopperBuild(uint16_t* program, uint16_t* end)
 
 void VID_ActivateCharset()
 {
-	if (charsetWords == 0 || rotationTable == 0)
-		return;
-
 	for (int shift = 0; shift < 8; shift++)
 	{
-		uint16_t* table = rotationTable + (shift << 8);
+		uint16_t* table = rotationTable[shift];
 		for (int value = 0; value < 256; value++)
 			table[value] = (uint16_t)(((uint16_t)value << 8) >> shift);
-	}
-
-	uint8_t* chr = charset;
-	for (int c = 0; c < 256; c++)
-	{
-		for (int y = 0; y < 8; y++)
-			(*charsetWords)[c][y] = *chr++ << 8;
 	}
 }
 
@@ -800,57 +792,93 @@ static bool ConfigureDisplayPlanes(uint8_t planes)
 {
 	if (planes < TEXT_PLANES || planes > MAX_PLANES)
 		return false;
-	if (displayPlanes == planes && frontBuffer != 0 && backBuffer != 0)
+	if (displayPlanes == planes && frontBuffer != 0)
 		return true;
 
 	uint32_t bytesPerPlane = SCR_STRIDEB * SCR_HEIGHTPX;
 	uint32_t allocate = bytesPerPlane * planes;
-	uint8_t* newFront = (uint8_t*)AllocMem(allocate, MEMF_CHIP);
-	uint8_t* newBack = (uint8_t*)AllocMem(allocate, MEMF_CHIP);
-	uint8_t* newScratch = (uint8_t*)AllocMem(allocate, MEMF_CHIP);
-	if (newFront == 0 || newBack == 0 || newScratch == 0)
+	uint8_t* newFront = AllocateInPool<uint8_t>("VID Front buffer", OSMemoryPool_Chip, allocate, false);
+	uint8_t* newScratch = AllocateInPool<uint8_t>("VID Scratch buffer", OSMemoryPool_Chip, allocate, false);
+	if (newFront == 0 || newScratch == 0)
 	{
-		if (newFront != 0) FreeMem(newFront, allocate);
-		if (newBack != 0) FreeMem(newBack, allocate);
-		if (newScratch != 0) FreeMem(newScratch, allocate);
+		if (newFront != 0) Free(newFront);
+		if (newScratch != 0) Free(newScratch);
 		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
 		return false;
 	}
 
 	MemClear(newFront, allocate);
-	MemClear(newBack, allocate);
 	MemClear(newScratch, allocate);
 
+	if (backBufferEnabled)
+	{
+		uint8_t* newBack = AllocateInPool<uint8_t>("VID Back buffer", OSMemoryPool_Chip, allocate, false);
+		if (newBack == 0)
+		{
+			Free(newFront);
+			Free(newScratch);
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+		
+		uint8_t* oldBack = backBuffer;
+		MemClear(newBack, allocate);
+		backBuffer = newBack;
+		SetPlanePointers(backBuffer, backPlane);
+		if (oldBack != 0)
+			Free(oldBack);
+	}
+
 	uint8_t* oldFront = frontBuffer;
-	uint8_t* oldBack = backBuffer;
-	uint8_t* oldScratch = scratchBuffer;
-	uint32_t oldAllocate = screenAllocate;
+	uint8_t* oldScratch = scratchDisplayBuffer;
 
 	displayPlanes = planes;
 	screenBytesPerPlane = bytesPerPlane;
 	screenAllocate = allocate;
 	frontBuffer = newFront;
-	backBuffer = newBack;
-	scratchBuffer = newScratch;
+	scratchDisplayBuffer = newScratch;
 	displaySwap = false;
 	charToBack = false;
 	drawToBack = false;
 
 	SetPlanePointers(frontBuffer, frontPlane);
-	SetPlanePointers(backBuffer, backPlane);
-	SetPlanePointers(scratchBuffer, scratchPlane);
+	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
 	if (dmg != 0)
-		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
+		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 	UpdateDrawPlanes();
 	ProgramDisplay();
 
 	if (oldFront != 0)
-		FreeMem(oldFront, oldAllocate);
-	if (oldBack != 0)
-		FreeMem(oldBack, oldAllocate);
+		Free(oldFront);
 	if (oldScratch != 0)
-		FreeMem(oldScratch, oldAllocate);
+		Free(oldScratch);
 	return true;
+}
+
+void VID_EnableBackBuffer()
+{
+	backBufferEnabled = true;
+
+	if (frontBuffer != 0)
+	{
+		uint32_t bytesPerPlane = SCR_STRIDEB * SCR_HEIGHTPX;
+		uint32_t allocate = bytesPerPlane * displayPlanes;
+		backBuffer = AllocateInPool<uint8_t>("VID Back buffer", OSMemoryPool_Chip, allocate, false);
+		if (backBuffer == 0)
+		{
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			backBufferEnabled = false;
+			return;
+		}
+		
+		MemClear(backBuffer, allocate);
+		SetPlanePointers(backBuffer, backPlane);
+	}
+}
+
+bool VID_IsBackBufferEnabled()
+{
+	return backBufferEnabled;
 }
 
 void VID_SetDisplayPlanesHint(uint8_t planes)
@@ -1066,8 +1094,8 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	DebugPrintf("Loaded %s in %lu ms\n", loadedName, (unsigned long)(GetMilliseconds() - tOpen));
 
-	if (scratchBuffer != 0)
-		DMG_SetZX0ScratchBuffer(dmg, scratchBuffer, screenAllocate, false);
+	if (scratchDisplayBuffer != 0)
+		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 
 	uint8_t requiredPlanes = GetRequiredDisplayPlanes(dmg);
 	if (dmg->version == DMG_Version5 && (dmg->targetWidth != 320 || dmg->targetHeight != 200))
@@ -1215,11 +1243,11 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 		originalX <= 0 && originalY <= 0 &&
 		originalW >= screenWidth && originalH >= screenHeight;
 
-	if (fullScreenClear && IsVisiblePlaneTarget() && scratchBuffer != 0)
+	if (fullScreenClear && IsVisiblePlaneTarget() && scratchDisplayBuffer != 0)
 	{
-		ClearScratchBuffer(color);
-		CopyPaletteStore(scratchPalette, GetVisiblePaletteStore());
-		PresentScratchBuffer();
+		ClearScratchDisplayBuffer(color);
+		CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
+		PresentScratchDisplayBuffer();
 		return;
 	}
 		
@@ -1261,7 +1289,7 @@ void VID_ClearBuffer (bool front)
 
 void VID_PresentDefaultScreen()
 {
-	if (scratchBuffer == 0)
+	if (scratchDisplayBuffer == 0)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
@@ -1273,19 +1301,19 @@ void VID_PresentDefaultScreen()
 	}
 
 	for (uint8_t n = 0; n < displayPlanes; n++)
-		BlitterRect(scratchPlane[n], 0, 0, screenWidth, screenHeight, 0);
+		BlitterRect(scratchDisplayPlane[n], 0, 0, screenWidth, screenHeight, 0);
 	WaitBlit();
 
 	VID_SetPaletteEntries(DefaultPalette, 16, 0, true, false);
-	UpdatePaletteStore(scratchPalette, DefaultPalette, 16, 0, true);
-	PresentScratchBuffer();
+	UpdatePaletteStore(scratchDisplayPalette, DefaultPalette, 16, 0, true);
+	PresentScratchDisplayBuffer();
 	CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
 
 	uint8_t** hidden = displaySwap ? frontPlane : backPlane;
 	for (uint8_t n = 0; n < displayPlanes; n++)
 	{
 		BlitterRect(hidden[n], 0, 0, screenWidth, screenHeight, 0);
-		BlitterRect(scratchPlane[n], 0, 0, screenWidth, screenHeight, 0);
+		BlitterRect(scratchDisplayPlane[n], 0, 0, screenWidth, screenHeight, 0);
 	}
 	WaitBlit();
 }
@@ -1332,7 +1360,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	bool paletteChangeNeeded = false;
 	bool shouldUpdatePalette = false;
 	bool clearOutside = true;
-	uint8_t** targetPlanes = presentingScratch ? scratchPlane : plane;
+	uint8_t** targetPlanes = presentingScratch ? scratchDisplayPlane : plane;
 	uint32_t* targetPaletteStore = GetPlaneTargetPaletteStore();
 	switch (screenMode)
 	{
@@ -1341,22 +1369,28 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		case ScreenMode_VGA:
 		case ScreenMode_HiRes:
 		case ScreenMode_SHiRes:
-			shouldUpdatePalette = true;
-			clearOutside = paletteFirst == 0;
-			// TODO: This is a hack to fix the palette for V1
-			if (dmg->version == DMG_Version1)
-				pictureEntry->RGB32Palette[15] = 0xFFFFFFFF;
+			if (pictureEntry->flags & DMG_FLAG_FIXED)
+			{
+				shouldUpdatePalette = true;
+				clearOutside = paletteFirst == 0;
+				// TODO: This is a hack to fix the palette for V1
+				if (dmg->version == DMG_Version1)
+					pictureEntry->RGB32Palette[15] = 0xFFFFFFFF;
+			}
 			break;
 
 		case ScreenMode_EGA:
 			break;
 
 		case ScreenMode_CGA:
-			palette = DMG_GetCGAMode(pictureEntry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
-			paletteSize = 4;
-			paletteFirst = 0;
-			shouldUpdatePalette = true;
-			clearOutside = true;
+			if (pictureEntry->flags & DMG_FLAG_FIXED)
+			{
+				palette = DMG_GetCGAMode(pictureEntry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+				paletteSize = 4;
+				paletteFirst = 0;
+				shouldUpdatePalette = true;
+				clearOutside = true;
+			}
 			break;
 	}
 
@@ -1366,10 +1400,10 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		presentingScratch = IsVisiblePlaneTarget() && paletteChangeNeeded;
 		if (presentingScratch)
 		{
-			CopyPaletteStore(scratchPalette, GetVisiblePaletteStore());
-			UpdatePaletteStore(scratchPalette, palette, paletteSize, paletteFirst, clearOutside);
-			targetPaletteStore = scratchPalette;
-			targetPlanes = scratchPlane;
+			CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
+			UpdatePaletteStore(scratchDisplayPalette, palette, paletteSize, paletteFirst, clearOutside);
+			targetPaletteStore = scratchDisplayPalette;
+			targetPlanes = scratchDisplayPlane;
 		}
 		else
 		{
@@ -1390,8 +1424,8 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	if (presentingScratch)
 	{
-		DebugPrintf("Using scratch buffer flip to present picture");
-		CopyScreenBuffer(GetVisiblePlanes(), scratchPlane);
+		DebugPrintf("Using scratch display buffer flip to present picture");
+		CopyScreenBuffer(GetVisiblePlanes(), scratchDisplayPlane);
 	}
 
 	uint16_t pictureStrideBytes = (uint16_t)(pictureStride * 2);
@@ -1403,7 +1437,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	WaitBlit();
 	if (presentingScratch)
 	{
-		PresentScratchBuffer();
+		PresentScratchDisplayBuffer();
 		CopyScreenBuffer(GetVisiblePlanes(), displaySwap ? frontPlane : backPlane);
 		CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
 	}
@@ -1631,7 +1665,7 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 	bool fullScreenScroll =
 		originalX <= 0 && originalY <= 0 &&
 		originalW >= screenWidth && originalH >= screenHeight;
-	bool presentingScratch = fullScreenScroll && IsVisiblePlaneTarget() && scratchBuffer != 0;
+	bool presentingScratch = fullScreenScroll && IsVisiblePlaneTarget() && scratchDisplayBuffer != 0;
 
 	h -= lines;
 
@@ -1646,18 +1680,18 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 		{
 			if (p < TEXT_PLANES)
 			{
-				BlitterCopy(visiblePlanes[p], x, y + lines, scratchPlane[p], x, y, w, h, true);
-				BlitterRect(scratchPlane[p], x, y + h, w, lines, paper & 1);
+				BlitterCopy(visiblePlanes[p], x, y + lines, scratchDisplayPlane[p], x, y, w, h, true);
+				BlitterRect(scratchDisplayPlane[p], x, y + h, w, lines, paper & 1);
 				paper >>= 1;
 			}
 			else
 			{
-				BlitterCopy(visiblePlanes[p], 0, 0, scratchPlane[p], 0, 0, screenWidth, screenHeight, true);
+				BlitterCopy(visiblePlanes[p], 0, 0, scratchDisplayPlane[p], 0, 0, screenWidth, screenHeight, true);
 			}
 		}
 
 		WaitBlit();
-		PresentScratchPlanesOnly();
+		PresentScratchDisplayPlanesOnly();
 		return;
 	}
 
@@ -1686,6 +1720,12 @@ void VID_SetTextInputMode (bool enabled)
 
 void VID_RestoreScreen ()
 {
+	if (backBuffer == 0)
+	{
+		DebugPrintf("WARNING: RestoreScreen called with no back buffer enabled");
+		return;
+	}
+
 	DebugPrintf(displaySwap ? "Restoring screen (front to back)\n" : "Restoring screen (back to front)\n");
 	WaitBlit();
 	uint8_t* front = displaySwap ? backBuffer : frontBuffer;
@@ -1697,6 +1737,12 @@ void VID_RestoreScreen ()
 
 void VID_SaveScreen ()
 {
+	if (backBuffer == 0)
+	{
+		DebugPrintf("WARNING: SaveScreen called with no back buffer enabled");
+		return;
+	}
+	
 	DebugPrintf(displaySwap ? "Saving screen (back to front)\n" : "Saving screen (front to back)\n");
 	WaitBlit();
 	uint8_t* front = displaySwap ? backBuffer : frontBuffer;
@@ -1709,6 +1755,12 @@ void VID_SaveScreen ()
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
+	if (backBuffer == 0)
+	{
+		DebugPrintf("WARNING: SetOpBuffer called with no back buffer enabled");
+		return;
+	}
+	
 	if (displaySwap)
 		front = !front;
 	switch (op)
@@ -1730,6 +1782,12 @@ void VID_SetOpBuffer (SCR_Operation op, bool front)
 
 void VID_SwapScreen ()
 {
+	if (backBuffer == 0)
+	{
+		DebugPrintf("WARNING: SwapScreen called with no back buffer enabled");
+		return;
+	}
+	
 	displaySwap = !displaySwap;
 	charToBack = !charToBack;
 	drawToBack = !drawToBack;
@@ -1894,13 +1952,6 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 			return false;
 		}
 	}
-	charsetWords = (uint16_t(*)[256][8])AllocMem(8192, MEMF_CHIP | MEMF_CLEAR);
-	rotationTable = (uint16_t*)AllocMem(8 * 256 * sizeof(uint16_t), MEMF_CLEAR);
-	if (charsetWords == 0 || rotationTable == 0)
-	{
-		VID_Finish();
-		return false;
-	}
 	if (!VID_InitializeTextDraw())
 	{
 		VID_Finish();
@@ -1908,8 +1959,8 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 	}
 	VID_ActivateCharset();
 
-	copperLists[0] = (uint16_t*)AllocMem(copperListBytes, MEMF_CHIP);
-	copperLists[1] = (uint16_t*)AllocMem(copperListBytes, MEMF_CHIP);
+	copperLists[0] = (uint16_t*)AllocateBlockInPool("VID Copper list 0", copperListBytes, false, OSMemoryPool_Chip);
+	copperLists[1] = (uint16_t*)AllocateBlockInPool("VID Copper list 1", copperListBytes, false, OSMemoryPool_Chip);
 	copper1 = copperLists[0];
 	activeCopperList = 0;
 	if (copperLists[0] == 0 || copperLists[1] == 0)
@@ -1942,17 +1993,6 @@ void VID_Finish ()
 	
 	CloseTimer();
 	VID_FinishTextDraw();
-
-	if (charsetWords)
-	{
-		FreeMem(charsetWords, 8192);
-		charsetWords = 0;
-	}
-	if (rotationTable)
-	{
-		FreeMem(rotationTable, 8 * 256 * sizeof(uint16_t));
-		rotationTable = 0;
-	}
 	if (activePaletteAGAHigh)
 	{
 		Free(activePaletteAGAHigh);
@@ -1966,12 +2006,12 @@ void VID_Finish ()
 
 	if (copperLists[0])
 	{
-		FreeMem(copperLists[0], copperListBytes);
+		Free(copperLists[0]);
 		copperLists[0] = 0;
 	}
 	if (copperLists[1])
 	{
-		FreeMem(copperLists[1], copperListBytes);
+		Free(copperLists[1]);
 		copperLists[1] = 0;
 	}
 	copper1 = 0;
@@ -1979,17 +2019,17 @@ void VID_Finish ()
 	copperListBytes = 1024;
 	if (backBuffer)
 	{
-		FreeMem(backBuffer, screenAllocate);
+		Free(backBuffer);
 		backBuffer = 0;
 	}
-	if (scratchBuffer)
+	if (scratchDisplayBuffer)
 	{
-		FreeMem(scratchBuffer, screenAllocate);
-		scratchBuffer = 0;
+		Free(scratchDisplayBuffer);
+		scratchDisplayBuffer = 0;
 	}
 	if (frontBuffer)
 	{
-		FreeMem(frontBuffer, screenAllocate);
+		Free(frontBuffer);
 		frontBuffer = 0;
 	}
 

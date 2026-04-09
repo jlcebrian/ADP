@@ -657,6 +657,8 @@ typedef int (*DDB_PrintFunc)(const char* format, ...);
 
 extern DDB*				DDB_Load				 (const char* filename);
 extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version);
+extern bool             DDB_RequiresBackBuffer   (DDB* ddb);
+extern bool             DDB_FileRequiresBackBuffer(const char* filename);
 extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_ScreenMode* mode);
 extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_ScreenMode* mode, uint8_t* planes);
 extern DDB*             DDB_Create               ();

@@ -7,7 +7,7 @@
 
 #include "video.h"
 
-bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
+bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	// Special case: handle Amiga directly
 	if (target == DDB_MACHINE_AMIGA)
@@ -40,10 +40,13 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 	{
 		uint8_t *in = output;
 
-		VID_VSync();
-		for (int n = 0; n < 16; n++) 
-			VID_SetColor(n, 0);
-		VID_ActivatePalette();
+		if (fadeIn)
+		{
+			VID_VSync();
+			for (int n = 0; n < 16; n++) 
+				VID_SetColor(n, 0);
+			VID_ActivatePalette();
+		}
 
 		for (unsigned offset = 0; offset < 200*SCR_STRIDEB; offset += SCR_STRIDEB)
 		{
@@ -77,15 +80,18 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 			}
 		}
 		
-		VID_VSync();
-		for (int n = 0; n < 16; n++) 
+		if (fadeIn)
 		{
-			uint8_t r = (palette[n] >> 16) & 0xFF;
-			uint8_t g = (palette[n] >>  8) & 0xFF;
-			uint8_t b = (palette[n]      ) & 0xFF;
-			VID_SetPaletteColor(n, r, g, b);
+			VID_VSync();
+			for (int n = 0; n < 16; n++) 
+			{
+				uint8_t r = (palette[n] >> 16) & 0xFF;
+				uint8_t g = (palette[n] >>  8) & 0xFF;
+				uint8_t b = (palette[n]      ) & 0xFF;
+				VID_SetPaletteColor(n, r, g, b);
+			}
+			VID_ActivatePalette();
 		}
-		VID_ActivatePalette();
 	}
 
 	Free(buffer);

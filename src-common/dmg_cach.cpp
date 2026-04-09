@@ -11,6 +11,7 @@
 #endif
 
 static uint32_t useCounter = 0;
+static const uint32_t kMinImageCacheSize = 4096;
 
 void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(uint16_t))
 {
@@ -192,8 +193,7 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 		dmg->cache = 0;
 	}
 
-	// Minimum size for a non-compressed packed screen
-	if (bytes < 32768)
+	if (bytes < kMinImageCacheSize)
 	{
 		#if DEBUG_IMAGE_CACHE
 		DebugPrintf("Image cache skipped: requested size too small (%lu)\n", (unsigned long)bytes);
@@ -201,12 +201,19 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 		return false;
 	}
 
+	bytes &= ~31u;
+	if (bytes < kMinImageCacheSize)
+		return false;
+
 	while (true)
 	{
-		dmg->cache = (DMG_Cache*)Allocate<uint8_t>("DMG Image Cache", bytes, false);
+		dmg->cache = (DMG_Cache*)AllocateInPool<uint8_t>("DMG Image Cache", OSMemoryPool_Chip, bytes, false);
 		if (dmg->cache != 0)
 			break;
-		if (bytes < 65536)
+		#if DEBUG_IMAGE_CACHE
+		DebugPrintf("Image cache allocation retry: %lu bytes failed\n", (unsigned long)bytes);
+		#endif
+		if (bytes <= kMinImageCacheSize)
 		{
 			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 			dmg->cacheSize = 0;
@@ -214,14 +221,19 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 			return false;
 		}
 		bytes >>= 1;
+		bytes &= ~31u;
+		if (bytes < kMinImageCacheSize)
+			bytes = kMinImageCacheSize;
+		#if DEBUG_IMAGE_CACHE
+		DebugPrintf("Image cache allocation retry: shrinking request to %lu bytes\n", (unsigned long)bytes);
+		#endif
 	}
 	dmg->cacheSize = bytes;
 	dmg->cacheFree = bytes;
 	dmg->cacheTail = dmg->cache;
 	MemClear(dmg->cacheBitmap, sizeof(dmg->cacheBitmap));
-#if DEBUG_IMAGE_CACHE
+
 	DebugPrintf("Image cache allocated (%ld bytes)\n", (long)bytes);
-#endif
 	return true;
 }
 
@@ -303,7 +315,9 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 			{
 				if (item->size < size)
 				{
-					DebugPrintf("PANIC: Stored image cache is smaller than required size!!!\n");
+					DebugPrintf("Image cache miss: cached block too small (cached=%lu required=%lu)\n",
+						(unsigned long)item->size,
+						(unsigned long)size);
 					return 0;
 				}
 				item->time = useCounter++;
@@ -318,10 +332,9 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 			}
 			item = item->next;
 		}
-		DebugPrintf("PANIC: Image cache bitmap mismatch\n");
+		DebugPrintf("Image cache warning: bitmap mismatch for index %u, clearing stale bit\n", (unsigned)index);
+		dmg->cacheBitmap[index >> 3] &= ~(1 << (index & 7));
 	}
-
-	dmg->cacheBitmap[index >> 3] |= (1 << (index & 7));
 
 	// We're adding 32 bytes of extra pdding to help decompression
 	// inside the same buffer as read
@@ -337,7 +350,9 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 #endif
 	if (required > dmg->cacheSize)
 	{
-		DebugPrintf("Image cache miss: required block too large for cache\n");
+		DebugPrintf("Image cache miss: required block too large for cache (need=%lu total=%lu)\n",
+			(unsigned long)required,
+			(unsigned long)dmg->cacheSize);
 		return 0;
 	}
 	if (dmg->cacheFree < required)
@@ -377,6 +392,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	item->imageMode = ImageMode_Raw;
 	item->buffer = (entry->flags & DMG_FLAG_BUFFERED) != 0;
 	item->populated = false;
+	dmg->cacheBitmap[index >> 3] |= (1 << (index & 7));
 
 	dmg->cacheFree -= required;
 #if DEBUG_IMAGE_CACHE

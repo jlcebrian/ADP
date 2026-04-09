@@ -8,7 +8,9 @@
 #define TRACE_ON 0
 #endif
 
-#if TRACE_ON
+#if TRACE_DEBUG
+#define TRACE DebugPrintf
+#elif TRACE_ON
 extern void TracePrintf(const char* format, ...);
 #define TRACE TracePrintf
 #else
@@ -39,11 +41,27 @@ extern void     Abort      ();
 
 // OS Specific
 
+enum OSMemoryPool
+{
+	OSMemoryPool_Any = 0,
+	OSMemoryPool_Chip,
+};
+
 extern void     OSInit     ();
 extern void     OSError    (const char* message);
 extern void     OSSyncFS   ();
-extern void*    OSAlloc    (size_t size);
+extern void*    OSAlloc    (size_t size, OSMemoryPool pool);
 extern void     OSFree     (void* mem);
+
+static inline void* OSAlloc(size_t size)
+{
+	return OSAlloc(size, OSMemoryPool_Any);
+}
+
+extern size_t   OSReserveArena	(size_t size);
+extern void     OSReleaseArena	();
+extern size_t   OSGetArenaSize	();
+extern size_t   OSGetFree		();
 
 // Memory/string functions
 

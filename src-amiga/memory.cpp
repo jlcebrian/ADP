@@ -20,15 +20,22 @@ BlockHeader* os_firstBlock = 0;
 LONG         os_blockCount = 0;
 LONG         os_totalAllocated = 0;
 
-void *OSAlloc(size_t size)
+void *OSAlloc(size_t size, OSMemoryPool pool)
 {
-	// Note: not all memory must be allocated in the chip pool,
-	// we should expose some way to allocate from the fast pool instead.
-	// 
-	// Things which should go into chip pool:
-	// - Audio buffers (DMG_GetEntryData for audio)
-	// - Uncompressed pictures (DMG_SetupImageCache)
-	void* block = AllocMem(size + BlockHeaderSize, MEMF_CHIP | MEMF_CLEAR);
+	ULONG flags = MEMF_CLEAR;
+	switch (pool)
+	{
+		case OSMemoryPool_Chip:
+			flags |= MEMF_CHIP;
+			break;
+
+		case OSMemoryPool_Any:
+		default:
+			flags |= MEMF_ANY;
+			break;
+	}
+
+	void* block = AllocMem(size + BlockHeaderSize, flags);
 	if (block == 0)
 		return 0;
 
@@ -64,6 +71,11 @@ void OSFree(void *ptr)
 	os_totalAllocated -= header->size;
 
 	FreeMem(block, header->size + BlockHeaderSize);
+}
+
+size_t OSGetFree()
+{
+	return AvailMem(0);
 }
 
 #endif

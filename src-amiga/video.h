@@ -5,8 +5,7 @@
 extern uint8_t* plane[8];
 extern uint8_t* frontBuffer;
 extern uint8_t* backBuffer;
-extern uint16_t (*charsetWords)[256][8];
-extern uint16_t* rotationTable;
+extern uint16_t rotationTable[8][256];
 
 const uint32_t TEXT_PLANES  = 4;
 const uint32_t MAX_PLANES   = 8;
@@ -60,4 +59,3 @@ void BlitterCopyStride (
 
 void BlitterLine(void* dst, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 void BlitterRect(void* dst, uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool set);
-void BlitterChar(void* dst, uint16_t x, uint16_t y, uint8_t charIndex, uint8_t ink, uint8_t paper);

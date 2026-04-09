@@ -2,6 +2,7 @@
 #include <ddb.h>
 #include <ddb_vid.h>
 #include <ddb_pal.h>
+#include <dmg.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -16,6 +17,8 @@ static char*       files[MAX_FILES];
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
+
+static void CloseEnum();
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -67,8 +70,9 @@ static void EnumFiles(const char* pattern = "*")
 {
 	FindFileResults r;
 
+	CloseEnum();
 	fileCount = 0;
-	nameBuffer = Allocate<char>("Temporary filenames", NAME_BUFFER_SIZE);
+	nameBuffer = Allocate<char>("EnumFiles", NAME_BUFFER_SIZE);
 	if (nameBuffer == 0)
 		return;
 	
@@ -269,7 +273,7 @@ static void FadeOutStep(int elapsed)
 	
 	if (frame >= 16)
 	{
-		VID_ResetDisplayToDefault();
+		VID_ResetDisplay();
 		VID_Quit();
 	}
 }
@@ -388,6 +392,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				return state = Player_Error;
 			}
 			DebugPrintf("Loaded snapshot from %s.\nVersion %s, machine %s\n", ddbFileName, DDB_DescribeVersion(ddb->version), DDB_DescribeMachine(ddb->machine));
+			LogBackBufferAnalysisForDDB(ddbFileName, ddb->machine, ddb);
 			VID_Initialize(ddb->machine, ddb->version, screenMode);
 		}
 		else
@@ -417,7 +422,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			#else
 			const char* screenFile = GetFile(scrExtension, 0);
 			#endif
-			if (!VID_DisplaySCRFile(screenFile, machine))
+			if (!VID_DisplaySCRFile(screenFile, machine, true))
 			{
 				VID_ShowError(DDB_GetErrorString());
 				return state = Player_Error;
@@ -432,7 +437,6 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		{
 			DebugPrintf("Showing part selector\n");
 			ddbSelected = -1;
-			VID_SaveScreen();
 			ShowLoaderPrompt(ddbCount, language);
 			VID_SetTextInputMode(true);
 			VID_MainLoopAsync(0, LoaderScreenUpdate);
@@ -465,12 +469,6 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return state = Player_Error;
 	}
-	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
-		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
-	#if HAS_PCX
-	if (VID_HasExternalPictures())
-		screenMode = ScreenMode_VGA;
-	#endif
 	DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 	{
@@ -479,6 +477,12 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		VID_Finish();
 		return state = Player_Error;
 	}
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+	#if HAS_PCX
+	if (VID_HasExternalPictures())
+		screenMode = ScreenMode_VGA;
+	#endif
 	FadeOut();
 	return state = Player_FadingOut;
 }
@@ -504,7 +508,7 @@ static void FadeOut()
 		}
 		VID_VSync();
 	}
-	VID_ResetDisplayToDefault();
+	VID_ResetDisplay();
 }
 
 // Checks for intro screen files and, if found, updates machine and screenMode accordingly
@@ -573,10 +577,11 @@ bool DDB_RunPlayer()
 	#else
 	CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
 	#endif
+
 	VID_Initialize(machine, version, screenMode);
     if (introScreen != 0)
     {
-        if (!VID_DisplaySCRFile(introScreen, machine))
+        if (!VID_DisplaySCRFile(introScreen, machine, true))
             VID_ShowError(DDB_GetErrorString());
     }
 
@@ -584,19 +589,17 @@ bool DDB_RunPlayer()
 	{
 		DebugPrintf("Showing part selector\n");
 		ddbSelected = -1;
-		VID_SaveScreen();
 		ShowLoaderPrompt(ddbCount, language);
 		VID_MainLoop(0, LoaderScreenUpdate);
 		if (exitGame)
 			return true;
-		VID_RestoreScreen();
-		VID_ClearBuffer(false);
 		if (ddbSelected == -1)
 		{
 			CloseEnum();
 			VID_Finish();
 			return true;
 		}
+		VID_DisplaySCRFile(introScreen, machine, false);
 		DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
 		if (ddbSelected != 0)
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", ddbSelected));
@@ -605,8 +608,6 @@ bool DDB_RunPlayer()
 	CloseEnum();
 	
 	DebugPrintf("Loading %s\n", ddbFileName);
-
-	VID_SaveScreen();
 
 	VID_ShowProgressBar(0);
 	uint32_t tLoadStart = 0;
@@ -618,10 +619,22 @@ bool DDB_RunPlayer()
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return false;
 	}
+	if (DDB_RequiresBackBuffer(ddb))
+		VID_EnableBackBuffer();
+
 	uint32_t tAfterDDBLoad = 0;
 	VID_GetMilliseconds(&tAfterDDBLoad);
 	DebugPrintf("DDB_Load completed in %lu ms\n", (unsigned long)(tAfterDDBLoad - tLoadStart));
 	VID_ShowProgressBar(64);
+
+	DDB_CreateInterpreter(ddb, screenMode);
+	if (interpreter == 0)
+	{
+		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
+		DDB_Close(ddb);
+		VID_Finish();
+		return false;
+	}
 
 	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName)) 
 	{
@@ -632,21 +645,11 @@ bool DDB_RunPlayer()
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;
 	#endif
-
-	DDB_CreateInterpreter(ddb, screenMode);
-	if (interpreter == 0)
-	{
-		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
-		DDB_Close(ddb);
-		VID_Finish();
-		return false;
-	}
 	VID_ShowProgressBar(255);
-	
-	if (scrCount > 0)
-	{
-		VID_RestoreScreen();
 
+	if (scrCount > 0 && ddbCount == 1)
+	{
+		VID_DisplaySCRFile(introScreen, machine, false);
 		DDB_Interpreter* i = interpreter;
 		VID_MainLoop(0, WaitForKeyUpdate);
 		interpreter = i;

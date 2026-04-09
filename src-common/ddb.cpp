@@ -931,6 +931,63 @@ static void DDB_FillMsgPointers(DDB* ddb)
 	}
 }
 
+bool DDB_RequiresBackBuffer(DDB* ddb)
+{
+	if (ddb == 0)
+		return false;
+
+	for (int process = 0; process < ddb->numProcesses; process++)
+	{
+		uint8_t* entry = ddb->data + ddb->processTable[process];
+		while (entry < ddb->data + ddb->dataSize)
+		{
+			if (*entry == 0)
+				break;
+
+			uint16_t offset = *(uint16_t*)(entry + 2);
+			uint8_t* code = ddb->data + offset;
+			if (code >= ddb->data + ddb->dataSize || code == ddb->data)
+				break;
+			entry += 4;
+
+			while (*code != 0xFF)
+			{
+				uint8_t condactIndex = *code & 0x7F;
+				uint8_t condact = ddb->condactMap[condactIndex].condact;
+				int parameters = ddb->condactMap[condactIndex].parameters;
+				uint8_t param1 = parameters > 1 ? code[2] : 0;
+
+				if (condact == CONDACT_GFX && param1 <= 8)
+					return true;
+
+				if (condact == CONDACT_INDIR)
+				{
+					uint8_t* nextCode = code + parameters + 1;
+					if (*nextCode != 0xFF)
+					{
+						uint8_t nextCondactIndex = *nextCode & 0x7F;
+						uint8_t nextCondact = ddb->condactMap[nextCondactIndex].condact;
+						if (nextCondact == CONDACT_GFX)
+							return true;
+					}
+				}
+
+				code += parameters + 1;
+
+				if (condact == CONDACT_DONE || 
+					condact == CONDACT_NOTDONE ||
+					condact == CONDACT_OK ||
+					condact == CONDACT_SKIP ||
+					condact == CONDACT_RESTART ||
+					condact == CONDACT_REDO)
+					break;
+			}
+		}
+	}
+
+	return false;
+}
+
 #if HAS_PAWS
 
 static bool CheckPAWSignature(uint8_t* memory, uint16_t base, uint16_t attr)

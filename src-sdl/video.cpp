@@ -63,6 +63,29 @@ int        pcxPictureHeight = 0;
 int        xCoordMultiplier = 1;
 int        yCoordMultiplier = 1;
 
+static bool PaletteMatches(const uint32_t* candidate, int paletteCount, int firstColor, bool clearOutside)
+{
+	if (candidate == NULL)
+		return false;
+
+	for (int n = 0; n < paletteCount && firstColor + n < 256; n++)
+	{
+		if (palette[firstColor + n] != candidate[n])
+			return false;
+	}
+
+	if (clearOutside && firstColor == 0)
+	{
+		for (int n = paletteCount; n < 256; n++)
+		{
+			if (palette[n] != 0xFF000000)
+				return false;
+		}
+	}
+
+	return true;
+}
+
 // Specific for Spectrum
 uint8_t*   bitmap = NULL;
 uint8_t*   attributes = NULL;
@@ -308,6 +331,21 @@ static bool IsPCXScreenFile(const char* fileName)
 	return dot != 0 && StrIComp(dot, ".vga") == 0;
 }
 #endif
+
+bool VID_IsBackBufferEnabled()
+{
+	return true;
+}
+
+void VID_EnableBackBuffer()
+{
+	// Always enabled
+}
+
+void VID_ClearAllPlanes (int x, int y, int w, int h, uint8_t color)
+{
+	VID_Clear(x, y, w, h, color);
+}
 
 void VID_Clear (int x, int y, int w, int h, uint8_t color)
 {
@@ -605,7 +643,7 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 	palette[color] = (r << 16) | (g << 8) | b;
 }
 
-bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
+bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	#if HAS_PCX
 	if (target == DDB_MACHINE_IBMPC && IsPCXScreenFile(fileName))
@@ -633,7 +671,8 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 		for (int y = 0; y < copyHeight; y++)
 			memcpy(graphicsBuffer + y * screenWidth, output + y * width, copyWidth);
 
-		VID_ActivatePalette();
+		if (fadeIn)
+			VID_ActivatePalette();
 		Free(output);
 		return true;
 	}
@@ -827,21 +866,22 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	{
 		default:
 		case ScreenMode_VGA16:
-			if (dmg->version == DMG_Version5 || (entry->flags & DMG_FLAG_FIXED))
+			if (entry->flags & DMG_FLAG_FIXED)
 			{
+				if (dmg->version == DMG_Version1)
+					filePalette[15] = 0xFFFFFFFF;
                 int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedIndex);
                 int firstColor = DMG_GetEntryFirstColor(dmg, bufferedIndex);
-                if (firstColor == 0)
+				if (!PaletteMatches(filePalette, paletteCount, firstColor, firstColor == 0))
                 {
-                    for (int n = 0; n < 256; n++)
-                        palette[n] = 0xFF000000;
+					if (firstColor == 0)
+					{
+						for (int n = 0; n < 256; n++)
+							palette[n] = 0xFF000000;
+					}
+					for (int n = 0; n < paletteCount && firstColor + n < 256; n++)
+						palette[firstColor + n] = filePalette[n];
                 }
-				for (int n = 0; n < paletteCount && firstColor + n < 256; n++)
-					palette[firstColor + n] = filePalette[n];
-				// TODO: This is a hack to fix the palette for Original/Jabato
-				//       We should check the ST/DOS interpreter to see what's going on
-				if (dmg->version == DMG_Version1)
-					palette[15] = 0xFFFFFFFF;
 			}
 			break;
 
@@ -849,8 +889,14 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			break;
 
 		case ScreenMode_CGA:
-			for (int n = 0; n < 16; n++) {
-				palette[n] = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed[n] : CGAPaletteCyan[n];
+			if (entry->flags & DMG_FLAG_FIXED)
+			{
+				uint32_t* cgaPalette = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
+				if (!PaletteMatches(cgaPalette, 16, 0, false))
+				{
+					for (int n = 0; n < 16; n++)
+						palette[n] = cgaPalette[n];
+				}
 			}
 			break;
 	}
@@ -962,7 +1008,7 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* mod)
 
 #if DEBUG_ALLOCS
 		if (ext && *ext == 0x3C)
-			DumpMemory();
+			DumpMemory(OSGetFree(), 0);
 #endif
 	}
 	else

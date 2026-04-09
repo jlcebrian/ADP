@@ -9,10 +9,10 @@
 
 enum SolidPatchMode
 {
-	SolidPatchMode_And = 0,
-	SolidPatchMode_AndOr = 1,
-	SolidPatchMode_OrM = 2,
-	SolidPatchMode_OrMXorO = 3,
+	SolidPatchMode_And = 0,      // Clear glyph pixels and preserve paper pixels.
+	SolidPatchMode_AndOr = 1,    // Clear paper pixels, then set glyph pixels.
+	SolidPatchMode_OrM = 2,      // Preserve paper pixels and force glyph pixels on.
+	SolidPatchMode_OrMXorO = 3,  // Force paper pixels on, then toggle glyph pixels back off.
 };
 
 enum TextByteAlignment
@@ -93,9 +93,8 @@ static void EmitSolidByteBlock(WordEmitter& emitter, uint16_t offset, bool secon
 			emitter.Emit((uint16_t)(secondByte ? 0x1A06 : 0x1A07)); // move.b d6/d7,d5
 			break;
 
-		default:
+		case SolidPatchMode_OrMXorO:
 			emitter.Emit((uint16_t)(secondByte ? 0x1A06 : 0x1A07)); // move.b d6/d7,d5
-			emitter.Emit((uint16_t)(secondByte ? 0xB505 : 0xB905)); // eor.b d2/d4,d5
 			break;
 	}
 
@@ -108,9 +107,7 @@ static void EmitSolidByteBlock(WordEmitter& emitter, uint16_t offset, bool secon
 			emitter.Emit(0xCA28); // and.b xxxx(a0),d5
 			emitter.Emit(offset);
 		}
-		if (mode == SolidPatchMode_And)
-			emitter.Emit(0x4E71); // nop
-		else
+		if (mode == SolidPatchMode_AndOr)
 			emitter.Emit((uint16_t)(secondByte ? 0x8A02 : 0x8A04)); // or.b d2/d4,d5
 	}
 	else
@@ -122,12 +119,14 @@ static void EmitSolidByteBlock(WordEmitter& emitter, uint16_t offset, bool secon
 			emitter.Emit(0x8A28); // or.b xxxx(a0),d5
 			emitter.Emit(offset);
 		}
-		if (mode == SolidPatchMode_OrM)
-			emitter.Emit(0x4E71); // nop
+		if (mode == SolidPatchMode_OrMXorO)
+			emitter.Emit((uint16_t)(secondByte ? 0xB505 : 0xB905)); // eor.b d2/d4,d5
 	}
 
 	if (offset == 0)
+	{
 		emitter.Emit(0x1085); // move.b d5,(a0)
+	}
 	else
 	{
 		emitter.Emit(0x1145); // move.b d5,xxxx(a0)
@@ -159,7 +158,6 @@ static void EmitTransparentByteBlock(WordEmitter& emitter, uint16_t offset, bool
 			emitter.Emit(offset);
 		}
 		emitter.Emit((uint16_t)(secondByte ? 0x8A02 : 0x8A04)); // or.b d2/d4,d5
-		emitter.Emit(0x4E71); // nop
 	}
 
 	if (offset == 0)
@@ -173,6 +171,7 @@ static void EmitTransparentByteBlock(WordEmitter& emitter, uint16_t offset, bool
 
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex)
 {
+	// Choose the cheapest per-plane operation that converts the existing paper bit into the target ink bit.
 	uint8_t inkBit = (uint8_t)((ink >> planeIndex) & 1);
 	uint8_t paperBit = (uint8_t)((paper >> planeIndex) & 1);
 	if (inkBit != 0)

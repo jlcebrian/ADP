@@ -105,6 +105,8 @@ static void quit()
 		EsetPalette(0, 256, savedPalette);
 	}
 
+	OSReleaseArena();
+
 	Super(ret);
 	Pterm(0);
 }
@@ -132,7 +134,16 @@ int main (int argc, char *argv[])
 
 	init();
 
-	DebugPrintf("Free RAM: %d\n", Malloc(-1));
+	uint32_t freeRam = Malloc(-1);
+	DebugPrintf("Free RAM: %d\n", freeRam);
+	if (freeRam > 16384)
+	{
+		size_t reservedArena = OSReserveArena(freeRam - 2048);
+		if (reservedArena != 0)
+			DebugPrintf("Reserved OS arena: %lu bytes\n", (unsigned long)reservedArena);
+		else
+			DebugPrintf("Reserved OS arena: failed\n");
+	}
 
 	DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 
@@ -154,12 +165,12 @@ int main (int argc, char *argv[])
 	if (!VID_Initialize(ddb->target, ddb->version, ScreenMode_VGA16))
 		error(DDB_GetErrorString());
 
-	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(file);
-
 	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
 	if (interpreter == 0)
 		error(DDB_GetErrorString());
+
+	if (DDB_SupportsDataFile(ddb->version, ddb->target))
+		VID_LoadDataFile(file);
 
 	DDB_Run(interpreter);
 	DDB_CloseInterpreter(interpreter);

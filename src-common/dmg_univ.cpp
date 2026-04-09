@@ -281,7 +281,6 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		if (cache->populated)
 			return buffer;
 		bufferSize = cache->size;
-		cache->populated = true;
 	}
 #endif
 
@@ -298,13 +297,18 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	}
 	if (buffer == 0)
 	{
-		// PANIC: No decompression buffer
+		// PANIC: No temporary buffer
 		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 		return 0;
 	}
 
 	if (dmg->version == DMG_Version5)
-		return DMG_GetEntryDataV5(dmg, index, mode, entry, buffer, bufferSize);
+	{
+		uint8_t* result = DMG_GetEntryDataV5(dmg, index, mode, entry, buffer, bufferSize);
+		if (cache != 0)
+			cache->populated = result != 0;
+		return result;
+	}
 
 #ifndef NO_CACHE
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);
@@ -351,6 +355,8 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 			#if !DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 			if (!DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
 			{
+				if (cache != 0)
+					cache->populated = false;
 				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 				return 0;
 			}
@@ -367,7 +373,11 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, pixels, dmg->littleEndian);
 				if (success)
+				{
+					if (cache != 0)
+						cache->populated = true;
 					return buffer;
+				}
 			}
 			else
 			{
@@ -428,6 +438,8 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				if (bufferSize < requiredSize * 8)
 				{
 					DMG_Warning("Entry %d: Buffer too small for RGBA32 image (%d bytes required)", index, requiredSize * 4);
+					if (cache != 0)
+						cache->populated = false;
 					DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 					return 0;
 				}
@@ -485,10 +497,15 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	}
 	if (!success)
 	{
+		if (cache != 0)
+			cache->populated = false;
 		if (DMG_GetError() == DMG_ERROR_NONE)
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 		return 0;
 	}
+
+	if (cache != 0)
+		cache->populated = true;
 
 	return buffer;
 }

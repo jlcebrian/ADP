@@ -597,6 +597,16 @@ bool VID_LoadDataFile (const char* fileName)
 	return true;
 }
 
+bool VID_IsBackBufferEnabled()
+{
+	return true;
+}
+
+void VID_EnableBackBuffer()
+{
+	// Always enabled
+}
+
 void VID_Clear (int x, int y, int width, int height, uint8_t color)
 {
     int32_t i;
@@ -847,7 +857,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 }
 
-bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
+bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	#if HAS_PCX
 	if (IsPCXScreenFile(fileName))
@@ -898,9 +908,12 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 		uint8_t *out = offset;
 		uint8_t *in = output;
 
-		for (int n = 0; n < 16; n++) 
-			VID_SetPaletteColor(n, 0, 0, 0);
-		VID_VSync();
+		if (fadeIn)
+		{
+			for (int n = 0; n < 16; n++) 
+				VID_SetPaletteColor(n, 0, 0, 0);
+			VID_VSync();
+		}
 
 		outp(0x3C4, 0x02);
 
@@ -928,13 +941,16 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target)
 			mask &= 0x0F;
 		}
 		
-		VID_VSync();
-		for (int n = 0; n < 16; n++) 
+		if (fadeIn)
 		{
-			uint8_t r = (palette[n] >> 16) & 0xFF;
-			uint8_t g = (palette[n] >>  8) & 0xFF;
-			uint8_t b = (palette[n] >>  0) & 0xFF;
-			VID_SetPaletteColor(n, r, g, b);
+			VID_VSync();
+			for (int n = 0; n < 16; n++) 
+			{
+				uint8_t r = (palette[n] >> 16) & 0xFF;
+				uint8_t g = (palette[n] >>  8) & 0xFF;
+				uint8_t b = (palette[n] >>  0) & 0xFF;
+				VID_SetPaletteColor(n, r, g, b);
+			}
 		}
 	}
 

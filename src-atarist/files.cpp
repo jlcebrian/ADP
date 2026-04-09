@@ -4,52 +4,125 @@
 #ifdef _ATARIST
 
 #include <stdio.h>
-#include <sys/dirent.h>
 #include <string.h>
 #include <osbind.h>
+#include <mint/ostruct.h>
 
 struct FindFileInternal
 {
-	DIR *dirp;
-	struct dirent *direntp;
+	_DTA dta;
+	bool active;
 };
+
+typedef char FindFileInternalFitsInResults[
+	sizeof(FindFileInternal) <= sizeof(((FindFileResults*)0)->internalData) ? 1 : -1
+];
+
+static void NormalizeSearchPattern(const char* pattern, char* output, size_t outputSize)
+{
+	if (output == 0 || outputSize == 0)
+		return;
+
+	if (pattern == 0 || pattern[0] == 0)
+		pattern = "*";
+
+	StrCopy(output, outputSize, pattern);
+	for (char* p = output; *p; ++p)
+	{
+		if (*p == '/')
+			*p = '\\';
+	}
+
+	char* base = output;
+	for (char* p = output; *p; ++p)
+	{
+		if (*p == '\\' || *p == ':')
+			base = p + 1;
+	}
+
+	if (StrComp(base, "*") == 0)
+	{
+		StrCopy(base, outputSize - (uint32_t)(base - output), "*.*");
+		return;
+	}
+
+	if (base[0] == '.')
+	{
+		size_t baseLen = StrLen(base);
+		if ((size_t)(base - output) + baseLen + 2 <= outputSize)
+		{
+			MemMove(base + 1, base, baseLen + 1);
+			base[0] = '*';
+		}
+	}
+}
+
+static int MapTOSAttributes(char tosAttributes)
+{
+	int attributes = 0;
+	if (tosAttributes & FA_DIR)
+		attributes |= FileAttribute_Directory;
+	if (tosAttributes & FA_HIDDEN)
+		attributes |= FileAttribute_Hidden;
+	if (tosAttributes & FA_SYSTEM)
+		attributes |= FileAttribute_System;
+	if (tosAttributes & FA_CHANGED)
+		attributes |= FileAttribute_Archive;
+	if (tosAttributes & FA_RDONLY)
+		attributes |= FileAttribute_ReadOnly;
+	return attributes;
+}
 
 void FillFindFileResults (FindFileResults* results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
 
-	StrCopy(results->fileName, sizeof(results->fileName), i->direntp->d_name);
-	results->attributes = 0;
-	results->fileSize = 0;
+	StrCopy(results->fileName, sizeof(results->fileName), i->dta.dta_name);
+	results->attributes = MapTOSAttributes(i->dta.dta_attribute);
+	results->fileSize = (uint32_t)i->dta.dta_size;
+	results->modifyTime = ((uint32_t)i->dta.dta_date << 16) | i->dta.dta_time;
 	results->description[0] = 0;
 }
 
 bool OS_FindFirstFile(const char *pattern, FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
+	char search[FILE_MAX_PATH];
+	NormalizeSearchPattern(pattern, search, sizeof(search));
 
-	i->dirp = opendir(".");
-	return OS_FindNextFile(results);
+	i->active = false;
+
+	_DTA* oldDTA = Fgetdta();
+	Fsetdta(&i->dta);
+	long result = Fsfirst(search, FA_RDONLY | FA_HIDDEN | FA_SYSTEM | FA_DIR);
+	Fsetdta(oldDTA);
+	if (result != 0)
+		return false;
+
+	i->active = true;
+	FillFindFileResults(results);
+	return true;
 }
 
 bool OS_FindNextFile(FindFileResults *results)
 {
 	FindFileInternal* i = (FindFileInternal*)&results->internalData;
 
-	if (i->dirp == 0)
+	if (!i->active)
 		return false;
 
-	for (;;)
+	_DTA* oldDTA = Fgetdta();
+	Fsetdta(&i->dta);
+	long result = Fsnext();
+	Fsetdta(oldDTA);
+	if (result != 0)
 	{
-		i->direntp = readdir(i->dirp);
-		if (i->direntp == 0)
-			break;
-		FillFindFileResults(results);
-		return true;
+		i->active = false;
+		return false;
 	}
-	closedir(i->dirp);
-	i->dirp = 0;
-	return false;
+
+	FillFindFileResults(results);
+	return true;
 }
 
 bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
