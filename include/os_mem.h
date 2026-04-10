@@ -14,7 +14,8 @@
 	extern void*  AllocateBlock      		 (const char* reason, size_t bytes, bool zero = true);
 	extern void*  AllocateBlockInPool		 (const char* reason, size_t bytes, bool zero, OSMemoryPool pool);
 	extern void   Free         	  			 (void* block);
-	extern void   DumpMemory     			 (uint32_t totalFree = 0, uint32_t largestBlock = 0);
+	extern void   DumpMemory     			 (uint32_t totalFree, uint32_t largestBlock);
+	extern void   DumpMemory     			 (uint32_t totalFree = 0, uint32_t largestBlock = 0, uint32_t stackUsed = 0, uint32_t stackTotal = 0);
 	extern size_t GetMaxAllocatableBlockSize ();
 
 #else

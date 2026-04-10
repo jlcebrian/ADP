@@ -14,21 +14,26 @@
 
 #define TIMER_INTERRUPT 0x08
 
-static uint32_t timeValue = 0;
-static int32_t nextOldTimer = 0;
+static volatile uint32_t timeValue = 0;
+static volatile int32_t nextOldTimer = 0;
 static bool timerInitialized = false;
 
 static void(__interrupt __far *oldDosTimerInterrupt)();
+#if defined(__386__)
 static void __interrupt __far newCustomTimerInterrupt()
+#else
+static void __interrupt __far __loadds newCustomTimerInterrupt()
+#endif
 {
 	timeValue++;
 
 	nextOldTimer -= 10;
 	if (nextOldTimer <= 0)
 	{
-		nextOldTimer += 182;
-		oldDosTimerInterrupt();
+		nextOldTimer += 549;
 		SB_Update();
+		outp(0x20, 0x20);
+		oldDosTimerInterrupt();
 	}
 	else
 	{
@@ -38,7 +43,13 @@ static void __interrupt __far newCustomTimerInterrupt()
 
 uint32_t Timer_GetMilliseconds(void)
 {
-	return timeValue;
+	uint32_t value;
+
+	_disable();
+	value = timeValue;
+	_enable();
+
+	return value;
 }
 
 void Timer_Start(void)
@@ -52,6 +63,9 @@ void Timer_Start(void)
 	// initialized.
 	if (timerInitialized)
 		return;
+
+	timeValue = 0;
+	nextOldTimer = 0;
 
 	// Swap out interrupt handlers.
 	oldDosTimerInterrupt = _dos_getvect(TIMER_INTERRUPT);
@@ -103,6 +117,10 @@ void Timer_Stop(void)
 
 	// Restore original timer interrupt handler.
 	_dos_setvect(TIMER_INTERRUPT, oldDosTimerInterrupt);
+
+	timeValue = 0;
+	nextOldTimer = 0;
+	timerInitialized = false;
 }
 
 #endif

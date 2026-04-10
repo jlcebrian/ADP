@@ -436,7 +436,7 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 	if (i->flags[Flag_TimeoutFlags] & Timeout_MorePrompt)
 	{
 		i->timeout = true;
-		i->timeoutRemainingMs = i->flags[Flag_Timeout] * 1000;
+		i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
 	}
 	i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 }
@@ -2638,7 +2638,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				if (i->flags[Flag_TimeoutFlags] & Timeout_AnyKey)
 				{
 					i->timeout = true;
-					i->timeoutRemainingMs = i->flags[Flag_Timeout] * 1000;
+					i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
 				}
 				i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 				DDB_ResetScrollCounts(i);
@@ -2884,7 +2884,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
 						{
 							i->timeout = true;
-							i->timeoutRemainingMs = i->flags[Flag_Timeout] * 1000;
+							i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
 						}
 						i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 						DDB_PrintInputLine(i, true);
@@ -4027,7 +4027,7 @@ static void StepFunction(int elapsed)
 							if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
 							{
 								i->timeout = true;
-								i->timeoutRemainingMs = i->flags[Flag_Timeout] * 1000;
+								i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
 							}
 							i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 						}

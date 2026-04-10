@@ -556,7 +556,7 @@ struct DDB_Interpreter
 	DDB_ScreenMode  screenMode;
 	DDB_State		state;
 	DDB_Flow		oldMainLoopState;
-	int             pauseFrames;
+	int32_t         pauseFrames;
 	uint32_t        pauseStart;
 	uint32_t        quitStart;
 
@@ -564,7 +564,7 @@ struct DDB_Interpreter
 	size_t			bufferSize;
 	uint16_t		saveStateSize;
 
-	int				keyClick;
+	uint8_t			keyClick;
 	bool			keyChecked;
 	bool			keyCheckInProgress;
 	bool			keyPressed;
@@ -575,7 +575,7 @@ struct DDB_Interpreter
 	uint8_t			lastKey2;
 
 	bool			timeout;
-	int				timeoutRemainingMs;
+	int32_t			timeoutRemainingMs;
 
 	// State saved inside buffer
 

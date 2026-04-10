@@ -1,8 +1,32 @@
 
-OPTS=-I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION -D_STDCLIB -DHAS_PCX -DHAS_XMSG
+MODE=32
+
+!ifeq MODE 32
+
+CC    = wpp386
+CL    = wcl386
+OPTS  = -I=include -I=include\src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION 
+OPTS += -D_STDCLIB -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING
+OPTIM = -otexan -zc -d0 -3 -r
+LOPTS = -l=CAUSEWAY
+OPTS  += -D_DEBUGPRINT
+OPTS  += -DDEBUG_ALLOCS
+UPX   = upx
+
 #OPTIM=-od -d3 -hw
-OPTIM=-otexan -zc -d0 -3r
 #OPTIM=-onatx -oh -ei -zp8 -3
+
+!else
+
+CC     = wpp
+CL     = wcl
+OPTS   = -I=include -I=include\src-dos -bt=DOS -ml -zq -zm -DVERSION=$VERSION 
+OPTS  += -D_STDCLIB -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING
+OPTS  += -D_DEBUGPRINT
+OPTS  += -DDEBUG_ALLOCS
+OPTIM  = -d0 -otexan
+
+!endif
 
 OBJS = 		     &
 	ddb_data.obj &
@@ -33,6 +57,7 @@ OBJS = 		     &
 	os_lib.obj   &
 	os_mem.obj   &
 	scrfile.obj  &
+	debug.obj    &
 	dma.obj      &
 	files.obj    &
 	mixer.obj    &
@@ -57,11 +82,15 @@ clean
 
 out/adp.exe: $OBJS 
 	@echo OPTION ELIMINATE > objs.lnk
+	@echo OPTION MAP >> objs.lnk
+	@echo OPTION STACK=12K >> objs.lnk
 	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
-	wcl386 $(OPTS) $(OPTIM) -l=CAUSEWAY -fe=$*.exe @objs.lnk
-	upx $*.exe >/dev/null
+	$(CL) $(OPTS) $(OPTIM) $(LOPTS) -fe=$*.exe @objs.lnk
+!ifdef UPX
+	$(UPX) $*.exe >/dev/null
+!endif
 
 .obj: obj\dos
 .cpp: src-common;src-dos
 .cpp.obj: .AUTODEPEND
-	wpp386 $(OPTIM) $(OPTS) -fo=$@ $<
+	$(CC) $(OPTIM) $(OPTS) -fo=$@ $<

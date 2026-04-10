@@ -80,20 +80,37 @@ typedef struct
 
 #define ENTER_CRITICAL IRQ_PUSH_OFF()
 extern void IRQ_PUSH_OFF(void);
+#if defined(__386__)
 #pragma aux IRQ_PUSH_OFF = \
 	"pushfd",              \
 	"cli";
+#else
+#pragma aux IRQ_PUSH_OFF = \
+	"pushf",               \
+	"cli";
+#endif
 
 #define ENTER_CRITICAL_ON IRQ_PUSH_ON()
 extern void IRQ_PUSH_ON(void);
+#if defined(__386__)
 #pragma aux IRQ_PUSH_ON = \
 	"pushfd",             \
 	"sti";
+#else
+#pragma aux IRQ_PUSH_ON = \
+	"pushf",              \
+	"sti";
+#endif
 
 #define LEAVE_CRITICAL IRQ_POP()
 extern void IRQ_POP(void);
+#if defined(__386__)
 #pragma aux IRQ_POP = \
 	"popfd";
+#else
+#pragma aux IRQ_POP = \
+	"popf";
+#endif
 #define LEAVE_CRITICAL_ON LEAVE_CRITICAL
 
 /* Variables needed ... */
@@ -133,7 +150,7 @@ static DMA_ENTRY mydma[MAX_DMA] = {
 	 DMA2_SNGL, DMA2_MODE, DMA2_CLRFF, 0x4B, 0x47},
 };
 
-#define LPTR(ptr) (((uint32_t)FP_SEG(ptr) << 4) + FP_OFF(ptr))
+#define DMA_PHYS_ADDR(ptr) (((uint32_t)FP_SEG(ptr) << 4) + FP_OFF(ptr))
 
 static uint16_t dma_selector;
 
@@ -146,6 +163,7 @@ static uint16_t dma_selector;
 */
 void *DMA_AllocMem(uint16_t size)
 {
+#if defined(__386__)
 	static union REGS r;
 	r.x.eax = 0x0100;			/* DPMI allocate DOS memory */
 	r.x.ebx = (size + 15) >> 4; /* Number of paragraphs requested */
@@ -158,14 +176,28 @@ void *DMA_AllocMem(uint16_t size)
 	dma_selector = r.x.edx;
 
 	return (void *)((r.x.eax & 0xFFFF) << 4);
+#else
+	unsigned seg;
+
+	if (_dos_allocmem((size + 15) >> 4, &seg) != 0)
+		return NULL;
+
+	dma_selector = (uint16_t)seg;
+	return MK_FP(seg, 0);
+#endif
 }
 
 void DMA_FreeMem(void *p)
 {
+#if defined(__386__)
 	static union REGS r;
 	r.x.eax = 0x0101;		/* DPMI free DOS memory */
 	r.x.edx = dma_selector; /* base selector */
 	int386(0x31, &r, &r);
+#else
+	(void)p;
+	_dos_freemem(dma_selector);
+#endif
 }
 
 int DMA_Start(int channel, void *pc_ptr, uint16_t size, int type)
@@ -181,7 +213,11 @@ int DMA_Start(int channel, void *pc_ptr, uint16_t size, int type)
 	/* Convert the pc address to a 20 bit physical
 	   address that the DMA controller needs */
 
+#if defined(__386__)
 	s_20bit = (uint32_t)pc_ptr;
+#else
+	s_20bit = DMA_PHYS_ADDR(pc_ptr);
+#endif
 
 	e_20bit = s_20bit + size - 1;
 	spage = s_20bit >> 16;

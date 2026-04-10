@@ -21,6 +21,9 @@ extern void TracePrintf(const char* format, ...);
 #  if defined(_ATARIST)
 	extern void DebugPrintfImpl(const char* format, ...);
 #    define DebugPrintf(...) DebugPrintfImpl(__VA_ARGS__)
+#  elif defined(_DOS)
+	extern void DebugPrintfImpl(const char* format, ...);
+#    define DebugPrintf(...) DebugPrintfImpl(__VA_ARGS__)
 #  elif defined(_STDCLIB)
 #    include <stdio.h>
 #    define DebugPrintf(...) printf(__VA_ARGS__)

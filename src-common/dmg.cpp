@@ -24,6 +24,9 @@ static void    (*dmg_warningHandler)(const char* message) = 0;
 static uint8_t*  dmgTemporaryBufferRaw = 0;
 static uint8_t*  dmgTemporaryBuffer = 0;
 static uint32_t  dmgTemporaryBufferSize = 0;
+#if defined(_STDCLIB) && !defined(NO_PRINTF)
+static char      dmgWarningBuffer[1024];
+#endif
 
 void DMG_InitializeOldRLETables();
 
@@ -166,12 +169,11 @@ void DMG_Warning(const char* format, ...)
 	if (dmg_warningHandler != 0)
 	{		
 #ifdef _STDCLIB
-		char buffer[1024];
 		va_list args;
 		va_start(args, format);
-		vsnprintf(buffer, 1024, format, args);
+		vsnprintf(dmgWarningBuffer, sizeof(dmgWarningBuffer), format, args);
 		va_end(args);
-		dmg_warningHandler(buffer);
+		dmg_warningHandler(dmgWarningBuffer);
 #else
 		dmg_warningHandler(format);
 #endif
@@ -306,8 +308,12 @@ bool DMG_Planar8ToPacked (const uint8_t* ptr, uint16_t length, uint8_t* output, 
 	const uint8_t* end = ptr + length;
 	uint8_t* outputEnd = output + pixels;
 
-	while (ptr < end-3 && output < outputEnd) {
-		uint32_t word = (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3];
+		while (ptr < end-3 && output < outputEnd) {
+			uint32_t word =
+				((uint32_t)ptr[0] << 24) |
+				((uint32_t)ptr[1] << 16) |
+				((uint32_t)ptr[2] << 8) |
+				(uint32_t)ptr[3];
 		for (int n = 7; n >= 0; n--) {
 			uint8_t color0 = 
 				(((word >> 24) >> n) & 1) << 0 |
@@ -584,10 +590,10 @@ static bool DMG_DecodeDAT5PaletteBytes(DMG_Entry* entry, const uint8_t* palData)
     for (uint16_t p = 0; p < entry->paletteColors; p++)
     {
         entry->RGB32PaletteV5[p] =
-            0xFF000000 |
-            (palData[p * 3 + 0] << 16) |
-            (palData[p * 3 + 1] << 8) |
-            (palData[p * 3 + 2] << 0);
+            0xFF000000UL |
+            ((uint32_t)palData[p * 3 + 0] << 16) |
+            ((uint32_t)palData[p * 3 + 1] << 8) |
+            (uint32_t)palData[p * 3 + 2];
     }
     return true;
 }

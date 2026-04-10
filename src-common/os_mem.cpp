@@ -253,6 +253,11 @@ void Free(void* block)
 
 void DumpMemory(uint32_t totalFree, uint32_t largestBlock)
 {
+	DumpMemory(totalFree, largestBlock, 0, 0);
+}
+
+void DumpMemory(uint32_t totalFree, uint32_t largestBlock, uint32_t stackUsed, uint32_t stackTotal)
+{
 	SanityCheck();
 	
 	#if DUMP_MEMORY
@@ -335,16 +340,25 @@ void DumpMemory(uint32_t totalFree, uint32_t largestBlock)
 	if (totalAllocated > 0)
 	{
 		if (buf[0] != 0)
-			StrCat(buf, sizeof(buf), " / ");
+			StrCat(buf, sizeof(buf), " | ");
 		LongToChar(totalAllocated / 1024, buf + StrLen(buf), 10);
 		StrCat(buf, sizeof(buf), "K alloc");
 	}
-	if (largestBlock > 0)
+	if (largestBlock > 0 && largestBlock != totalFree)
 	{
 		if (buf[0] != 0)
-			StrCat(buf, sizeof(buf), " / ");
+			StrCat(buf, sizeof(buf), " | ");
 		LongToChar(largestBlock / 1024, buf + StrLen(buf), 10);
 		StrCat(buf, sizeof(buf), "K largest");
+	}
+	if (stackTotal > 0)
+	{
+		if (buf[0] != 0)
+			StrCat(buf, sizeof(buf), " | ");
+		LongToChar(stackUsed / 1024, buf + StrLen(buf), 10);
+		StrCat(buf, sizeof(buf), "/");
+		LongToChar(stackTotal / 1024, buf + StrLen(buf), 10);
+		StrCat(buf, sizeof(buf), "K stack");
 	}
 	VID_ClearAllPlanes(6, 2, MeasureDebugTextWidth(buf), 8, 0);
 	VID_DrawTextSpan(6, 2, (const uint8_t*)buf, (uint16_t)StrLen(buf), 0, 15);

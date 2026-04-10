@@ -102,12 +102,12 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 			if (dmg->version != DMG_Version2)
 			{
 				success = DMG_DecompressOldRLE(fileData+2, mask, 
-					entry->length, buffer, requiredSize*2, dmg->littleEndian);
+					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 			}
 			else
 			{
 				success = DMG_DecompressNewRLE(fileData+2, mask, 
-					entry->length, buffer, requiredSize*2, dmg->littleEndian);
+					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 				if (success)
 					return buffer;
 			}

@@ -77,7 +77,7 @@ static bool ReadPCXPalette(File* file, uint64_t fileSize, uint32_t* palette)
             uint8_t r = paletteData[n * 3 + 0];
             uint8_t g = paletteData[n * 3 + 1];
             uint8_t b = paletteData[n * 3 + 2];
-            palette[n] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            palette[n] = 0xFF000000UL | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
         }
     }
 

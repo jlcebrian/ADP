@@ -23,7 +23,7 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 	bool outcm = false;
 
 	DMG_SetError(DMG_ERROR_NONE);
-	DebugPrintf("Decompressing new RLE image (%d bytes)", dataLength);
+	DebugPrintf("Decompressing new RLE image (%u bytes)", (unsigned)dataLength);
 
 	while (pixels > 0)
 	{
@@ -31,7 +31,8 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 		{
 			if (data >= end)
 			{
-				DMG_Warning("Early end of data stream at offset %d/%d (%d pixels remaining)", (int)(data - start), (int)(end - start), pixels);
+				DMG_Warning("Early end of data stream at offset %lu/%lu (%d pixels remaining)",
+					(unsigned long)(data - start), (unsigned long)(end - start), pixels);
 				DMG_SetError(DMG_ERROR_TRUNCATED_DATA_STREAM);
 				while (pixels-- > 0)
 				{
@@ -69,7 +70,8 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 			{
 				if (data >= end)
 				{
-					DMG_Warning("Early end of data stream at offset %d/%d (%d pixels remaining)", (int)(data - start), (int)(end - start), pixels);
+					DMG_Warning("Early end of data stream at offset %lu/%lu (%d pixels remaining)",
+						(unsigned long)(data - start), (unsigned long)(end - start), pixels);
 					while (pixels-- > 0)
 					{
 						if (outcm)
@@ -95,8 +97,8 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 			
 			if (pixels < repetitions)
 			{
-				DMG_Warning("Data stream wrote %d pixels past image size (at offset %d/%d, already read %d pixels)", 
-					repetitions - pixels, (int)(data - start), (int)(end - start), totalPixels);
+				DMG_Warning("Data stream wrote %d pixels past image size (at offset %lu/%lu, already read %d pixels)",
+					repetitions - pixels, (unsigned long)(data - start), (unsigned long)(end - start), totalPixels);
 				DMG_SetError(DMG_ERROR_DATA_STREAM_TOO_LONG);
 				repetitions = pixels;
 			}
@@ -117,7 +119,8 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 
 	if (data < end-4)
 	{
-		DMG_Warning("Data stream contains %d extra bytes (at offset %d)", dataLength, (int)(data - start));
+		DMG_Warning("Data stream contains %u extra bytes (at offset %lu)",
+			(unsigned)dataLength, (unsigned long)(data - start));
 		DMG_SetError(DMG_ERROR_DATA_STREAM_TOO_LONG);
 	}
 	return true;

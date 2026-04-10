@@ -69,7 +69,10 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		uint8_t* filePalette = buffer + 2;
 		for (int n = 0; n < 16; n++) {
 			uint16_t c = (filePalette[n * 2] << 8) + filePalette[n * 2 + 1];
-			palette[n] = 0xFF000000 | ((c & 0xF00) << 12) | ((c & 0xF0) << 8) | ((c & 0xF) << 4);
+			palette[n] = 0xFF000000UL |
+				((uint32_t)(c & 0xF00) << 12) |
+				((uint32_t)(c & 0x0F0) << 8) |
+				((uint32_t)(c & 0x00F) << 4);
 		}
 		for (int y = 0 ; y < 200 && y < height; y++)
 		{
@@ -137,7 +140,10 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 					r = (r << 2) | (r & 0x03);
 					g = (g << 2) | (g & 0x03);
 					b = (b << 2) | (b & 0x03);
-					palette[n] = 0xFF000000 | (r << 16) | (g << 8) | b;
+					palette[n] = 0xFF000000UL |
+						((uint32_t)r << 16) |
+						((uint32_t)g << 8) |
+						(uint32_t)b;
 				}
 			}
 

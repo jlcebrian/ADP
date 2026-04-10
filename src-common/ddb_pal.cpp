@@ -91,5 +91,5 @@ uint32_t Pal2RGB(uint16_t paletteEntry, bool amigaHack)
 		b = (b << 4) | b;
 	}
 
-	return 0xFF000000 | (r << 16) | (g << 8) | b;
+	return 0xFF000000UL | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
 }

@@ -489,22 +489,25 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 #else
 
+static uint8_t fadeR[256];
+static uint8_t fadeG[256];
+static uint8_t fadeB[256];
+
 static void FadeOut()
 {
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
-	uint8_t r[256], g[256], b[256];
 	for (uint16_t i = 0; i < fadePaletteSize; i++)
-		VID_GetPaletteColor(i, &r[i], &g[i], &b[i]);
+		VID_GetPaletteColor(i, &fadeR[i], &fadeG[i], &fadeB[i]);
 	for (int frame = 0; frame < 16; frame++)
 	{
 		for (uint16_t i = 0; i < fadePaletteSize; i++)
 		{
-			uint8_t r2 = r[i] * (15 - frame) / 15;
-			uint8_t g2 = g[i] * (15 - frame) / 15;
-			uint8_t b2 = b[i] * (15 - frame) / 15;
-			VID_SetPaletteColor(i, r2, g2, b2);
+			uint8_t r = fadeR[i] * (15 - frame) / 15;
+			uint8_t g = fadeG[i] * (15 - frame) / 15;
+			uint8_t b = fadeB[i] * (15 - frame) / 15;
+			VID_SetPaletteColor(i, r, g, b);
 		}
 		VID_VSync();
 	}

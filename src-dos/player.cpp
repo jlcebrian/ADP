@@ -8,6 +8,8 @@
 #include <direct.h>
 #include <string.h>
 
+extern void DOS_InitStackWatermark();
+
 static void error(const char* message)
 {
 	VID_Finish();
@@ -18,6 +20,7 @@ static void error(const char* message)
 
 extern "C" int main (int argc, char**argv)
 {
+	DOS_InitStackWatermark();
 	if (!DDB_RunPlayer())
 		error(DDB_GetErrorString());
 	return 1;

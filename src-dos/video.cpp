@@ -16,6 +16,7 @@
 
 #include <i86.h>
 #include <conio.h>
+#include <dos.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +38,10 @@ static uint8_t    defaultCharWidth = 6;
 
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
+
+#if DEBUG_ALLOCS
+extern void DOS_GetStackWatermark(uint32_t* usedBytes, uint32_t* totalBytes);
+#endif
 
 // ----------------------------------------------------------------------------
 //  File stuff
@@ -147,22 +152,135 @@ static bool IsPCXScreenFile(const char* fileName)
 // ----------------------------------------------------------------------------
 
 static uint8_t* offset;
-static uint32_t pageCount;
-static uint32_t previousVideoMode;
-static uint32_t activePage;
-static uint32_t visiblePage;
-static uint32_t pageSize;
-static uint32_t lineSize;
+static unsigned pageCount;
+static unsigned previousVideoMode;
+static unsigned activePage;
+static unsigned visiblePage;
+static unsigned pageSize;
+static unsigned lineSize;
 static uint32_t palette[256];
-static uint32_t width;
-static uint32_t height;
+static uint8_t  paletteR[256];
+static uint8_t  paletteG[256];
+static uint8_t  paletteB[256];
+static unsigned width;
+static unsigned height;
 static uint8_t  fg;
-static int32_t  cx;
-static int32_t  cy;
-static int32_t  minx;
-static int32_t  maxx;
-static int32_t  miny;
-static int32_t  maxy;
+static int      cx;
+static int      cy;
+static int      minx;
+static int      maxx;
+static int      miny;
+static int      maxy;
+
+#define VGA_SEGMENT 0xA000
+#if defined(__386__)
+#define VGA_PTR(off) ((uint8_t*)(0xA0000UL + (uint32_t)(off)))
+#else
+#define VGA_PTR(off) ((uint8_t*)MK_FP(VGA_SEGMENT, (uint16_t)(off)))
+#endif
+
+#if DEBUG_ALLOCS
+#if defined(__386__)
+struct DPMI_MemoryInfo
+{
+	uint32_t largestBlockAvail;
+	uint32_t maxUnlockedPage;
+	uint32_t largestLockablePage;
+	uint32_t linearAddressSpace;
+	uint32_t numFreePagesAvail;
+	uint32_t numPhysicalPagesFree;
+	uint32_t totalPhysicalPages;
+	uint32_t freeLinearAddressSpace;
+	uint32_t sizeOfPageFile;
+	uint32_t reserved[3];
+};
+
+static DPMI_MemoryInfo dpmiMemInfo;
+#endif
+
+static void GetDOSFreeMemoryInfo(uint32_t* totalFree, uint32_t* largestBlock)
+{
+#if defined(__386__)
+	union REGS regs;
+	struct SREGS sregs;
+
+	MemSet(&dpmiMemInfo, 0xFF, sizeof(dpmiMemInfo));
+	MemClear(&regs, sizeof(regs));
+	MemClear(&sregs, sizeof(sregs));
+
+	regs.x.eax = 0x00000500UL;
+	sregs.es = FP_SEG(&dpmiMemInfo);
+	regs.x.edi = FP_OFF(&dpmiMemInfo);
+
+	int386x(0x31, &regs, &regs, &sregs);
+
+	if (dpmiMemInfo.largestBlockAvail != 0xFFFFFFFFUL)
+	{
+		if (largestBlock != NULL)
+			*largestBlock = dpmiMemInfo.largestBlockAvail;
+
+		if (totalFree != NULL)
+		{
+			if (dpmiMemInfo.numFreePagesAvail != 0xFFFFFFFFUL)
+				*totalFree = dpmiMemInfo.numFreePagesAvail * 4096UL;
+			else
+				*totalFree = dpmiMemInfo.largestBlockAvail;
+		}
+	}
+	else
+	{
+		if (totalFree != NULL)
+			*totalFree = 0;
+		if (largestBlock != NULL)
+			*largestBlock = 0;
+	}
+#else
+	unsigned segments[128];
+	unsigned segmentCount = 0;
+	uint32_t total = 0;
+	uint32_t largest = 0;
+
+	for (;;)
+	{
+		unsigned paragraphs = 0;
+		if (_dos_allocmem(0xFFFFu, &paragraphs) == 0)
+		{
+			// Unexpected full-size success. Account for it and stop.
+			segments[segmentCount++] = paragraphs;
+			total += 0xFFFFUL * 16UL;
+			if (largest < 0xFFFFUL * 16UL)
+				largest = 0xFFFFUL * 16UL;
+			break;
+		}
+
+		if (paragraphs == 0)
+			break;
+
+		uint32_t blockBytes = (uint32_t)paragraphs * 16UL;
+		if (blockBytes > largest)
+			largest = blockBytes;
+
+		if (segmentCount == sizeof(segments) / sizeof(segments[0]))
+			break;
+
+		unsigned segment = 0;
+		if (_dos_allocmem(paragraphs, &segment) != 0)
+			break;
+
+		segments[segmentCount++] = segment;
+		total += blockBytes;
+	}
+
+	while (segmentCount > 0)
+		_dos_freemem(segments[--segmentCount]);
+
+	if (totalFree != NULL)
+		*totalFree = total;
+	if (largestBlock != NULL)
+		*largestBlock = largest;
+#endif
+}
+#endif
 
 // ----------------------------------------------------------------------------
 //  Setting the video mode 
@@ -311,7 +429,11 @@ void SetBIOSMode (int mode)
 {
 	union REGS regs;
 	regs.w.ax = mode;
+#if defined(__386__)
 	int386(0x10, &regs, &regs);
+#else
+	int86(0x10, &regs, &regs);
+#endif
 }
 
 void SetVideoMode (int mode)
@@ -399,7 +521,7 @@ void SetVideoMode (int mode)
 	pageSize    = (width*height) >> 2;
 	pageCount   = 65536 / pageSize;
 	lineSize    = width >> 2;
-	offset      = (uint8_t*)0xA0000;
+	offset      = VGA_PTR(0);
 	activePage  = 0;
 	visiblePage = 0;
 	minx        = 0;
@@ -422,17 +544,44 @@ static int32_t middleMask[4][4] =
 static int32_t leftMask[4]  = {0xf02, 0xe02, 0xc02, 0x802};
 static int32_t rightMask[4] = {0x102, 0x302, 0x702, 0xf02};
 
+#if defined(__386__)
 static void memset32 (void* addr, uint32_t value, int32_t count);
 #pragma aux memset32 = 		\
 	"cld" 					\
 	"rep stosd" 			\
 	parm [edi] [eax] [ecx];
+#else
+static void memset32 (void* addr, uint32_t value, int32_t count)
+{
+	uint8_t* p = (uint8_t*)addr;
+	uint8_t b0 = (uint8_t)(value & 0xFF);
+	uint8_t b1 = (uint8_t)((value >> 8) & 0xFF);
+	uint8_t b2 = (uint8_t)((value >> 16) & 0xFF);
+	uint8_t b3 = (uint8_t)((value >> 24) & 0xFF);
 
+	while (count-- > 0)
+	{
+		p[0] = b0;
+		p[1] = b1;
+		p[2] = b2;
+		p[3] = b3;
+		p += 4;
+	}
+}
+#endif
+
+#if defined(__386__)
 static void memset8 (void* addr, uint8_t value, int32_t count);
 #pragma aux memset8 =		\
 	"cld" 					\
 	"rep stosb" 			\
 	parm [edi] [al] [ecx];
+#else
+static void memset8 (void* addr, uint8_t value, int32_t count)
+{
+	memset(addr, value, (size_t)count);
+}
+#endif
 
 void VID_VSync()
 {
@@ -443,7 +592,7 @@ void VID_VSync()
 		;		
 }
 
-void VID_SetPaletteColor (uint8_t index, uint8_t r, uint8_t g, uint8_t b)
+static void SetHardwarePaletteColor(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 {
 	outp(0x3C8, index);					// PAL WRITE
 	outp(0x3C9, r >> 2);				// PAL DATA
@@ -451,9 +600,19 @@ void VID_SetPaletteColor (uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 	outp(0x3C9, b >> 2);
 }
 
+void VID_SetPaletteColor (uint8_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+	palette[index] = 0xFF000000UL | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+	paletteR[index] = r;
+	paletteG[index] = g;
+	paletteB[index] = b;
+	SetHardwarePaletteColor(index, r, g, b);
+}
+
 void VID_ActivatePalette()
 {
-	// The DOS VGA backend programs the DAC immediately in VID_SetPaletteColor().
+	for (int n = 0; n < 256; n++)
+		SetHardwarePaletteColor((uint8_t)n, paletteR[n], paletteG[n], paletteB[n]);
 }
 
 void VID_WaitForKey()
@@ -530,7 +689,6 @@ static void ApplyPalette256(const uint32_t* colors)
 		uint8_t b = colors[n] & 0xFF;
 		VID_SetPaletteColor((uint8_t)n, r, g, b);
 	}
-	MemCopy(palette, colors, sizeof(pcxPalette));
 }
 #endif
 
@@ -605,6 +763,11 @@ bool VID_IsBackBufferEnabled()
 void VID_EnableBackBuffer()
 {
 	// Always enabled
+}
+
+void VID_ClearAllPlanes (int x, int y, int width, int height, uint8_t color)
+{
+	VID_Clear(x, y, width, height, color);
 }
 
 void VID_Clear (int x, int y, int width, int height, uint8_t color)
@@ -755,11 +918,11 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	if (entry == NULL)
 		return;
 		
-	int32_t        sx  = 0;
-	int32_t        sy  = 0;
-	int32_t        bw  = entry->width;
-	int32_t        bh  = entry->height;
-	int32_t        bl  = bh;
+	int            sx  = 0;
+	int            sy  = 0;
+	int            bw  = entry->width;
+	int            bh  = entry->height;
+	int            bl  = bh;
 	const uint8_t* in  = pictureData;
 	uint8_t*       out = offset;
 		
@@ -791,9 +954,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	outp(0x3C4, 0x02);
 
-	int32_t stride  = entry->width >> 1;
-	int32_t dec     = bh * lineSize;
-	int32_t idec    = bh * stride;
+	int stride  = entry->width >> 1;
+	int dec     = bh * lineSize;
+	int idec    = bh * stride;
 	int mask    = 1 << (x & 3);
 
 	bw >>= 1;
@@ -1033,7 +1196,11 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
 {
 	union REGS regs;
 	regs.h.ah = 0x02;
+#if defined(__386__)
 	int386(0x16, &regs, &regs);
+#else
+	int86(0x16, &regs, &regs);
+#endif
 
 	*key = 0;
 	*ext = 0;
@@ -1060,6 +1227,23 @@ void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
 		*modifiers |= SCR_KEYMOD_CTRL;
 	if (regs.h.al & 0x08)
 		*modifiers |= SCR_KEYMOD_ALT;
+
+#if DEBUG_ALLOCS
+	if (*ext == 0x3C)	// F2
+	{
+		uint32_t totalFree = 0;
+		uint32_t largestBlock = 0;
+		uint32_t stackUsed = 0;
+		uint32_t stackTotal = 0;
+		GetDOSFreeMemoryInfo(&totalFree, &largestBlock);
+		DOS_GetStackWatermark(&stackUsed, &stackTotal);
+		DumpMemory(totalFree, largestBlock, stackUsed, stackTotal);
+		if (key) *key = 0;
+		if (ext) *ext = 0;
+		*ext = 0;
+		*key = 0;
+	}
+#endif
 }
 
 void VID_GetMilliseconds (uint32_t* time)
@@ -1080,9 +1264,36 @@ uint16_t VID_GetPaletteSize()
 void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 {
 	outp(0x3C7, color);
-	*r = inp(0x3C9) << 2;
-	*g = inp(0x3C9) << 2;
-	*b = inp(0x3C9) << 2;
+
+	if (r != NULL)
+	{
+		uint8_t v = inp(0x3C9);
+		*r = (v << 2) | (v >> 4);
+	}
+	else
+	{
+		inp(0x3C9);
+	}
+
+	if (g != NULL)
+	{
+		uint8_t v = inp(0x3C9);
+		*g = (v << 2) | (v >> 4);
+	}
+	else
+	{
+		inp(0x3C9);
+	}
+
+	if (b != NULL)
+	{
+		uint8_t v = inp(0x3C9);
+		*b = (v << 2) | (v >> 4);
+	}
+	else
+	{
+		inp(0x3C9);
+	}
 }
 
 void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h)
@@ -1224,8 +1435,8 @@ void VID_RestoreScreen ()
 
 void VID_SaveScreen ()
 {
-	const uint8_t* in = (uint8_t*)0xA0000 + pageSize*visiblePage;
-	uint8_t* out = (uint8_t*)0xA0000 + pageSize*(!visiblePage);
+	const uint8_t* in = VGA_PTR(pageSize * visiblePage);
+	uint8_t* out = VGA_PTR(pageSize * (!visiblePage));
 	int mask  = 1;
 	int plane = 0;
 	
@@ -1326,12 +1537,12 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
 	activePage = front ? visiblePage : !visiblePage;
-	offset     = (uint8_t*)0xA0000 + pageSize*activePage;
+	offset     = VGA_PTR(pageSize * activePage);
 }
 
 void VID_ClearBuffer (bool front)
 {
-	uint8_t* top = (uint8_t*)0xA0000 + pageSize*(front ? 1 : 0);
+	uint8_t* top = VGA_PTR(pageSize * (front ? 1 : 0));
 
 	outpw(0x3C4, 0xF02);
 	memset32(top, 0, 4000);

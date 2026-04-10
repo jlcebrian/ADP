@@ -41,7 +41,7 @@ static const uint8_t* CheckMessage(uint8_t* msg, uint32_t offset, uint16_t size)
         if (msg[n] == XMSG_TERMINATOR)
             return (const uint8_t*)msg;
     }
-    DebugPrintf("WARNING: XMessage at offset %d has no terminator character", offset);
+    DebugPrintf("WARNING: XMessage at offset %lu has no terminator character", (unsigned long)offset);
     msg[size-1] = XMSG_TERMINATOR;
     return (const uint8_t*)msg;
 }
@@ -131,9 +131,9 @@ bool DDB_OpenXMessageFile (const char* filename)
     if (xmsgFile)
     {
         xmsgFileSize = File_GetSize(xmsgFile);
-        DebugPrintf("XMessage file opened (%d bytes)\n", xmsgFileSize);
+        DebugPrintf("XMessage file opened (%lu bytes)\n", (unsigned long)xmsgFileSize);
         if (xmsgFileSize > XMSG_MAXFILESIZE)
-            DebugPrintf("WARNING: XMessage file size %u exceedes specs max", xmsgFileSize);
+            DebugPrintf("WARNING: XMessage file size %lu exceedes specs max", (unsigned long)xmsgFileSize);
     }
 
     return xmsgFilePresent = (xmsgFile != 0);
@@ -231,7 +231,8 @@ const uint8_t* DDB_GetXMessage(uint32_t offset)
     }
     if (offset >= xmsgFileSize)
     {
-        DebugPrintf("Offset %d out of bounds (%d bytes available)\n", offset, xmsgFileSize);
+        DebugPrintf("Offset %lu out of bounds (%lu bytes available)\n",
+            (unsigned long)offset, (unsigned long)xmsgFileSize);
         DDB_SetError(DDB_ERROR_SEEKING_FILE);
         return 0;
     }
