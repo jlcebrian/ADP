@@ -59,7 +59,7 @@ struct DIM_Disk
 	int                capabilities;
 };
 
-extern DIM_Disk*			DIM_CreateDisk        (const char* filename, uint32_t size);
+extern DIM_Disk*			DIM_CreateDisk        (const char* filename, uint32_t size, const char* preset = NULL);
 extern DIM_Disk*			DIM_OpenDisk          (const char* filename);
 extern bool					DIM_FindFile          (DIM_Disk* disk, FindFileResults* result, const char* name);
 extern bool					DIM_FindFirstFile     (DIM_Disk* disk, FindFileResults* result, const char* pattern);

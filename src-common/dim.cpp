@@ -152,7 +152,7 @@ const char* DIM_CheckPatternFolder (DIM_Disk* disk, const char* pattern)
 
 // -------------------------------------------------------------------------
 
-DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size)
+DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size, const char* preset)
 {
     const char* extension = strrchr(fileName, '.');
     if (extension == NULL)
@@ -161,8 +161,12 @@ DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size)
         return NULL;
     }
 
-    DIM_DiskType type = DIM_FAT;
-    if (StrIComp(extension, ".dsk") == 0)
+	DIM_DiskType type;
+	if (StrIComp(extension, ".img") == 0 || StrIComp(extension, ".st") == 0)
+	{
+		type = DIM_FAT;
+	}
+	else if (StrIComp(extension, ".dsk") == 0)
     {
         type = DIM_CPC;
     }
@@ -170,6 +174,11 @@ DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size)
     {
         type = DIM_ADF;
     }
+	else
+	{
+		DIM_SetError(DIMError_FormatNotSupported);
+		return NULL;
+	}
 
     switch (type)
     {
@@ -189,6 +198,23 @@ DIM_Disk* DIM_CreateDisk(const char* fileName, uint32_t size)
         	disk->type = DIM_FAT;
         	disk->capabilities = DIMCaps_Directories;
         	return disk;
+        }
+        case DIM_CPC:
+        {
+	        	CPC_Disk* cpcDisk = CPC_CreateDisk(fileName, preset);
+	        	if (cpcDisk == NULL)
+	        		return 0;
+
+	        	DIM_Disk* disk = Allocate<DIM_Disk>("DIM Disk");
+	        	if (disk == NULL)
+	        	{
+	        		DIM_SetError(DIMError_OutOfMemory);
+	        		return 0;
+	        	}
+	        	disk->cpc = cpcDisk;
+	        	disk->type = DIM_CPC;
+	        	disk->capabilities = 0;
+	        	return disk;
         }
         case DIM_ADF:
         {
@@ -436,6 +462,8 @@ uint32_t DIM_WriteFile (DIM_Disk* disk, const char* path, const uint8_t* buffer,
 	{
 		case DIM_FAT:
 			return FAT_WriteFile(disk->fat, path, buffer, bufferSize);
+		case DIM_CPC:
+			return CPC_WriteFile(disk->cpc, path, buffer, bufferSize);
         case DIM_ADF:
             return ADF_WriteFile(disk->adf, path, buffer, bufferSize);
 		default:
@@ -454,6 +482,8 @@ bool DIM_RemoveFile (DIM_Disk* disk, const char* name)
 	{
 		case DIM_FAT:
 			return FAT_RemoveFile(disk->fat, name);
+		case DIM_CPC:
+			return CPC_DeleteFile(disk->cpc, name);
         case DIM_ADF:
             return ADF_RemoveFile(disk->adf, name);
 		default:

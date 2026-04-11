@@ -164,38 +164,44 @@ void TracePrintf(const char* format, ...)
 
 static void PrintHelp(int argc, char *argv[])
 {
-    if (argc > 0)
-    {
-        const char* command = argv[0];
-        int n;
+	if (argc > 0)
+	{
+		const char* command = argv[0];
+		int n;
 
-        for (n = 0; commands[n].command != NULL; n++)
-        {
-            if (stricmp(command, commands[n].command) == 0)
-            {
-                switch (commands[n].action)
-                {
-                    case ACTION_HELP:
-                        break;
-                    case ACTION_LIST:
-                        printf("Usage: dsk [disk.img] dir [/B] [/L] [pattern]\n\n");
-                        printf("    /B    Brief listing\n");
-                        printf("    /L    Lowercase filenames\n");
-                        return;
-                    case ACTION_CREATEDISK:
-                        printf("Usage: dsk mkdisk disk.img [size|dd|hd]\n\n");
-                        printf("    Create a new empty disk image\n");
-                        printf("    The disk format is chosen based on the file extension:\n");
-                        printf("      .adf  - Amiga Disk File (ADF)\n");
-                        printf("      .dsk  - FAT Disk Image (FAT12)\n");
-                        printf("    Presets:\n");
-                        printf("      dd    - 880K for .adf, 720K for .dsk\n");
-                        printf("      hd    - 1760K for .adf, 1440K for .dsk\n");
-                        return;
-                    case ACTION_INFO:
-                        printf("Usage: dsk info disk.img\n\n");
-                        printf("    Show information about the given disk image\n");
-                        return;
+		for (n = 0; commands[n].command != NULL; n++)
+		{
+			if (stricmp(command, commands[n].command) == 0)
+			{
+				switch (commands[n].action)
+				{
+					case ACTION_HELP:
+						break;
+					case ACTION_LIST:
+						printf("Usage: dsk [disk.img] dir [/B] [/L] [pattern]\n\n");
+						printf("    /B    Brief listing\n");
+						printf("    /L    Lowercase filenames\n");
+						return;
+					case ACTION_CREATEDISK:
+						printf("Usage: dsk mkdisk diskfile [plus3|cpc|pcw|size|dd|hd]\n\n");
+						printf("    Create a new empty disk image\n");
+						printf("    The disk format is chosen based on the file extension:\n");
+						printf("      .adf  - Amiga Disk File (ADF)\n");
+						printf("      .dsk  - CPC/+3/PCW Disk Image\n");
+						printf("      .img  - FAT Disk Image\n");
+						printf("      .st   - FAT Disk Image\n");
+						printf("    DSK presets:\n");
+						printf("      plus3 - Spectrum +3 layout\n");
+						printf("      cpc   - CPC system layout\n");
+						printf("      pcw   - PCW double-sided layout\n");
+						printf("    FAT/ADF size presets:\n");
+						printf("      dd    - 880K for .adf, 720K for .img/.st\n");
+						printf("      hd    - 1760K for .adf, 1440K for .img/.st\n");
+						return;
+					case ACTION_INFO:
+						printf("Usage: dsk info disk.img\n\n");
+						printf("    Show information about the given disk image\n");
+						return;
 					case ACTION_ADD:
 						printf("Usage: dsk add disk.img hostfile[:diskpath] [hostfile2[:diskpath2] ...]\n\n");
 						printf("    Copy one or more host files into the disk image.\n");
@@ -264,18 +270,16 @@ static void PrintHelp(int argc, char *argv[])
 						printf("      GET [pattern]     - Alias for EXTRACT\n");
 						printf("      EXIT              - Leave the session\n");
 						return;
-                    default:
-                        printf("%s: no extended help available\n\n", command);
-                        break;
-                }
-                break;
-            }
-        }
-        if (commands[n].command == NULL)
-        {
-            printf("Unknown command: %s\n\n", command);
-        }
-    }
+					default:
+						printf("%s: no extended help available\n\n", command);
+						break;
+				}
+				break;
+			}
+		}
+		if (commands[n].command == NULL)
+			printf("Unknown command: %s\n\n", command);
+	}
 
 	printf("Disk file utility for DAAD " VERSION_STR "\n\n");
 	printf("Usage: dsk [disk.img] command [options]\n\n");
@@ -364,13 +368,12 @@ static bool HostListDirectory(const char* pattern)
 	const char* search = (pattern && pattern[0]) ? pattern : "*.*";
 	FindFileResults results;
 	if (!OS_FindFirstFile(search, &results))
-	{
-		printf("No host files match %s\n", search);
 		return false;
-	}
+
 	char cwd[FILE_MAX_PATH];
 	if (HostGetCurrentDirectory(cwd, sizeof(cwd)))
 		printf("\n  Host directory of %s\n\n", cwd);
+
 	int fileCount = 0;
 	int dirCount = 0;
 	do
@@ -387,6 +390,7 @@ static bool HostListDirectory(const char* pattern)
 		}
 	}
 	while (OS_FindNextFile(&results));
+
 	printf("\n%16d File(s)\n%16d Dir(s)\n", fileCount, dirCount);
 	return true;
 }
@@ -531,20 +535,22 @@ static bool CheckExtension(const char* filename, const char* ext)
 static int ResolveDiskPresetSize(const char* diskName, const char* preset)
 {
 	bool isADF = CheckExtension(diskName, "adf");
-	bool isDSK = CheckExtension(diskName, "dsk");
+	bool isIMG = CheckExtension(diskName, "img");
+	bool isST  = CheckExtension(diskName, "st");
+	bool isFAT = isIMG || isST;
 
 	if (stricmp(preset, "dd") == 0)
 	{
 		if (isADF)
 			return DISK_SIZE_880KB;
-		if (isDSK)
+		if (isFAT)
 			return DISK_SIZE_720KB;
 	}
 	else if (stricmp(preset, "hd") == 0)
 	{
 		if (isADF)
 			return DISK_SIZE_1760KB;
-		if (isDSK)
+		if (isFAT)
 			return DISK_SIZE_1440KB;
 	}
 	return 0;
@@ -940,6 +946,7 @@ static bool Dir (int argc, char* argv[])
 static bool CreateDisk(int argc, char *argv[])
 {
 	int size = 0;
+	const char* preset = NULL;
     int n;
     for (n = 0; n < argc; n++)
     {
@@ -956,6 +963,11 @@ static bool CreateDisk(int argc, char *argv[])
         else if ((size = ResolveDiskPresetSize(diskFileName, argv[n])) != 0)
         {
         }
+		else if (CheckExtension(diskFileName, "dsk") &&
+			     (stricmp(argv[n], "plus3") == 0 || stricmp(argv[n], "cpc") == 0 || stricmp(argv[n], "pcw") == 0))
+		{
+			preset = argv[n];
+		}
         else if (isdigit(argv[n][0]))
         {
             int sizeKB = atoi(argv[n]);
@@ -984,7 +996,7 @@ static bool CreateDisk(int argc, char *argv[])
 		return false;
 	}
 
-	disk = DIM_CreateDisk(diskFileName, size);
+	disk = DIM_CreateDisk(diskFileName, size, preset);
 	if (!disk)
 	{
 		printf("%s: %s\n", diskFileName, DIM_GetErrorString());

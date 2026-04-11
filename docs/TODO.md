@@ -23,6 +23,8 @@
 [x] MODE: More... toggle
 [x] PROTECT (change windows dynamically)
 [ ] Detect language (English/Spanish)
+[ ] Timeout messing up history
+[ ] MORE not working in Firfurcio
 
 ## Drawstring support
 
@@ -59,7 +61,6 @@ DSK
 [x] Add interactive mode
 [x] Add help text for every subcommand
 [x] mkdisk: Allow selection of disk type
-[ ] Rename CPC to CPM
 [ ] FAT: Test & fix write support and mkdir/rmdir
 [ ] FAT: Fix adding multiple files to disk (overwrites existing!)
 [x] ADF: Disk creation support (w/special DSK tool syntax)

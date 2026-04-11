@@ -1437,6 +1437,7 @@ DDB* DDB_Load(const char* filename)
 
 		if (GuessDDBOffsetFromSnapshot(memory, ramSize, snapshotMachine, ddb) == false)
 		{
+			DebugPrintf("Unable to guess offset from snapshot\n");
 			ddbError = DDB_ERROR_FILE_NOT_SUPPORTED;
 			Free(memory);
 			Free(ddb);
