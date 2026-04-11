@@ -402,6 +402,13 @@ enum DDB_Machine
 	DDB_MACHINE_MSX2
 };
 
+static inline bool DDB_Is16Bits(DDB_Machine m)
+{
+	return m == DDB_MACHINE_IBMPC ||
+	       m == DDB_MACHINE_ATARIST ||
+		   m == DDB_MACHINE_AMIGA;
+}
+
 enum DDB_Language
 {
 	DDB_ENGLISH = 0,

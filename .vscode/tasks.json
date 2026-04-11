@@ -7,7 +7,7 @@
             "label": "compile",
             "type": "shell",
             "linux": {
-                "command": "${input:make}",
+                "command": "make",
                 "args": [
                     "-j4",
                     "-f", "${input:makefile}", 

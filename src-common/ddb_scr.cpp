@@ -56,7 +56,7 @@ static SCR_CommandData* SCR_AddCommandToBuffer()
 	int block = IndexBlock(commandBufferIndex);
 	if (commandBufferBlocks[block] == 0)
 	{
-		DebugPrintf("Allocating command buffer block %ld\n", (long)block);
+		// DebugPrintf("Allocating command buffer block %ld\n", (long)block);
 		commandBufferBlocks[block] = Allocate<SCR_CommandData>("Command buffer", COMMANDS_PER_BLOCK);
 		if (commandBufferBlocks[block] == 0)
 		{

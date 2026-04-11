@@ -71,8 +71,7 @@
                 "makefile": "Makefile-atarist",
                 "makeExtraArg": ""
             },
-            "defines": [
-                
+            "defines": [                
                 "VERSION=ADP",
                 "_STDCLIB",
                 "_ATARIST",

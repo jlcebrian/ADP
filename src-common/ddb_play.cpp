@@ -398,7 +398,12 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		else
 		{
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-			DDB_Check(ddbFileName, &machine, &language, &version);
+			if (!DDB_Check(ddbFileName, &machine, &language, &version))
+			{
+				DebugPrintf("Rejected invalid DDB %s before initialization\n", ddbFileName);
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return state = Player_Error;
+			}
 			uint8_t displayPlanes = 4;
 			DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
 			VID_SetDisplayPlanesHint(displayPlanes);
@@ -557,7 +562,8 @@ bool DDB_RunPlayer()
 	DDB_Language language = DDB_SPANISH;
 	DDB_ScreenMode screenMode = ScreenMode_VGA16;
 	DDB_Version version = DDB_VERSION_2;
-    const char* introScreen = 0;
+	const char* introScreen = 0;
+	char introScreenName[FILE_MAX_PATH] = { 0 };
 
 	EnumFiles();
 	
@@ -570,7 +576,12 @@ bool DDB_RunPlayer()
 	}
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-	DDB_Check(ddbFileName, &machine, &language, &version);
+	if (!DDB_Check(ddbFileName, &machine, &language, &version))
+	{
+		CloseEnum();
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
 	uint8_t displayPlanes = 4;
 	DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
 	VID_SetDisplayPlanesHint(displayPlanes);
@@ -580,13 +591,18 @@ bool DDB_RunPlayer()
 	#else
 	CheckIntroScreenFiles(&introScreen, &machine, &screenMode);
 	#endif
+	if (introScreen != 0 && introScreen[0] != 0)
+	{
+		StrCopy(introScreenName, sizeof(introScreenName), introScreen);
+		introScreen = introScreenName;
+	}
 
 	VID_Initialize(machine, version, screenMode);
-    if (introScreen != 0)
-    {
-        if (!VID_DisplaySCRFile(introScreen, machine, true))
-            VID_ShowError(DDB_GetErrorString());
-    }
+	if (introScreen != 0)
+	{
+		if (!VID_DisplaySCRFile(introScreen, machine, true))
+			VID_ShowError(DDB_GetErrorString());
+	}
 
 	if (ddbCount > 1)
 	{
@@ -656,6 +672,13 @@ bool DDB_RunPlayer()
 		DDB_Interpreter* i = interpreter;
 		VID_MainLoop(0, WaitForKeyUpdate);
 		interpreter = i;
+		if (exitGame)
+		{
+			DDB_CloseInterpreter(interpreter);
+			DDB_Close(ddb);
+			VID_Finish();
+			return true;
+		}
 	}
 	if (scrCount > 0)
 		FadeOut();

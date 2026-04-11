@@ -2854,7 +2854,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("_    ");
 				else
 					TraceVocabularyWord(i->ddb, WordType_Noun, param1);
-				i->done = true;
+				if (i->ddb->version >= DDB_VERSION_3 || DDB_Is16Bits(i->ddb->machine))
+					i->done = true;
 				break;
 
 			// Objects
@@ -3800,6 +3801,31 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_EXTERN:
+				#if HAS_PCX && HAS_SPECTRUM
+				if (param1 == 0 &&
+					i->ddb->target == DDB_MACHINE_SPECTRUM &&
+					VID_HasExternalPictures())
+				{
+					DDB_Window savedWindow = i->win;
+					uint8_t savedCellX = i->cellX;
+					uint8_t savedCellW = i->cellW;
+					if (BufferPicture(i, param0))
+					{
+						DrawBufferedPicture(i);
+						i->win = savedWindow;
+						i->cellX = savedCellX;
+						i->cellW = savedCellW;
+					}
+					else
+					{
+						i->win = savedWindow;
+						i->cellX = savedCellX;
+						i->cellW = savedCellW;
+					}
+					i->done = true;
+					break;
+				}
+				#endif
 
 				#if HAS_SNAPSHOTS
 				// This fixes Templos & Chichen, but it is hackish to say the least

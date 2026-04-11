@@ -146,12 +146,15 @@ uint32_t CPC_ReadTrack (CPC_Disk* disk, uint32_t trackNumber, uint32_t baseOffse
 			size += info->sectors[n].dataLength;
 	}
 
-	if (size > bufferSize + skip)
-		size = bufferSize + skip;
+	if (baseOffset >= size)
+		return 0;
+
+	uint32_t remainingToRead = bufferSize;
+	uint32_t remainingSkip = skip;
 
 	uint64_t pos = File_GetPosition(disk->file);
 
-	int totalRead = 0;
+	uint32_t totalRead = 0;
 	int previous = -1;
 	for (int n = 0; n < info->sectorCount; n++)
 	{
@@ -184,28 +187,33 @@ uint32_t CPC_ReadTrack (CPC_Disk* disk, uint32_t trackNumber, uint32_t baseOffse
 		currentSize -= baseOffset;
 		baseOffset = 0;
 
-		if (skip < currentSize)
+		if (remainingSkip >= currentSize)
 		{
-			if (currentSize > bufferSize + skip)
-				currentSize = bufferSize + skip;
+			remainingSkip -= currentSize;
+			continue;
+		}
 
-			currentSize -= skip;
-			File_Seek(disk->file, pos + currentOffset + skip);
-			if (File_Read(disk->file, buffer, currentSize) != currentSize)
-			{
-				DIM_SetError(DIMError_ReadError);
-				return 0;
-			}
-			skip = 0;
-		}
-		else
+		currentOffset += remainingSkip;
+		currentSize -= remainingSkip;
+		remainingSkip = 0;
+
+		if (currentSize > remainingToRead)
+			currentSize = remainingToRead;
+
+		if (currentSize == 0)
+			continue;
+
+		File_Seek(disk->file, pos + currentOffset);
+		if (File_Read(disk->file, buffer, currentSize) != currentSize)
 		{
-			skip -= currentSize;
+			DIM_SetError(DIMError_ReadError);
+			return 0;
 		}
-		bufferSize -= currentSize;
+
+		remainingToRead -= currentSize;
 		totalRead += currentSize;
 		buffer += currentSize;
-		if (bufferSize == 0)
+		if (remainingToRead == 0)
 			return totalRead;
 	}
 
@@ -225,7 +233,7 @@ uint32_t CPC_ReadBlock (CPC_Disk* disk, uint32_t blockIndex, uint8_t* buffer, ui
 	if (trackSize - trackOffset < size && result < size)
 	{
 		uint32_t remaining = size - result;
-		result += CPC_ReadTrack(disk, disk->reservedTracks + track + 1, 0, buffer + trackSize - trackOffset, remaining);
+		result += CPC_ReadTrack(disk, disk->reservedTracks + track + 1, 0, buffer + result, remaining);
 	}
 	return result;
 }
@@ -473,23 +481,18 @@ bool CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 
 static uint32_t CPC_GetExtentSize(const CPC_DirEntry* entry)
 {
-	if (entry->recordCount == 0)
-		return 0;
-
-	uint32_t lastRecordSize = entry->lastRecordByteCount;
-	if (lastRecordSize == 0 || lastRecordSize > 128)
-		lastRecordSize = 128;
-
-	return (entry->recordCount - 1) * 128 + lastRecordSize;
+	return entry->recordCount * 128;
 }
 
 bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 {
 	bool found = false;
+	bool hasOSHeader = false;
 	uint8_t extent;
 	uint8_t header[128];
 	uint8_t name[8];
 	uint8_t extension[3];
+	uint32_t logicalSize = 0;
 
 	uint16_t offset = result->offset;
 
@@ -535,7 +538,9 @@ bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 			if (entry->allocation[0] != 0 &&
 				CPC_ReadBlock(disk, entry->allocation[0], header, 128) == 128)
 			{
-				CPC_CheckOSHeader(result, header);
+				hasOSHeader = CPC_CheckOSHeader(result, header);
+				logicalSize = result->fileSize;
+				result->fileSize = 0;
 			}
 
 			result->offset = offset;
@@ -552,17 +557,19 @@ bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 			result->entries++;
 		}
 
-		for (int n = 0; n < 16; n++)
-		{
-			if (entry->allocation[n] != 0)
-				result->fileSize += disk->blockSize;
-		}
-
 		uint32_t extentSize = CPC_GetExtentSize(entry);
-		if (extentSize > 0)
-			result->fileSize -= disk->blockSize - extentSize;
+		result->fileSize += extentSize;
 
 		extent = entry->extentLow + 1;
+	}
+
+	if (hasOSHeader)
+	{
+		uint32_t physicalSize = result->fileSize;
+		if (logicalSize <= physicalSize && physicalSize - logicalSize <= 128)
+			result->fileSize = (uint16_t)logicalSize;
+		else if (physicalSize >= 128)
+			result->fileSize = (uint16_t)(physicalSize - 128);
 	}
 
 	return found;

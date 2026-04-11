@@ -1,5 +1,7 @@
 obj
 out
+tests
+tools
 build
 
 *.map

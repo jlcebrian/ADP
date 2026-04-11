@@ -36,6 +36,9 @@ static bool       initialized = false;
 static bool       quit;
 static uint8_t    defaultCharWidth = 6;
 
+DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
+DDB_ScreenMode screenMode = ScreenMode_VGA16;
+
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
 

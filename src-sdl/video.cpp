@@ -41,6 +41,11 @@ uint8_t*   backBuffer = NULL;
 uint8_t*   pictureData;
 #if HAS_PCX
 uint8_t*   pcxPictureData = NULL;
+#if HAS_SPECTRUM
+uint8_t*   zxsPictureBitmap = NULL;
+uint8_t*   zxsPictureAttributes = NULL;
+bool       zxsPictureMirror = false;
+#endif
 #endif
 uint8_t*   audioData;
 DMG_Entry* bufferedEntry = NULL;
@@ -58,6 +63,10 @@ uint32_t   pcxPalette[256];
 uint16_t   pcxPictureSize = 0;
 int        pcxPictureWidth = 0;
 int        pcxPictureHeight = 0;
+#if HAS_SPECTRUM
+int        zxsPictureWidth = 0;
+int        zxsPictureHeight = 0;
+#endif
 #endif
 
 int        xCoordMultiplier = 1;
@@ -304,10 +313,251 @@ static void FreeBufferedPCXPicture()
 		Free(pcxPictureData);
 		pcxPictureData = NULL;
 	}
+	#if HAS_SPECTRUM
+	if (zxsPictureBitmap != NULL)
+	{
+		Free(zxsPictureBitmap);
+		zxsPictureBitmap = NULL;
+	}
+	if (zxsPictureAttributes != NULL)
+	{
+		Free(zxsPictureAttributes);
+		zxsPictureAttributes = NULL;
+	}
 	pcxPictureSize = 0;
 	pcxPictureWidth = 0;
 	pcxPictureHeight = 0;
+	zxsPictureWidth = 0;
+	zxsPictureHeight = 0;
+	zxsPictureMirror = false;
+	#endif
 }
+
+#if HAS_SPECTRUM
+static uint8_t ReverseBits(uint8_t value)
+{
+	value = (uint8_t)(((value & 0xF0) >> 4) | ((value & 0x0F) << 4));
+	value = (uint8_t)(((value & 0xCC) >> 2) | ((value & 0x33) << 2));
+	value = (uint8_t)(((value & 0xAA) >> 1) | ((value & 0x55) << 1));
+	return value;
+}
+
+static bool HasOnlyPaddingBytes(const uint8_t* data, size_t offset, size_t size)
+{
+	for (size_t i = offset; i < size; i++)
+	{
+		if (data[i] != 0x00 && data[i] != 0xE5)
+			return false;
+	}
+	return true;
+}
+
+static uint32_t GetSpectrumBitmapOffset(uint32_t y)
+{
+	return ((y & 0xC0u) << 5) |
+		((y & 0x07u) << 8) |
+		((y & 0x38u) << 2);
+}
+
+static void DecodeLegacyZXSBitmap(const uint8_t* source, uint8_t numLines, uint8_t* destination)
+{
+	uint8_t scrBitmap[6144];
+	memset(scrBitmap, 0, sizeof(scrBitmap));
+
+	size_t sourceOffset = 0;
+	uint8_t remainingLines = numLines;
+	uint32_t scrOffset = 0;
+	while (remainingLines >= 64)
+	{
+		memcpy(scrBitmap + scrOffset, source + sourceOffset, 2048);
+		sourceOffset += 2048;
+		scrOffset += 2048;
+		remainingLines -= 64;
+	}
+
+	if (remainingLines != 0)
+	{
+		size_t rows = (size_t)remainingLines / 8u;
+		size_t bytesToRead = rows * 32u;
+		for (size_t block = 0; block < 8; block++)
+		{
+			memcpy(scrBitmap + scrOffset + block * 256u, source + sourceOffset, bytesToRead);
+			sourceOffset += bytesToRead;
+		}
+	}
+
+	for (uint32_t y = 0; y < numLines; y++)
+		memcpy(destination + y * 32u, scrBitmap + GetSpectrumBitmapOffset(y), 32);
+}
+
+static bool LoadExternalZXSPicture(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+		return false;
+	}
+
+	uint64_t size = File_GetSize(file);
+	if (size < 2 || size > 65535)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		File_Close(file);
+		return false;
+	}
+
+	uint8_t* compressed = Allocate<uint8_t>("ZXS picture", (size_t)size);
+	if (compressed == NULL)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		File_Close(file);
+		return false;
+	}
+
+	if (File_Read(file, compressed, size) != size)
+	{
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		File_Close(file);
+		Free(compressed);
+		return false;
+	}
+	File_Close(file);
+
+	if (zxsPictureBitmap == NULL)
+		zxsPictureBitmap = Allocate<uint8_t>("ZXS picture bitmap", 32 * 192);
+	if (zxsPictureAttributes == NULL)
+		zxsPictureAttributes = Allocate<uint8_t>("ZXS picture attributes", 32 * 24);
+	if (zxsPictureBitmap == NULL || zxsPictureAttributes == NULL)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		Free(compressed);
+		return false;
+	}
+
+	memset(zxsPictureBitmap, 0, 32 * 192);
+	memset(zxsPictureAttributes, 0, 32 * 24);
+
+	uint8_t legacyNumLines = compressed[0];
+	if ((legacyNumLines & 7) == 0 && legacyNumLines <= 192)
+	{
+		size_t legacyBitmapBytes = 0;
+		uint8_t remainingLines = legacyNumLines;
+		if (remainingLines >= 64)
+		{
+			legacyBitmapBytes += 2048;
+			remainingLines -= 64;
+		}
+		if (remainingLines >= 64)
+		{
+			legacyBitmapBytes += 2048;
+			remainingLines -= 64;
+		}
+		if (remainingLines >= 64)
+		{
+			legacyBitmapBytes += 2048;
+			remainingLines -= 64;
+		}
+		if (remainingLines != 0)
+			legacyBitmapBytes += ((size_t)remainingLines / 8u) * 32u * 8u;
+
+		size_t legacyAttributeBytes = ((size_t)legacyNumLines / 8u) * 32u;
+		size_t legacySize = 1 + legacyBitmapBytes + legacyAttributeBytes;
+		if (legacySize <= size && HasOnlyPaddingBytes(compressed, legacySize, (size_t)size))
+		{
+			DecodeLegacyZXSBitmap(compressed + 1, legacyNumLines, zxsPictureBitmap);
+			memcpy(zxsPictureAttributes, compressed + 1 + legacyBitmapBytes, legacyAttributeBytes);
+			zxsPictureWidth = 256;
+			zxsPictureHeight = legacyNumLines;
+			zxsPictureMirror = false;
+			Free(compressed);
+			return true;
+		}
+	}
+
+	if (size >= 6)
+	{
+		uint16_t bitmapSize = (uint16_t)(compressed[0] | (compressed[1] << 8));
+		uint16_t attributeSize = (uint16_t)(compressed[2] | (compressed[3] << 8));
+		uint8_t numLinesBitmap = compressed[4];
+		uint8_t numLinesAttributes = compressed[5] & 0x7F;
+		bool mirror = (compressed[5] & 0x80) != 0;
+
+		uint32_t expectedBitmapBytes = (uint32_t)numLinesBitmap * 32;
+		uint32_t expectedAttributeBytes = (uint32_t)numLinesAttributes * 32;
+		if (numLinesBitmap <= 192 && numLinesAttributes <= 24 &&
+			numLinesAttributes >= ((numLinesBitmap + 7) >> 3) &&
+			6u + bitmapSize + attributeSize == size &&
+			expectedBitmapBytes <= 6144 && expectedAttributeBytes <= 768)
+		{
+			uint8_t* bitmapRows = Allocate<uint8_t>("ZXS bitmap rows", expectedBitmapBytes);
+			uint8_t* attributeRows = Allocate<uint8_t>("ZXS attribute rows", expectedAttributeBytes);
+			if ((expectedBitmapBytes != 0 && bitmapRows == NULL) || (expectedAttributeBytes != 0 && attributeRows == NULL))
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				Free(bitmapRows);
+				Free(attributeRows);
+				Free(compressed);
+				return false;
+			}
+
+			bool ok = DMG_DecompressZX0(compressed + 6, bitmapSize, bitmapRows, expectedBitmapBytes) &&
+				DMG_DecompressZX0(compressed + 6 + bitmapSize, attributeSize, attributeRows, expectedAttributeBytes);
+			if (!ok)
+			{
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				Free(bitmapRows);
+				Free(attributeRows);
+				Free(compressed);
+				return false;
+			}
+
+			for (uint32_t y = 0; y < numLinesBitmap; y++)
+			{
+				uint8_t* dst = zxsPictureBitmap + y * 32;
+				uint8_t* src = bitmapRows + y * 32;
+				if (mirror)
+				{
+					memcpy(dst, src, 16);
+					for (int x = 0; x < 16; x++)
+						dst[16 + x] = ReverseBits(src[15 - x]);
+				}
+				else
+				{
+					memcpy(dst, src, 32);
+				}
+			}
+			for (uint32_t y = 0; y < numLinesAttributes; y++)
+			{
+				uint8_t* dst = zxsPictureAttributes + y * 32;
+				uint8_t* src = attributeRows + y * 32;
+				if (mirror)
+				{
+					memcpy(dst, src, 16);
+					for (int x = 0; x < 16; x++)
+						dst[16 + x] = src[15 - x];
+				}
+				else
+				{
+					memcpy(dst, src, 32);
+				}
+			}
+
+			Free(bitmapRows);
+			Free(attributeRows);
+			zxsPictureWidth = 256;
+			zxsPictureHeight = numLinesBitmap;
+			zxsPictureMirror = mirror;
+			Free(compressed);
+			return true;
+		}
+	}
+
+	DDB_SetError(DDB_ERROR_INVALID_FILE);
+	Free(compressed);
+	return false;
+}
+#endif
 
 static bool HasExternalPCXGraphics(const char* fileName)
 {
@@ -344,6 +594,16 @@ void VID_EnableBackBuffer()
 
 void VID_ClearAllPlanes (int x, int y, int w, int h, uint8_t color)
 {
+	if (attributes && x <= 0 && y <= 0 && w >= screenWidth && h >= screenHeight)
+	{
+		memset(bitmap, 0, stride * screenHeight);
+		memset(attributes, screenMachine == DDB_MACHINE_SPECTRUM ? 0x00 : (color << 4), stride * (screenHeight >> 3));
+		if (frontBuffer)
+			memset(frontBuffer, color, screenWidth * screenHeight);
+		if (backBuffer)
+			memset(backBuffer, color, screenWidth * screenHeight);
+		return;
+	}
 	VID_Clear(x, y, w, h, color);
 }
 
@@ -476,7 +736,10 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 
 void VID_ClearBuffer (bool front)
 {
-	memset(front ? frontBuffer : backBuffer, 0, screenWidth * screenHeight);
+	uint8_t* buffer = front ? frontBuffer : backBuffer;
+	if (buffer == NULL)
+		return;
+	memset(buffer, 0, screenWidth * screenHeight);
 }
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
@@ -678,6 +941,69 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	}
 	#endif
 
+	#if HAS_SPECTRUM
+	if (target == DDB_MACHINE_SPECTRUM && bitmap != NULL && attributes != NULL)
+	{
+		File* file = File_Open(fileName, ReadOnly);
+		if (file == 0)
+		{
+			DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+			return false;
+		}
+
+		uint64_t size = File_GetSize(file);
+		if (size < 6912 || size > 7040)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			File_Close(file);
+			return false;
+		}
+
+		uint8_t* buffer = Allocate<uint8_t>("SCR Temporary buffer", 7040);
+		if (buffer == 0)
+		{
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			File_Close(file);
+			return false;
+		}
+
+		if (File_Read(file, buffer, size) != size)
+		{
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			File_Close(file);
+			Free(buffer);
+			return false;
+		}
+		File_Close(file);
+
+		while (size > 6912 && (buffer[size - 1] == 0x00 || buffer[size - 1] == 0xE5))
+			size--;
+		if (size != 6912)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			Free(buffer);
+			return false;
+		}
+
+		memset(bitmap, 0, 32 * 192);
+		for (int y = 0; y < 192; y++)
+		{
+			uint32_t sourceOffset = ((uint32_t)(y & 0xC0) << 5) |
+			                      ((uint32_t)(y & 0x07) << 8) |
+			                      ((uint32_t)(y & 0x38) << 2);
+			memcpy(bitmap + y * stride, buffer + sourceOffset, 32);
+		}
+		memcpy(attributes, buffer + 6144, 32 * 24);
+		memcpy(palette, ZXSpectrumPalette, sizeof(ZXSpectrumPalette));
+
+		if (fadeIn)
+			VID_ActivatePalette();
+
+		Free(buffer);
+		return true;
+	}
+	#endif
+
 	uint8_t* buffer = Allocate<uint8_t>("SCR Temporary buffer", 32768);
 	bool ok = SCR_GetScreen(fileName, target, buffer, 32768,
 		graphicsBuffer, screenWidth, screenHeight, palette);
@@ -692,12 +1018,22 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	bufferedEntry = NULL;
 	pictureData = NULL;
 	bufferedIndex = picno;
+	(void)mode;
 
 	if (dmg == NULL)
 	{
 		char pictureFileName[FILE_MAX_PATH];
 		if (!VID_GetExternalPictureFileName(picno, pictureFileName, sizeof(pictureFileName)))
 			return;
+
+		#if HAS_SPECTRUM
+		const char* dot = StrRChr(pictureFileName, '.');
+		if (dot != NULL && StrIComp(dot, ".zxs") == 0)
+		{
+			LoadExternalZXSPicture(pictureFileName);
+			return;
+		}
+		#endif
 
 		pcxPictureData = Allocate<uint8_t>("PCX picture", 65535);
 		if (pcxPictureData == NULL)
@@ -729,6 +1065,23 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t* h)
 {
 	#if HAS_PCX
+	#if HAS_SPECTRUM
+	if (zxsPictureBitmap != NULL && zxsPictureAttributes != NULL)
+	{
+		if (fixed != NULL)
+			*fixed = true;
+		if (x != NULL)
+			*x = 0;
+		if (y != NULL)
+			*y = 0;
+		if (w != NULL)
+			*w = zxsPictureWidth;
+		if (h != NULL)
+			*h = zxsPictureHeight;
+		return;
+	}
+	#endif
+
 	if (pcxPictureData != NULL)
 	{
 		if (fixed != NULL)
@@ -776,6 +1129,23 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 {
 	#if HAS_PCX
+	#if HAS_SPECTRUM
+	if (zxsPictureBitmap != NULL && zxsPictureAttributes != NULL && bitmap != NULL && attributes != NULL)
+	{
+		(void)x;
+		(void)y;
+		(void)w;
+		(void)h;
+		(void)mode;
+		VID_ClearAllPlanes(0, 0, screenWidth, screenHeight, 0);
+		memcpy(bitmap, zxsPictureBitmap, 32 * 192);
+		memcpy(attributes, zxsPictureAttributes, 32 * 24);
+		memcpy(palette, ZXSpectrumPalette, sizeof(ZXSpectrumPalette));
+		VID_ActivatePalette();
+		return;
+	}
+	#endif
+
 	if (pcxPictureData != NULL)
 	{
 		int srcX = 0;

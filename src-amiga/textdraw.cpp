@@ -4,6 +4,7 @@
 
 #include <ddb_data.h>
 #include <ddb_scr.h>
+#include <os_lib.h>
 #include "video.h"
 
 #include <exec/memory.h>

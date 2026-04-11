@@ -206,7 +206,7 @@ File *File_Open(const char *fileName, FileOpenMode mode)
 		FindFileResults result;
 		if (DIM_FindFile(mountedDisk, &result, fileName))
 		{
-			uint8_t* data = Allocate<uint8_t>("File", result.fileSize);
+			uint8_t* data = Allocate<uint8_t>("File", result.fileSize + 1);
 			if (data == 0)
 				return 0;
 

@@ -21,6 +21,7 @@ void VID_ResetDisplay()
 #ifdef _AMIGA
 	VID_PresentDefaultScreen();
 #else
+	VID_ClearAllPlanes(0, 0, screenWidth, screenHeight, 0);
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
 	VID_SetDefaultPalette();
@@ -93,6 +94,19 @@ bool VID_GetExternalPictureFileName(uint8_t picno, char* fileName, size_t fileNa
 {
 	if (externalPictureBase[0] == 0 || fileName == 0 || fileNameSize == 0)
 		return false;
+
+	#if HAS_SPECTRUM
+	if (screenMachine == DDB_MACHINE_SPECTRUM)
+	{
+		BuildExternalPictureFileName(externalPictureBase, picno, ".ZXS", fileName, fileNameSize);
+		if (FileExists(fileName))
+			return true;
+
+		BuildExternalPictureFileName(externalPictureBase, picno, ".zxs", fileName, fileNameSize);
+		if (FileExists(fileName))
+			return true;
+	}
+	#endif
 
 	BuildExternalPictureFileName(externalPictureBase, picno, ".VGA", fileName, fileNameSize);
 	if (FileExists(fileName))

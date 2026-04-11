@@ -5,8 +5,8 @@
 [x] Scroll attributes
 [ ]	Fix 128K snapshot support (currently broken in CPC and Spectrum)
 [ ]	CPC: Support more snapshot formats 
-[ ]	Add C64 snapshot support
-[ ]	Add MSX snapshot support
+[x]	Add C64 snapshot support
+[x]	Add MSX snapshot support
 
 ## PAWS
 
@@ -20,8 +20,8 @@
 [x] DESC: Honor GRAPHIC mode, add visited flag
 [x] FLASH support
 [x] Optional verb/noun match (PAWS A16)
-[ ] MODE: More... toggle
-[ ] PROTECT (change windows dynamically)
+[x] MODE: More... toggle
+[x] PROTECT (change windows dynamically)
 [ ] Detect language (English/Spanish)
 
 ## Drawstring support
@@ -36,9 +36,9 @@
 
 [ ] Add support for multiple sentence conversations to PSI (Hobbit, PAWS A16)
 [ ] Honor palette range as it appears in .DAT files (AD didn't use it?)
-[ ] Amiga/ST: Ask for disk # when there are multiple DDB files but no corresponding DATs
+[x] Amiga/ST: Ask for disk # when there are multiple DDB files but no corresponding DATs
 [ ] DOS: use fast VRAM copy in scroll
-[ ] DOS: faster DISPLAY implementation using page 3 as buffer
+[x] DOS: faster DISPLAY implementation using page 3 as buffer
 [ ] Fix LOAD/SAVE flow & make a compatible .SAV file format
 
 # Tools
@@ -56,16 +56,16 @@ DMG
 
 DSK
 
-[ ] Add interactive mode
-[ ] Add help text for every subcommand
-[ ] mkdisk: Allow selection of disk type
+[x] Add interactive mode
+[x] Add help text for every subcommand
+[x] mkdisk: Allow selection of disk type
 [ ] Rename CPC to CPM
 [ ] FAT: Test & fix write support and mkdir/rmdir
 [ ] FAT: Fix adding multiple files to disk (overwrites existing!)
-[ ] ADF: Disk creation support (w/special DSK tool syntax)
-[ ] ADF: Write file support
-[ ] ADF: File deletion support
-[ ] ADF: Mkdir/rmdir
+[x] ADF: Disk creation support (w/special DSK tool syntax)
+[x] ADF: Write file support
+[x] ADF: File deletion support
+[x] ADF: Mkdir/rmdir
 [ ] CPC: Fails to identify master +3 disks
 [ ] CPC: Disk creation support 
 [ ] CPC: Write file support (should rename CPC to PCM?)

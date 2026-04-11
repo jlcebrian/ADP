@@ -14,7 +14,16 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 
 	uint64_t size = File_GetSize(file);
-	if (size < 16384 || size > 32768)
+	if (target == DDB_MACHINE_SPECTRUM)
+	{
+		if (size < 6912 || size > 7040)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			File_Close(file);
+			return false;
+		}
+	}
+	else if (size < 16384 || size > 32768)
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
 		File_Close(file);
@@ -30,6 +39,43 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 
 	File_Read(file, buffer, size);
 	File_Close(file);
+
+	if (target == DDB_MACHINE_SPECTRUM)
+	{
+		uint64_t logicalSize = size;
+		while (logicalSize > 6912 && (buffer[logicalSize - 1] == 0x00 || buffer[logicalSize - 1] == 0xE5))
+			logicalSize--;
+		if (logicalSize != 6912)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
+		for (int n = 0; n < 16; n++)
+			palette[n] = ZXSpectrumPalette[n];
+
+		for (int y = 0; y < 192 && y < height; y++)
+		{
+			uint32_t bitmapOffset = ((uint32_t)(y & 0xC0) << 5) |
+			                      ((uint32_t)(y & 0x07) << 8) |
+			                      ((uint32_t)(y & 0x38) << 2);
+			uint32_t attrOffset = 6144 + ((uint32_t)(y >> 3) * 32);
+			uint8_t* ptr = output + y * width;
+
+			for (int x = 0; x < 32 && x * 8 < width; x++)
+			{
+				uint8_t bits = buffer[bitmapOffset + x];
+				uint8_t attr = buffer[attrOffset + x];
+				uint8_t bright = (attr & 0x40) ? 8 : 0;
+				uint8_t ink = bright | (attr & 0x07);
+				uint8_t paper = bright | ((attr >> 3) & 0x07);
+
+				for (int bit = 0; bit < 8 && x * 8 + bit < width; bit++)
+					*ptr++ = (bits & (0x80 >> bit)) ? ink : paper;
+			}
+		}
+		return true;
+	}
 
 	if (target == DDB_MACHINE_ATARIST)
 	{
