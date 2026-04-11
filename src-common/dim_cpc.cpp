@@ -471,6 +471,18 @@ bool CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 	return true;
 }
 
+static uint32_t CPC_GetExtentSize(const CPC_DirEntry* entry)
+{
+	if (entry->recordCount == 0)
+		return 0;
+
+	uint32_t lastRecordSize = entry->lastRecordByteCount;
+	if (lastRecordSize == 0 || lastRecordSize > 128)
+		lastRecordSize = 128;
+
+	return (entry->recordCount - 1) * 128 + lastRecordSize;
+}
+
 bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 {
 	bool found = false;
@@ -543,8 +555,13 @@ bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 		for (int n = 0; n < 16; n++)
 		{
 			if (entry->allocation[n] != 0)
-				result->fileSize += 1024;
+				result->fileSize += disk->blockSize;
 		}
+
+		uint32_t extentSize = CPC_GetExtentSize(entry);
+		if (extentSize > 0)
+			result->fileSize -= disk->blockSize - extentSize;
+
 		extent = entry->extentLow + 1;
 	}
 
@@ -571,15 +588,17 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 		return 0;
 
 	uint32_t totalRead = 0;
+	uint32_t remaining = results.fileSize;
 
 	CPC_DirEntry* entry = disk->directory + results.offset;
 	for (int n = 0; n < results.entries; n++)
 	{
 		for (int i = 0; i < 16; i++)
 		{
-			if (entry->allocation[i] != 0)
+			if (entry->allocation[i] != 0 && remaining > 0)
 			{
-				uint32_t read = CPC_ReadBlock(disk, entry->allocation[i], buffer, bufferSize);
+				uint32_t readSize = bufferSize < remaining ? bufferSize : remaining;
+				uint32_t read = CPC_ReadBlock(disk, entry->allocation[i], buffer, readSize);
 				if (n == 0 && i == 0 && read > 128 && CPC_CheckOSHeader(NULL, buffer))
 				{
 					if (bufferSize > read)
@@ -589,18 +608,17 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 					}
 					else
 					{
-						read = CPC_ReadBlock(disk, entry->allocation[i], buffer, bufferSize, 128);
+						read = CPC_ReadBlock(disk, entry->allocation[i], buffer, readSize, 128);
 					}
 				}
 				if (read == 0)
 					return 0;
 
-				// printf("Read %d bytes from block %d\n", read, entry->allocation[i]);
-
 				buffer += read;
 				totalRead += read;
 				bufferSize -= read;
-				if (bufferSize == 0)
+				remaining -= read;
+				if (bufferSize == 0 || remaining == 0)
 					return totalRead;
 			}
 		}
@@ -612,7 +630,6 @@ uint32_t CPC_ReadFile (CPC_Disk* disk, const char* name, uint8_t* buffer, uint32
 			break;
 		}
 	}
-	printf("Total read: %d\n", totalRead);
 	return totalRead;
 }
 

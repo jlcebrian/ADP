@@ -251,11 +251,6 @@ void Free(void* block)
 	Abort();
 }
 
-void DumpMemory(uint32_t totalFree, uint32_t largestBlock)
-{
-	DumpMemory(totalFree, largestBlock, 0, 0);
-}
-
 void DumpMemory(uint32_t totalFree, uint32_t largestBlock, uint32_t stackUsed, uint32_t stackTotal)
 {
 	SanityCheck();

@@ -658,13 +658,33 @@ static bool SetVol (int argc, char *argv[])
 	return true;
 }
 
+static bool EnsureBufferCapacity(uint8_t** buffer, size_t* bufferSize, size_t requiredSize, const char* reason)
+{
+	if (*bufferSize >= requiredSize)
+		return true;
+
+	uint8_t* newBuffer = Allocate<uint8_t>(reason, requiredSize, false);
+	if (newBuffer == NULL)
+	{
+		DIM_SetError(DIMError_OutOfMemory);
+		return false;
+	}
+
+	if (*buffer != NULL)
+		Free(*buffer);
+
+	*buffer = newBuffer;
+	*bufferSize = requiredSize;
+	return true;
+}
+
 static bool Cat (int argc, char *argv[], bool hexMode)
 {
 	const char* pattern = NULL;
 	FindFileResults result;
 	int fileCount = 0;
 	bool singleFile = false;
-	uint32_t bufferSize = 0;
+	size_t bufferSize = 0;
 	uint8_t* buffer = NULL;
 	char savedCwd[FILE_MAX_PATH];
 	if (DIM_GetCWD(disk, savedCwd, sizeof(savedCwd)) == 0)
@@ -712,22 +732,24 @@ process_results:
 			if (!(result.attributes & FileAttribute_Directory))
 			{
 				uint32_t size = result.fileSize;
-				if (bufferSize < size)
+				uint32_t read = 0;
+				if (!EnsureBufferCapacity(&buffer, &bufferSize, size, "DSK cat buffer"))
 				{
-					buffer = (uint8_t*)realloc(buffer, size);
-					bufferSize = size;
-					if (buffer == NULL)
-					{
-						DIM_SetError(DIMError_OutOfMemory);
-						Free(buffer);
-						return false;
-					}
+					return false;
 				}
-				if (!DIM_ReadFile(disk, result.fileName, buffer, bufferSize))
+				read = DIM_ReadFile(disk, result.fileName, buffer, bufferSize);
+				if (read == 0 && size != 0)
 					printf("%s: %s\n", result.fileName, DIM_GetErrorString());
 				else
 				{
 					fileCount++;
+					size = read;
+					if (!hexMode && disk->type == DIM_CPC && result.description[0] == 0)
+					{
+						const uint8_t* eof = (const uint8_t*)memchr(buffer, 0x1A, size);
+						if (eof != NULL)
+							size = (uint32_t)(eof - buffer);
+					}
 					if (hexMode)
 					{
 						uint32_t i;
@@ -1089,16 +1111,11 @@ static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 		File_Close(file);
 		return false;
 	}
-	if (bufferSize < size)
+	if (!EnsureBufferCapacity(&buffer, &bufferSize, size, "DSK add buffer"))
 	{
-		bufferSize = size;
-		buffer = (uint8_t*)realloc(buffer, bufferSize);
-		if (buffer == NULL)
-		{
-			printf("Out of memory\n");
-			File_Close(file);
-			return false;
-		}
+		printf("Out of memory\n");
+		File_Close(file);
+		return false;
 	}
 	if (File_Read(file, buffer, size) != size)
 	{
@@ -1348,7 +1365,7 @@ static bool AddTree(int argc, char* argv[])
 static bool Extract (int argc, char *argv[])
 {
 	uint8_t* buffer = NULL;
-	uint32_t bufferSize = 0;
+	size_t bufferSize = 0;
 	int fileCount = 0;
 	int errorCount = 0;
 	FindFileResults result;
@@ -1362,15 +1379,10 @@ static bool Extract (int argc, char *argv[])
 			{
 				fileCount++;
 
-				if (bufferSize < result.fileSize)
+				if (!EnsureBufferCapacity(&buffer, &bufferSize, result.fileSize, "DSK extract buffer"))
 				{
-					bufferSize = result.fileSize;
-					buffer = (uint8_t*)realloc(buffer, bufferSize);
-					if (buffer == NULL)
-					{
-						printf("Error: Out of memory\n");
-						return 1;
-					}
+					printf("Error: Out of memory\n");
+					return 1;
 				}
 				if (result.attributes & FileAttribute_Directory)
 				{
