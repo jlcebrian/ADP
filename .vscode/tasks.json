@@ -7,10 +7,11 @@
             "label": "compile",
             "type": "shell",
             "linux": {
-                "command": "bash",
+                "command": "${input:make}",
                 "args": [
-                    "-lc",
-                    "set -e\nif [ \"${command:cpptools.activeConfigName}\" = \"Amiga\" ]; then\n    export PATH=\"${env:PATH}:${command:amiga.bin-path}/opt/bin:${command:amiga.bin-path}\"\nfi\nset -- -f \"${input:makefile}\" -j4\nif [ -n \"${input:makeExtraArg}\" ]; then\n    set -- \"$@\" \"${input:makeExtraArg}\"\nfi\nexec make \"$@\""
+                    "-j4",
+                    "-f", "${input:makefile}", 
+                    "${input:makeExtraArg}"
                 ]
             },
             "windows": {
@@ -47,7 +48,7 @@
             "label": "clean",
             "type": "shell",
             "linux": {
-                "command": "make",
+                "command": "${input:make}",
                 "args": [
                     "-f", "${input:makefile}", "clean"
                 ]

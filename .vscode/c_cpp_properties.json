@@ -7,6 +7,7 @@
                 "${workspaceFolder}/include-tools"
             ],
             "customConfigurationVariables": {
+                "make": "make",
                 "makefile": "Makefile-linux",
                 "makeExtraArg": ""
             },
@@ -28,6 +29,29 @@
             "intelliSenseMode": "linux-gcc-x64"
         },
         {
+            "name": "DOS",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "/usr/include",
+                "/opt/watcom/h"
+            ],
+            "defines": [
+                "HAS_PAWS",
+                "HAS_PCX",
+                "HAS_XMSG",
+                "NO_BUFFERING",
+                "_STDCLIB",
+                "_DOS",
+                "_WCRTLINK=",
+                "_M_IX86"
+            ],
+            "customConfigurationVariables": {
+                "make": "wmake",
+                "makefile": "Makefile-dos",
+                "makeExtraArg": "program=out/amiga/adp"
+            }
+        },
+        {
             "name": "Amiga",
             "configurationProvider": "BartmanAbyss.amiga-debug",
             "customConfigurationVariables": {
@@ -43,6 +67,7 @@
                 "${workspaceFolder}/include"
             ],
             "customConfigurationVariables": {
+                "make": "make",
                 "makefile": "Makefile-atarist",
                 "makeExtraArg": ""
             },

@@ -155,7 +155,9 @@ static uint8_t* offset;
 static unsigned pageCount;
 static unsigned previousVideoMode;
 static unsigned activePage;
-static unsigned visiblePage;
+static unsigned frontPage;
+static unsigned backPage;
+static unsigned scratchPage;
 static unsigned pageSize;
 static unsigned lineSize;
 static uint32_t palette[256];
@@ -178,6 +180,8 @@ static int      maxy;
 #else
 #define VGA_PTR(off) ((uint8_t*)MK_FP(VGA_SEGMENT, (uint16_t)(off)))
 #endif
+
+#define INVALID_PAGE ((unsigned)-1)
 
 #if DEBUG_ALLOCS
 #if defined(__386__)
@@ -521,9 +525,11 @@ void SetVideoMode (int mode)
 	pageSize    = (width*height) >> 2;
 	pageCount   = 65536 / pageSize;
 	lineSize    = width >> 2;
-	offset      = VGA_PTR(0);
-	activePage  = 0;
-	visiblePage = 0;
+	frontPage   = 0;
+	backPage    = (pageCount > 1) ? 1 : 0;
+	scratchPage = (pageCount > 2) ? 2 : INVALID_PAGE;
+	activePage  = frontPage;
+	offset      = VGA_PTR(pageSize * activePage);
 	minx        = 0;
 	miny        = 0;
 	maxx        = width-1;
@@ -583,6 +589,66 @@ static void memset8 (void* addr, uint8_t value, int32_t count)
 }
 #endif
 
+static void memcpy8 (void* dst, const void* src, int32_t count)
+{
+	uint8_t* out = (uint8_t*)dst;
+	const uint8_t* in = (const uint8_t*)src;
+
+	while (count-- > 0)
+		*out++ = *in++;
+}
+
+static inline uint8_t* GetPagePtr(unsigned page)
+{
+	return VGA_PTR(pageSize * page);
+}
+
+static void PresentPage(unsigned page)
+{
+	/* Wait for display disable */
+	while (inp(0x3DA) & 0x01)				// IST1
+		;
+
+	uint32_t offset = pageSize * page;
+	outpw(0x3D4, 0x0C |  (offset & 0xFF00));
+	outpw(0x3D4, 0x0D | ((offset & 0x00FF) << 8));
+}
+
+static void CopyPage(unsigned srcPage, unsigned dstPage)
+{
+	if (srcPage == dstPage)
+		return;
+
+	const uint8_t* in = GetPagePtr(srcPage);
+	uint8_t* out = GetPagePtr(dstPage);
+	uint8_t oldMapMask;
+	uint8_t oldMode;
+	uint8_t oldBitMask;
+
+	outp(0x3C4, 0x02);
+	oldMapMask = inp(0x3C5);
+
+	outp(0x3CE, 0x05);
+	oldMode = inp(0x3CF);
+
+	outp(0x3CE, 0x08);
+	oldBitMask = inp(0x3CF);
+
+	outpw(0x3C4, 0x0F02);
+	outp(0x3CE, 0x05);
+	outp(0x3CF, (oldMode & 0xFC) | 0x01);
+	outp(0x3CE, 0x08);
+	outp(0x3CF, 0xFF);
+
+	memcpy8(out, in, (int32_t)pageSize);
+
+	outp(0x3CE, 0x08);
+	outp(0x3CF, oldBitMask);
+	outp(0x3CE, 0x05);
+	outp(0x3CF, oldMode);
+	outpw(0x3C4, 0x0200 | oldMapMask);
+}
+
 void VID_VSync()
 {
 	/* Wait for vertical retrace */
@@ -632,6 +698,8 @@ static void BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y
 	if (input == NULL || inputWidth <= 0)
 		return;
 
+	const uint16_t localLineSize = (uint16_t)lineSize;
+
 	if (x < minx)
 	{
 		int skip = minx - x;
@@ -654,7 +722,7 @@ static void BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y
 		return;
 
 	const uint8_t* src = input;
-	uint8_t* dst = offset + y * lineSize + (x >> 2);
+	uint8_t* dst = offset + y * localLineSize + (x >> 2);
 	int mask = 1 << (x & 3);
 
 	outp(0x3C4, 0x02);
@@ -668,7 +736,7 @@ static void BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y
 		for (int dy = 0; dy < h; dy++)
 		{
 			*dstPtr = *srcPtr;
-			dstPtr += lineSize;
+			dstPtr += localLineSize;
 			srcPtr += inputWidth;
 		}
 
@@ -901,6 +969,8 @@ void VID_Finish()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {	
+	(void)screenMode;
+
 	#if HAS_PCX
 	if (pcxPictureData != NULL)
 	{
@@ -949,13 +1019,22 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	if (bw <= 0 || bh <= 0)
 		return;
 
+	const uint16_t localLineSize = (uint16_t)lineSize;
+	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
+	bool useScratchPresentation = updatePalette && activePage == frontPage && scratchPage != INVALID_PAGE;
+	unsigned targetPage = useScratchPresentation ? scratchPage : activePage;
+
 	in  += entry->height*sx + sy;
-	out += y*lineSize + (x >> 2);
+	out  = GetPagePtr(targetPage);
+	out += y*localLineSize + (x >> 2);
+
+	if (useScratchPresentation)
+		CopyPage(frontPage, scratchPage);
 
 	outp(0x3C4, 0x02);
 
 	int stride  = entry->width >> 1;
-	int dec     = bh * lineSize;
+	int dec     = bh * localLineSize;
 	int idec    = bh * stride;
 	int mask    = 1 << (x & 3);
 
@@ -972,7 +1051,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		do
 		{
 			*out = (*in >> 4) & 0x0F;
-			out += lineSize;
+			out += localLineSize;
 			in  += stride;
 		}
 		while (--n);
@@ -989,7 +1068,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		do
 		{
 			*out = *in & 0x0F;
-			out += lineSize;
+			out += localLineSize;
 			in  += stride;
 		}
 		while (--n);
@@ -1004,19 +1083,33 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 	while (--bw);
 
-	// Update color palette
-
-	if (entry->flags & DMG_FLAG_FIXED)
+	if (updatePalette)
 	{
 		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
 		if (dmg->version == DMG_Version1)
 			palette[15] = 0xFFFFFFFF;
+		VID_VSync();
 		for (int n = 0; n < 16; n++) {
 			uint8_t r = (palette[n] >> 16) & 0xFF;
 			uint8_t g = (palette[n] >>  8) & 0xFF;
 			uint8_t b = (palette[n] >>  0) & 0xFF;
 			VID_SetPaletteColor(n, r, g, b);
 		}
+	}
+
+	if (useScratchPresentation)
+	{
+		unsigned oldFront = frontPage;
+		frontPage = scratchPage;
+		scratchPage = oldFront;
+
+		PresentPage(frontPage);
+
+		CopyPage(frontPage, backPage);
+
+		if (activePage == oldFront)
+			activePage = frontPage;
+		offset = GetPagePtr(activePage);
 	}
 }
 
@@ -1124,7 +1217,8 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 
 void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 {
-	uint8_t* ptr   = offset + lineSize*y + (x >> 2);	
+	const uint16_t localLineSize = (uint16_t)lineSize;
+	uint8_t* ptr   = offset + localLineSize*y + (x >> 2);	
 	int      mask  = 1 << (x & 3);
 	int32_t        nextX = x + charWidth[c];
 	const uint8_t* data  = charset + 8*c;
@@ -1149,7 +1243,7 @@ void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 			{
 				if (*data & pixel)
 					*ptr = ink;
-				ptr += lineSize, data++;
+				ptr += localLineSize, data++;
 			} while (--n);
 
 			data = cdata;
@@ -1165,7 +1259,7 @@ void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 	}
 	else
 	{
-		int dec = lineSize*8;
+		int dec = localLineSize*8;
 
 		do
 		{
@@ -1175,7 +1269,7 @@ void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 			do
 			{
 				*ptr = (*data & pixel) ? ink : paper;
-				ptr += lineSize;
+				ptr += localLineSize;
 				data++;
 			} while (--n);
 
@@ -1428,54 +1522,21 @@ void VID_Quit ()
 
 void VID_RestoreScreen ()
 {
-	visiblePage = !visiblePage;
-	VID_SaveScreen();
-	visiblePage = !visiblePage;
+	CopyPage(backPage, frontPage);
+	if (activePage == frontPage)
+		offset = GetPagePtr(activePage);
 }
 
 void VID_SaveScreen ()
 {
-	const uint8_t* in = VGA_PTR(pageSize * visiblePage);
-	uint8_t* out = VGA_PTR(pageSize * (!visiblePage));
-	int mask  = 1;
-	int plane = 0;
-	
-	outp(0x3C4, 0x02);
-	outp(0x3CE, 0x04);
-
-	for (int cx = 0; cx < screenWidth; cx++)
-	{
-		uint8_t* cout      = out;
-		const uint8_t* cin = in;
-
-		outp(0x3C5, mask);
-		outp(0x3CF, plane);
-
-		for (int n = 0 ; n < screenHeight ; n++)
-		{
-			*out = *in;
-			out += lineSize;
-			in  += lineSize;
-		}
-		in  = cin;
-		out = cout;
-
-		if (mask == 8)
-			out++, mask = 0x01;
-		else
-			mask <<= 1;
-
-		if (plane == 3)
-			in++, plane = 0;
-		else
-			plane++;
-	}	
+	CopyPage(frontPage, backPage);
 }
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 {
-	const uint8_t* in  = offset + lineSize*(y + lines) + (x >> 2);
-	uint8_t*       out = offset + lineSize*y + (x >> 2);
+	const uint16_t localLineSize = (uint16_t)lineSize;
+	const uint8_t* in  = offset + localLineSize*(y + lines) + (x >> 2);
+	uint8_t*       out = offset + localLineSize*y + (x >> 2);
 	int32_t        mask, plane;
 		
 	mask = 1 << (x & 3);
@@ -1490,7 +1551,7 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 		return;
 
 	cx = w;
-	const int inc = lineSize;
+	const int inc = localLineSize;
 	const int indec = lineSize * h;
 	const int outdec = lineSize * (h + lines);
 	do
@@ -1536,31 +1597,34 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
-	activePage = front ? visiblePage : !visiblePage;
-	offset     = VGA_PTR(pageSize * activePage);
+	(void)op;
+	activePage = front ? frontPage : backPage;
+	offset     = GetPagePtr(activePage);
 }
 
 void VID_ClearBuffer (bool front)
 {
-	uint8_t* top = VGA_PTR(pageSize * (front ? 1 : 0));
+	uint8_t* top = GetPagePtr(front ? frontPage : backPage);
 
 	outpw(0x3C4, 0xF02);
-	memset32(top, 0, 4000);
+	memset32(top, 0, (int32_t)(pageSize >> 2));
 }
 
 void VID_SwapScreen ()
 {
-	visiblePage = !visiblePage;
-	activePage = !activePage;
+	unsigned oldFront = frontPage;
+	unsigned oldBack = backPage;
 
-	/* Wait for display disable */
-	while (inp(0x3DA) & 0x01)				// IST1
-		;		
+	frontPage = oldBack;
+	backPage = oldFront;
 
-	/* Program CRT controller */
-	uint32_t offset = pageSize*activePage;
-	outpw(0x3D4, 0x0C |  (offset & 0xFF00));
-	outpw(0x3D4, 0x0D | ((offset & 0x00FF) << 8));
+	if (activePage == oldFront)
+		activePage = frontPage;
+	else if (activePage == oldBack)
+		activePage = backPage;
+
+	offset = GetPagePtr(activePage);
+	PresentPage(frontPage);
 }
 
 void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))

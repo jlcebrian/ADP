@@ -1396,13 +1396,29 @@ static uint8_t WhatoAt (DDB_Interpreter* i, uint8_t locno)
 	return objno;
 }
 
+static uint8_t WhatoAt (DDB_Interpreter* i, uint8_t locno, uint8_t locno2, uint8_t locno3)
+{
+	uint8_t objno = WhatoAt(i, locno);
+	if (objno == 255)
+		objno = WhatoAt(i, locno2);
+	if (objno == 255)
+		objno = WhatoAt(i, locno3);
+	return objno;
+}
+
+static void AutoFailed (DDB_Interpreter* i, uint8_t msg = 28)
+{
+	uint8_t objno = WhatoAt(i, 255);
+	if (objno != 255 && i->ddb->version != DDB_VERSION_1)
+		DDB_OutputMessage(i, DDB_SYSMSG, msg);	// 28 (I can't see any of those) or custom
+	else
+		DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
+	DDB_NewText(i);
+}
+
 static uint8_t Whato (DDB_Interpreter* i)
 {
-	int objno = WhatoAt(i, Loc_Carried);
-	if (objno == 255)
-		objno = WhatoAt(i, Loc_Worn);
-	if (objno == 255)
-		objno = WhatoAt(i, i->flags[Flag_Locno]);
+	int objno = WhatoAt(i, Loc_Carried, Loc_Worn, i->flags[Flag_Locno]);
 	if (objno == 255)
 		objno = WhatoAt(i, 255);
 	return objno;
@@ -2030,6 +2046,152 @@ static int HasAt(DDB_Interpreter* i, int param0, DDB_HasAtOp op)
 	return ok;
 }
 
+static void ResumeOldMainLoopProcess(DDB_Interpreter* i, DDB_Flow nextState, uint8_t process)
+{
+	i->oldMainLoopState = nextState;
+	i->state = DDB_RUNNING;
+	i->procstack[0].process = process;
+	i->procstack[0].entry = 0;
+	i->procstack[0].offset = 0;
+	i->procstackptr = 0;
+}
+
+static void HandleOldMainLoopFinished(DDB_Interpreter* i)
+{
+	TRACE("\nSimulating PAWS main loop (current state: %s)\n", DDB_FlowNames[i->oldMainLoopState]);
+	DDB_Flush(i);
+
+	switch (i->oldMainLoopState)
+	{
+		case FLOW_STARTING:
+			DDB_Desc(i, i->flags[Flag_Locno]);
+			break;
+
+		case FLOW_RESPONSES:
+			if (i->flags[Flag_TimeoutFlags] & 0x80)
+				DDB_OutputMessage(i, DDB_SYSMSG, 35);		// Time passes...
+			else if (!i->done)
+			{
+				if (i->flags[Flag_Verb] < 14 || (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < 14))
+				{
+					if (MovePlayer(i, Flag_Locno))
+					{
+						DDB_Desc(i, i->flags[Flag_Locno]);
+						break;
+					}
+					DDB_OutputMessage(i, DDB_SYSMSG, 7);		// I can't go that way
+				}
+				else
+					DDB_OutputMessage(i, DDB_SYSMSG, 8);		// I don't understand that.
+				DDB_NewText(i);
+			}
+			// Fall through
+
+		case FLOW_DESC:
+			ResumeOldMainLoopProcess(i, FLOW_AFTER_TURN, 2);
+			break;
+
+		case FLOW_AFTER_TURN:
+			if (i->flags[5] > 0) i->flags[5]--;
+			if (i->flags[6] > 0) i->flags[6]--;
+			if (i->flags[7] > 0) i->flags[7]--;
+			if (i->flags[8] > 0) i->flags[8]--;
+			if (i->flags[Flag_Darkness] != 0)
+			{
+				if (i->flags[9] > 0) i->flags[9]--;
+				if (i->flags[10] > 0 && Absent(i, 0)) i->flags[10]--;
+			}
+			if (i->flags[Flag_Turns+1] == 255) {
+				i->flags[Flag_Turns+1] = 0;
+				if (i->flags[Flag_Turns] != 255)
+					i->flags[Flag_Turns]++;
+			} else {
+				i->flags[Flag_Turns+1]++;
+			}
+			if (Parse(i, 0)) {
+				i->done = false;
+				ResumeOldMainLoopProcess(i, FLOW_RESPONSES, 0);
+			} else {
+				DDB_StartInput(i, true);
+				i->oldMainLoopState = FLOW_INPUT;
+				DDB_PrintInputLine(i, true);
+				if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
+				{
+					i->timeout = true;
+					i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+				}
+				i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
+			}
+			break;
+
+		case FLOW_INPUT:
+			if (!Parse(i, false))
+			{
+				if (i->flags[Flag_TimeoutFlags] & Timeout_LastFrame)
+					DDB_OutputMessage(i, DDB_SYSMSG, 35);
+				else
+					DDB_OutputMessage(i, DDB_SYSMSG, 6);
+				ResumeOldMainLoopProcess(i, FLOW_AFTER_TURN, 2);
+				break;
+			}
+			i->done = false;
+			ResumeOldMainLoopProcess(i, FLOW_RESPONSES, 0);
+			break;
+	}
+}
+
+static void StartInputWindowState(DDB_Interpreter* i, DDB_State state, uint8_t message)
+{
+	DDB_Window* iw = DDB_GetInputWindow(i);
+	DDB_Flush(i);
+	DDB_NewText(i);
+	DDB_OutputMessageToWindow(i, DDB_SYSMSG, message, iw);
+	DDB_FlushWindow(i, iw);
+	DDB_StartInput(i, false);
+	i->state = state;
+	DDB_PrintInputLine(i, true);
+}
+
+static void StartFileNameInputState(DDB_Interpreter* i, DDB_State state)
+{
+	DDB_OutputMessage(i, DDB_SYSMSG, 60);		// Enter file name
+	DDB_OutputText(i, " ");
+	DDB_Flush(i);
+	DDB_NewText(i);
+	i->state = state;
+	DDB_NewText(i);
+	DDB_PrintInputLine(i, true);
+}
+
+static bool ResolveFileDialogInput(DDB_Interpreter* i, bool isLoad)
+{
+	i->inputBufferLength = 0;
+	i->inputBufferPtr = 0;
+	SCR_OpenFileDialog(isLoad, (char*)i->inputBuffer, sizeof(i->inputBuffer));
+	if (i->inputBuffer[0] == 0)
+		return false;
+
+	i->inputBufferLength = StrLen((const char*)i->inputBuffer);
+	if (isLoad)
+		DDB_ResolveInputLoad(i);
+	else
+		DDB_ResolveInputSave(i);
+	return true;
+}
+
+static void SetExecutionPosition(DDB_Interpreter* i, uint8_t process, uint16_t entry, uint16_t offset, uint8_t** entryPtr, uint8_t** code)
+{
+	*entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
+	*code = i->ddb->data + *(uint16_t *)(*entryPtr + 2) + offset;
+}
+
+static void SetExecutionProcessStart(DDB_Interpreter* i, uint8_t process, uint16_t* entry, uint16_t* offset, uint8_t** entryPtr, uint8_t** code)
+{
+	*entry = 0;
+	*offset = 0;
+	SetExecutionPosition(i, process, 0, 0, entryPtr, code);
+}
+
 // --------------------
 //   Public functions
 // --------------------
@@ -2047,8 +2209,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 	uint8_t  process  = i->procstack[i->procstackptr].process;
 	uint16_t entry    = i->procstack[i->procstackptr].entry;
 	uint16_t offset   = i->procstack[i->procstackptr].offset;
-	uint8_t* entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
-	uint8_t* code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
+	uint8_t* entryPtr;
+	uint8_t* code;
+	SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 
 	uint8_t  value, locno;
 
@@ -2079,8 +2242,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						entry    = i->doallEntry;
 						offset   = i->doallOffset;
 						process  = i->doallProcess;
-						entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
-						code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
+						SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 						continue;
 					}
 					else
@@ -2101,8 +2263,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				process  = i->procstack[i->procstackptr].process;
 				entry    = i->procstack[i->procstackptr].entry;
 				offset   = i->procstack[i->procstackptr].offset;
-				entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
-				code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
+				SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 
 				TRACE("Resuming process %d, entry %d, offset %d\n\n", process, entry, offset);
 				continue;
@@ -2123,7 +2284,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				else
 				{
-					code = i->ddb->data + *(uint16_t *)(entryPtr + 2);
+					SetExecutionPosition(i, process, entry, 0, &entryPtr, &code);
 				}
 
 				if (verb == 255)
@@ -2441,27 +2602,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_END:
 			{
-				DDB_Window* iw = DDB_GetInputWindow(i);
-				DDB_Flush(i);
-				DDB_NewText(i);
-				DDB_OutputMessageToWindow(i, DDB_SYSMSG, 13, iw);
-				DDB_FlushWindow(i, iw);
-				DDB_StartInput(i, false);
-				i->state = DDB_INPUT_END;
-				DDB_PrintInputLine(i, true);
+				StartInputWindowState(i, DDB_INPUT_END, 13);
 				TRACE("\n");
 				return;
 			}
 			case CONDACT_QUIT:
 			{
-				DDB_Window* iw = DDB_GetInputWindow(i);
-				DDB_Flush(i);
-				DDB_NewText(i);
-				DDB_OutputMessageToWindow(i, DDB_SYSMSG, 12, iw);
-				DDB_FlushWindow(i, iw);
-				DDB_StartInput(i, false);
-				i->state = DDB_INPUT_QUIT;
-				DDB_PrintInputLine(i, true);
+				StartInputWindowState(i, DDB_INPUT_QUIT, 12);
 				UpdatePos(i, process, entry, offset + params + 1);
 				TRACE("\n");
 				return;
@@ -2486,10 +2633,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 				DDB_Reset(i);
 				process = 0;
-				entry = 0;
-				offset = 0;
-				entryPtr = i->ddb->data + i->ddb->processTable[process];
-				code = i->ddb->data + *(uint16_t *)(entryPtr + 2);
+				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
 				TRACE("\n");
 				continue;
 
@@ -2505,10 +2649,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				UpdatePos(i, process, entry, offset + params + 1);
 				i->procstackptr++;
 				process = param0;
-				entry = 0;
-				offset = 0;
-				entryPtr = i->ddb->data + i->ddb->processTable[process];
-				code = i->ddb->data + *(uint16_t *)(entryPtr + 2);
+				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
 				if (i->doall)
 					i->doallDepth++;
 				i->done = false;
@@ -2537,8 +2678,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						TRACE("\nPerforming next DoAll: process %d, entry %d, offset %d\n", i->doallProcess, i->doallEntry, i->doallOffset);						entry    = i->doallEntry;
 						offset   = i->doallOffset;
 						process  = i->doallProcess;
-						entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
-						code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
+						SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 						continue;
 					}
 					else
@@ -2557,17 +2697,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				process  = i->procstack[i->procstackptr].process;
 				entry    = i->procstack[i->procstackptr].entry;
 				offset   = i->procstack[i->procstackptr].offset;
-				entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
-				code     = i->ddb->data + *(uint16_t *)(entryPtr + 2) + offset;
+				SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 				condact  = i->ddb->condactMap[*code & 0x7F].condact;
 				params   = i->ddb->condactMap[*code & 0x7F].parameters;
 				TRACE("\n\nResuming process %d, entry %d, offset %d\n\n", process, entry, offset);
 				continue;
 
 			case CONDACT_REDO:
-				offset = 0;
-				entry = 0;
-				entryPtr = i->ddb->data + i->ddb->processTable[process];
+				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
 				TRACE("\n");
 				continue;
 
@@ -2575,10 +2712,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->procstackptr = 0;
 				i->doall = false;
 				process  = 0;
-				entry    = 0;
-				offset   = 0;
-				entryPtr = i->ddb->data + i->ddb->processTable[process];
-				code     = i->ddb->data + *(uint16_t *)(entryPtr + 2);
+				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
 				TRACE("\n");
 				continue;
 
@@ -2592,7 +2726,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				else
 					entry += increment;
 				offset = 0;
-				entryPtr = i->ddb->data + i->ddb->processTable[process] + entry * 4;
+				SetExecutionPosition(i, process, entry, offset, &entryPtr, &code);
 				TRACE("\n");
 				continue;
 			}
@@ -2651,18 +2785,18 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_SET:
 				i->flags[param0] = 255;
-				i->done = true;
 				TRACE("Flag %d := 255", param0);
+				i->done = true;
 				break;
 			case CONDACT_CLEAR:
 				i->flags[param0] = 0;
-				i->done = true;
 				TRACE("Flag %d := 0", param0);
+				i->done = true;
 				break;
 			case CONDACT_LET:
 				i->flags[param0] = param1;
-				i->done = true;
 				TRACE("Flag %d := %d", param0, param1);
+				i->done = true;
 				break;
 			case CONDACT_PLUS:
 				if (param1 > 255 - i->flags[param0])
@@ -2677,41 +2811,40 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					i->flags[param0] = 0;
 				else
 					i->flags[param0] -= param1;
-				i->done = true;
 				TRACE("Flag %d := %d", param0, i->flags[param0]);
+				i->done = true;
 				break;
 			case CONDACT_ADD:
 				if (i->flags[param0] > 255 - i->flags[param1])
 					i->flags[param1] = 255;
 				else
 					i->flags[param1] += i->flags[param0];
-				i->done = true;
 				TRACE("Flag %d := %d", param1, i->flags[param1]);
+				i->done = true;
 				break;
 			case CONDACT_SUB:
 				if (i->flags[param0] > i->flags[param1])
 					i->flags[param1] = 0;
 				else
 					i->flags[param1] -= i->flags[param0];
-				i->done = true;
 				TRACE("Flag %d := %d", param1, i->flags[param1]);
+				i->done = true;
 				break;
 			case CONDACT_COPYFF:
 				i->flags[param1] = i->flags[param0];
-				i->done = true;
 				TRACE("Flag %d := Flag %d (%d)", param1, param0, i->flags[param0]);
+				i->done = true;
 				break;
 			case CONDACT_COPYBF:
 				i->flags[param0] = i->flags[param1];
-				i->done = true;
 				TRACE("Flag %d := Flag %d (%d)", param0, param1, i->flags[param1]);
+				i->done = true;
 				break;
 			case CONDACT_SYNONYM:
 				if (param0 != 255)
 					i->flags[Flag_Verb] = param0;
 				if (param1 != 255)
 					i->flags[Flag_Noun1] = param1;
-				i->done = true;
 				if (param0 == 255)
 					TRACE("_    ");
 				else
@@ -2721,6 +2854,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("_    ");
 				else
 					TraceVocabularyWord(i->ddb, WordType_Noun, param1);
+				i->done = true;
 				break;
 
 			// Objects
@@ -2730,8 +2864,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					i->flags[param1] = i->objloc[param0];
 				else
 					i->flags[param1] = 255;
-				i->done = true;
 				TRACE("Flag %d := %d", param1, i->flags[param1]);
+				i->done = true;
 				break;
 			case CONDACT_COPYOO:
 				SetObjno(i, param0);
@@ -2756,13 +2890,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			case CONDACT_WHATO:
 				SetObjno(i, Whato(i));
-				i->done = true;
 				TRACE("Obj#%d (at %d, weight %d)", i->flags[Flag_Objno], i->flags[Flag_ObjLocno], i->flags[Flag_ObjWeight]);
+				i->done = true;
 				break;
 			case CONDACT_SETCO:
 				SetObjno(i, param0);
-				i->done = true;
 				TRACE("Obj#%d (at %d, weight %d)", i->flags[Flag_Objno], i->flags[Flag_ObjLocno], i->flags[Flag_ObjWeight]);
+				i->done = true;
 				break;
 			case CONDACT_CREATE:
 				SetObjno(i, param0);
@@ -2908,6 +3042,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->flags[Flag_NumCarried] = 0;
 				i->done = true;
 				break;
+
 			case CONDACT_PUTO:
 				if (i->flags[Flag_Objno] < i->ddb->numObjects)
 				{
@@ -2933,19 +3068,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_AUTOP:
 				param1 = param0;
-				param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Worn);
-				if (param0 == 255)
-					param0 = WhatoAt(i, i->flags[Flag_Locno]);
+				param0 = WhatoAt(i, Loc_Carried, Loc_Worn, i->flags[Flag_Locno]);
 				if (param0 == 255)
 				{
-					param0 = WhatoAt(i, 255);
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 28);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i);
 					goto case_DONE;
 				}
 				// Fall through
@@ -2983,27 +3109,18 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_AUTOT:
 				param1 = param0;
-				param0 = WhatoAt(i, param1);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Worn);
+				param0 = WhatoAt(i, param1, Loc_Carried, Loc_Worn);
 				if (param0 == 255)
 					param0 = WhatoAt(i, i->flags[Flag_Locno]);
 				if (param0 == 255)
 				{
-					param0 = WhatoAt(i, 255);
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 28);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i);
 					goto case_DONE;
 				}
 				// Fall through
 			case CONDACT_TAKEOUT:
-				SetObjno(i, param0);
-				locno = param0 < i->ddb->numObjects ? i->objloc[param0] : 252;
+					SetObjno(i, param0);
+					locno = param0 < i->ddb->numObjects ? i->objloc[param0] : 252;
 				if (locno == Loc_Worn || locno == Loc_Carried)
 				{
 					DDB_OutputMessage(i, DDB_SYSMSG, 25);		// I already have _
@@ -3048,19 +3165,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_AUTOD:
-				param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Worn);
-				if (param0 == 255)
-					param0 = WhatoAt(i, i->flags[Flag_Locno]);
+				param0 = WhatoAt(i, Loc_Carried, Loc_Worn, i->flags[Flag_Locno]);
 				if (param0 == 255)
 				{
-					param0 = WhatoAt(i, 255);
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 28);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i);
 					goto case_DONE;
 				}
 				// Fall through
@@ -3099,19 +3207,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_AUTOG:
-				param0 = WhatoAt(i, i->flags[Flag_Locno]);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Worn);
+				param0 = WhatoAt(i, i->flags[Flag_Locno], Loc_Carried, Loc_Worn);
 				if (param0 == 255)
 				{
-					param0 = WhatoAt(i, 255);
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 26);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i, 26);
 					goto case_DONE;
 				}
 				// Fall through
@@ -3157,18 +3256,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_AUTOW:
-				param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Worn);
-				if (param0 == 255)
-					param0 = WhatoAt(i, i->flags[Flag_Locno]);
+				param0 = WhatoAt(i, Loc_Carried, Loc_Worn, i->flags[Flag_Locno]);
 				if (param0 == 255)
 				{
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 26);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i, 26);
 					goto case_DONE;
 				}
 				// Fall through
@@ -3207,18 +3298,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 
 			case CONDACT_AUTOR:
-				param0 = WhatoAt(i, Loc_Worn);
-				if (param0 == 255)
-					param0 = WhatoAt(i, Loc_Carried);
-				if (param0 == 255)
-					param0 = WhatoAt(i, i->flags[Flag_Locno]);
+				param0 = WhatoAt(i, Loc_Worn, Loc_Carried, i->flags[Flag_Locno]);
 				if (param0 == 255)
 				{
-					if (param0 != 255)
-						DDB_OutputMessage(i, DDB_SYSMSG, 26);	// I can't see any of those
-					else
-						DDB_OutputMessage(i, DDB_SYSMSG, 8);	// I can't do that
-					DDB_NewText(i);
+					AutoFailed(i, 26);
 					goto case_DONE;
 				}
 				// Fall through
@@ -3383,7 +3466,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				break;
 			case CONDACT_DISPLAY:
-				i->done = true;
 				if (param0 == 0)
 				{
 					if (repeatingDisplay)
@@ -3412,9 +3494,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					DDB_ClearWindow(i, &i->win);
 				}
 				MarkWindowOutput();
+				i->done = true;
 				break;
 			case CONDACT_MODE:
-				i->done = true;
 				i->win.flags = param0;
 				#if HAS_PAWS
 				if  (i->ddb->version == DDB_VERSION_PAWS)
@@ -3422,18 +3504,18 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				#endif
 				if (i->ddb->version == DDB_VERSION_1)
 					i->flags[40] = param0;
+				i->done = true;
 				break;
 			case CONDACT_GRAPHIC:
-				i->done = true;
 				i->flags[Flag_GraphicFlags] &= 0x87;
 				i->flags[Flag_GraphicFlags] |= ((param0 << 5) | (param1 << 3)) & 0x78;
+				i->done = true;
 				break;
 			case CONDACT_CHARSET:
-				i->done = true;
 				DDB_SetCharset(i->ddb, param0);
+				i->done = true;
 				break;
 			case CONDACT_GFX:
-				i->done = true;
 				switch (param1)
 				{
 					case 0:			// copy backbuffer --> physical screen
@@ -3482,6 +3564,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						SCR_GetPaletteColor(i->flags[param0], &i->flags[param0+1], &i->flags[param0+2], &i->flags[param0+3]);
 						break;
 				}
+				i->done = true;
 				break;
 			case CONDACT_INKEY:
 				// HACK: prevent 'more' to be shown in Espacial
@@ -3572,8 +3655,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_INK:
 				DDB_Flush(i);
 				i->win.ink = i->inkMap[param0 & 0x0F];
-				i->done = true;
 				TRACE("Ink %02d (from %02d)", i->win.ink, param0);
+				i->done = true;
 				break;
 			case CONDACT_TIMEOUT:
 				ok = (i->flags[Flag_TimeoutFlags] & Timeout_LastFrame) != 0;
@@ -3584,14 +3667,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_SAVE:
 				if (supportsOpenFileDialog)
 				{
-					i->inputBufferLength = 0;
-					i->inputBufferPtr = 0;
-					SCR_OpenFileDialog(false, (char *)i->inputBuffer, sizeof(i->inputBuffer));
-					if (i->inputBuffer[0] != 0)
+					if (ResolveFileDialogInput(i, false))
 					{
-						i->inputBufferLength = StrLen((const char *)i->inputBuffer);
 						UpdatePos(i, process, entry, offset + params + 1);
-						DDB_ResolveInputSave(i);
 						TRACE("\n");
 						return;
 					}
@@ -3599,13 +3677,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				else
 				{
-					DDB_OutputMessage(i, DDB_SYSMSG, 60);		// Enter file name
-					DDB_OutputText(i, " ");
-					DDB_Flush(i);
-					DDB_NewText(i);
-					i->state = DDB_INPUT_SAVE;
-					DDB_NewText(i);
-					DDB_PrintInputLine(i, true);
+					StartFileNameInputState(i, DDB_INPUT_SAVE);
 					UpdatePos(i, process, entry, offset + params + 1);
 					TRACE("\n");
 					return;
@@ -3615,14 +3687,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_LOAD:
 				if (supportsOpenFileDialog)
 				{
-					i->inputBufferLength = 0;
-					i->inputBufferPtr = 0;
-					SCR_OpenFileDialog(true, (char*)i->inputBuffer, sizeof(i->inputBuffer));
-					if (i->inputBuffer[0] != 0)
+					if (ResolveFileDialogInput(i, true))
 					{
-						i->inputBufferLength = StrLen((const char*)i->inputBuffer);
 						UpdatePos(i, process, entry, offset + params + 1);
-						DDB_ResolveInputLoad(i);
 						TRACE("\n");
 						return;
 					}
@@ -3630,13 +3697,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				else
 				{
-					DDB_OutputMessage(i, DDB_SYSMSG, 60);		// Enter file name
-					DDB_OutputText(i, " ");
-					DDB_Flush(i);
-					DDB_NewText(i);
-					i->state = DDB_INPUT_LOAD;
-					DDB_NewText(i);
-					DDB_PrintInputLine(i, true);
+					StartFileNameInputState(i, DDB_INPUT_LOAD);
 					UpdatePos(i, process, entry, offset + params + 1);
 					TRACE("\n");
 					return;
@@ -3713,7 +3774,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_XMESSAGE:
 			#if HAS_XMSG
-			{
 				if (param1 == 3)
 				{
 					uint16_t offset = param0 + param1*256;
@@ -3735,7 +3795,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					// This is actually an EXTERN, so no third byte
 					params = 2;
 				}
-			}
 			#endif
 				i->done = true;
 				break;
@@ -3956,108 +4015,7 @@ static void StepFunction(int elapsed)
 
 		case DDB_FINISHED:
 			if (i->ddb->oldMainLoop)
-			{
-				TRACE("\nSimulating PAWS main loop (current state: %s)\n", DDB_FlowNames[i->oldMainLoopState]);
-				DDB_Flush(i);
-
-				switch (i->oldMainLoopState)
-				{
-					case FLOW_STARTING:
-						DDB_Desc(i, i->flags[Flag_Locno]);
-						break;
-
-					case FLOW_RESPONSES:
-						if (i->flags[Flag_TimeoutFlags] & 0x80)
-							DDB_OutputMessage(i, DDB_SYSMSG, 35);		// Time passes...
-						else if (!i->done)
-						{
-							if (i->flags[Flag_Verb] < 14 || (i->flags[Flag_Verb] == 255 && i->flags[Flag_Noun1] < 14))
-							{
-								if (MovePlayer(i, Flag_Locno))
-								{
-									DDB_Desc(i, i->flags[Flag_Locno]);
-									break;
-								}
-								DDB_OutputMessage(i, DDB_SYSMSG, 7);		// I can't go that way
-							}
-							else
-								DDB_OutputMessage(i, DDB_SYSMSG, 8);		// I don't understand that.
-							DDB_NewText(i);
-						}
-						// Fall through
-
-					case FLOW_DESC:
-						i->oldMainLoopState = FLOW_AFTER_TURN;
-						i->state = DDB_RUNNING;
-						i->procstack[0].process = 2;
-						i->procstack[0].entry = 0;
-						i->procstack[0].offset = 0;
-						i->procstackptr = 0;
-						break;
-
-					case FLOW_AFTER_TURN:
-						if (i->flags[5] > 0) i->flags[5]--;
-						if (i->flags[6] > 0) i->flags[6]--;
-						if (i->flags[7] > 0) i->flags[7]--;
-						if (i->flags[8] > 0) i->flags[8]--;
-						if (i->flags[Flag_Darkness] != 0)
-						{
-							if (i->flags[9] > 0) i->flags[9]--;
-							if (i->flags[10] > 0 && Absent(i, 0)) i->flags[10]--;
-						}
-						if (i->flags[Flag_Turns+1] == 255) {
-							i->flags[Flag_Turns+1] = 0;
-							if (i->flags[Flag_Turns] != 255)
-								i->flags[Flag_Turns]++;
-						} else {
-							i->flags[Flag_Turns+1]++;
-						}
-						if (Parse(i, 0)) {
-							i->done = false;
-							i->oldMainLoopState = FLOW_RESPONSES;
-							i->state = DDB_RUNNING;
-							i->procstack[0].process = 0;
-							i->procstack[0].entry = 0;
-							i->procstack[0].offset = 0;
-							i->procstackptr = 0;
-						} else {
-							DDB_StartInput(i, true);
-							i->oldMainLoopState = FLOW_INPUT;
-							DDB_PrintInputLine(i, true);
-							if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
-							{
-								i->timeout = true;
-								i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
-							}
-							i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
-						}
-						break;
-
-					case FLOW_INPUT:
-						if (!Parse(i, false))
-						{
-							if (i->flags[Flag_TimeoutFlags] & Timeout_LastFrame)
-								DDB_OutputMessage(i, DDB_SYSMSG, 35);
-							else
-								DDB_OutputMessage(i, DDB_SYSMSG, 6);
-							i->oldMainLoopState = FLOW_AFTER_TURN;
-							i->state = DDB_RUNNING;
-							i->procstack[0].process = 2;
-							i->procstack[0].entry = 0;
-							i->procstack[0].offset = 0;
-							i->procstackptr = 0;
-							break;
-						}
-						i->oldMainLoopState = FLOW_RESPONSES;
-						i->state = DDB_RUNNING;
-						i->done = false;
-						i->procstack[0].process = 0;
-						i->procstack[0].entry = 0;
-						i->procstack[0].offset = 0;
-						i->procstackptr = 0;
-						break;
-				}
-			}
+				HandleOldMainLoopFinished(i);
 			break;
 
 		case DDB_QUIT:

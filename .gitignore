@@ -2,7 +2,8 @@ obj
 out
 build
 
-adp.map
+*.map
+*.lst
 *.obj
 *.o
 *.exe
