@@ -35,6 +35,54 @@ static uint32_t DDB_GetMinimumHeaderSize(DDB_Version version)
 	return version == DDB_VERSION_1 ? 34 : 36;
 }
 
+static uint32_t DDB_GetExternFieldOffset(DDB_Version version)
+{
+	return version >= DDB_VERSION_2 ? 34 : 32;
+}
+
+static uint32_t DDB_GetFirstSectionOffset(const DDB* ddb,
+	uint16_t tokensOffset,
+	uint16_t processTableOffset,
+	uint16_t objNamTableOffset,
+	uint16_t locDescTableOffset,
+	uint16_t msgTableOffset,
+	uint16_t sysMsgTableOffset,
+	uint16_t conTableOffset,
+	uint16_t vocabularyOffset,
+	uint16_t objLocTableOffset,
+	uint16_t objWordsTableOffset,
+	uint16_t objAttrTableOffset,
+	uint16_t objExAttrTableOffset)
+{
+	uint16_t rawOffsets[] = {
+		tokensOffset,
+		processTableOffset,
+		objNamTableOffset,
+		locDescTableOffset,
+		msgTableOffset,
+		sysMsgTableOffset,
+		conTableOffset,
+		vocabularyOffset,
+		objLocTableOffset,
+		objWordsTableOffset,
+		objAttrTableOffset,
+		objExAttrTableOffset,
+	};
+
+	uint32_t firstOffset = ddb->dataSize;
+	for (size_t n = 0; n < sizeof(rawOffsets) / sizeof(rawOffsets[0]); n++)
+	{
+		uint16_t rawOffset = rawOffsets[n];
+		if (rawOffset < ddb->baseOffset)
+			continue;
+
+		uint32_t offset = rawOffset - ddb->baseOffset;
+		if (offset < firstOffset)
+			firstOffset = offset;
+	}
+	return firstOffset;
+}
+
 static bool DDB_IsHeaderOffsetValid(const DDB* ddb, uint16_t rawOffset, uint32_t minimumSize, const char* name)
 {
 	if (rawOffset < ddb->baseOffset)
@@ -210,12 +258,31 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 		}
 	}
 
-	uint16_t externOffset = read16(data + (ddb->version >= 2 ? 34 : 32), ddb->littleEndian);
-	if (externOffset != 0)
+	uint16_t objExAttrTableOffset = ddb->version >= 2 ? read16(data + 30, ddb->littleEndian) : 0;
+	uint32_t firstSectionOffset = DDB_GetFirstSectionOffset(ddb,
+		tokensOffset,
+		processTableOffset,
+		objNamTableOffset,
+		locDescTableOffset,
+		msgTableOffset,
+		sysMsgTableOffset,
+		conTableOffset,
+		vocabularyOffset,
+		objLocTableOffset,
+		objWordsTableOffset,
+		objAttrTableOffset,
+		objExAttrTableOffset);
+	uint32_t externFieldOffset = DDB_GetExternFieldOffset(ddb->version);
+	bool externFieldFits = externFieldOffset + 1 < firstSectionOffset && externFieldOffset + 1 < ddb->dataSize;
+	if (externFieldFits)
 	{
-		if (!DDB_IsHeaderOffsetValid(ddb, externOffset, 1, "external data"))
-			return false;
-		ddb->externData = data + externOffset - ddb->baseOffset;
+		uint16_t externOffset = read16(data + externFieldOffset, ddb->littleEndian);
+		if (externOffset != 0)
+		{
+			if (!DDB_IsHeaderOffsetValid(ddb, externOffset, 1, "external data"))
+				return false;
+			ddb->externData = data + externOffset - ddb->baseOffset;
+		}
 	}
 
 	return true;

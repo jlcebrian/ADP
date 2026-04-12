@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <os_char.h>
+#include <os_bito.h>
 #include <os_lib.h>
 
 static uint8_t buffer[2048];
@@ -257,7 +258,7 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 
 		uint8_t  verb   = entry[0];
 		uint8_t  noun   = entry[1];
-		uint16_t offset = *(uint16_t*)(entry + 2);
+		uint16_t offset = read16(entry + 2, ddb->littleEndian);
 		uint8_t* code   = ddb->data + offset;
 		if (code >= ddb->data + ddb->dataSize || code == ddb->data)
 			break;
@@ -575,7 +576,7 @@ void DDB_DumpMetrics (DDB* ddb, DDB_PrintFunc print)
 
 			// uint8_t  verb   = entry[0];
 			// uint8_t  noun   = entry[1];
-			uint16_t offset = *(uint16_t*)(entry + 2);
+			uint16_t offset = read16(entry + 2, ddb->littleEndian);
 			uint8_t* code   = ddb->data + offset;
 			uint8_t* start  = code;
 			if (code >= ddb->data + ddb->dataSize || code == ddb->data)
