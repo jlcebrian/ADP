@@ -199,6 +199,11 @@ void File_UnmountDisk ()
 	}
 }
 
+bool File_IsDiskMounted ()
+{
+	return mountedDisk != 0;
+}
+
 File *File_Open(const char *fileName, FileOpenMode mode)
 {
 	if (mountedDisk)

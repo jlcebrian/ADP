@@ -2,6 +2,7 @@
 #include <ddb_vid.h>
 #include <ddb_scr.h>
 #include <dmg.h>
+#include <cli_parser.h>
 #include <os_mem.h>
 #include <os_file.h>
 #include <os_lib.h>
@@ -18,6 +19,25 @@
 static bool trace = false;
 static bool force = false;
 static bool showMemoryMap = false;
+
+static void PrintWarning(const char* message);
+
+typedef enum
+{
+	CLI_OPTION_TRACE = 1,
+	CLI_OPTION_FORCE,
+	CLI_OPTION_MEMORY_MAP,
+	CLI_OPTION_TRANSCRIPT,
+	CLI_OPTION_INPUT,
+	CLI_OPTION_SCREEN,
+	CLI_OPTION_HELP,
+}
+DDB_CLIOption;
+
+static void IgnoreDDBWarning(const char* message)
+{
+	(void)message;
+}
 
 typedef struct
 {
@@ -221,6 +241,46 @@ static void PrintDDBMemoryMap(const DDB* ddb)
 	}
 }
 
+static DDB* LoadDDBFromInput(const char* inputFileName, const char** resolvedDDBFileName, bool* mountedDiskImage)
+{
+	*resolvedDDBFileName = inputFileName;
+	*mountedDiskImage = false;
+
+#ifdef HAS_VIRTUALFILESYSTEM
+	if (File_MountDisk(inputFileName))
+	{
+		*mountedDiskImage = true;
+
+		FindFileResults results;
+		if (File_FindFirst("*", &results))
+		{
+			void (*warningHandler)(const char*) = IgnoreDDBWarning;
+			DDB_SetWarningHandler(warningHandler);
+			do
+			{
+				if (results.attributes & FileAttribute_Directory)
+					continue;
+
+				DDB* ddb = DDB_Load(results.fileName);
+				if (ddb != 0)
+				{
+					*resolvedDDBFileName = results.fileName;
+					DDB_SetWarningHandler(PrintWarning);
+					return ddb;
+				}
+			}
+			while (File_FindNext(&results));
+			DDB_SetWarningHandler(PrintWarning);
+		}
+
+		DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
+		return 0;
+	}
+#endif
+
+	return DDB_Load(inputFileName);
+}
+
 #if HAS_PCX
 static bool LoadPCXStartupPalette(const char* fileName)
 {
@@ -296,7 +356,8 @@ typedef enum
 	ACTION_TEST,
 	ACTION_EXTRACT,
 	ACTION_PSG,
-	ACTION_DUMP
+	ACTION_DUMP,
+	ACTION_HELP
 }
 Action;
 
@@ -306,20 +367,25 @@ void ShowHelp()
 {
 	printf("ADP DAAD Database Utility " VERSION_STR " \n\n");
 	printf("Dumps, inspects or runs a game from a DDB file or a disk image.\n\n");
-	printf("Usage: ddb [action] [options] <input.ddb>\n");
-	printf("Usage: ddb [action] [options] <input.adf/.st/.dsk> [output.ddb]\n\n");
+	printf("Usage: ddb [global options] <action> <input.ddb>\n");
+	printf("Usage: ddb [global options] <input.ddb>\n");
+	printf("Usage: ddb [global options] extract <input> [output.ddb]\n\n");
 	printf("Actions:\n\n");
-	printf("    l         Show game information\n");
-	printf("    r         Runs the game (default action)\n");
-	printf("    x         Extracts game database (useful for images & snapshots)\n");
-	printf("    p         Extracts EXTERN PSG streams as WAV files\n");
-	printf("    d         Decompiles/dumps the database in .SCE text format\n");
+	printf("    list, l      Show game information\n");
+	printf("    run, r       Run the game (default action)\n");
+	printf("    test, t      Run the game in test mode\n");
+	printf("    extract, x   Extract game database from an input file\n");
+	printf("    psg, p       Extract EXTERN PSG streams as WAV files\n");
+	printf("    dump, d      Decompile/dump the database in .SCE text format\n");
+	printf("    help, h      Show this help\n");
 	printf("\nOptions:\n\n");
-	printf("   -v         Show a trace of the program's execution\n");
-    printf("   -f         Force overwrite of output file in extract commands\n");
-	printf("   -m         Show a DDB memory map in list mode\n");
-    printf("   -o n.txt   Use n.txt as transcript output file for the game\n");
-    printf("   -i n.txt   Use n.txt as input file for the game\n\n");
+	printf("   -v, --trace             Show a trace of the program's execution\n");
+    printf("   -f, --force             Force overwrite of output files\n");
+	printf("   -m, --memory-map        Show a DDB memory map in list mode\n");
+    printf("   -o, --transcript FILE   Use FILE as transcript output file when running\n");
+    printf("   -i, --input FILE        Use FILE as scripted input when running\n");
+    printf("   -s, --screen MODE       Select screen mode for run/test: cga, ega, vga\n");
+    printf("   -h, --help              Show this help\n\n");
 }
 
 static void PrintWarning(const char* message)
@@ -566,6 +632,38 @@ static int printf_iso88591(const char* format, ...)
 
 int main (int argc, char *argv[])
 {
+	char parseError[256];
+	CLI_CommandLine commandLine;
+	static const CLI_ActionSpec actionSpecs[] =
+	{
+		{ "list", "list", ACTION_LIST },
+		{ "l", "list", ACTION_LIST },
+		{ "run", "run", ACTION_RUN },
+		{ "r", "run", ACTION_RUN },
+		{ "test", "test", ACTION_TEST },
+		{ "t", "test", ACTION_TEST },
+		{ "extract", "extract", ACTION_EXTRACT },
+		{ "x", "extract", ACTION_EXTRACT },
+		{ "psg", "psg", ACTION_PSG },
+		{ "p", "psg", ACTION_PSG },
+		{ "dump", "dump", ACTION_DUMP },
+		{ "d", "dump", ACTION_DUMP },
+		{ "help", "help", ACTION_HELP },
+		{ "h", "help", ACTION_HELP },
+		{ 0, 0, 0 }
+	};
+	static const CLI_OptionSpec optionSpecs[] =
+	{
+		{ 'v', "trace", CLI_OPTION_TRACE, CLI_OPTION_NONE },
+		{ 'f', "force", CLI_OPTION_FORCE, CLI_OPTION_NONE },
+		{ 'm', "memory-map", CLI_OPTION_MEMORY_MAP, CLI_OPTION_NONE },
+		{ 'o', "transcript", CLI_OPTION_TRANSCRIPT, CLI_OPTION_REQUIRED_VALUE },
+		{ 'i', "input", CLI_OPTION_INPUT, CLI_OPTION_REQUIRED_VALUE },
+		{ 's', "screen", CLI_OPTION_SCREEN, CLI_OPTION_REQUIRED_VALUE },
+		{ 'h', "help", CLI_OPTION_HELP, CLI_OPTION_NONE },
+		{ 0, 0, 0, CLI_OPTION_NONE }
+	};
+
 	if (argc < 2)
 	{
 		ShowHelp();
@@ -574,87 +672,72 @@ int main (int argc, char *argv[])
 
 	DDB_SetWarningHandler(PrintWarning);
 
-	bool actionFound = false;
-	while (argc > 2 && (argv[1][0] == '-' || !actionFound))
+	if (!CLI_ParseCommandLine(argc, argv, actionSpecs, ACTION_RUN, optionSpecs, &commandLine, parseError, sizeof(parseError)))
 	{
-		actionFound = true;
-		switch (argv[1][0])
-		{
-			case 'l':	action = ACTION_LIST; break;
-			case 'r':	action = ACTION_RUN; break;
-			case 't':	action = ACTION_TEST; break;
-			case 'x':	action = ACTION_EXTRACT; break;
-			case 'p':	action = ACTION_PSG; break;
-			case 'd':	action = ACTION_DUMP; break;
-			case '-':
-				actionFound = false;
-                for (int n = 1; argv[1][n]; n++)
-                {
-    				if (argv[1][n] == 'v')
-    					trace = true;
-    				if (argv[1][n] == 'f')
-    					force = true;
-					if (argv[1][n] == 'm')
-						showMemoryMap = true;
-                    if (argv[1][n] == 'o')
-                    {
-                        if (argv[1][n+1])
-                        {
-                            DDB_UseTranscriptFile(argv[1]+n+1);
-                            break;
-                        }
-                        else
-                        {
-                            if (argc < 3) {
-                                fprintf(stderr, "Error: No output file specified\n");
-                                return 1;
-                            }
-                            DDB_UseTranscriptFile(argv[2]);
-                            argv++, argc--;
-                            break;
-                        }
-                    }
-                    if (argv[1][n] == 'i')
-                    {
-                        if (argv[1][n+1])
-                        {
-                            SCR_UseInputFile(argv[1]+n+1);
-                            break;
-                        }
-                        else
-                        {
-                            if (argc < 3) {
-                                fprintf(stderr, "Error: No input file specified\n");
-                                return 1;
-                            }
-                            SCR_UseInputFile(argv[2]);
-                            argv++, argc--;
-                            break;
-                        }
-                    }
-                }
-				break;
-			default:
-				ShowHelp();
-				return 0;
-		}
-		argv++;
-		argc--;
+		fprintf(stderr, "Error: %s\n", parseError);
+		return 1;
 	}
 
+	action = (Action)commandLine.action;
+	trace = CLI_HasOption(&commandLine, CLI_OPTION_TRACE);
+	force = CLI_HasOption(&commandLine, CLI_OPTION_FORCE);
+	showMemoryMap = CLI_HasOption(&commandLine, CLI_OPTION_MEMORY_MAP);
+
+	if (action == ACTION_HELP || CLI_HasOption(&commandLine, CLI_OPTION_HELP))
+	{
+		ShowHelp();
+		return 0;
+	}
+
+	if (commandLine.argumentCount < 1)
+	{
+		fprintf(stderr, "Error: Missing input file\n");
+		return 1;
+	}
+
+	const char* inputFileName = commandLine.arguments[0];
+	const char* optionalOutputFileName = commandLine.argumentCount > 1 ? commandLine.arguments[1] : 0;
+	const char* transcriptFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_TRANSCRIPT);
+	const char* scriptedInputFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_INPUT);
+	const char* screenOption = CLI_GetOptionValue(&commandLine, CLI_OPTION_SCREEN);
+
+	if (showMemoryMap && action != ACTION_LIST)
+	{
+		fprintf(stderr, "Error: --memory-map is only valid with the list action\n");
+		return 1;
+	}
+	if ((transcriptFileName != 0 || scriptedInputFileName != 0 || screenOption != 0) &&
+		action != ACTION_RUN && action != ACTION_TEST)
+	{
+		fprintf(stderr, "Error: run-only options can only be used with run or test\n");
+		return 1;
+	}
+
+	if (transcriptFileName != 0)
+		DDB_UseTranscriptFile(transcriptFileName);
+	if (scriptedInputFileName != 0)
+		SCR_UseInputFile(scriptedInputFileName);
+
 	#ifdef HAS_VIRTUALFILESYSTEM
-	if (File_MountDisk(argv[1]))
+	if ((action == ACTION_RUN || action == ACTION_TEST) && File_MountDisk(inputFileName))
 	{
 		if (!DDB_RunPlayer())
+		{
 			fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+			return 1;
+		}
 		return 0;
 	}
 	#endif
 
-	DDB* ddb = DDB_Load(argv[1]);
+	const char* loadedDDBFileName = inputFileName;
+	bool mountedDiskImage = false;
+	DDB* ddb = LoadDDBFromInput(inputFileName, &loadedDDBFileName, &mountedDiskImage);
 	if (ddb == NULL)
 	{
 		fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+		if (mountedDiskImage)
+			File_UnmountDisk();
 		return 1;
 	}
 
@@ -662,21 +745,29 @@ int main (int argc, char *argv[])
 	{
 		printf("%c%c%c", 0xEF, 0xBB, 0xBF);		// UTF-8 BOM
 		DDB_Dump(ddb, printf_iso88591);
+		DDB_Close(ddb);
+		if (mountedDiskImage)
+			File_UnmountDisk();
 		return 0;
 	}
 
 	#if HAS_PSG
 	if (action == ACTION_PSG)
 	{
-		const char* outputPrefix = argc > 2 ? argv[2] : 0;
-		if (!ToolPSG_ExportWAVFiles(ddb, argv[1], outputPrefix))
+		if (!ToolPSG_ExportWAVFiles(ddb, loadedDDBFileName, optionalOutputFileName))
+		{
+			if (mountedDiskImage)
+				File_UnmountDisk();
 			return 1;
+		}
+		if (mountedDiskImage)
+			File_UnmountDisk();
 		return 0;
 	}
 	#endif
 
 	printf("DDB file loaded (%s, %s, %s, %d bytes)\n",
-		argv[1], DDB_DescribeVersion(ddb->version),
+		loadedDDBFileName, DDB_DescribeVersion(ddb->version),
 		ddb->littleEndian ? "little endian" : "big endian",
 		ddb->dataSize);
 
@@ -698,19 +789,15 @@ int main (int argc, char *argv[])
 		DDB_DumpMetrics(ddb, printf);
 		if (showMemoryMap)
 			PrintDDBMemoryMap(ddb);
+		DDB_Close(ddb);
+		if (mountedDiskImage)
+			File_UnmountDisk();
 		return 0;
 	}
 
 	if (action == ACTION_EXTRACT)
 	{
-		argv++, argc--;
-		if (argc < 2)
-		{
-			fprintf(stderr, "Error: No output file specified\n");
-			return 1;
-		}
-
-		const char* outputFileName = ChangeExtension(argv[1], ".ddb");
+		const char* outputFileName = optionalOutputFileName != 0 ? optionalOutputFileName : ChangeExtension(inputFileName, ".ddb");
 		if (!force)
 		{
 			File* outputFile = File_Open(outputFileName, ReadOnly);
@@ -724,6 +811,8 @@ int main (int argc, char *argv[])
 		if (!DDB_Write(ddb, outputFileName))
 		{
 			fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
+			if (mountedDiskImage)
+				File_UnmountDisk();
 			return 1;
 		}
 		printf("DDB file written to '%s'\n", outputFileName);
@@ -740,31 +829,52 @@ int main (int argc, char *argv[])
 				case DDB_MACHINE_MSX:      extension = ".mdg"; break;
 				default: break;
 			}
-			outputFileName = ChangeExtension(argv[1], extension);
+			outputFileName = ChangeExtension(inputFileName, extension);
 			if (!DDB_WriteVectorDatabase(outputFileName))
 			{
 				fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
+				if (mountedDiskImage)
+					File_UnmountDisk();
 				return 1;
 			}
 			printf("Vector database written to '%s'\n", outputFileName);
 		}
 		#endif
-
+		if (mountedDiskImage)
+			File_UnmountDisk();
 		return 0;
 	}
 
 	DDB_ScreenMode screenMode = ScreenMode_VGA16;
 	if (ddb->target == DDB_MACHINE_IBMPC)
-		DDB_CheckVideoMode(argv[1], &screenMode);
+		DDB_CheckVideoMode(inputFileName, &screenMode);
+
+	if (screenOption != 0)
+	{
+		if (stricmp(screenOption, "ega") == 0)
+			screenMode = ScreenMode_EGA;
+		else if (stricmp(screenOption, "cga") == 0)
+			screenMode = ScreenMode_CGA;
+		else if (stricmp(screenOption, "vga") == 0)
+			screenMode = ScreenMode_VGA16;
+		else
+		{
+			fprintf(stderr, "Error: Unknown screen mode '%s'\n", screenOption);
+			DDB_Close(ddb);
+			if (mountedDiskImage)
+				File_UnmountDisk();
+			return 1;
+		}
+	}
 
 	VID_Initialize(ddb->target, ddb->version, screenMode);
 	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(argv[1]);
+		VID_LoadDataFile(inputFileName);
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 	{
 		screenMode = ScreenMode_VGA;
-		LoadPCXStartupPalette(argv[1]);
+		LoadPCXStartupPalette(inputFileName);
 	}
 	#endif
 
@@ -775,36 +885,14 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
-	argv++, argc--;
-	while (argc > 1)
-	{
-		switch (argv[1][0])
-		{
-			case 'e':
-			case 'E':
-				interpreter->screenMode = ScreenMode_EGA;
-				break;
-			case 'c':
-			case 'C':
-				interpreter->screenMode = ScreenMode_CGA;
-				break;
-			case 'v':
-			case 'V':
-				interpreter->screenMode = ScreenMode_VGA16;
-				break;
-			default:
-				fprintf(stderr, "Error: Unknown option '%s'\n", argv[1]);
-				break;
-		}
-		argc--, argv++;
-	}
-
 	DDB_Reset(interpreter);
 	DDB_ResetWindows(interpreter);
 	DDB_Run(interpreter);
 	DDB_CloseInterpreter(interpreter);
 	DDB_Close(ddb);
+	if (mountedDiskImage)
+		File_UnmountDisk();
 	VID_Finish();
 
-	return 1;
+	return 0;
 }

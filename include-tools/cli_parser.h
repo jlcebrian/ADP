@@ -16,6 +16,7 @@ CLI_OptionArgumentMode;
 typedef struct
 {
     const char* name;
+    const char* canonicalName;
     int value;
 }
 CLI_ActionSpec;
@@ -23,6 +24,7 @@ CLI_ActionSpec;
 typedef struct
 {
     char shortName;
+    const char* longName;
     int id;
     CLI_OptionArgumentMode argumentMode;
 }
@@ -58,3 +60,4 @@ bool CLI_ParseCommandLine(
 
 bool CLI_HasOption(const CLI_CommandLine* commandLine, int optionId);
 const char* CLI_GetOptionValue(const CLI_CommandLine* commandLine, int optionId);
+const char* CLI_GetActionName(const CLI_CommandLine* commandLine);

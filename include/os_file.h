@@ -67,6 +67,8 @@ struct File
 
 
 extern bool     File_MountDisk (const char* file);
+extern void     File_UnmountDisk ();
+extern bool     File_IsDiskMounted ();
 extern File*    File_Open      (const char* file, FileOpenMode mode = ReadOnly);
 extern File*    File_Create    (const char* file);
 extern uint64_t File_GetSizeByName(const char* file);

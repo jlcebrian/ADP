@@ -1,9 +1,11 @@
 #include <bas_cpc.h>
 #include <bas_zx.h>
+#include <cli_parser.h>
 #include <dim.h>
 #include <dim_cpc.h>
 #include <os_file.h>
 #include <os_mem.h>
+#include <session_commands.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -70,6 +72,15 @@ enum
 
 typedef enum
 {
+	DSK_OPTION_BRIEF = 1,
+	DSK_OPTION_LOWERCASE,
+	DSK_OPTION_ASCII,
+	DSK_OPTION_HELP,
+}
+DSK_CLIOption;
+
+typedef enum
+{
 	MODE_NO_DISK,
 	MODE_EXISTING_DISK,
 	MODE_NEW_DISK,
@@ -89,14 +100,18 @@ commands[] =
 	{ "h",        ACTION_HELP },
 	{ "help",     ACTION_HELP },
 	{ "l",        ACTION_LIST,       MODE_EXISTING_DISK, "BL" },
+	{ "list",     ACTION_LIST,       MODE_EXISTING_DISK, "BL" },
 	{ "ls",       ACTION_LIST,       MODE_EXISTING_DISK, "BL", DIR_BRIEF },
 	{ "dir",      ACTION_LIST,       MODE_EXISTING_DISK, "BL" },
 	{ "i",        ACTION_INFO,       MODE_EXISTING_DISK },
 	{ "info",     ACTION_INFO,       MODE_EXISTING_DISK },
 	{ "c",        ACTION_CREATEDISK, MODE_NEW_DISK      },
+	{ "create",   ACTION_CREATEDISK, MODE_NEW_DISK      },
 	{ "mkdisk",   ACTION_CREATEDISK, MODE_NEW_DISK      },
 	{ "a",        ACTION_ADD,        MODE_EXISTING_DISK },
 	{ "add",      ACTION_ADD,        MODE_EXISTING_DISK },
+	{ "d",        ACTION_DELETE,     MODE_EXISTING_DISK },
+	{ "delete",   ACTION_DELETE,     MODE_EXISTING_DISK },
 	{ "rm",       ACTION_DELETE,     MODE_EXISTING_DISK },
 	{ "del",      ACTION_DELETE,     MODE_EXISTING_DISK },
 	{ "x",        ACTION_EXTRACT,    MODE_EXISTING_DISK, "A" },
@@ -119,21 +134,71 @@ commands[] =
 	{ "addtree",  ACTION_ADDTREE,    MODE_EXISTING_DISK },
 	{ "puttree",  ACTION_ADDTREE,    MODE_EXISTING_DISK },
 	{ "shell",    ACTION_INTERACTIVE, MODE_EXISTING_DISK },
-	{ "i",        ACTION_INTERACTIVE, MODE_EXISTING_DISK },
 	{ NULL }
+};
+
+static const CLI_ActionSpec actionSpecs[] =
+{
+	{ "help", "help", ACTION_HELP },
+	{ "h", "help", ACTION_HELP },
+	{ "list", "list", ACTION_LIST },
+	{ "l", "list", ACTION_LIST },
+	{ "ls", "list", ACTION_LIST },
+	{ "dir", "list", ACTION_LIST },
+	{ "info", "info", ACTION_INFO },
+	{ "i", "info", ACTION_INFO },
+	{ "create", "create", ACTION_CREATEDISK },
+	{ "c", "create", ACTION_CREATEDISK },
+	{ "mkdisk", "create", ACTION_CREATEDISK },
+	{ "add", "add", ACTION_ADD },
+	{ "a", "add", ACTION_ADD },
+	{ "delete", "delete", ACTION_DELETE },
+	{ "d", "delete", ACTION_DELETE },
+	{ "del", "delete", ACTION_DELETE },
+	{ "rm", "delete", ACTION_DELETE },
+	{ "extract", "extract", ACTION_EXTRACT },
+	{ "x", "extract", ACTION_EXTRACT },
+	{ "chdir", "chdir", ACTION_CHDIR },
+	{ "cd", "chdir", ACTION_CHDIR },
+	{ "mkdir", "mkdir", ACTION_MKDIR },
+	{ "md", "mkdir", ACTION_MKDIR },
+	{ "rmdir", "rmdir", ACTION_RMDIR },
+	{ "rd", "rmdir", ACTION_RMDIR },
+	{ "cat", "cat", ACTION_CAT },
+	{ "type", "cat", ACTION_CAT },
+	{ "hex", "hex", ACTION_HEXCAT },
+	{ "dump", "hex", ACTION_HEXCAT },
+	{ "setvol", "setvol", ACTION_SETVOL },
+	{ "label", "setvol", ACTION_SETVOL },
+	{ "setboot", "setboot", ACTION_SETBOOT },
+	{ "boot", "setboot", ACTION_SETBOOT },
+	{ "getboot", "getboot", ACTION_GETBOOT },
+	{ "addtree", "addtree", ACTION_ADDTREE },
+	{ "puttree", "addtree", ACTION_ADDTREE },
+	{ "shell", "shell", ACTION_INTERACTIVE },
+	{ 0, 0, 0 }
+};
+
+static const CLI_OptionSpec optionSpecs[] =
+{
+	{ 'b', "brief", DSK_OPTION_BRIEF, CLI_OPTION_NONE },
+	{ 'l', "lowercase", DSK_OPTION_LOWERCASE, CLI_OPTION_NONE },
+	{ 'a', "ascii", DSK_OPTION_ASCII, CLI_OPTION_NONE },
+	{ 'h', "help", DSK_OPTION_HELP, CLI_OPTION_NONE },
+	{ 0, 0, 0, CLI_OPTION_NONE }
 };
 
 static bool RunInteractiveSession();
 static bool ExecuteInteractiveLine(char* line, bool* keepRunning);
-static int  TokenizeLine(char* line, char* argv[], int maxArgs);
 static void TrimLine(char* line);
-static bool HandleInteractiveBuiltins(int argc, char* argv[], bool* keepRunning);
+static bool HandleInteractiveBuiltinCommand(int argc, char* argv[], bool* keepRunning);
 static bool RunInteractiveCommand(int argc, char* argv[]);
 static void HostPrintCurrentDirectory();
 static bool HostListDirectory(const char* pattern);
 static bool HostChangeDirectoryCommand(const char* path);
-static void ParseOptions (int *argc, char *argv[], const char* config);
 static bool RunCommand (Action action, int argc, char *argv[]);
+static bool ExecuteCLICommand(int argc, char* argv[], bool implicitDiskOpen);
+static bool RunSessionCommands(int argc, char* argv[], bool implicitDiskOpen);
 
 static bool AddFiles (int argc, char *argv[]);
 static bool AddTree  (int argc, char *argv[]);
@@ -186,12 +251,13 @@ static void PrintHelp(int argc, char *argv[])
 					case ACTION_HELP:
 						break;
 					case ACTION_LIST:
-						printf("Usage: dsk [disk.img] dir [/B] [/L] [pattern]\n\n");
-						printf("    /B    Brief listing\n");
-						printf("    /L    Lowercase filenames\n");
+						printf("Usage: dsk list [options] disk.img [pattern]\n");
+						printf("       dsk disk.img [pattern]\n\n");
+						printf("    -b, --brief       Brief listing\n");
+						printf("    -l, --lowercase   Lowercase filenames\n");
 						return;
 					case ACTION_CREATEDISK:
-						printf("Usage: dsk mkdisk diskfile [plus3|cpc|pcw|size|dd|hd]\n\n");
+						printf("Usage: dsk create diskfile [plus3|cpc|pcw|size|dd|hd]\n\n");
 						printf("    Create a new empty disk image\n");
 						printf("    The disk format is chosen based on the file extension:\n");
 						printf("      .adf  - Amiga Disk File (ADF)\n");
@@ -219,14 +285,14 @@ static void PrintHelp(int argc, char *argv[])
 						printf("      dsk add disk.adf foo.txt:S/foo.txt\n");
 						return;
 					case ACTION_DELETE:
-						printf("Usage: dsk del disk.img pattern [pattern2 ...]\n\n");
+						printf("Usage: dsk delete disk.img pattern [pattern2 ...]\n\n");
 						printf("    Delete files that match the supplied patterns. Wildcards are allowed.\n");
 						return;
 					case ACTION_EXTRACT:
-						printf("Usage: dsk extract disk.img [/A] [pattern]\n\n");
+						printf("Usage: dsk extract [options] disk.img [pattern]\n\n");
 						printf("    Copy files from the disk image to the host directory.\n");
 						printf("    If no pattern is provided all files are extracted.\n");
-						printf("    /A    Decode CPC or Sinclair BASIC files to ASCII and save them as .txt files.\n");
+						printf("    -a, --ascii   Decode CPC or Sinclair BASIC files to ASCII and save them as .txt files.\n");
 						return;
 					case ACTION_CHDIR:
 						printf("Usage: dsk chdir disk.img path\n\n");
@@ -241,9 +307,9 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    Remove an empty directory from the disk image.\n");
 						return;
 					case ACTION_CAT:
-						printf("Usage: dsk cat disk.img [/A] pattern\n\n");
+						printf("Usage: dsk cat [options] disk.img pattern\n\n");
 						printf("    Print the contents of files that match the pattern to stdout.\n");
-						printf("    /A    Force BASIC decoding.\n");
+						printf("    -a, --ascii   Force BASIC decoding.\n");
 						printf("          AMSDOS and +3DOS BASIC files are decoded automatically.\n");
 						return;
 					case ACTION_HEXCAT:
@@ -274,6 +340,7 @@ static void PrintHelp(int argc, char *argv[])
 					case ACTION_INTERACTIVE:
 						printf("Usage: dsk shell disk.img\n\n");
 						printf("    Open the disk image and enter an interactive shell.\n");
+						printf("    You can chain commands with :: in batch or shell mode.\n");
 						printf("    Additional shell-only commands:\n");
 						printf("      LDIR [pattern]    - List host files\n");
 						printf("      LCD path          - Change host directory\n");
@@ -293,14 +360,18 @@ static void PrintHelp(int argc, char *argv[])
 	}
 
 	printf("Disk file utility for DAAD " VERSION_STR "\n\n");
-	printf("Usage: dsk [disk.img] command [options]\n\n");
+	printf("Usage: dsk [options] command [command options] disk.img [arguments]\n");
+	printf("       dsk [options] disk.img [pattern]\n\n");
+	printf("Batch mode: dsk [options] disk.img -- command [args] :: command [args]\n");
+	printf("            dsk [options] disk.img @commands.txt\n\n");
+	printf("Global options: -h, --help\n\n");
 	printf("Available commands:\n\n");
-	printf("    dir       List contents of disk image (default)\n");
-	printf("    mkdisk    Create new disk image\n");
+	printf("    list      List contents of disk image (default)\n");
+	printf("    create    Create new disk image\n");
 	printf("    info      Show information about disk image\n");
 	printf("    add       Add files to disk image\n");
 	printf("    extract   Extract files from disk image\n");
-	printf("    del       Delete files from disk image\n");
+	printf("    delete    Delete files from disk image\n");
 	printf("    rmdir     Delete an empty directory from disk image\n");
 	printf("    mkdir     Make a directory in disk image\n");
 	printf("    chdir     Change current directory\n");
@@ -311,6 +382,8 @@ static void PrintHelp(int argc, char *argv[])
 	printf("    shell     Open an interactive shell\n");
 	printf("    help      Show extended command help\n");
 	printf("\nAdditional interactive-only commands: LDIR, LCD/LCHDIR, PUT, GET, EXIT\n");
+	printf("Use :: as the shared command separator in batch and shell mode.\n");
+	printf("Use @commands.txt to execute one command line per file line.\n");
 	printf("\n");
 }
 
@@ -319,45 +392,6 @@ static void TrimLine(char* line)
 	size_t len = strlen(line);
 	while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
 		line[--len] = 0;
-}
-
-static int TokenizeLine(char* line, char* argv[], int maxArgs)
-{
-	int argc = 0;
-	char* ptr = line;
-	while (*ptr != 0)
-	{
-		while (*ptr && isspace((unsigned char)*ptr))
-			ptr++;
-		if (!*ptr)
-			break;
-		if (argc >= maxArgs)
-			break;
-		char quote = 0;
-		if (*ptr == '"' || *ptr == '\'')
-		{
-			quote = *ptr++;
-		}
-		argv[argc++] = ptr;
-		while (*ptr)
-		{
-			if (quote)
-			{
-				if (*ptr == quote)
-				{
-					*ptr++ = 0;
-					break;
-				}
-			}
-			else if (isspace((unsigned char)*ptr))
-			{
-				*ptr++ = 0;
-				break;
-			}
-			ptr++;
-		}
-	}
-	return argc;
 }
 
 static bool HostGetCurrentDirectory(char* buffer, size_t bufferSize)
@@ -426,37 +460,10 @@ static bool RunInteractiveCommand(int argc, char* argv[])
 {
 	if (argc == 0)
 		return true;
-	for (int n = 0; commands[n].command != NULL; n++)
-	{
-		if (stricmp(commands[n].command, argv[0]) == 0)
-		{
-			if (commands[n].action == ACTION_INTERACTIVE)
-			{
-				printf("Already in interactive mode\n");
-				return true;
-			}
-			if (commands[n].mode == MODE_NEW_DISK)
-			{
-				printf("%s: command unavailable during an active session\n", argv[0]);
-				return true;
-			}
-			int localArgc = argc;
-			char* localArgv[INTERACTIVE_MAX_ARGS];
-			for (int i = 0; i < argc && i < INTERACTIVE_MAX_ARGS; i++)
-				localArgv[i] = argv[i];
-			if (commands[n].options)
-				ParseOptions(&localArgc, localArgv, commands[n].options);
-			localArgc--;
-			if (localArgc < 0)
-				localArgc = 0;
-			return RunCommand(commands[n].action, localArgc, localArgv + 1);
-		}
-	}
-	printf("%s: Unknown command\n", argv[0]);
-	return true;
+	return ExecuteCLICommand(argc, argv, true);
 }
 
-static bool HandleInteractiveBuiltins(int argc, char* argv[], bool* keepRunning)
+static bool HandleInteractiveBuiltinCommand(int argc, char* argv[], bool* keepRunning)
 {
 	if (argc == 0)
 		return false;
@@ -494,15 +501,34 @@ static bool HandleInteractiveBuiltins(int argc, char* argv[], bool* keepRunning)
 	return false;
 }
 
+typedef struct
+{
+	bool* keepRunning;
+}
+InteractiveSessionContext;
+
+static bool ExecuteInteractiveSessionCommand(int argc, char* argv[], void* context)
+{
+	InteractiveSessionContext* interactiveContext = (InteractiveSessionContext*)context;
+	if (HandleInteractiveBuiltinCommand(argc, argv, interactiveContext->keepRunning))
+		return true;
+	return RunInteractiveCommand(argc, argv);
+}
+
 static bool ExecuteInteractiveLine(char* line, bool* keepRunning)
 {
 	char* argv[INTERACTIVE_MAX_ARGS];
-	int argc = TokenizeLine(line, argv, INTERACTIVE_MAX_ARGS);
+	int argc = Session_TokenizeLine(line, argv, INTERACTIVE_MAX_ARGS);
 	if (argc == 0)
 		return true;
-	if (HandleInteractiveBuiltins(argc, argv, keepRunning))
-		return true;
-	return RunInteractiveCommand(argc, argv);
+	char errorBuffer[256];
+	InteractiveSessionContext context = { keepRunning };
+	if (!Session_ExecuteTokenStream(argc, argv, "::", ExecuteInteractiveSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+	{
+		printf("Error: %s\n", errorBuffer);
+		return false;
+	}
+	return true;
 }
 
 static bool RunInteractiveSession()
@@ -565,44 +591,6 @@ static int ResolveDiskPresetSize(const char* diskName, const char* preset)
 			return DISK_SIZE_1440KB;
 	}
 	return 0;
-}
-
-static void ParseOptions (int *argc, char *argv[], const char* config)
-{
-	for (int n = 0; n < *argc; n++)
-	{
-		if (argv[n][0] == '/')
-		{
-			for (int i = 1; argv[n][i]; i++)
-			{
-				for (int c = 0; ; c++)
-				{
-					if (!config[c])
-					{
-						printf("Unknown option \"%c\"\n", argv[n][i]);
-						break;
-					}
-					if (ToUpper(argv[n][i]) == ToUpper(config[c]))
-					{
-						if (argv[n][i + 1] == '-')
-						{
-							options &= ~(1 << c);
-							i++;
-						}
-						else
-						{
-							options |= (1 << c);
-						}
-						break;
-					}
-				}
-			}
-			for (int i = n+1; i < *argc; i++)
-				argv[i-1] = argv[i];
-			(*argc) -= 1;
-			n--;
-		}
-	}
 }
 
 static bool MkDir (int argc, char *argv[])
@@ -1717,6 +1705,246 @@ static bool RunCommand (Action action, int argc, char *argv[])
 	return false;
 }
 
+static ActionMode GetActionMode(Action action)
+{
+	switch (action)
+	{
+		case ACTION_HELP:
+			return MODE_NO_DISK;
+		case ACTION_CREATEDISK:
+			return MODE_NEW_DISK;
+		default:
+			return MODE_EXISTING_DISK;
+	}
+}
+
+static bool ActionAllowsOption(Action action, int optionId)
+{
+	switch (optionId)
+	{
+		case DSK_OPTION_BRIEF:
+		case DSK_OPTION_LOWERCASE:
+			return action == ACTION_LIST;
+		case DSK_OPTION_ASCII:
+			return action == ACTION_EXTRACT || action == ACTION_CAT;
+	}
+	return false;
+}
+
+static bool ExecuteCLICommand(int argc, char* argv[], bool implicitDiskOpen)
+{
+	char parseError[256];
+	CLI_CommandLine commandLine;
+	char* parseArgv[CLI_MAX_ARGUMENTS + 1];
+	parseArgv[0] = (char*)"dsk";
+	for (int i = 0; i < argc && i < CLI_MAX_ARGUMENTS; i++)
+		parseArgv[i + 1] = argv[i];
+
+	if (!CLI_ParseCommandLine(argc + 1, parseArgv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
+	{
+		printf("Error: %s\n", parseError);
+		return false;
+	}
+
+	Action action = (Action)commandLine.action;
+	ActionMode mode = GetActionMode(action);
+	const char** arguments = commandLine.arguments;
+	int argumentCount = commandLine.argumentCount;
+	const char* localDiskFileName = diskFileName;
+
+	options = 0;
+	for (int i = 0; i < commandLine.optionCount; i++)
+	{
+		int optionId = commandLine.options[i].id;
+		if (optionId == DSK_OPTION_HELP)
+			continue;
+		if (!ActionAllowsOption(action, optionId))
+		{
+			switch (optionId)
+			{
+				case DSK_OPTION_BRIEF:
+					printf("Error: --brief is only valid with the list action\n");
+					break;
+				case DSK_OPTION_LOWERCASE:
+					printf("Error: --lowercase is only valid with the list action\n");
+					break;
+				case DSK_OPTION_ASCII:
+					printf("Error: --ascii is only valid with the extract or cat actions\n");
+					break;
+				default:
+					printf("Error: Invalid option\n");
+					break;
+			}
+			return false;
+		}
+
+		switch (optionId)
+		{
+			case DSK_OPTION_BRIEF:
+				options |= DIR_BRIEF;
+				break;
+			case DSK_OPTION_LOWERCASE:
+				options |= DIR_LOWERCASE;
+				break;
+			case DSK_OPTION_ASCII:
+				options |= TEXTOPT_BASIC;
+				break;
+		}
+	}
+
+	if (CLI_HasOption(&commandLine, DSK_OPTION_HELP))
+	{
+		PrintHelp(argumentCount, (char**)arguments);
+		return true;
+	}
+
+	if (implicitDiskOpen)
+	{
+		if (action == ACTION_CREATEDISK)
+		{
+			printf("%s: command unavailable during an active session\n", CLI_GetActionName(&commandLine) ? CLI_GetActionName(&commandLine) : "create");
+			return true;
+		}
+		if (action == ACTION_INTERACTIVE)
+		{
+			printf("Already in interactive mode\n");
+			return true;
+		}
+	}
+
+	if (mode == MODE_EXISTING_DISK)
+	{
+		if (!implicitDiskOpen)
+		{
+			if (commandLine.actionName == 0)
+			{
+				if (argumentCount < 1)
+				{
+					printf("Missing disk name\n");
+					return false;
+				}
+				localDiskFileName = arguments[0];
+				arguments++;
+				argumentCount--;
+			}
+			else
+			{
+				if (argumentCount < 1)
+				{
+					printf("Missing disk name\n");
+					return false;
+				}
+				localDiskFileName = arguments[0];
+				arguments++;
+				argumentCount--;
+			}
+		}
+
+		if (localDiskFileName == NULL)
+		{
+			printf("Missing disk name\n");
+			return false;
+		}
+
+		diskFileName = localDiskFileName;
+		if (disk == NULL)
+		{
+			disk = DIM_OpenDisk(diskFileName);
+			if (!disk)
+			{
+				printf("%s: %s\n", diskFileName, DIM_GetErrorString());
+				return false;
+			}
+		}
+	}
+
+	return RunCommand(action, argumentCount, (char**)arguments);
+}
+
+static bool PrepareSessionTarget(int argc, char* argv[])
+{
+	char parseError[256];
+	CLI_CommandLine commandLine;
+	char* parseArgv[CLI_MAX_ARGUMENTS + 1];
+	parseArgv[0] = (char*)"dsk";
+	for (int i = 0; i < argc && i < CLI_MAX_ARGUMENTS; i++)
+		parseArgv[i + 1] = argv[i];
+
+	if (!CLI_ParseCommandLine(argc + 1, parseArgv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
+	{
+		printf("Error: %s\n", parseError);
+		return false;
+	}
+
+	if (CLI_HasOption(&commandLine, DSK_OPTION_HELP))
+	{
+		PrintHelp(commandLine.argumentCount, (char**)commandLine.arguments);
+		return false;
+	}
+
+	if (commandLine.actionName != 0)
+	{
+		printf("Error: Batch mode only accepts a disk image before --\n");
+		return false;
+	}
+
+	if (commandLine.argumentCount < 1)
+	{
+		printf("Missing disk name\n");
+		return false;
+	}
+
+	diskFileName = commandLine.arguments[0];
+	if (disk != NULL)
+	{
+		DIM_CloseDisk(disk);
+		disk = NULL;
+	}
+
+	disk = DIM_OpenDisk(diskFileName);
+	if (!disk)
+	{
+		printf("%s: %s\n", diskFileName, DIM_GetErrorString());
+		return false;
+	}
+	return true;
+}
+
+typedef struct
+{
+	bool implicitDiskOpen;
+}
+DSK_SessionExecutionContext;
+
+static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
+{
+	DSK_SessionExecutionContext* sessionContext = (DSK_SessionExecutionContext*)context;
+	return ExecuteCLICommand(argc, argv, sessionContext->implicitDiskOpen);
+}
+
+static bool RunSessionCommands(int argc, char* argv[], bool implicitDiskOpen)
+{
+	char errorBuffer[256];
+	DSK_SessionExecutionContext context = { implicitDiskOpen };
+
+	if (argc == 1 && argv[0][0] == '@' && argv[0][1] != 0)
+	{
+		if (!Session_ExecuteCommandFile(argv[0] + 1, "::", ExecuteSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+		{
+			printf("Error: %s\n", errorBuffer);
+			return false;
+		}
+		return true;
+	}
+
+	if (!Session_ExecuteTokenStream(argc, argv, "::", ExecuteSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+	{
+		printf("Error: %s\n", errorBuffer);
+		return false;
+	}
+	return true;
+}
+
 static bool RunCommandLine (int argc, char *argv[])
 {
 	if (argc < 1)
@@ -1725,87 +1953,43 @@ static bool RunCommandLine (int argc, char *argv[])
 		return true;
 	}
 
+	int separatorIndex = -1;
 	for (int n = 0; n < argc; n++)
 	{
-		char* ptr = argv[n];
-		while (*ptr && *ptr != ';') ptr++;
-		if (*ptr == ';')
+		if (strcmp(argv[n], "--") == 0)
 		{
-			*ptr = 0;
-			if (ptr > argv[n] || n > 0)
-			{
-				if (!RunCommandLine(ptr > argv[n] ? n + 1 : n, argv))
-					return false;
-			}
-			argv += n;
-			argc -= n;
-			ptr++;
-			if (*ptr == 0)
-				argc--, argv++;
-			if (argc > 0)
-				return RunCommandLine(argc, argv);
-			return true;
+			separatorIndex = n;
+			break;
 		}
 	}
 
-	while (true)
+	if (separatorIndex >= 0)
 	{
-		for (int n = 0; commands[n].command; n++)
+		if (separatorIndex == 0)
 		{
-			if (stricmp(commands[n].command, argv[0]) == 0)
-			{
-				int commandArgc = argc - 1;
-				char** commandArgv = argv + 1;
-				options = commands[n].defaultOptions;
-				if (commands[n].mode != MODE_NO_DISK)
-				{
-					if (diskFileName == NULL && commandArgc > 0)
-					{
-						diskFileName = commandArgv[0];
-						commandArgc--;
-						commandArgv++;
-					}
-					if (diskFileName == NULL)
-					{
-						printf("Missing disk name\n");
-						return false;
-					}
-					if (commands[n].mode == MODE_EXISTING_DISK)
-					{
-						disk = DIM_OpenDisk(diskFileName);
-						if (!disk)
-						{
-							printf("%s: %s\n", diskFileName, DIM_GetErrorString());
-							return false;
-						}
-					}
-				}
-				if (commands[n].options)
-					ParseOptions(&commandArgc, commandArgv, commands[n].options);
-				return RunCommand(commands[n].action, commandArgc, commandArgv);
-			}
+			printf("Error: Missing disk name before session commands\n");
+			return false;
 		}
-		if (diskFileName == NULL)
+
+		if (!PrepareSessionTarget(separatorIndex, argv))
+			return false;
+
+		if (separatorIndex + 1 >= argc)
 		{
-			diskFileName = argv[0];
-			argc--, argv++;
-			if (argc == 0)
-			{
-				disk = DIM_OpenDisk(diskFileName);
-				if (!disk)
-				{
-					printf("%s: %s\n", diskFileName, DIM_GetErrorString());
-					return false;
-				}
-				return RunCommand(ACTION_LIST, 0, argv);
-			}
-			continue;
+			printf("Error: Missing session command after --\n");
+			return false;
 		}
-		break;
+		return RunSessionCommands(argc - separatorIndex - 1, argv + separatorIndex + 1, true);
 	}
 
-	printf("%s: Unknown command\n", argv[0]);
-	return false;
+	if (argc >= 2 && argv[argc - 1][0] == '@' && argv[argc - 1][1] != 0)
+	{
+		if (!PrepareSessionTarget(argc - 1, argv))
+			return false;
+		return RunSessionCommands(1, argv + argc - 1, true);
+	}
+
+	return ExecuteCLICommand(argc, argv, false);
 }
 
 int main (int argc, char *argv[])

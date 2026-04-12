@@ -30,6 +30,7 @@ static void IgnoreDDBWarning(const char* message)
 #endif
 
 static void CloseEnum();
+static int CountDDBFiles();
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -133,11 +134,18 @@ static void DetectDDBFiles()
 	DDB_SetWarningHandler(IgnoreDDBWarning);
 	for (int n = 0; n < fileCount && ddbFileCount < MAX_FILES; n++)
 	{
-		DDB* ddb = DDB_Load(files[n]);
-		if (ddb != 0)
+		if (File_IsDiskMounted())
+		{
+			DDB* ddb = DDB_Load(files[n]);
+			if (ddb != 0)
+			{
+				ddbFiles[ddbFileCount++] = n;
+				DDB_Close(ddb);
+			}
+		}
+		else if (DDB_Check(files[n], 0, 0, 0))
 		{
 			ddbFiles[ddbFileCount++] = n;
-			DDB_Close(ddb);
 		}
 	}
 	DDB_SetWarningHandler(0);
@@ -169,6 +177,33 @@ static int CountFiles(const char* extension)
 			count++;
 	}
 	return count;
+}
+
+static bool TryMountDiskImageWithDDBs()
+{
+#ifdef HAS_VIRTUALFILESYSTEM
+	char candidates[MAX_FILES][FILE_MAX_PATH];
+	int candidateCount = fileCount;
+	if (candidateCount > MAX_FILES)
+		candidateCount = MAX_FILES;
+
+	for (int n = 0; n < candidateCount; n++)
+		StrCopy(candidates[n], sizeof(candidates[n]), files[n]);
+
+	for (int n = 0; n < candidateCount; n++)
+	{
+		if (!File_MountDisk(candidates[n]))
+			continue;
+
+		EnumFiles();
+		if (CountDDBFiles() > 0)
+			return true;
+
+		CloseEnum();
+		File_UnmountDisk();
+	}
+#endif
+	return false;
 }
 
 static const char* GetFile(const char* extension, int index)
@@ -454,9 +489,16 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DebugPrintf("Found %d DDBs, %d snapshots and %d screens\n", ddbCount, snapshotCount, scrCount);
 		if (ddbCount == 0 && snapshotCount == 0)
 		{
-			CloseEnum();
-			DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
-			return state = Player_Error;
+			if (!TryMountDiskImageWithDDBs())
+			{
+				CloseEnum();
+				DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
+				return state = Player_Error;
+			}
+
+			snapshotCount = CountSnapshots();
+			ddbCount = CountDDBFiles();
+			scrCount = CountFiles(".scr");
 		}
 
 		if (snapshotCount > 0)
@@ -648,9 +690,14 @@ bool DDB_RunPlayer()
 	ddbCount = CountDDBFiles();
 	if (ddbCount == 0)
 	{
-		CloseEnum();
-		DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
-		return false;
+		if (!TryMountDiskImageWithDDBs())
+		{
+			CloseEnum();
+			DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
+			return false;
+		}
+
+		ddbCount = CountDDBFiles();
 	}
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));

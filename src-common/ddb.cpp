@@ -29,6 +29,7 @@ static uint16_t DDB_GetBaseOffsetForMachine(DDB_Machine target)
 		case DDB_MACHINE_C64:      return 0x3880;
 		case DDB_MACHINE_CPC:      return 0x2880;
 		case DDB_MACHINE_MSX:      return 0x0100;
+		case DDB_MACHINE_PCW:      return 0x0100;
 		case DDB_MACHINE_PLUS4:    return 0x7080;
 		default:                   return 0;
 	}
@@ -1531,7 +1532,9 @@ DDB* DDB_Load(const char* filename)
 
 	size_t ramSize;
 	DDB_Machine snapshotMachine;
-	if (DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
+	const char* dot = (const char*)StrRChr(filename, '.');
+	bool shouldProbeSnapshot = !(dot != 0 && StrIComp(dot, ".ddb") == 0);
+	if (shouldProbeSnapshot && DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
 	{
 		File_Close(file);
 
@@ -1582,7 +1585,7 @@ DDB* DDB_Load(const char* filename)
 		if (fileSize > MAX_DDB_SIZE)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
-			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", filename, MAX_DDB_SIZE);
+			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", MAX_DDB_SIZE);
 			File_Close(file);
 			Free(ddb);
 			return 0;

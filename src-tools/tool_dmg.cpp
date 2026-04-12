@@ -5,6 +5,7 @@
 #include <ddb.h>
 #include <os_lib.h>
 #include <os_mem.h>
+#include <session_commands.h>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -114,6 +115,7 @@ typedef enum
 	ACTION_DELETE,
 	ACTION_NEW,
 	ACTION_UPDATE,
+	ACTION_SHELL,
 	ACTION_HELP,
 }
 Action;
@@ -124,8 +126,43 @@ typedef enum
 {
     DMG_OPTION_VERBOSE = 1,
     DMG_OPTION_SORT_BY_ID,
+    DMG_OPTION_HELP,
 }
 DmgOption;
+
+static const CLI_ActionSpec actionSpecs[] =
+{
+    { "list", "list", ACTION_LIST },
+    { "l", "list", ACTION_LIST },
+    { "list-palettes", "list-palettes", ACTION_LIST },
+    { "v", "list-palettes", ACTION_LIST },
+    { "extract", "extract", ACTION_EXTRACT },
+    { "x", "extract", ACTION_EXTRACT },
+    { "extract-palettes", "extract-palettes", ACTION_EXTRACT_PALETTES },
+    { "p", "extract-palettes", ACTION_EXTRACT_PALETTES },
+    { "test", "test", ACTION_TEST },
+    { "t", "test", ACTION_TEST },
+    { "add", "add", ACTION_ADD },
+    { "a", "add", ACTION_ADD },
+    { "delete", "delete", ACTION_DELETE },
+    { "d", "delete", ACTION_DELETE },
+    { "create", "create", ACTION_NEW },
+    { "n", "create", ACTION_NEW },
+    { "update", "update", ACTION_UPDATE },
+    { "u", "update", ACTION_UPDATE },
+    { "shell", "shell", ACTION_SHELL },
+    { "help", "help", ACTION_HELP },
+    { "h", "help", ACTION_HELP },
+    { 0, 0, 0 }
+};
+
+static const CLI_OptionSpec optionSpecs[] =
+{
+    { 'v', "verbose", DMG_OPTION_VERBOSE, CLI_OPTION_NONE },
+    { 'n', "sort-by-id", DMG_OPTION_SORT_BY_ID, CLI_OPTION_NONE },
+    { 'h', "help", DMG_OPTION_HELP, CLI_OPTION_NONE },
+    { 0, 0, 0, CLI_OPTION_NONE }
+};
 
 #pragma pack(push, 1)
 struct WAVHeader
@@ -153,23 +190,31 @@ void TracePrintf(const char* format, ...)
 static void PrintHelp()
 {
 	printf("DMG file utility for DAAD " VERSION_STR "\n\n");
-	printf("Usage: dmg [action] [global options] <file.dat> [arguments]\n\n");
+    printf("Usage: dmg [global options] <action> <file.dat> [arguments]\n");
+    printf("       dmg [global options] <file.dat> [arguments]\n\n");
+    printf("Batch mode: dmg [global options] <file.dat> -- command [args] :: command [args]\n");
+    printf("            dmg [global options] <file.dat> @commands.txt\n\n");
 	printf("Actions:\n\n");
-	printf("    l     List contents of DAT file (default)\n");
-	printf("    v     List contents of DAT file (with palettes)\n");
-	printf("    x     Extract image/audio entries\n");
-	printf("    t     Test image/audio entries\n");
-	printf("    p     Extract image palettes\n");
-	printf("    a     Add new images or audio entries\n");
-	printf("    e     Edit image or audio entries\n");
-	printf("    d     Delete image/audio entries\n");
-	printf("    n     Create a new DAT file\n");
-	printf("    u     Update/rebuild DAT file to newer version\n");
-	printf("    h     Show this help\n");
+	printf("    list, l              List contents of DAT file (default)\n");
+	printf("    list-palettes, v     List contents of DAT file with palettes\n");
+	printf("    extract, x           Extract image/audio entries\n");
+	printf("    test, t              Test image/audio entries\n");
+	printf("    extract-palettes, p  Extract image palettes\n");
+	printf("    add, a               Add or replace image/audio entries\n");
+	printf("    delete, d            Delete image/audio entries\n");
+	printf("    create, n            Create a new DAT file\n");
+	printf("    update, u            Update/rebuild DAT file to newer version\n");
+	printf("    shell                Open DAT file and enter an interactive shell\n");
+	printf("    help, h              Show this help\n");
     printf("\n");
     printf("Global options:\n\n");
-    printf("   -v     Enable verbose/debug output\n");
-    printf("   -n     List entries by id instead of file offset\n");
+    printf("   -v, --verbose      Enable verbose/debug output\n");
+    printf("   -n, --sort-by-id   List entries by id instead of file offset\n");
+	printf("   -h, --help         Show this help\n");
+    printf("\n");
+    printf("Use :: as the shared command separator in batch and shell mode.\n");
+    printf("Use @commands.txt to execute one command line per file line.\n");
+    printf("Session mode uses explicit commands such as list, extract, add, delete and update.\n");
     printf("\n");
 	printf("Selectors:\n\n");
 	printf("   #          Select one entry (0-255)\n");
@@ -184,7 +229,7 @@ static void PrintHelp()
 	printf("   -e         Export EGA version of images/palettes\n");
 	printf("   -c         Export CGA version of images/palettes\n");
 	printf("\n");
-	printf("Add/edit/update arguments:\n\n");
+	printf("Add/create/update arguments:\n\n");
 	printf("   Selectors set the current target entries.\n");
 	printf("   Following property tokens apply to the current target entries\n");
 	printf("   until another selector appears.\n");
@@ -217,9 +262,11 @@ static void PrintHelp()
     printf("\n");
     printf("Examples:\n\n");
     printf("   dmg u file.dat 0-50 fixed:1\n");
-    printf("   dmg e file.dat 12 x:24 y:80\n");
-    printf("   dmg a file.dat remap:std 0:image.png\n");
-    printf("   dmg u file.dat out.dat 0-50 fixed:1\n");
+    printf("   dmg add file.dat 12 x:24 y:80\n");
+    printf("   dmg add file.dat remap:std 0:image.png\n");
+	printf("   dmg update file.dat out.dat 0-50 fixed:1\n");
+    printf("   dmg file.dat -- list 0-15 :: extract 12-14 -t\n");
+    printf("   dmg shell file.dat\n");
 }
 
 static void ShowWarning(const char* message)
@@ -288,6 +335,10 @@ static bool ParseSelectionToken(const char* token, bool* entries);
 static bool IsPropertyToken(const char* token);
 static bool IsImageToken(const char* token);
 static bool IsTargetedFileToken(const char* token);
+static bool ExecuteCLICommandLine(int argc, char* argv[]);
+static bool PrepareSessionTarget(int argc, char* argv[], DMG** outDmg);
+static bool RunSessionCommands(int argc, char* argv[], DMG* dmg);
+static bool RunInteractiveSession(DMG* dmg);
 
 static bool InferTargetIndexForToken(const char* token, const bool* currentSelection, bool explicitSelection, int currentIndex, bool currentFileSaved, const bool* usedEntries, int* targetIndex)
 {
@@ -2668,71 +2719,328 @@ static bool UpdateRequiresRebuild(DMG* dmg, const char* outputFileName, int edit
     return false;
 }
 
-int main (int argc, char *argv[])
+static void ResetCommandExecutionState(Action commandAction)
+{
+    action = commandAction;
+    extractMode = ImageMode_Indexed;
+    remapMode = REMAP_NONE;
+    remapRangeFirst = 0;
+    remapRangeLast = 0;
+    compressionEnabled = true;
+    ResetPriorityEntries();
+    ClearSelection(selected);
+}
+
+static bool ExecuteDMGAction(DMG* dmg, Action commandAction, int argumentCount, const char* arguments[])
+{
+    ResetCommandExecutionState(commandAction);
+
+    switch (commandAction)
+    {
+        case ACTION_LIST:
+            if (ParseEntrySelectionList(argumentCount, arguments))
+            {
+                ListSelectedEntries(dmg, verbose);
+                return true;
+            }
+            return false;
+
+        case ACTION_DELETE:
+            if (ParseEntrySelectionList(argumentCount, arguments))
+            {
+                DeleteSelectedEntries(dmg);
+                return true;
+            }
+            return false;
+
+        case ACTION_EXTRACT:
+        case ACTION_EXTRACT_PALETTES:
+        case ACTION_TEST:
+            if (ParseEntrySelectionList(argumentCount, arguments))
+            {
+                ExtractSelectedEntries(dmg, commandAction != ACTION_TEST, commandAction == ACTION_EXTRACT_PALETTES);
+                return true;
+            }
+            return false;
+
+        case ACTION_ADD:
+            return ParseEntryChanges(dmg, argumentCount, arguments);
+
+        case ACTION_UPDATE:
+        {
+            const char* outputFileName = 0;
+            const char* editTokens[CLI_MAX_ARGUMENTS];
+            int editTokenCount = 0;
+            bool hasExplicitOutputFile = false;
+            bool replaceOriginal = false;
+            ParseUpdateArguments(argumentCount, arguments, &outputFileName, &hasExplicitOutputFile, &editTokenCount, editTokens);
+            if (editTokenCount > 0 && !ParseEntryChanges(dmg, editTokenCount, editTokens))
+                return false;
+            if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
+            {
+                if (editTokenCount > 0)
+                    printf("%s updated in place.\n", filename);
+                else
+                    printf("%s already up to date.\n", filename);
+                return true;
+            }
+
+            if (!hasExplicitOutputFile)
+            {
+                outputFileName = ChangeExtension(filename, ".new");
+                replaceOriginal = true;
+            }
+
+            if (!RebuildDAT(dmg, outputFileName))
+                return false;
+
+            if (replaceOriginal)
+            {
+                remove(filename);
+                if (rename(outputFileName, filename) != 0)
+                {
+                    fprintf(stderr, "Error: Failed to replace \"%s\" with rebuilt file \"%s\"\n", filename, outputFileName);
+                    return false;
+                }
+                printf("%s updated.\n", filename);
+            }
+            else
+            {
+                printf("%s written.\n", outputFileName);
+            }
+            return true;
+        }
+
+        default:
+            fprintf(stderr, "Error: Unsupported command in this mode\n");
+            return false;
+    }
+}
+
+static const CLI_ActionSpec* FindCLIActionSpec(const char* token)
+{
+    if (token == 0)
+        return 0;
+    for (int i = 0; actionSpecs[i].name != 0; i++)
+    {
+        if (stricmp(actionSpecs[i].name, token) == 0)
+            return &actionSpecs[i];
+    }
+    return 0;
+}
+
+typedef struct
+{
+    DMG* dmg;
+    bool* keepRunning;
+}
+DMG_SessionContext;
+
+static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
+{
+    DMG_SessionContext* session = (DMG_SessionContext*)context;
+    if (argc <= 0)
+        return true;
+
+    if (stricmp(argv[0], "exit") == 0 || stricmp(argv[0], "quit") == 0)
+    {
+        if (session->keepRunning != 0)
+            *session->keepRunning = false;
+        return true;
+    }
+
+    if (stricmp(argv[0], "help") == 0 || stricmp(argv[0], "h") == 0)
+    {
+        PrintHelp();
+        return true;
+    }
+
+    const CLI_ActionSpec* actionSpec = FindCLIActionSpec(argv[0]);
+    if (actionSpec == 0)
+    {
+        fprintf(stderr, "Error: Unknown session command: \"%s\"\n", argv[0]);
+        return false;
+    }
+
+    Action commandAction = (Action)actionSpec->value;
+    if (commandAction == ACTION_HELP || commandAction == ACTION_SHELL || commandAction == ACTION_NEW)
+    {
+        fprintf(stderr, "Error: Command \"%s\" is not available inside a DMG session\n", argv[0]);
+        return false;
+    }
+
+    verbose = actionSpec->canonicalName != 0 && stricmp(actionSpec->canonicalName, "list-palettes") == 0;
+
+    const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
+    bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
+    int expandedArgCount = 0;
+    for (int i = 1; i < argc; i++)
+    {
+        int before = expandedArgCount;
+        if (ExpandWildcardToken(argv[i], expandedArgs, &expandedArgCount))
+        {
+            for (int n = before; n < expandedArgCount; n++)
+                expandedArgOwned[n] = true;
+            continue;
+        }
+        expandedArgs[expandedArgCount] = argv[i];
+        expandedArgOwned[expandedArgCount] = false;
+        expandedArgCount++;
+    }
+
+    bool ok = ExecuteDMGAction(session->dmg, commandAction, expandedArgCount, expandedArgs);
+    for (int i = 0; i < expandedArgCount; i++)
+    {
+        if (expandedArgOwned[i])
+            free((void*)expandedArgs[i]);
+    }
+    return ok;
+}
+
+static bool RunSessionCommands(int argc, char* argv[], DMG* dmg)
+{
+    char errorBuffer[256];
+    DMG_SessionContext context = { dmg, 0 };
+
+    if (argc == 1 && argv[0][0] == '@' && argv[0][1] != 0)
+    {
+        if (!Session_ExecuteCommandFile(argv[0] + 1, "::", ExecuteSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+        {
+            fprintf(stderr, "Error: %s\n", errorBuffer);
+            return false;
+        }
+        return true;
+    }
+
+    if (!Session_ExecuteTokenStream(argc, argv, "::", ExecuteSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+    {
+        fprintf(stderr, "Error: %s\n", errorBuffer);
+        return false;
+    }
+    return true;
+}
+
+static bool RunInteractiveSession(DMG* dmg)
+{
+    printf("Entering interactive session for %s. Type HELP for commands, EXIT to quit.\n", filename);
+    bool keepRunning = true;
+    char line[512];
+    while (keepRunning)
+    {
+        printf("dmg %s> ", filename);
+        fflush(stdout);
+
+        if (!fgets(line, sizeof(line), stdin))
+        {
+            printf("\n");
+            break;
+        }
+
+        char* argv[64];
+        int argc = Session_TokenizeLine(line, argv, 64);
+        if (argc == 0)
+            continue;
+
+        char errorBuffer[256];
+        DMG_SessionContext context = { dmg, &keepRunning };
+        if (!Session_ExecuteTokenStream(argc, argv, "::", ExecuteSessionCommand, &context, errorBuffer, sizeof(errorBuffer)))
+            fprintf(stderr, "Error: %s\n", errorBuffer);
+    }
+    return true;
+}
+
+static bool PrepareSessionTarget(int argc, char* argv[], DMG** outDmg)
+{
+    char parseError[256];
+    CLI_CommandLine commandLine;
+    char* parseArgv[CLI_MAX_ARGUMENTS + 1];
+    parseArgv[0] = (char*)"dmg";
+    for (int i = 0; i < argc && i < CLI_MAX_ARGUMENTS; i++)
+        parseArgv[i + 1] = argv[i];
+
+    if (!CLI_ParseCommandLine(argc + 1, parseArgv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
+    {
+        fprintf(stderr, "Error: %s\n", parseError);
+        return false;
+    }
+
+    if (CLI_HasOption(&commandLine, DMG_OPTION_HELP))
+    {
+        PrintHelp();
+        return false;
+    }
+
+    if (commandLine.actionName != 0)
+    {
+        fprintf(stderr, "Error: Batch mode only accepts a DAT file before --\n");
+        return false;
+    }
+
+    if (commandLine.argumentCount < 1)
+    {
+        fprintf(stderr, "Error: Missing filename before --\n");
+        return false;
+    }
+
+    debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
+    listSortById = CLI_HasOption(&commandLine, DMG_OPTION_SORT_BY_ID);
+
+    if (strlen(commandLine.arguments[0]) > 1000)
+    {
+        fprintf(stderr, "Error: Invalid filename: \"%s\"\n", commandLine.arguments[0]);
+        return false;
+    }
+    strcpy(filename, commandLine.arguments[0]);
+
+    *outDmg = DMG_Open(filename, false);
+    if (*outDmg == NULL)
+    {
+        fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
+        return false;
+    }
+
+    return true;
+}
+
+static bool ExecuteCLICommandLine(int argc, char *argv[])
 {
 	DMG* dmg = NULL;
 	const char* outputFileName;
     const char* workingFileName = 0;
-	int n;
     int exitCode = 0;
     char parseError[256];
     CLI_CommandLine commandLine;
-    static const CLI_ActionSpec actionSpecs[] =
-    {
-        { "l", ACTION_LIST },
-        { "v", ACTION_LIST },
-        { "x", ACTION_EXTRACT },
-        { "p", ACTION_EXTRACT_PALETTES },
-        { "t", ACTION_TEST },
-        { "a", ACTION_ADD },
-        { "m", ACTION_ADD },
-        { "e", ACTION_ADD },
-        { "d", ACTION_DELETE },
-        { "c", ACTION_NEW },
-        { "n", ACTION_NEW },
-        { "o", ACTION_UPDATE },
-        { "u", ACTION_UPDATE },
-        { "h", ACTION_HELP },
-        { 0, 0 }
-    };
-    static const CLI_OptionSpec optionSpecs[] =
-    {
-        { 'v', DMG_OPTION_VERBOSE, CLI_OPTION_NONE },
-        { 'n', DMG_OPTION_SORT_BY_ID, CLI_OPTION_NONE },
-        { 0, 0, CLI_OPTION_NONE }
-    };
 
 	if (argc < 2)
 	{
 		PrintHelp();
-		return 0;
+		return true;
 	}
 
     if (!CLI_ParseCommandLine(argc, argv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
     {
         fprintf(stderr, "Error: %s\n", parseError);
-        return 1;
+        return false;
     }
 
     action = (Action)commandLine.action;
-    verbose = commandLine.actionName != 0 && stricmp(commandLine.actionName, "v") == 0;
+    verbose = commandLine.actionName != 0 && stricmp(commandLine.actionName, "list-palettes") == 0;
     debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
     listSortById = CLI_HasOption(&commandLine, DMG_OPTION_SORT_BY_ID);
-    readOnly = action != ACTION_ADD && action != ACTION_DELETE && action != ACTION_NEW && action != ACTION_UPDATE;
+    readOnly = action != ACTION_ADD && action != ACTION_DELETE && action != ACTION_NEW && action != ACTION_UPDATE && action != ACTION_SHELL;
 
-    if (action == ACTION_HELP)
+    if (action == ACTION_HELP || CLI_HasOption(&commandLine, DMG_OPTION_HELP))
     {
         PrintHelp();
-        return 0;
+        return true;
     }
 
     if (commandLine.argumentCount < 1)
     {
         fprintf(stderr, "Error: Missing filename\n");
-        return 1;
+        return false;
     }
 
-	DMG_SetWarningHandler(ShowWarning);
     remapMode = REMAP_NONE;
     remapRangeFirst = 0;
     remapRangeLast = 0;
@@ -2742,7 +3050,7 @@ int main (int argc, char *argv[])
 	if (strlen(commandLine.arguments[0]) > 1000)
 	{
 		fprintf(stderr, "Error: Invalid filename: \"%s\"\n", commandLine.arguments[0]);
-		return 1;
+		return false;
 	}
 	strcpy(filename, commandLine.arguments[0]);
 
@@ -2771,7 +3079,7 @@ int main (int argc, char *argv[])
     remainingArgCount = expandedArgCount;
 
     if (action == ACTION_NEW && !ParseCreateArguments(remainingArgCount, remainingArgs))
-        return 1;
+        return false;
 
     if (action == ACTION_NEW && priorityEntryCount > 0)
     {
@@ -2790,7 +3098,7 @@ int main (int argc, char *argv[])
             if (createDAT5Mode == DMG_DAT5_COLORMODE_NONE)
             {
                 fprintf(stderr, "Error: DAT5 creation requires mode:<cga|ega|i16|i32|i256>\n");
-                return 1;
+                return false;
             }
             InferDAT5CreateRange(remainingArgCount, remainingArgs, &firstEntry, &lastEntry);
             dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
@@ -2800,7 +3108,7 @@ int main (int argc, char *argv[])
 		if (dmg == NULL)
 		{
 			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", workingFileName, DMG_GetErrorString());
-			return 1;
+			return false;
 		}
 		printf("Created new DAT file \"%s\"\n", filename);
 	}
@@ -2810,7 +3118,7 @@ int main (int argc, char *argv[])
 		if (dmg == NULL)
 		{
 			fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
-			return 1;
+			return false;
 		}
 	}
 
@@ -2871,6 +3179,10 @@ int main (int argc, char *argv[])
                 }
             }
 			break;
+        case ACTION_SHELL:
+            if (!RunInteractiveSession(dmg))
+                exitCode = 1;
+            break;
 		case ACTION_UPDATE:
         {
             const char* editTokens[CLI_MAX_ARGUMENTS];
@@ -2933,5 +3245,63 @@ int main (int argc, char *argv[])
             free((void*)expandedArgs[i]);
     }
 
-	return exitCode;
+	return exitCode == 0;
+}
+
+static bool RunCommandLine(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        PrintHelp();
+        return true;
+    }
+
+    int separatorIndex = -1;
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--") == 0)
+        {
+            separatorIndex = i;
+            break;
+        }
+    }
+
+    if (separatorIndex >= 0)
+    {
+        DMG* dmg = 0;
+        if (separatorIndex == 1)
+        {
+            fprintf(stderr, "Error: Missing filename before --\n");
+            return false;
+        }
+        if (!PrepareSessionTarget(separatorIndex - 1, argv + 1, &dmg))
+            return false;
+        if (separatorIndex + 1 >= argc)
+        {
+            fprintf(stderr, "Error: Missing session command after --\n");
+            DMG_Close(dmg);
+            return false;
+        }
+        bool ok = RunSessionCommands(argc - separatorIndex - 1, argv + separatorIndex + 1, dmg);
+        DMG_Close(dmg);
+        return ok;
+    }
+
+    if (argc >= 3 && argv[argc - 1][0] == '@' && argv[argc - 1][1] != 0)
+    {
+        DMG* dmg = 0;
+        if (!PrepareSessionTarget(argc - 2, argv + 1, &dmg))
+            return false;
+        bool ok = RunSessionCommands(1, argv + argc - 1, dmg);
+        DMG_Close(dmg);
+        return ok;
+    }
+
+    return ExecuteCLICommandLine(argc, argv);
+}
+
+int main (int argc, char *argv[])
+{
+    DMG_SetWarningHandler(ShowWarning);
+    return RunCommandLine(argc, argv) ? 0 : 1;
 }
