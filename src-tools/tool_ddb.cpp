@@ -105,7 +105,7 @@ static void SortDDBMapEntries(DDB_MapEntry* entries, int count)
 static void PrintDDBMemoryMap(const DDB* ddb)
 {
 	const uint32_t headerSize = GetDDBHeaderSize(ddb);
-	const uint32_t extensionPreviewSize = 64;
+	const uint32_t extensionPreviewSize = 256;
 	DDB_MapEntry entries[16];
 	int entryCount = 0;
 
@@ -122,6 +122,7 @@ static void PrintDDBMemoryMap(const DDB* ddb)
 	AddDDBMapEntry(ddb, entries, &entryCount, "Object attributes table", ddb->objAttrTable);
 	AddDDBMapEntry(ddb, entries, &entryCount, "Extended object attributes table", ddb->objExAttrTable);
 	AddDDBMapEntry(ddb, entries, &entryCount, "External data", ddb->externData);
+	AddDDBMapEntry(ddb, entries, &entryCount, "EXTERN PSG table", ddb->externPsgTable);
 	AddDDBMapEntry(ddb, entries, &entryCount, "Charsets", ddb->charsets);
 
 	SortDDBMapEntries(entries, entryCount);
@@ -260,23 +261,29 @@ void TracePrintf(const char* format, ...)
 		return;
 
 	static char* buffer = 0;
-	static size_t bufferSize;
+	static size_t bufferSize = 0;
 
 	va_list args;
 	va_start(args, format);
+	va_list argsCopy;
+	va_copy(argsCopy, args);
 	int result = vsnprintf(buffer, bufferSize, format, args);
 	if (result >= bufferSize)
 	{
-		Free(buffer);
+		if (buffer != 0)
+			Free(buffer);
 		bufferSize = (result + 1023) & ~1023;
 		buffer = Allocate<char>("Trace print buffer", bufferSize);
 		if (buffer == 0)
 		{
 			bufferSize = 0;
+			va_end(argsCopy);
+			va_end(args);
 			return;
 		}
-		result = vsnprintf(buffer, bufferSize, format, args);
+		result = vsnprintf(buffer, bufferSize, format, argsCopy);
 	}
+	va_end(argsCopy);
 	va_end(args);
 
 	fputs(buffer, stdout);
@@ -288,6 +295,7 @@ typedef enum
 	ACTION_RUN,
 	ACTION_TEST,
 	ACTION_EXTRACT,
+	ACTION_PSG,
 	ACTION_DUMP
 }
 Action;
@@ -304,6 +312,7 @@ void ShowHelp()
 	printf("    l         Show game information\n");
 	printf("    r         Runs the game (default action)\n");
 	printf("    x         Extracts game database (useful for images & snapshots)\n");
+	printf("    p         Extracts EXTERN PSG streams as WAV files\n");
 	printf("    d         Decompiles/dumps the database in .SCE text format\n");
 	printf("\nOptions:\n\n");
 	printf("   -v         Show a trace of the program's execution\n");
@@ -317,6 +326,203 @@ static void PrintWarning(const char* message)
 {
 	fprintf(stderr, "WARNING: %s\n", message);
 }
+
+#if HAS_PSG
+
+static const uint32_t TOOL_PSG_MAX_BODY_TICKS = DDB_PSG_TICK_HZ * 10;
+static const uint32_t TOOL_PSG_MAX_TAIL_TICKS = DDB_PSG_TICK_HZ * 2;
+static const uint32_t TOOL_PSG_FADE_TAIL_TICKS = DDB_PSG_TICK_HZ;
+
+static bool ToolPSG_IsSilent(const uint8_t* buffer, uint32_t sampleCount)
+{
+	for (uint32_t n = 0; n < sampleCount; n++)
+	{
+		if (buffer[n] != 128)
+			return false;
+	}
+	return true;
+}
+
+static void ToolPSG_ApplyFadeOut(uint8_t* buffer, uint32_t sampleCount)
+{
+	if (sampleCount == 0)
+		return;
+
+	for (uint32_t n = 0; n < sampleCount; n++)
+	{
+		int sample = (int)buffer[n] - 128;
+		uint32_t remaining = sampleCount - 1 - n;
+		buffer[n] = (uint8_t)(128 + (sample * (int)remaining) / (int)sampleCount);
+	}
+}
+
+static bool ToolPSG_WriteWAV(const char* fileName, const uint8_t* samples, uint32_t sampleCount)
+{
+	File* file = File_Create(fileName);
+	if (file == 0)
+		return false;
+
+	uint8_t header[44];
+	MemClear(header, sizeof(header));
+	MemCopy(header + 0, "RIFF", 4);
+	write32(header + 4, 36 + sampleCount, true);
+	MemCopy(header + 8, "WAVE", 4);
+	MemCopy(header + 12, "fmt ", 4);
+	write32(header + 16, 16, true);
+	write16(header + 20, 1, true);
+	write16(header + 22, 1, true);
+	write32(header + 24, DDB_PSG_SAMPLE_RATE, true);
+	write32(header + 28, DDB_PSG_SAMPLE_RATE, true);
+	write16(header + 32, 1, true);
+	write16(header + 34, 8, true);
+	MemCopy(header + 36, "data", 4);
+	write32(header + 40, sampleCount, true);
+
+	bool ok = File_Write(file, header, sizeof(header)) == sizeof(header) &&
+		File_Write(file, samples, sampleCount) == sampleCount;
+	File_Close(file);
+	return ok;
+}
+
+static void ToolPSG_BuildDefaultPrefix(const char* inputFileName, char* prefix, size_t prefixSize)
+{
+	StrCopy(prefix, prefixSize, inputFileName);
+	char* dot = (char*)StrRChr(prefix, '.');
+	char* slash = (char*)StrRChr(prefix, '/');
+	char* backslash = (char*)StrRChr(prefix, '\\');
+	char* separator = slash;
+	if (backslash != 0 && (separator == 0 || backslash > separator))
+		separator = backslash;
+	if (dot != 0 && (separator == 0 || dot > separator))
+		*dot = 0;
+}
+
+static bool ToolPSG_FileExists(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+	File_Close(file);
+	return true;
+}
+
+static bool ToolPSG_BuildOutputFileName(char* outputFileName, size_t outputFileNameSize, const char* outputPrefix, uint8_t soundIndex)
+{
+	int written = snprintf(outputFileName, outputFileNameSize, "%s-psg-%02u.wav", outputPrefix, soundIndex + 1);
+	return written > 0 && (size_t)written < outputFileNameSize;
+}
+
+static bool ToolPSG_ExportStream(const DDB* ddb, uint8_t soundIndex, const char* outputPrefix)
+{
+	uint32_t streamStart = 0;
+	uint32_t streamEnd = 0;
+	if (!DDB_GetExternalPSGStreamRange(ddb, soundIndex, &streamStart, &streamEnd))
+		return false;
+
+	uint32_t bodyTicks = 0;
+	if (!DDB_EstimatePSGStreamTicks(ddb->data + streamStart, ddb->data + streamEnd, TOOL_PSG_MAX_BODY_TICKS, &bodyTicks))
+	{
+		fprintf(stderr, "Error: PSG stream %u has unsupported Dosound commands\n", (unsigned)(soundIndex + 1));
+		return false;
+	}
+
+	uint32_t maxTicks = bodyTicks + TOOL_PSG_MAX_TAIL_TICKS;
+	uint32_t maxSamples = maxTicks * DDB_PSG_SAMPLES_PER_TICK;
+	uint8_t* buffer = Allocate<uint8_t>("PSG WAV buffer", maxSamples, false);
+	if (buffer == 0)
+		return false;
+
+	DDB_PSGState state;
+	if (!DDB_RenderPSGStream(ddb->data + streamStart, ddb->data + streamEnd, buffer, bodyTicks, &state))
+	{
+		Free(buffer);
+		return false;
+	}
+
+	uint32_t totalTicks = bodyTicks;
+	uint32_t tailTicks = 0;
+	bool tailTruncated = false;
+	for (uint32_t tailTick = 0; tailTick < TOOL_PSG_MAX_TAIL_TICKS; tailTick++)
+	{
+		uint8_t* tailBuffer = buffer + totalTicks * DDB_PSG_SAMPLES_PER_TICK;
+		DDB_RenderPSGTicks(&state, tailBuffer, 1);
+		if (ToolPSG_IsSilent(tailBuffer, DDB_PSG_SAMPLES_PER_TICK))
+			break;
+		totalTicks++;
+		tailTicks++;
+		if (tailTick + 1 == TOOL_PSG_MAX_TAIL_TICKS)
+			tailTruncated = true;
+	}
+
+	if (tailTicks != 0)
+	{
+		uint32_t fadeTicks = tailTicks;
+		if (fadeTicks > TOOL_PSG_FADE_TAIL_TICKS)
+			fadeTicks = TOOL_PSG_FADE_TAIL_TICKS;
+		uint32_t fadeStartTick = totalTicks - fadeTicks;
+		uint8_t* fadeStart = buffer + fadeStartTick * DDB_PSG_SAMPLES_PER_TICK;
+		ToolPSG_ApplyFadeOut(fadeStart, fadeTicks * DDB_PSG_SAMPLES_PER_TICK);
+	}
+
+	char outputFileName[FILE_MAX_PATH];
+	if (!ToolPSG_BuildOutputFileName(outputFileName, sizeof(outputFileName), outputPrefix, soundIndex))
+	{
+		fprintf(stderr, "Error: Output file name for PSG stream %u is too long\n", (unsigned)(soundIndex + 1));
+		Free(buffer);
+		return false;
+	}
+	if (!force && ToolPSG_FileExists(outputFileName))
+	{
+		fprintf(stderr, "Error: Output file '%s' already exists (use -f to force overwrite)\n", outputFileName);
+		Free(buffer);
+		return false;
+	}
+
+	uint32_t sampleCount = totalTicks * DDB_PSG_SAMPLES_PER_TICK;
+	if (sampleCount == 0 || ToolPSG_IsSilent(buffer, sampleCount))
+	{
+		Free(buffer);
+		printf("PSG stream %u skipped (pure silence / stop stream)\n", (unsigned)(soundIndex + 1));
+		return true;
+	}
+
+	bool ok = ToolPSG_WriteWAV(outputFileName, buffer, sampleCount);
+	Free(buffer);
+	if (!ok)
+	{
+		fprintf(stderr, "Error writing '%s'\n", outputFileName);
+		return false;
+	}
+
+	printf("PSG stream %u written to '%s' (%u samples at %u Hz)\n",
+		(unsigned)(soundIndex + 1), outputFileName,
+		(unsigned)sampleCount, (unsigned)DDB_PSG_SAMPLE_RATE);
+	return true;
+}
+
+static bool ToolPSG_ExportWAVFiles(const DDB* ddb, const char* inputFileName, const char* outputPrefixArg)
+{
+	if (ddb->externPsgTable == 0 || ddb->externPsgCount == 0)
+	{
+		fprintf(stderr, "Error: DDB does not contain EXTERN PSG streams\n");
+		return false;
+	}
+
+	char outputPrefix[FILE_MAX_PATH];
+	if (outputPrefixArg != 0)
+		StrCopy(outputPrefix, sizeof(outputPrefix), outputPrefixArg);
+	else
+		ToolPSG_BuildDefaultPrefix(inputFileName, outputPrefix, sizeof(outputPrefix));
+
+	for (uint8_t soundIndex = 0; soundIndex < ddb->externPsgCount; soundIndex++)
+	{
+		if (!ToolPSG_ExportStream(ddb, soundIndex, outputPrefix))
+			return false;
+	}
+	return true;
+}
+
+#endif
 
 // Printf, but converts ISO8859-1 to UTF8
 static int printf_iso88591(const char* format, ...)
@@ -378,6 +584,7 @@ int main (int argc, char *argv[])
 			case 'r':	action = ACTION_RUN; break;
 			case 't':	action = ACTION_TEST; break;
 			case 'x':	action = ACTION_EXTRACT; break;
+			case 'p':	action = ACTION_PSG; break;
 			case 'd':	action = ACTION_DUMP; break;
 			case '-':
 				actionFound = false;
@@ -458,6 +665,16 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
+	#if HAS_PSG
+	if (action == ACTION_PSG)
+	{
+		const char* outputPrefix = argc > 2 ? argv[2] : 0;
+		if (!ToolPSG_ExportWAVFiles(ddb, argv[1], outputPrefix))
+			return 1;
+		return 0;
+	}
+	#endif
+
 	printf("DDB file loaded (%s, %s, %s, %d bytes)\n",
 		argv[1], DDB_DescribeVersion(ddb->version),
 		ddb->littleEndian ? "little endian" : "big endian",
@@ -476,6 +693,8 @@ int main (int argc, char *argv[])
 			printf("    - Includes extra object attributes\n");
 		if (ddb->hasTokens && ddb->tokenBlockSize > 1)
 			printf("    - Text is compressed (%d bytes in tokens)\n", (int)ddb->tokenBlockSize);
+		if (ddb->externPsgTable && ddb->externPsgCount != 0)
+			printf("    - Includes %d EXTERN PSG streams\n", ddb->externPsgCount);
 		DDB_DumpMetrics(ddb, printf);
 		if (showMemoryMap)
 			PrintDDBMemoryMap(ddb);

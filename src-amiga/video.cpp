@@ -1094,6 +1094,19 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	DebugPrintf("Loaded %s in %lu ms\n", loadedName, (unsigned long)(GetMilliseconds() - tOpen));
 
+	#if HAS_PSG
+	if (screenMachine == DDB_MACHINE_ATARIST || screenMachine == DDB_MACHINE_AMIGA)
+	{
+		if (!DDB_InitializePSGPlayback())
+		{
+			DMG_Close(dmg);
+			dmg = 0;
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+	}
+	#endif
+
 	if (scratchDisplayBuffer != 0)
 		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 

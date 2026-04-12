@@ -7,10 +7,10 @@ CPPFLAGS += -Ilib/sdl2/include
 LDFLAGS  += lib/osx/libSDL2.a lib/osx/libSDL2main.a
 LDFLAGS  += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
 
-CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON -D_DEBUGPRINT
+CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -D_STDCLIB -D_UNIX -DTRACE_ON -D_DEBUGPRINT
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_DRAWSTRING
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
 CPPFLAGS += -g -DVERSION=$(VERSION)
 CPPFLAGS += -O2
@@ -18,7 +18,7 @@ CPPFLAGS += -O2
 CPPFLAGS += `libpng-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 
-DIRS = src-common/ src-salvador/
+DIRS = src-common/ lib-src/salvador/
 VPATH = $(DIRS) src-sdl/ src-unix/ src-tools/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = dmg_edit dmg_pack img ddb_writ cli_parser

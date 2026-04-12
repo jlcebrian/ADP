@@ -36,12 +36,19 @@ static bool     quit;
 static uint8_t  palette[16][3];
 static uint16_t colors[16];
 
+struct STPaletteState
+{
+	uint8_t  palette[16][3];
+	uint16_t colors[16];
+};
+
 void VID_SetDisplayPlanesHint(uint8_t planes)
 {
 	(void)planes;
 }
 
 bool exitGame = false;
+DDB_Machine screenMachine = DDB_MACHINE_ATARIST;
 bool supportsOpenFileDialog = false;
 
 #ifndef MAX_PATH
@@ -55,10 +62,13 @@ static uint16_t* frontBuffer = 0;
 static uint16_t* backBuffer = 0;
 static uint8_t*  backBufferMemory = 0;
 static bool      backBufferEnabled = false;
+static STPaletteState frontPaletteState;
+static STPaletteState backPaletteState;
 
 static bool      displaySwap = false;
 static bool      drawToFront = true;
 static bool      textToFront = true;
+static bool      paletteToFront = true;
 
 static DMG*       pictureOrigin;
 static DMG_Entry* pictureEntry = 0;
@@ -178,6 +188,50 @@ static uint16_t ColorValue(uint8_t r, uint8_t g, uint8_t b)
 	return (uint16_t)b | ((uint16_t)g << 4) | ((uint16_t)r << 8);
 }
 
+static void VID_CopyPaletteState(STPaletteState* dst, const STPaletteState* src)
+{
+	MemCopy(dst, src, sizeof(*dst));
+}
+
+static void VID_LoadHardwarePaletteFromState(const STPaletteState* state)
+{
+	for (int n = 0; n < 16; n++)
+	{
+		palette[n][0] = state->palette[n][0];
+		palette[n][1] = state->palette[n][1];
+		palette[n][2] = state->palette[n][2];
+		colors[n] = state->colors[n];
+	}
+}
+
+static void VID_SetPaletteEntry(STPaletteState* state, uint8_t color, uint8_t r, uint8_t g, uint8_t b)
+{
+	state->palette[color][0] = r;
+	state->palette[color][1] = g;
+	state->palette[color][2] = b;
+	state->colors[color] = ColorValue(r, g, b);
+}
+
+static void VID_SetPaletteEntry16(STPaletteState* state, uint8_t color, uint16_t c)
+{
+	uint32_t c32 = Pal2RGB(c, false);
+	state->palette[color][0] = (c32 >> 16) & 0xFF;
+	state->palette[color][1] = (c32 >>  8) & 0xFF;
+	state->palette[color][2] = (c32      ) & 0xFF;
+	state->colors[color] = c;
+}
+
+static void VID_LoadPaletteFromRGB32(STPaletteState* state, const uint32_t* pal)
+{
+	for (int n = 0; n < 16; n++)
+	{
+		uint8_t r = (pal[n] >> 16) & 0xFF;
+		uint8_t g = (pal[n] >>  8) & 0xFF;
+		uint8_t b = (pal[n]      ) & 0xFF;
+		VID_SetPaletteEntry(state, (uint8_t)n, r, g, b);
+	}
+}
+
 static void VID_ApplyPalette(bool waitForVsync)
 {
 	if (waitForVsync)
@@ -191,11 +245,17 @@ static bool VID_PaletteMatches(const uint32_t* pal)
 	if (pal == 0)
 		return false;
 
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ?
+			(displaySwap ? &backPaletteState : &frontPaletteState) :
+			(displaySwap ? &frontPaletteState : &backPaletteState);
+
 	for (int n = 0; n < 16; n++)
 	{
-		if (palette[n][0] != ((pal[n] >> 16) & 0xFF) ||
-			palette[n][1] != ((pal[n] >> 8) & 0xFF) ||
-			palette[n][2] != (pal[n] & 0xFF))
+		if (state->palette[n][0] != ((pal[n] >> 16) & 0xFF) ||
+			state->palette[n][1] != ((pal[n] >> 8) & 0xFF) ||
+			state->palette[n][2] != (pal[n] & 0xFF))
 			return false;
 	}
 
@@ -204,31 +264,15 @@ static bool VID_PaletteMatches(const uint32_t* pal)
 
 static void VID_SetPaletteInternal(uint32_t* pal, bool waitForVsync)
 {
-	for (int n = 0; n < 16; n++)
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ? visibleState : (displaySwap ? &frontPaletteState : &backPaletteState);
+	VID_LoadPaletteFromRGB32(state, pal);
+	if (state == visibleState)
 	{
-		uint8_t r = (pal[n] >> 16) & 0xFF;
-		uint8_t g = (pal[n] >>  8) & 0xFF;
-		uint8_t b = (pal[n]      ) & 0xFF;
-		palette[n][0] = r;
-		palette[n][1] = g;
-		palette[n][2] = b;
-		colors[n] = ColorValue(r, g, b);
-	}
-
-	VID_ApplyPalette(waitForVsync);
-}
-
-static void VID_StagePalette(uint32_t* pal)
-{
-	for (int n = 0; n < 16; n++)
-	{
-		uint8_t r = (pal[n] >> 16) & 0xFF;
-		uint8_t g = (pal[n] >>  8) & 0xFF;
-		uint8_t b = (pal[n]      ) & 0xFF;
-		palette[n][0] = r;
-		palette[n][1] = g;
-		palette[n][2] = b;
-		colors[n] = ColorValue(r, g, b);
+		VID_LoadHardwarePaletteFromState(state);
+		VID_ApplyPalette(waitForVsync);
 	}
 }
 
@@ -347,28 +391,44 @@ static void VID_BlitPictureTo(uint16_t* dstBase, const uint16_t* srcBase, uint32
 
 static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool paletteUpdated, int x, int y, int w, int h)
 {
-	if (!drawToFront)
+	if (!drawToFront) {
+		// DebugPrintf("Atomic picture present not available: drawing to back buffer\n");
 		return false;
-	if (!paletteUpdated)
+	}
+	if (!paletteUpdated) {
+		// DebugPrintf("Atomic picture present not available: picture contains no palette changes\n");
 		return false;
-	if (pictureData == 0)
+	}
+	if (pictureData == 0) {
+		// DebugPrintf("Atomic picture present not available: picture data is null\n");
 		return false;
+	}
 
 	uint8_t* tempBase = DMG_GetTemporaryBufferBase();
-	if (tempBase == 0 || DMG_GetTemporaryBufferSize() < 32000)
+	if (tempBase == 0) {
+		// DebugPrintf("Atomic picture present not available: no temporary buffer\n");
 		return false;
+	}
+	if (tempBase == 0 || DMG_GetTemporaryBufferSize() < 32000) {
+		// DebugPrintf("Atomic picture present not available: buffer too small (%u bytes)\n", DMG_GetTemporaryBufferSize());
+		return false;
+	}
 
 	uint16_t* visibleBuffer = displaySwap ? backBuffer : frontBuffer;
+	STPaletteState* visiblePalette = displaySwap ? &backPaletteState : &frontPaletteState;
 	uint16_t* tempScreen = (uint16_t*)tempBase;
 	const uint16_t* sourcePicture = pictureData;
 	uint32_t sourceStride = pictureStride;
 
-	if (DMG_IsTemporaryBufferPointer(pictureData))
+	if (DMG_IsTemporaryBufferPointer(pictureData)) {
+		// DebugPrintf("Atomic picture present not available: picture comes from temporary buffer\n", DMG_GetTemporaryBufferSize());
 		return false;
+	}
 
 	memcpy(tempScreen, visibleBuffer, 32000);
 	VID_BlitPictureTo(tempScreen, sourcePicture, sourceStride, x, y, w, h);
-	VID_StagePalette(pal);
+	VID_LoadPaletteFromRGB32(visiblePalette, pal);
+	VID_LoadHardwarePaletteFromState(visiblePalette);
 
 	// Setscreen becomes active on the next VBL, so switch first, wait once, then latch the palette.
 	Setscreen(-1, tempScreen, -1);
@@ -552,7 +612,11 @@ void VID_ClearBuffer (bool front)
 	if (!front && !backBufferEnabled)
 		return;
 		
-	uint16_t* ptr = front ^ displaySwap ? frontBuffer : backBuffer;
+	uint16_t* ptr = frontBuffer;
+	if (backBufferEnabled)
+		ptr = front ?
+			(displaySwap ? backBuffer : frontBuffer) :
+			(displaySwap ? frontBuffer : backBuffer);
 	MemClear(ptr, 32000);
 }
 
@@ -582,7 +646,12 @@ void VID_SetPalette (uint32_t* pal)
 	for (int color = 0; color < 16; color++)
 	{
 		char buf[8];
-		uint16_t v = colors[color];
+		STPaletteState* state = &frontPaletteState;
+		if (backBufferEnabled)
+			state = paletteToFront ?
+				(displaySwap ? &backPaletteState : &frontPaletteState) :
+				(displaySwap ? &frontPaletteState : &backPaletteState);
+		uint16_t v = state->colors[color];
 		sprintf(buf, "%04X", v);
 		VID_DrawCharacter(6 + 40*(color & 3), 8 + 8*(color >> 2), ' ', 15, color);
 		for (int n = 0; n < 4; n++)
@@ -593,22 +662,26 @@ void VID_SetPalette (uint32_t* pal)
 
 void VID_SetPaletteColor16 (uint8_t color, uint16_t c)
 {
-	uint32_t c32 = Pal2RGB(c, false);
-	palette[color][0] = (c32 >> 16) & 0xFF;
-	palette[color][1] = (c32 >>  8) & 0xFF;
-	palette[color][2] = (c32      ) & 0xFF;
-	colors[color] = c;
-	Setcolor(color, c);
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ? visibleState : (displaySwap ? &frontPaletteState : &backPaletteState);
+	VID_SetPaletteEntry16(state, color, c);
+	if (state == visibleState)
+	{
+		VID_LoadHardwarePaletteFromState(state);
+		Setcolor(color, c);
+	}
 }
 
 void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 {
 	uint16_t v = ColorValue(r, g, b);
-	
-	palette[color][0] = r;
-	palette[color][1] = g;
-	palette[color][2] = b;
-	colors[color] = v;
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ? visibleState : (displaySwap ? &frontPaletteState : &backPaletteState);
+	VID_SetPaletteEntry(state, color, r, g, b);
 
 #if DEBUG_PALETTE
 	char buf[8];
@@ -618,11 +691,17 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 		VID_DrawCharacter(14 + 40*(color & 3)+6*n, 8 + 8*(color >> 2), buf[n], 15, 0);
 #endif
 
-	Setcolor(color, v);
+	if (state == visibleState)
+	{
+		VID_LoadHardwarePaletteFromState(state);
+		Setcolor(color, v);
+	}
 }
 
 void VID_ActivatePalette()
 {
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	VID_LoadHardwarePaletteFromState(visibleState);
 	VID_ApplyPalette(true);
 }
 
@@ -789,9 +868,14 @@ void VID_GetMilliseconds (uint32_t* time)
 
 void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 {
-	if (r) *r = palette[color][0];
-	if (g) *g = palette[color][1];
-	if (b) *b = palette[color][2];
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ?
+			(displaySwap ? &backPaletteState : &frontPaletteState) :
+			(displaySwap ? &frontPaletteState : &backPaletteState);
+	if (r) *r = state->palette[color][0];
+	if (g) *g = state->palette[color][1];
+	if (b) *b = state->palette[color][2];
 }
 
 uint16_t VID_GetPaletteSize()
@@ -915,9 +999,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			VID_SetPaletteInternal(palette, false);
 	}
 	else if (paletteUpdated)
-	{
-		VID_SetPaletteInternal(palette, true);
-	}
+		VID_SetPaletteInternal(palette, false);
 
 	VID_BlitPictureTo(screen, pictureData, pictureStride, x, y, w, h);
 }
@@ -1058,8 +1140,15 @@ void VID_Quit ()
 
 void VID_UpdateScreenPointers()
 {
+	if (!backBufferEnabled)
+	{
+		screen = frontBuffer;
+		textScreen = frontBuffer;
+		return;
+	}
+
 	screen = (drawToFront ^ displaySwap) ? frontBuffer : backBuffer;
-	textScreen = (textToFront ^ displaySwap)  ? frontBuffer : backBuffer;
+	textScreen = (textToFront ^ displaySwap) ? frontBuffer : backBuffer;
 }
 
 void VID_SetTextInputMode (bool enabled)
@@ -1074,7 +1163,12 @@ void VID_SwapScreen ()
 
 	displaySwap = !displaySwap;
 	VID_UpdateScreenPointers();
-	Setscreen(-1, displaySwap ? backBuffer : frontBuffer, 0);
+
+	uint16_t* visibleBuffer = displaySwap ? backBuffer : frontBuffer;
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	VID_LoadHardwarePaletteFromState(visibleState);
+	Setscreen(-1, visibleBuffer, -1);
+	VID_ApplyPalette(true);
 }
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
@@ -1085,7 +1179,10 @@ void VID_SetOpBuffer (SCR_Operation op, bool front)
 	if (op == SCR_OP_DRAWTEXT)
 		textToFront = front;
 	else if (op == SCR_OP_DRAWPICTURE)
+	{
 		drawToFront = front;
+		paletteToFront = front;
+	}
 	VID_UpdateScreenPointers();
 }
 
@@ -1093,10 +1190,15 @@ void VID_RestoreScreen ()
 {
 	if (!backBufferEnabled)
 		return;
-		
+
+	VID_SwapScreen();
+
 	uint16_t* front = displaySwap ? backBuffer : frontBuffer;
-	uint16_t* back  = displaySwap ? frontBuffer : backBuffer;
-	memcpy(front, back, 32000);
+	uint16_t* back = displaySwap ? frontBuffer : backBuffer;
+	STPaletteState* frontState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* backState = displaySwap ? &frontPaletteState : &backPaletteState;
+	memcpy(back, front, 32000);
+	VID_CopyPaletteState(backState, frontState);
 }
 
 void VID_SaveScreen ()
@@ -1106,7 +1208,10 @@ void VID_SaveScreen ()
 		
 	uint16_t* front = displaySwap ? backBuffer : frontBuffer;
 	uint16_t* back  = displaySwap ? frontBuffer : backBuffer;
+	STPaletteState* frontState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* backState = displaySwap ? &frontPaletteState : &backPaletteState;
 	memcpy(back, front, 32000);
+	VID_CopyPaletteState(backState, frontState);
 }
 
 void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
@@ -1137,6 +1242,8 @@ void VID_EnableBackBuffer()
 		backBuffer = (uint16_t*)((((unsigned long)backBufferMemory) + 255u) & ~255u);
 		memset(backBuffer, 0, 32000);
 	}
+
+	VID_CopyPaletteState(&backPaletteState, &frontPaletteState);
 }
 
 bool VID_IsBackBufferEnabled()
@@ -1146,10 +1253,14 @@ bool VID_IsBackBufferEnabled()
 
 bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
 {
+	(void)machine;
+	(void)version;
+	(void)screenMode;
 	screenWidth  = 320;
 	screenHeight = 200;
 	lineHeight   = 8;
 	columnWidth  = 6;
+	screenMachine = DDB_MACHINE_ATARIST;
 	screenWidth  = 320;
 	screenHeight = 200;
 	for (int n = 0; n < 256; n++)
@@ -1157,6 +1268,12 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
+	displaySwap = false;
+	drawToFront = true;
+	textToFront = true;
+	paletteToFront = true;
+	MemClear(&frontPaletteState, sizeof(frontPaletteState));
+	MemClear(&backPaletteState, sizeof(backPaletteState));
 
 	frontBuffer = (uint16_t*)Physbase();
 	memset(frontBuffer, 0, 32000);
@@ -1169,12 +1286,14 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 			return false;
 		backBuffer = (uint16_t*)((((unsigned long)backBufferMemory) + 255u) & ~255u);
 		memset(backBuffer, 0, 32000);
+		VID_CopyPaletteState(&backPaletteState, &frontPaletteState);
 	}
 
 	VID_UpdateScreenPointers();
 	if (!VID_InitializeTextDraw())
 		return false;
 	VID_SetDefaultPalette();
+	VID_CopyPaletteState(&backPaletteState, &frontPaletteState);
 
 	HideCursor();
 	VID_Clear(0, 0, 320, 200, 0);

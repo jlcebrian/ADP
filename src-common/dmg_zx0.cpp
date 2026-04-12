@@ -8,7 +8,7 @@
 
 #if DMG_USE_SALVADOR_COMPRESSOR
 extern "C" {
-#include "../src-salvador/libsalvador.h"
+#include <libsalvador.h>
 }
 #endif
 

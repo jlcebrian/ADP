@@ -258,7 +258,7 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 
 		uint8_t  verb   = entry[0];
 		uint8_t  noun   = entry[1];
-		uint16_t offset = read16(entry + 2, ddb->littleEndian);
+		uint16_t offset = *(uint16_t*)(entry + 2);
 		uint8_t* code   = ddb->data + offset;
 		if (code >= ddb->data + ddb->dataSize || code == ddb->data)
 			break;
@@ -392,7 +392,7 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 			continue;
 
 		print("/%d\n", n);
-		while (*ptr != 0xFF && ptr < ddb->data + ddb->dataSize)
+		while (ptr < ddb->data + ddb->dataSize && *ptr != 0xFF)
 		{
 			print("    ");
 			DDB_DumpVocabularyWord(ddb, WordType_Verb, *ptr++, print);
@@ -507,7 +507,7 @@ int DDB_DumpMessageTableMetrics (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print
 		uint16_t offset = table[n];
 		if (offset == 0) continue;
 		uint8_t* ptr = ddb->data + offset;
-		while (*ptr != endMarker && ptr < ddb->data + ddb->dataSize)
+		while (ptr < ddb->data + ddb->dataSize && *ptr != endMarker)
 		{
 			ptr++;
 			total++;
@@ -555,7 +555,7 @@ void DDB_DumpMetrics (DDB* ddb, DDB_PrintFunc print)
 	{
 		uint8_t* ptr = ddb->locConnections[n];
 		if (ptr == 0) continue;
-		while (*ptr != 0xFF && ptr < ddb->data + ddb->dataSize)
+		while (ptr < ddb->data + ddb->dataSize && *ptr != 0xFF)
 			ptr++, count++;
 		count++;
 	}
@@ -576,7 +576,7 @@ void DDB_DumpMetrics (DDB* ddb, DDB_PrintFunc print)
 
 			// uint8_t  verb   = entry[0];
 			// uint8_t  noun   = entry[1];
-			uint16_t offset = read16(entry + 2, ddb->littleEndian);
+			uint16_t offset = *(uint16_t*)(entry + 2);
 			uint8_t* code   = ddb->data + offset;
 			uint8_t* start  = code;
 			if (code >= ddb->data + ddb->dataSize || code == ddb->data)

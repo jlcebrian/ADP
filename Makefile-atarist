@@ -17,7 +17,7 @@ NM       = $(PREFIX)nm
 VASM     = vasmm68k_mot
 
 OUTDIR := out/atarist
-TARGET := $(OUTDIR)/ad.prg
+TARGET := $(OUTDIR)/adp.prg
 DUMP   := $(OUTDIR)/player.dump
 
 ifeq ($(UPX),1)
@@ -26,7 +26,7 @@ else
 PACK_CMD = true
 endif
 
-CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT -DHAS_XMSG
+CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT -DHAS_XMSG -DHAS_PSG
 CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 
@@ -60,6 +60,7 @@ CPPFILES := 		\
 	ddb_inp.cpp		\
 	ddb_pal.cpp		\
 	ddb_play.cpp	\
+	ddb_psg.cpp		\
 	ddb_run.cpp		\
 	ddb_scr.cpp		\
 	ddb_snap.cpp	\
@@ -76,7 +77,7 @@ CPPFILES := 		\
 	dmg_rleo.cpp	\
 	dmg_rleop.cpp	\
 	dmg_univ.cpp	\
-	dmg_zx0.cpp	\
+	dmg_zx0.cpp	    \
 	dmg.cpp			\
 	os_char.cpp 	\
 	os_lib.cpp		\
@@ -109,8 +110,7 @@ $(TARGET): $(CPPOBJS) $(ASMOBJS) | $(OUTDIR)
 	$(NM) --print-size --size-sort --radix=d $@ >> $(DUMP)
 	$(STRIP) $@
 	$(PACK_CMD)
-	@cd out && ./dsk atarist/original.st add atarist/ad.prg
-	@find out/atarist/ -type d -exec cp out/atarist/ad.prg {} \;
+	@find tests/atarist/ -type d -exec cp out/atarist/adp.prg {} \;
 
 $(OUTDIR):
 	mkdir -p $@

@@ -234,26 +234,26 @@ void VID_SetCharsetWidth(uint8_t w)
 
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
-	FILE* file = fopen(filename, "rb");
+	File* file = File_Open(filename, ReadOnly);
 	if (file == NULL)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
 	}
-	fseek(file, 0, SEEK_END);
-	if (ftell(file) != 2176)
+	if (File_GetSize(file) != 2176)
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		fclose(file);
+		File_Close(file);
 		return false;
 	}
-	fseek(file, 128, SEEK_SET);
-	if (fread(ptr, 1, 2048, file) != 2048)
+	File_Seek(file, 128);
+	if (File_Read(file, ptr, 2048) != 2048)
 	{
-		fclose(file);
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		File_Close(file);
 		return false;
 	}
-	fclose(file);
+	File_Close(file);
 	return true;
 }
 
@@ -1872,7 +1872,10 @@ bool VID_LoadDataFile(const char* fileName)
 	fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
 		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
 
-	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	if (!fontLoaded &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		// Keep the default fixed-width charset restored above.
@@ -1893,6 +1896,19 @@ bool VID_LoadDataFile(const char* fileName)
 			memcpy (DefaultPalette, palette, sizeof(DefaultPalette));
 		}
 	}
+
+	#if HAS_PSG
+	if ((screenMachine == DDB_MACHINE_ATARIST || screenMachine == DDB_MACHINE_AMIGA) && !DDB_InitializePSGPlayback())
+	{
+		if (dmg != NULL)
+		{
+			DMG_Close(dmg);
+			dmg = NULL;
+		}
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+	#endif
 
 	// Uncomment the following lines to test Atari/Amiga caches in desktop/web:
 	// DMG_SetupFileCache(dmg);

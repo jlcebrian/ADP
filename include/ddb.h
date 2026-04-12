@@ -3,6 +3,10 @@
 
 #include <os_types.h>
 
+#ifndef HAS_PSG
+#define HAS_PSG 0
+#endif
+
 #define MAX_DDB_SIZE	 65536
 #define MAX_PROC_STACK 	 16
 #define HISTORY_SIZE     1024
@@ -470,6 +474,8 @@ struct DDB
 	uint16_t*		conTable;
 	uint8_t*		vocabulary;
 	uint8_t*        externData;
+	uint16_t*       externPsgTable;
+	uint8_t         externPsgCount;
 	uint8_t*        charsets;
 	uint8_t         curCharset;
 
@@ -488,6 +494,36 @@ struct DDB
 	uint8_t*		data;
 	uint32_t		dataSize;
 	uint16_t		baseOffset;
+};
+
+enum
+{
+	DDB_PSG_SAMPLE_RATE = 12500,
+	DDB_PSG_TICK_HZ = 50,
+	DDB_PSG_SAMPLES_PER_TICK = DDB_PSG_SAMPLE_RATE / DDB_PSG_TICK_HZ,
+};
+
+struct DDB_PSGState
+{
+	uint8_t regs[16];
+	uint8_t tempRegister;
+	double tonePhase[3];
+	double toneStep[3];
+	double noisePhase;
+	double noiseStep;
+	double envelopePhase;
+	double envelopeStep;
+	uint32_t lfsr;
+	uint8_t envelopeLevel;
+	int16_t smoothedMix;
+	uint8_t rampRemaining;
+	bool outputInitialized;
+	bool envelopeContinue;
+	bool envelopeAttack;
+	bool envelopeAlternate;
+	bool envelopeHold;
+	bool envelopeHolding;
+	bool envelopeAscending;
 };
 
 struct DDB_Window
@@ -672,6 +708,12 @@ extern DDB*             DDB_Create               ();
 extern bool             DDB_SupportsDataFile     (DDB_Version ddb, DDB_Machine target);
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
 extern const char* 		DDB_GetDebugMessage 	 (DDB* ddb, DDB_MsgType type, uint8_t msgId);
+extern bool             DDB_GetExternalPSGStreamRange(const DDB* ddb, uint8_t soundIndex, uint32_t* start, uint32_t* end);
+extern bool             DDB_InitializePSGPlayback   ();
+extern bool             DDB_EstimatePSGStreamTicks(const uint8_t* start, const uint8_t* end, uint32_t maxTicks, uint32_t* totalTicks);
+extern bool             DDB_RenderPSGStream      (const uint8_t* start, const uint8_t* end, uint8_t* output, uint32_t totalTicks, DDB_PSGState* finalState);
+extern void             DDB_RenderPSGTicks       (DDB_PSGState* state, uint8_t* output, uint32_t ticks);
+extern bool             DDB_PlayExternalPSG      (DDB* ddb, uint8_t soundIndex);
 extern const char*		DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
 extern void				DDB_Dump				 (DDB* ddb, DDB_PrintFunc print);
 extern void				DDB_DumpMetrics			 (DDB* ddb, DDB_PrintFunc print);

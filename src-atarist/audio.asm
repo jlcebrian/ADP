@@ -1,6 +1,7 @@
 	SECTION	.text
 
 	xdef	_PlaySample
+	xdef	_PlayDosound
 
 ; Parameters from stack:
 
@@ -37,6 +38,18 @@ _PlaySample:
 		bsr	StartKeyboardBuffer
 		move.w	#$2000,sr			; Status register: supervisor mode + interrupt priority mask 0
 	.ret:	movem.l	(sp)+,d2-d7/a2-a6
+		rts
+
+; Parameters from stack:
+
+; APTR	Dosound command list
+
+_PlayDosound:
+		movea.l	4(sp),a0
+		pea.l	(a0)
+		move.w	#$0020,-(sp)
+		trap	#$0e			; Dosound(cmdlist ptr)
+		adda.w	#$0006,sp
 		rts
 
 SaveMFPState:

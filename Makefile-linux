@@ -1,9 +1,9 @@
 VERSION ?= BETA0.3
 
-CPPFLAGS += -Iinclude -Iinclude-tools -D_STDCLIB -D_UNIX -DTRACE_ON 
+CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -D_STDCLIB -D_UNIX -DTRACE_ON 
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG -DDEBUG_ALLOCS
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -D_DEBUGPRINT
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG -D_DEBUGPRINT
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 CPPFLAGS += -O2
@@ -13,7 +13,7 @@ CPPFLAGS += `sdl2-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 LDFLAGS += `sdl2-config --libs`
 
-DIRS = src-common/ src-salvador/
+DIRS = src-common/ lib-src/salvador/
 VPATH = $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = dmg_edit dmg_pack img ddb_writ cli_parser

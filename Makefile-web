@@ -9,15 +9,15 @@ LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
 	-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap'] \
 	-sEXPORTED_FUNCTIONS=_main,_KeyPressed,_RunGame,_RunGameFromTXT,_RunGameFrom,_SaveFile,_malloc
 	
-CPPFLAGS += -Iinclude -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT -DTRACE_ON
+CPPFLAGS += -Iinclude -Ilib-src/salvador -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT -DTRACE_ON
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN -DHAS_VIRTUALFILESYSTEM -DHAS_SNAPSHOTS -DHAS_DRAWSTRING -DHAS_PAWS
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 CPPFLAGS += -g -DVERSION=$(VERSION)
 
 TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
 
-DIRS = src-common/ src-salvador/ src-sdl/ src-unix/
+DIRS = src-common/ lib-src/salvador/ src-sdl/ src-unix/
 VPATH = $(DIRS) src-tools/
 
 SRCS := \
@@ -28,6 +28,7 @@ SRCS := \
 	ddb_inp.cpp \
 	ddb_pal.cpp \
 	ddb_play.cpp \
+	ddb_psg.cpp \
 	ddb_run.cpp \
 	ddb_scr.cpp \
 	ddb_vid.cpp \

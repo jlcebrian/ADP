@@ -3,11 +3,13 @@
 #include <ddb_scr.h>
 #include <ddb_vid.h>
 #include <ddb_pal.h>
+#include <os_file.h>
 #include <os_mem.h>
 
 #ifdef _ATARIST
 
 #include <mint/cookie.h>
+#include <mint/basepage.h>
 #include <mint/ostruct.h>
 #include <mint/sysvars.h>
 #include <osbind.h>
@@ -27,6 +29,58 @@ static int16_t savedRez;
 static int16_t savedShift;
 static int16_t savedFalconMode;
 static bool savedFalconModeValid;
+
+static bool GetExecutablePathFromBasepage(char* buffer, size_t bufferSize)
+{
+	if (buffer == 0 || bufferSize == 0 || _base == 0 || _base->p_env == 0)
+		return false;
+
+	const char* ptr = _base->p_env;
+	while (*ptr != 0)
+	{
+		while (*ptr++ != 0)
+		{
+		}
+	}
+	ptr++;
+	if (*ptr == 0)
+		return false;
+
+	strncpy(buffer, ptr, bufferSize - 1);
+	buffer[bufferSize - 1] = 0;
+	return true;
+}
+
+static bool ChangeToExecutableDirectory(int argc, char* argv[])
+{
+	char executablePath[FILE_MAX_PATH];
+	executablePath[0] = 0;
+
+	if (!GetExecutablePathFromBasepage(executablePath, sizeof(executablePath)))
+	{
+		if (argc <= 0 || argv == 0 || argv[0] == 0)
+			return false;
+
+		strncpy(executablePath, argv[0], sizeof(executablePath) - 1);
+		executablePath[sizeof(executablePath) - 1] = 0;
+	}
+
+	char* lastSlash = strrchr(executablePath, '\\');
+	char* lastAltSlash = strrchr(executablePath, '/');
+	char* lastSeparator = lastSlash;
+	if (lastAltSlash != 0 && (lastSeparator == 0 || lastAltSlash > lastSeparator))
+		lastSeparator = lastAltSlash;
+
+	if (lastSeparator == 0)
+		return false;
+
+	if (lastSeparator == executablePath || (lastSeparator == executablePath + 2 && executablePath[1] == ':'))
+		lastSeparator[1] = 0;
+	else
+		*lastSeparator = 0;
+
+	return OS_ChangeDirectory(executablePath);
+}
 
 enum
 {
@@ -133,6 +187,7 @@ int main (int argc, char *argv[])
 	char file[32];
 
 	init();
+	ChangeToExecutableDirectory(argc, argv);
 
 	uint32_t freeRam = Malloc(-1);
 	DebugPrintf("Free RAM: %d\n", freeRam);

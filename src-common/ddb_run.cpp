@@ -11,6 +11,10 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
+#if HAS_PSG
+extern bool DDB_PlayExternalPSG(DDB* ddb, uint8_t soundIndex);
+#endif
+
 #define PAUSE_ON_INKEY 0
 #define DEBUG_UNDO 0
 
@@ -1437,6 +1441,14 @@ static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 		i->doallLocno = locno;
 		i->flags[Flag_DoAllLocNo] = locno;
 		i->flags[Flag_ListFlags] &= ~ListFlag_DoallFailed;
+
+	#if TRACE_ON
+		int total = 0;
+		for (int n = 0; n < i->ddb->numObjects; n++)
+			if (i->objloc[n] == locno)
+				total++;
+		TRACE("(%d objects in loc %d)", total, locno);
+	#endif
 		n = 0;
 	}
 	else
@@ -1452,7 +1464,7 @@ static bool DoAll (DDB_Interpreter* i, uint8_t locno, bool start)
 			uint8_t adjective = i->ddb->objWordsTable[2 * n + 1];
 			if (i->flags[Flag_Noun2] != 255 && i->flags[Flag_Noun2] == noun)
 			{
-				if (i->flags[Flag_Adjective2] == 255 || i->flags[Flag_Adjective2] != adjective)
+				if (i->flags[Flag_Adjective2] == 255 || i->flags[Flag_Adjective2] == adjective)
 					continue;
 			}
 			i->flags[Flag_Noun1] = i->ddb->objWordsTable[2*n];
@@ -3352,7 +3364,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->doallOffset = offset + params + 1;
 				UpdatePos(i, process, entry, offset + params + 1);
 				if (!DoAll(i, param0, true))
-					ok = false;
+					goto case_DONE;
 				break;
 
 			// Graphics and window management condacts
@@ -3822,6 +3834,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						i->cellX = savedCellX;
 						i->cellW = savedCellW;
 					}
+					i->done = true;
+					break;
+				}
+				#endif
+
+				#if HAS_PSG
+				if (param1 == 0 && DDB_PlayExternalPSG(i->ddb, param0))
+				{
+					TRACE("[PSG stream %d played]", param0);
 					i->done = true;
 					break;
 				}

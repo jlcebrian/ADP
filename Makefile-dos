@@ -34,7 +34,7 @@ ROOT = ../..
 CC    = wpp386
 CL    = wcl386
 OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd -DVERSION=$VERSION
-OPTS += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DNO_BUFFERING
+OPTS += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DHAS_PSG -DNO_BUFFERING
 OPTIM = -osexanuc -zc -3 -r
 LOPTS = -l=CAUSEWAY
 UPX   = upx
@@ -45,7 +45,7 @@ UPX   = upx
 CC     = wpp
 CL     = wcl
 OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm -DVERSION=$VERSION
-OPTS  += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DNO_BUFFERING
+OPTS  += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DHAS_PSG -DNO_BUFFERING
 OPTIM  = -osexanuc
 UPX    = upx
 
@@ -65,6 +65,7 @@ OBJS = 		      &
 	ddb.obj       &
 	ddb_pal.obj   &
 	ddb_play.obj  &
+	ddb_psg.obj   &
 	ddb_xmsg.obj  &
 	dmg.obj       &
 	dmg_font.obj  &

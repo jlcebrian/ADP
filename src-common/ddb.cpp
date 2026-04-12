@@ -17,6 +17,10 @@ DDB_Interpreter*    interpreter;
 static DDB_Error 	ddbError = DDB_ERROR_NONE;
 static void 		(*warningHandler)(const char* message) = 0;
 
+#if HAS_PSG
+void DDB_DetectPSGExternalTable(DDB* ddb, uint32_t firstSectionOffset);
+#endif
+
 static uint16_t DDB_GetBaseOffsetForMachine(DDB_Machine target)
 {
 	switch (target)
@@ -284,6 +288,13 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 			ddb->externData = data + externOffset - ddb->baseOffset;
 		}
 	}
+
+	#if HAS_PSG
+	DDB_DetectPSGExternalTable(ddb, firstSectionOffset);
+	#else
+	ddb->externPsgTable = 0;
+	ddb->externPsgCount = 0;
+	#endif
 
 	return true;
 }
@@ -960,10 +971,11 @@ void DDB_FixOffsets (DDB* ddb)
 			{
 				DDB_Warning("Invalid entry %d offset 0x%04X in process %d", entryIndex, entryOffset, n);
 				ddbError = DDB_ERROR_INVALID_FILE;
-				write16(entry + 2, 0, ddb->littleEndian);
+				uint16_t zero = 0;
+				MemCopy(entry + 2, &zero, sizeof(zero));
 				break;
 			}
-			write16(entry + 2, entryOffset, ddb->littleEndian);
+			MemCopy(entry + 2, &entryOffset, sizeof(entryOffset));
 
 			entry += 4;
 			entryIndex++;

@@ -23,7 +23,6 @@ bool DMG_DecompressNewRLE (const uint8_t* d, uint16_t rleMask, uint16_t dataLeng
 	bool outcm = false;
 
 	DMG_SetError(DMG_ERROR_NONE);
-	DebugPrintf("Decompressing new RLE image (%u bytes)", (unsigned)dataLength);
 
 	while (pixels > 0)
 	{
