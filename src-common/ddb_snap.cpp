@@ -13,6 +13,17 @@ static uint8_t* snapshotRAM = 0;
 static uint32_t snapshotSize = 0;
 static uint8_t* snapshotDDB = 0;
 
+static bool DetachSnapshot(uint8_t** ram, size_t* size, DDB_Machine* machine, DDB_Machine snapshotMachine)
+{
+	if (machine) *machine = snapshotMachine;
+	if (ram) *ram = snapshotRAM;
+	if (size) *size = snapshotSize;
+	snapshotRAM = 0;
+	snapshotSize = 0;
+	snapshotDDB = 0;
+	return true;
+}
+
 static bool CheckExtension(const char* filename, const char* ext)
 {
 	const char* p = StrRChr(filename, '.');
@@ -713,6 +724,45 @@ static bool LoadSnapshotFromTZX (File* file)
 //  RAW file support
 // ----------------------------------------------------------------------------
 
+static void RelocateCPCGraphicsFromRAW(size_t ddbOffset)
+{
+	const uint16_t ddbBaseOffset = 0x2880;
+	const uint16_t interpreterBase = 0x0840;
+	const uint16_t graphicsTop = 0xA600;
+	const uint16_t spareFieldOffset = 0x20;
+
+	if (ddbOffset < ddbBaseOffset - interpreterBase)
+		return;
+
+	size_t loaderOffset = ddbOffset - (ddbBaseOffset - interpreterBase);
+	if (loaderOffset + 5 > snapshotSize)
+		return;
+
+	// CPC interpreter binaries store the appended graphics length right after
+	// the initial JP, patched in by the original builder.
+	if (snapshotRAM[loaderOffset] != 0xC3)
+		return;
+
+	uint16_t gdlen = read16LE(snapshotRAM + loaderOffset + 3);
+	if (gdlen == 0)
+		return;
+
+	if (ddbBaseOffset + spareFieldOffset + 2 > snapshotSize)
+		return;
+
+	uint16_t spare = read16LE(snapshotRAM + ddbBaseOffset + spareFieldOffset);
+	uint16_t target = graphicsTop - gdlen;
+	if (spare < ddbBaseOffset || spare > graphicsTop)
+		return;
+	if (target < ddbBaseOffset || target > graphicsTop)
+		return;
+	if ((size_t)spare + gdlen > snapshotSize || (size_t)target + gdlen > snapshotSize)
+		return;
+
+	if (spare != target)
+		MemMove(snapshotRAM + target, snapshotRAM + spare, gdlen);
+}
+
 // This loads a binary file into memory and tries to search for a valid DDB
 // file inside. It is not very reliable, but may be the only option for
 // some games which are stored in uncompressed formats.
@@ -787,6 +837,8 @@ bool LoadSnapshotFromRAW(File* file)
 				uint16_t remaining = 65536 - baseOffset;
 				snapshotDDB = snapshotRAM + baseOffset;
 				MemMove(snapshotDDB, ptr, remaining);
+				if (platform == DDB_MACHINE_CPC)
+					RelocateCPCGraphicsFromRAW(offset);
 				return true;
 			}
 		}
@@ -809,27 +861,14 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (!LoadSnapshotFromZ80(file))
 			return false;
 
-		if (machine) *machine = DDB_MACHINE_SPECTRUM;
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-		return true;
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_SPECTRUM);
 	}
 	else if (CheckExtension(filename, "sna"))
 	{
 		if (LoadCPCSnapshotFromSNA(file))
-		{
-			if (machine) *machine = DDB_MACHINE_CPC;
-			if (ram) *ram = snapshotRAM;
-			if (size) *size = snapshotSize;
-			return true;
-		}
+			return DetachSnapshot(ram, size, machine, DDB_MACHINE_CPC);
 		if (LoadSnapshotFromSNA(file))
-		{
-			if (machine) *machine = DDB_MACHINE_SPECTRUM;
-			if (ram) *ram = snapshotRAM;
-			if (size) *size = snapshotSize;
-			return true;
-		}
+			return DetachSnapshot(ram, size, machine, DDB_MACHINE_SPECTRUM);
 		return false;
 	}
 	else if (CheckExtension(filename, "tzx"))
@@ -837,40 +876,28 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (!LoadSnapshotFromTZX(file))
 			return false;
 
-		if (machine) *machine = DDB_MACHINE_SPECTRUM;
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-		return true;
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_SPECTRUM);
 	}
 	else if (CheckExtension(filename, "sta"))
 	{
 		if (!LoadSnapshotFromSTA(file))
 			return false;
 
-		if (machine) *machine = DDB_MACHINE_MSX;
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-		return true;
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_MSX);
 	}
 	else if (CheckExtension(filename, "vsf"))
 	{
 		if (!LoadSnapshotFromVSF(file))
 			return false;
 
-		if (machine) *machine = DDB_MACHINE_C64;
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-		return true;
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_C64);
 	}
 	else if (CheckExtension(filename, "tap"))
 	{
 		if (!LoadSnapshotFromTAP(file))
 			return false;
 
-		if (machine) *machine = DDB_MACHINE_SPECTRUM;
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-		return true;
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_SPECTRUM);
 	}
 	else if (CheckExtension(filename, "cas") ||
 			 CheckExtension(filename, "bin") ||
@@ -880,14 +907,19 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 		if (!LoadSnapshotFromRAW(file))
 			return false;
 
-		if (machine) *machine = (DDB_Machine)(snapshotDDB[1] >> 4);
-		if (ram) *ram = snapshotRAM;
-		if (size) *size = snapshotSize;
-
-		return true;
+		return DetachSnapshot(ram, size, machine, (DDB_Machine)(snapshotDDB[1] >> 4));
 	}
 	else
 	{
+		if (!File_Seek(file, 0))
+		{
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			return false;
+		}
+
+		if (LoadSnapshotFromRAW(file))
+			return DetachSnapshot(ram, size, machine, (DDB_Machine)(snapshotDDB[1] >> 4));
+
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}

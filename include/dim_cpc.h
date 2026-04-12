@@ -9,6 +9,13 @@
 
 struct CPC_Disk;
 
+enum CPC_OSHeaderType
+{
+	CPC_HEADER_NONE,
+	CPC_HEADER_PLUS3DOS,
+	CPC_HEADER_AMSDOS,
+};
+
 struct CPC_FindResults
 {
 	uint16_t offset;

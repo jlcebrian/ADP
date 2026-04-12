@@ -29,6 +29,12 @@
     0x0020		2			File length (actually, address of the first byte after the file)
     0x0022		2			Extern routine address
 
+    The following extras are only present in 8 bit targets:
+    
+    0x0024		2			EXT routine address
+    0x0026		2			SFX routine address
+    0x0028		2			INT routine address
+
 	File may be little-endian or big-endian depending on the target
 	platform (big endian for ST/Amiga, little endian for PC).
 

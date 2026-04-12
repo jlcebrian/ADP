@@ -46,7 +46,9 @@ static uint32_t GetVolumeLevel(uint8_t level)
 
 static uint32_t GetStreamOffset(const DDB* ddb, uint8_t soundIndex)
 {
-	return read16((const uint8_t*)ddb->externPsgTable + soundIndex * 2, ddb->littleEndian) - ddb->baseOffset;
+	uint32_t offset = 0;
+	DDB_DecodeStoredOffset(ddb, read16((const uint8_t*)ddb->externPsgTable + soundIndex * 2, ddb->littleEndian), ddb->dataSize, false, &offset);
+	return offset;
 }
 
 bool DDB_GetExternalPSGStreamRange(const DDB* ddb, uint8_t soundIndex, uint32_t* start, uint32_t* end)
@@ -444,10 +446,10 @@ void DDB_DetectPSGExternalTable(DDB* ddb, uint32_t firstSectionOffset)
 		return;
 
 	uint16_t rawTableOffset = read16(ddb->data + 0x28, ddb->littleEndian);
-	if (rawTableOffset < ddb->baseOffset)
+	uint32_t tableOffset = 0;
+	if (!DDB_DecodeStoredOffset(ddb, rawTableOffset, ddb->dataSize, false, &tableOffset))
 		return;
 
-	uint32_t tableOffset = rawTableOffset - ddb->baseOffset;
 	uint32_t minimumHeaderSize = GetMinimumPsgHeaderSize(ddb->version);
 	if (tableOffset < minimumHeaderSize || tableOffset >= firstSectionOffset)
 		return;
@@ -464,10 +466,9 @@ void DDB_DetectPSGExternalTable(DDB* ddb, uint32_t firstSectionOffset)
 	for (uint32_t n = 0; n < count; n++)
 	{
 		uint16_t rawStreamOffset = read16(ddb->data + tableOffset + n * 2, ddb->littleEndian);
-		if (rawStreamOffset < ddb->baseOffset)
+		uint32_t streamOffset = 0;
+		if (!DDB_DecodeStoredOffset(ddb, rawStreamOffset, ddb->dataSize, false, &streamOffset))
 			return;
-
-		uint32_t streamOffset = rawStreamOffset - ddb->baseOffset;
 		if (streamOffset < minimumHeaderSize || streamOffset >= tableOffset)
 			return;
 		if (n != 0 && streamOffset <= previousStart)
@@ -478,10 +479,12 @@ void DDB_DetectPSGExternalTable(DDB* ddb, uint32_t firstSectionOffset)
 
 	for (uint32_t n = 0; n < count; n++)
 	{
-		uint32_t streamStart = read16(ddb->data + tableOffset + n * 2, ddb->littleEndian) - ddb->baseOffset;
-		uint32_t streamEnd = n + 1 < count ?
-			read16(ddb->data + tableOffset + (n + 1) * 2, ddb->littleEndian) - ddb->baseOffset :
-			tableOffset;
+		uint32_t streamStart = 0;
+		uint32_t streamEnd = tableOffset;
+		if (!DDB_DecodeStoredOffset(ddb, read16(ddb->data + tableOffset + n * 2, ddb->littleEndian), ddb->dataSize, false, &streamStart))
+			return;
+		if (n + 1 < count && !DDB_DecodeStoredOffset(ddb, read16(ddb->data + tableOffset + (n + 1) * 2, ddb->littleEndian), ddb->dataSize, false, &streamEnd))
+			return;
 
 		if (streamStart >= streamEnd)
 			return;

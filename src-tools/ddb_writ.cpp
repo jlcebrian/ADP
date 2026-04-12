@@ -6,7 +6,59 @@
 
 extern void DDB_FixOffsets (DDB* ddb);
 
-void DDB_RestoreOffsets (DDB* ddb)
+static uint32_t DDB_GetHeaderSize(const DDB* ddb)
+{
+	return ddb->version == DDB_VERSION_1 ? 34 : 36;
+}
+
+static uint16_t DDB_GetStoredPointer(const DDB* ddb, const void* ptr, uint16_t storedBase)
+{
+	if (ptr == 0)
+		return 0;
+
+	const uint8_t* bytes = (const uint8_t*)ptr;
+	if (bytes < ddb->data || bytes >= ddb->data + ddb->dataSize)
+		return 0;
+
+	return DDB_EncodeStoredOffset((uint32_t)(bytes - ddb->data), storedBase);
+}
+
+static void DDB_WriteHeader(DDB* ddb, uint16_t storedBase)
+{
+	if (ddb->dataSize < DDB_GetHeaderSize(ddb))
+		return;
+
+	write16(ddb->data + 0x08,
+		(ddb->hasTokens && ddb->tokens != 0) ? DDB_GetStoredPointer(ddb, ddb->tokens, storedBase) : 0,
+		ddb->littleEndian);
+	write16(ddb->data + 0x0A, DDB_GetStoredPointer(ddb, ddb->processTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x0C, DDB_GetStoredPointer(ddb, ddb->objNamTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x0E, DDB_GetStoredPointer(ddb, ddb->locDescTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x10, DDB_GetStoredPointer(ddb, ddb->msgTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x12, DDB_GetStoredPointer(ddb, ddb->sysMsgTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x14, DDB_GetStoredPointer(ddb, ddb->conTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x16, DDB_GetStoredPointer(ddb, ddb->vocabulary, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x18, DDB_GetStoredPointer(ddb, ddb->objLocTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x1A, DDB_GetStoredPointer(ddb, ddb->objWordsTable, storedBase), ddb->littleEndian);
+	write16(ddb->data + 0x1C, DDB_GetStoredPointer(ddb, ddb->objAttrTable, storedBase), ddb->littleEndian);
+
+	if (ddb->version >= DDB_VERSION_2)
+	{
+		write16(ddb->data + 0x1E, DDB_GetStoredPointer(ddb, ddb->objExAttrTable, storedBase), ddb->littleEndian);
+		write16(ddb->data + 0x20, DDB_EncodeStoredOffset(ddb->dataSize, storedBase), ddb->littleEndian);
+		write16(ddb->data + 0x22, DDB_GetStoredPointer(ddb, ddb->externData, storedBase), ddb->littleEndian);
+	}
+	else
+	{
+		write16(ddb->data + 0x1E, DDB_EncodeStoredOffset(ddb->dataSize, storedBase), ddb->littleEndian);
+		write16(ddb->data + 0x20, DDB_GetStoredPointer(ddb, ddb->externData, storedBase), ddb->littleEndian);
+	}
+
+	if (ddb->dataSize >= 0x2A)
+		write16(ddb->data + 0x28, DDB_GetStoredPointer(ddb, ddb->externPsgTable, storedBase), ddb->littleEndian);
+}
+
+void DDB_RestoreOffsets (DDB* ddb, uint16_t storedBase)
 {
 	int n;
 
@@ -25,14 +77,6 @@ void DDB_RestoreOffsets (DDB* ddb)
 		ddb->numLocations,
 		ddb->numProcesses,
 		ddb->numLocations
-	};
-	const char* tableName[] = {
-		"Messages",
-		"System messages",
-		"Object names",
-		"Location descriptions",
-		"Processes",
-		"Connections"
 	};
 	const int numTables = sizeof(tables) / sizeof(tables[0]);
 
@@ -53,7 +97,7 @@ void DDB_RestoreOffsets (DDB* ddb)
 				break;
 
 			uint16_t entryOffset = *(uint16_t*)ptr;
-			entryOffset += ddb->baseOffset;
+			entryOffset = DDB_EncodeStoredOffset(entryOffset, storedBase);
 			write16(ptr, entryOffset, ddb->littleEndian);
 			*(uint16_t*)ptr = entryOffset;
 
@@ -74,7 +118,7 @@ void DDB_RestoreOffsets (DDB* ddb)
 		for (m = 0; m < entries; m++)
 		{
 			uint16_t offset = table[m];
-			offset += ddb->baseOffset;
+			offset = DDB_EncodeStoredOffset(offset, storedBase);
 			write16((uint8_t*)table + m * 2, offset, ddb->littleEndian);
 		}
 	}
@@ -124,8 +168,14 @@ bool DDB_Write(DDB* ddb, const char* filename)
 		return false;
 	}
 
-	DDB_RestoreOffsets(ddb);
+	uint8_t originalHeader[0x2A];
+	uint32_t originalHeaderSize = ddb->dataSize < sizeof(originalHeader) ? ddb->dataSize : sizeof(originalHeader);
+	MemCopy(originalHeader, ddb->data, originalHeaderSize);
+
+	DDB_RestoreOffsets(ddb, 0);
+	DDB_WriteHeader(ddb, 0);
 	uint64_t r = File_Write(file, ddb->data, ddb->dataSize);
+	MemCopy(ddb->data, originalHeader, originalHeaderSize);
 	DDB_FixOffsets(ddb);
 	File_Close(file);
 

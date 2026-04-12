@@ -14,9 +14,20 @@ static int         ddbCount = 0;
 static int         scrCount = 0;
 static int         ddbSelected = 0;
 static char*       files[MAX_FILES];
+#ifdef HAS_VIRTUALFILESYSTEM
+static int         ddbFiles[MAX_FILES];
+static int         ddbFileCount = -1;
+#endif
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
+
+#ifdef HAS_VIRTUALFILESYSTEM
+static void IgnoreDDBWarning(const char* message)
+{
+	(void)message;
+}
+#endif
 
 static void CloseEnum();
 
@@ -72,6 +83,9 @@ static void EnumFiles(const char* pattern = "*")
 
 	CloseEnum();
 	fileCount = 0;
+#ifdef HAS_VIRTUALFILESYSTEM
+	ddbFileCount = -1;
+#endif
 	nameBuffer = Allocate<char>("EnumFiles", NAME_BUFFER_SIZE);
 	if (nameBuffer == 0)
 		return;
@@ -109,6 +123,28 @@ static void EnumFiles(const char* pattern = "*")
 	}
 }
 
+#ifdef HAS_VIRTUALFILESYSTEM
+static void DetectDDBFiles()
+{
+	if (ddbFileCount >= 0)
+		return;
+
+	ddbFileCount = 0;
+	DDB_SetWarningHandler(IgnoreDDBWarning);
+	for (int n = 0; n < fileCount && ddbFileCount < MAX_FILES; n++)
+	{
+		DDB* ddb = DDB_Load(files[n]);
+		if (ddb != 0)
+		{
+			ddbFiles[ddbFileCount++] = n;
+			DDB_Close(ddb);
+		}
+	}
+	DDB_SetWarningHandler(0);
+	DebugPrintf("Detected %d DDB candidates by content\n", ddbFileCount);
+}
+#endif
+
 static void CloseEnum()
 {
 	if (nameBuffer)
@@ -116,6 +152,9 @@ static void CloseEnum()
 		Free(nameBuffer);
 		nameBuffer = 0;
 	}
+	#ifdef HAS_VIRTUALFILESYSTEM
+	ddbFileCount = -1;
+	#endif
 }
 
 static int CountFiles(const char* extension)
@@ -148,6 +187,45 @@ static const char* GetFile(const char* extension, int index)
 		}
 	}
 	return "";
+}
+
+static int CountDDBFiles()
+{
+	#ifdef HAS_VIRTUALFILESYSTEM
+	DetectDDBFiles();
+	return ddbFileCount;
+	#else
+	return CountFiles(".ddb");
+	#endif
+}
+
+static const char* GetDDBFile(int index)
+{
+	#ifdef HAS_VIRTUALFILESYSTEM
+	DetectDDBFiles();
+	if (index < 0 || index >= ddbFileCount)
+		return "";
+	return files[ddbFiles[index]];
+	#else
+	return GetFile(".ddb", index);
+	#endif
+}
+
+static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version)
+{
+	DDB* ddb = DDB_Load(fileName);
+	if (ddb == 0)
+		return false;
+
+	if (machine != 0)
+		*machine = ddb->target;
+	if (language != 0)
+		*language = ddb->language;
+	if (version != 0)
+		*version = ddb->version;
+
+	DDB_Close(ddb);
+	return true;
 }
 
 static void ShowLoaderPrompt(int parts, DDB_Language language)
@@ -349,7 +427,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		
 		EnumFiles(path);
 		snapshotCount = CountSnapshots();
-		ddbCount = CountFiles(".ddb");
+		ddbCount = CountDDBFiles();
 		scrCount = CountFiles(".scr");
 		const char* scrExtension = ".scr";
 		#if HAS_PCX
@@ -397,8 +475,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		}
 		else
 		{
-			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-			if (!DDB_Check(ddbFileName, &machine, &language, &version))
+			StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));
+			if (!GetDDBMetadata(ddbFileName, &machine, &language, &version))
 			{
 				DebugPrintf("Rejected invalid DDB %s before initialization\n", ddbFileName);
 				DDB_SetError(DDB_ERROR_INVALID_FILE);
@@ -462,7 +540,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 	DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
 	if (ddbSelected != 0)
-		StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", ddbSelected));
+		StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
 	CloseEnum();
 	
 	DebugPrintf("Loading %s\n", ddbFileName);
@@ -567,7 +645,7 @@ bool DDB_RunPlayer()
 
 	EnumFiles();
 	
-	ddbCount = CountFiles(".ddb");
+	ddbCount = CountDDBFiles();
 	if (ddbCount == 0)
 	{
 		CloseEnum();
@@ -575,8 +653,8 @@ bool DDB_RunPlayer()
 		return false;
 	}
 
-	StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", 0));
-	if (!DDB_Check(ddbFileName, &machine, &language, &version))
+	StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));
+	if (!GetDDBMetadata(ddbFileName, &machine, &language, &version))
 	{
 		CloseEnum();
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
@@ -618,10 +696,11 @@ bool DDB_RunPlayer()
 			VID_Finish();
 			return true;
 		}
-		VID_DisplaySCRFile(introScreen, machine, false);
+		if (introScreen != 0)
+			VID_DisplaySCRFile(introScreen, machine, false);
 		DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
 		if (ddbSelected != 0)
-			StrCopy(ddbFileName, FILE_MAX_PATH, GetFile(".ddb", ddbSelected));
+			StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
 	}
 
 	CloseEnum();

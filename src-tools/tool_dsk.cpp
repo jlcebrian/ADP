@@ -1,4 +1,7 @@
+#include <bas_cpc.h>
+#include <bas_zx.h>
 #include <dim.h>
+#include <dim_cpc.h>
 #include <os_file.h>
 #include <os_mem.h>
 
@@ -60,6 +63,11 @@ typedef enum
 }
 DirOptions;
 
+enum
+{
+	TEXTOPT_BASIC = 0x01,
+};
+
 typedef enum
 {
 	MODE_NO_DISK,
@@ -91,16 +99,16 @@ commands[] =
 	{ "add",      ACTION_ADD,        MODE_EXISTING_DISK },
 	{ "rm",       ACTION_DELETE,     MODE_EXISTING_DISK },
 	{ "del",      ACTION_DELETE,     MODE_EXISTING_DISK },
-	{ "x",        ACTION_EXTRACT,    MODE_EXISTING_DISK },
-	{ "extract",  ACTION_EXTRACT,    MODE_EXISTING_DISK },
+	{ "x",        ACTION_EXTRACT,    MODE_EXISTING_DISK, "A" },
+	{ "extract",  ACTION_EXTRACT,    MODE_EXISTING_DISK, "A" },
 	{ "cd",       ACTION_CHDIR,      MODE_EXISTING_DISK },
 	{ "chdir",    ACTION_CHDIR,      MODE_EXISTING_DISK },
 	{ "md",       ACTION_MKDIR,      MODE_EXISTING_DISK },
 	{ "mkdir",    ACTION_MKDIR,      MODE_EXISTING_DISK },
 	{ "rd",       ACTION_RMDIR,      MODE_EXISTING_DISK },
 	{ "rmdir",    ACTION_RMDIR,      MODE_EXISTING_DISK },
-	{ "cat",      ACTION_CAT,        MODE_EXISTING_DISK },
-	{ "type",     ACTION_CAT,        MODE_EXISTING_DISK },
+	{ "cat",      ACTION_CAT,        MODE_EXISTING_DISK, "A" },
+	{ "type",     ACTION_CAT,        MODE_EXISTING_DISK, "A" },
 	{ "hex",      ACTION_HEXCAT,     MODE_EXISTING_DISK },
 	{ "dump",     ACTION_HEXCAT,     MODE_EXISTING_DISK },
 	{ "setvol",   ACTION_SETVOL,     MODE_EXISTING_DISK },
@@ -215,9 +223,10 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    Delete files that match the supplied patterns. Wildcards are allowed.\n");
 						return;
 					case ACTION_EXTRACT:
-						printf("Usage: dsk extract disk.img [pattern]\n\n");
+						printf("Usage: dsk extract disk.img [/A] [pattern]\n\n");
 						printf("    Copy files from the disk image to the host directory.\n");
 						printf("    If no pattern is provided all files are extracted.\n");
+						printf("    /A    Decode CPC or Sinclair BASIC files to ASCII and save them as .txt files.\n");
 						return;
 					case ACTION_CHDIR:
 						printf("Usage: dsk chdir disk.img path\n\n");
@@ -232,8 +241,10 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    Remove an empty directory from the disk image.\n");
 						return;
 					case ACTION_CAT:
-						printf("Usage: dsk cat disk.img pattern\n\n");
+						printf("Usage: dsk cat disk.img [/A] pattern\n\n");
 						printf("    Print the contents of files that match the pattern to stdout.\n");
+						printf("    /A    Force BASIC decoding.\n");
+						printf("          AMSDOS and +3DOS BASIC files are decoded automatically.\n");
 						return;
 					case ACTION_HEXCAT:
 						printf("Usage: dsk hex disk.img pattern\n\n");
@@ -684,6 +695,64 @@ static bool EnsureBufferCapacity(uint8_t** buffer, size_t* bufferSize, size_t re
 	return true;
 }
 
+enum BasicDecoderKind
+{
+	BASICDEC_NONE,
+	BASICDEC_CPC,
+	BASICDEC_ZX,
+};
+
+static bool IsBasicCandidate(const FindFileResults* result)
+{
+	return strncmp(result->description, "BASIC", 5) == 0;
+}
+
+static BasicDecoderKind GetHeaderBasicDecoder(const FindFileResults* result)
+{
+	if (disk->type != DIM_CPC || !IsBasicCandidate(result))
+		return BASICDEC_NONE;
+
+	const CPC_FindResults* cpc = (const CPC_FindResults*)result->internalData;
+	if (cpc->osHeaderType == CPC_HEADER_PLUS3DOS)
+		return BASICDEC_ZX;
+	if (cpc->osHeaderType == CPC_HEADER_AMSDOS)
+		return BASICDEC_CPC;
+	return BASICDEC_NONE;
+}
+
+static bool TryDecodeBasic(FILE* output, const uint8_t* buffer, uint32_t size, BasicDecoderKind decoder)
+{
+	switch (decoder)
+	{
+		case BASICDEC_CPC:
+			return BASCPC_DecodeToFile(buffer, size, output);
+		case BASICDEC_ZX:
+			return BASZX_DecodeToFile(buffer, size, output);
+		default:
+			return false;
+	}
+}
+
+static bool TryDecodeBasicAuto(FILE* output, const uint8_t* buffer, uint32_t size, BasicDecoderKind preferred)
+{
+	if (preferred != BASICDEC_NONE && TryDecodeBasic(output, buffer, size, preferred))
+		return true;
+
+	if (preferred != BASICDEC_ZX && TryDecodeBasic(output, buffer, size, BASICDEC_ZX))
+		return true;
+	if (preferred != BASICDEC_CPC && TryDecodeBasic(output, buffer, size, BASICDEC_CPC))
+		return true;
+	return false;
+}
+
+static bool BuildDecodedExtractName(char* outputName, size_t outputNameSize, const char* fileName, BasicDecoderKind decoder)
+{
+	(void)decoder;
+	const char* suffix = ".txt";
+	int written = snprintf(outputName, outputNameSize, "%s%s", fileName, suffix);
+	return written > 0 && (size_t)written < outputNameSize;
+}
+
 static bool Cat (int argc, char *argv[], bool hexMode)
 {
 	const char* pattern = NULL;
@@ -750,13 +819,32 @@ process_results:
 				{
 					fileCount++;
 					size = read;
+					bool forceBasicDecode = (options & TEXTOPT_BASIC) != 0;
+					BasicDecoderKind headerDecoder = GetHeaderBasicDecoder(&result);
+					bool autoBasicDecode = !forceBasicDecode && !hexMode && headerDecoder != BASICDEC_NONE;
+
 					if (!hexMode && disk->type == DIM_CPC && result.description[0] == 0)
 					{
 						const uint8_t* eof = (const uint8_t*)memchr(buffer, 0x1A, size);
 						if (eof != NULL)
 							size = (uint32_t)(eof - buffer);
 					}
-					if (hexMode)
+					if (!hexMode && disk->type == DIM_CPC && (forceBasicDecode || autoBasicDecode))
+					{
+						BasicDecoderKind preferred = forceBasicDecode ? headerDecoder : headerDecoder;
+						if (!TryDecodeBasicAuto(stdout, buffer, size, preferred))
+						{
+							if (forceBasicDecode)
+							{
+								printf("%s: unable to decode BASIC program\n", result.fileName);
+							}
+							else
+							{
+								fwrite(buffer, size, 1, stdout);
+							}
+						}
+					}
+					else if (hexMode)
 					{
 						uint32_t i;
 						for (i = 0; i < size; i++)
@@ -1403,24 +1491,63 @@ static bool Extract (int argc, char *argv[])
 				else
 				{
 					uint32_t read = DIM_ReadFile(disk, result.fileName, buffer, bufferSize);
-					File* file = File_Create(result.fileName);
-					if (!file)
+					bool decodeBasic = !((result.attributes & FileAttribute_Directory) != 0) &&
+						(options & TEXTOPT_BASIC) != 0 &&
+						disk->type == DIM_CPC;
+					if (decodeBasic)
 					{
-						printf("Error: Cannot open %s\n", result.fileName);
-						errorCount++;
-					}
-					else
-					{
-						if (File_Write(file, buffer, read) != read)
+						BasicDecoderKind preferred = GetHeaderBasicDecoder(&result);
+						BasicDecoderKind outputDecoder = preferred != BASICDEC_NONE ? preferred : BASICDEC_CPC;
+						char outputName[FILE_MAX_PATH];
+						if (!BuildDecodedExtractName(outputName, sizeof(outputName), result.fileName, outputDecoder))
 						{
-							printf("Error: Writing to %s\n", result.fileName);
+							printf("%s: decoded output path too long\n", result.fileName);
 							errorCount++;
 						}
 						else
 						{
-							printf("Extracted %s (%u bytes)\n", result.fileName, read);
+							FILE* file = fopen(outputName, "wb");
+							if (!file)
+							{
+								printf("Error: Cannot open %s\n", outputName);
+								errorCount++;
+							}
+							else
+							{
+								if (!TryDecodeBasicAuto(file, buffer, read, preferred))
+								{
+									printf("%s: unable to decode BASIC program\n", result.fileName);
+									errorCount++;
+								}
+								else
+								{
+									printf("Extracted %s as %s\n", result.fileName, outputName);
+								}
+								fclose(file);
+							}
 						}
-						File_Close(file);
+					}
+					else
+					{
+						File* file = File_Create(result.fileName);
+						if (!file)
+						{
+							printf("Error: Cannot open %s\n", result.fileName);
+							errorCount++;
+						}
+						else
+						{
+							if (File_Write(file, buffer, read) != read)
+							{
+								printf("Error: Writing to %s\n", result.fileName);
+								errorCount++;
+							}
+							else
+							{
+								printf("Extracted %s (%u bytes)\n", result.fileName, read);
+							}
+							File_Close(file);
+						}
 					}
 				}
 			}

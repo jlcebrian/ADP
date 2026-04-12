@@ -3,6 +3,7 @@ out
 tests
 tools
 build
+tmp
 
 *.map
 *.lst

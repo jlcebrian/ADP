@@ -92,13 +92,6 @@ enum CPC_DiskType
 	CPC_FORMAT_PCW_DS,
 };
 
-enum CPC_OSHeaderType
-{
-	CPC_HEADER_NONE,
-	CPC_HEADER_PLUS3DOS,
-	CPC_HEADER_AMSDOS,
-};
-
 struct CPC_Disk
 {
 	File* 		 file;

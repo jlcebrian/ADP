@@ -77,10 +77,9 @@ static uint32_t DDB_GetFirstSectionOffset(const DDB* ddb,
 	for (size_t n = 0; n < sizeof(rawOffsets) / sizeof(rawOffsets[0]); n++)
 	{
 		uint16_t rawOffset = rawOffsets[n];
-		if (rawOffset < ddb->baseOffset)
+		uint32_t offset = 0;
+		if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, true, &offset) || offset == 0)
 			continue;
-
-		uint32_t offset = rawOffset - ddb->baseOffset;
 		if (offset < firstOffset)
 			firstOffset = offset;
 	}
@@ -89,14 +88,14 @@ static uint32_t DDB_GetFirstSectionOffset(const DDB* ddb,
 
 static bool DDB_IsHeaderOffsetValid(const DDB* ddb, uint16_t rawOffset, uint32_t minimumSize, const char* name)
 {
-	if (rawOffset < ddb->baseOffset)
+	uint32_t offset = 0;
+	if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, false, &offset))
 	{
-		DDB_Warning("Invalid DDB header: %s offset 0x%04X before base 0x%04X", name, rawOffset, ddb->baseOffset);
+		DDB_Warning("Invalid DDB header: %s offset 0x%04X outside file", name, rawOffset);
 		ddbError = DDB_ERROR_INVALID_FILE;
 		return false;
 	}
 
-	uint32_t offset = rawOffset - ddb->baseOffset;
 	if (offset > ddb->dataSize || (minimumSize != 0 && (offset >= ddb->dataSize || minimumSize > ddb->dataSize - offset)))
 	{
 		DDB_Warning("Invalid DDB header: %s offset 0x%04X outside file", name, rawOffset);
@@ -136,8 +135,12 @@ static bool DDB_IsPlausibleHeaderLayout(const DDB* ddb, bool littleEndian, uint1
 
 	for (int n = 8; n < 30; n += 2)
 	{
-		uint16_t offset = read16(ddb->data + n, littleEndian);
-		if (offset < ddb->baseOffset || (uint32_t)(offset - ddb->baseOffset) >= logicalSize)
+		uint16_t rawOffset = read16(ddb->data + n, littleEndian);
+		uint32_t offset = 0;
+		if (n == 8 && rawOffset == 0)
+			continue;
+
+		if (!DDB_DecodeStoredOffset(ddb, rawOffset, logicalSize, false, &offset))
 			return false;
 	}
 
@@ -221,8 +224,19 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 	uint16_t objLocTableOffset = read16(data + 24, ddb->littleEndian);
 	uint16_t objWordsTableOffset = read16(data + 26, ddb->littleEndian);
 	uint16_t objAttrTableOffset = read16(data + 28, ddb->littleEndian);
+	uint32_t tokensFileOffset = 0;
+	uint32_t processTableFileOffset = 0;
+	uint32_t objNamTableFileOffset = 0;
+	uint32_t locDescTableFileOffset = 0;
+	uint32_t msgTableFileOffset = 0;
+	uint32_t sysMsgTableFileOffset = 0;
+	uint32_t conTableFileOffset = 0;
+	uint32_t vocabularyFileOffset = 0;
+	uint32_t objLocTableFileOffset = 0;
+	uint32_t objWordsTableFileOffset = 0;
+	uint32_t objAttrTableFileOffset = 0;
 
-	if (!DDB_IsHeaderOffsetValid(ddb, tokensOffset, 1, "token block") ||
+	if ((tokensOffset != 0 && !DDB_IsHeaderOffsetValid(ddb, tokensOffset, 1, "token block")) ||
 		!DDB_IsHeaderOffsetValid(ddb, processTableOffset, ddb->numProcesses * 2, "process table") ||
 		!DDB_IsHeaderOffsetValid(ddb, objNamTableOffset, ddb->numObjects * 2, "object names table") ||
 		!DDB_IsHeaderOffsetValid(ddb, locDescTableOffset, ddb->numLocations * 2, "location descriptions table") ||
@@ -235,26 +249,42 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 		!DDB_IsHeaderOffsetValid(ddb, objAttrTableOffset, ddb->numObjects, "object attributes table"))
 		return false;
 
-	ddb->tokens = data + tokensOffset - ddb->baseOffset;
-	ddb->processTable = (uint16_t*)(data + processTableOffset - ddb->baseOffset);
-	ddb->objNamTable = (uint16_t*)(data + objNamTableOffset - ddb->baseOffset);
-	ddb->locDescTable = (uint16_t*)(data + locDescTableOffset - ddb->baseOffset);
-	ddb->msgTable = (uint16_t*)(data + msgTableOffset - ddb->baseOffset);
-	ddb->sysMsgTable = (uint16_t*)(data + sysMsgTableOffset - ddb->baseOffset);
-	ddb->conTable = (uint16_t*)(data + conTableOffset - ddb->baseOffset);
-	ddb->vocabulary = data + vocabularyOffset - ddb->baseOffset;
-	ddb->objLocTable = data + objLocTableOffset - ddb->baseOffset;
-	ddb->objWordsTable = data + objWordsTableOffset - ddb->baseOffset;
-	ddb->objAttrTable = data + objAttrTableOffset - ddb->baseOffset;
+	if ((tokensOffset != 0 && !DDB_DecodeStoredOffset(ddb, tokensOffset, ddb->dataSize, false, &tokensFileOffset)) ||
+		!DDB_DecodeStoredOffset(ddb, processTableOffset, ddb->dataSize, false, &processTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, objNamTableOffset, ddb->dataSize, false, &objNamTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, locDescTableOffset, ddb->dataSize, false, &locDescTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, msgTableOffset, ddb->dataSize, false, &msgTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, sysMsgTableOffset, ddb->dataSize, false, &sysMsgTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, conTableOffset, ddb->dataSize, false, &conTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, vocabularyOffset, ddb->dataSize, false, &vocabularyFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, objLocTableOffset, ddb->dataSize, false, &objLocTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, objWordsTableOffset, ddb->dataSize, false, &objWordsTableFileOffset) ||
+		!DDB_DecodeStoredOffset(ddb, objAttrTableOffset, ddb->dataSize, false, &objAttrTableFileOffset))
+		return false;
+
+	ddb->tokens = tokensOffset == 0 ? data : data + tokensFileOffset;
+	ddb->processTable = (uint16_t*)(data + processTableFileOffset);
+	ddb->objNamTable = (uint16_t*)(data + objNamTableFileOffset);
+	ddb->locDescTable = (uint16_t*)(data + locDescTableFileOffset);
+	ddb->msgTable = (uint16_t*)(data + msgTableFileOffset);
+	ddb->sysMsgTable = (uint16_t*)(data + sysMsgTableFileOffset);
+	ddb->conTable = (uint16_t*)(data + conTableFileOffset);
+	ddb->vocabulary = data + vocabularyFileOffset;
+	ddb->objLocTable = data + objLocTableFileOffset;
+	ddb->objWordsTable = data + objWordsTableFileOffset;
+	ddb->objAttrTable = data + objAttrTableFileOffset;
 
 	if (ddb->version >= 2)
 	{
 		uint16_t objExAttrTableOffset = read16(data + 30, ddb->littleEndian);
+		uint32_t objExAttrFileOffset = 0;
 		if (!DDB_IsHeaderOffsetValid(ddb, objExAttrTableOffset, ddb->numObjects * 2, "extended object attributes table"))
 			return false;
+		if (!DDB_DecodeStoredOffset(ddb, objExAttrTableOffset, ddb->dataSize, false, &objExAttrFileOffset))
+			return false;
 
-		ddb->objExAttrTable = (uint16_t*)(data + objExAttrTableOffset - ddb->baseOffset);
-		uint32_t objExAttrOffset = objExAttrTableOffset - ddb->baseOffset;
+		ddb->objExAttrTable = (uint16_t*)(data + objExAttrFileOffset);
+		uint32_t objExAttrOffset = objExAttrFileOffset;
 		if (objExAttrOffset < loadedSize && ddb->numObjects * 2 <= loadedSize - objExAttrOffset)
 		{
 			for (int n = 0; n < ddb->numObjects; n++)
@@ -281,11 +311,14 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 	if (externFieldFits)
 	{
 		uint16_t externOffset = read16(data + externFieldOffset, ddb->littleEndian);
+		uint32_t externFileOffset = 0;
 		if (externOffset != 0)
 		{
 			if (!DDB_IsHeaderOffsetValid(ddb, externOffset, 1, "external data"))
 				return false;
-			ddb->externData = data + externOffset - ddb->baseOffset;
+			if (!DDB_DecodeStoredOffset(ddb, externOffset, ddb->dataSize, false, &externFileOffset))
+				return false;
+			ddb->externData = data + externFileOffset;
 		}
 	}
 
@@ -301,10 +334,17 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 
 static bool DDB_ValidateOffsetTablePrefix(const DDB* ddb, const uint8_t* data, uint32_t loadedSize, uint16_t tableOffset, uint8_t entries, const char* tableName)
 {
-	if (entries == 0 || tableOffset < ddb->baseOffset)
-		return tableOffset >= ddb->baseOffset;
+	if (entries == 0)
+		return true;
 
-	uint32_t offset = tableOffset - ddb->baseOffset;
+	uint32_t offset = 0;
+	if (!DDB_DecodeStoredOffset(ddb, tableOffset, ddb->dataSize, false, &offset))
+	{
+		ddbError = DDB_ERROR_INVALID_FILE;
+		DDB_Warning("Invalid table offset 0x%04X in %s", tableOffset, tableName);
+		return false;
+	}
+
 	uint32_t tableSize = entries * 2;
 	if (offset >= loadedSize || tableSize > loadedSize - offset)
 		return true;
@@ -313,14 +353,14 @@ static bool DDB_ValidateOffsetTablePrefix(const DDB* ddb, const uint8_t* data, u
 	for (int n = 0; n < entries; n++)
 	{
 		uint16_t rawOffset = read16(table + n * 2, ddb->littleEndian);
-		if (rawOffset < ddb->baseOffset)
+		uint32_t relativeOffset = 0;
+		if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, false, &relativeOffset))
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
 			DDB_Warning("Invalid internal offset 0x%04X (entry %d in %s)", rawOffset, n, tableName);
 			return false;
 		}
 
-		uint32_t relativeOffset = rawOffset - ddb->baseOffset;
 		if (relativeOffset >= ddb->dataSize || relativeOffset < 32)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
@@ -928,9 +968,9 @@ void DDB_FixOffsets (DDB* ddb)
 			continue;
 		for (m = 0; m < entries; m++)
 		{
-			uint16_t offset = read16((uint8_t*)table + m * 2, ddb->littleEndian);
-			offset -= ddb->baseOffset;
-			if (offset >= ddb->dataSize || offset < 32)
+			uint16_t rawOffset = read16((uint8_t*)table + m * 2, ddb->littleEndian);
+			uint32_t offset = 0;
+			if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, false, &offset) || offset < 32)
 			{
 				DDB_Warning("Invalid internal offset 0x%04X (entry %d in %s)", offset, m, tableName[n]);
 				ddbError = DDB_ERROR_INVALID_FILE;
@@ -966,8 +1006,8 @@ void DDB_FixOffsets (DDB* ddb)
 			}
 			#endif
 
-			uint16_t entryOffset = read16(entry + 2, ddb->littleEndian) - ddb->baseOffset;
-			if (entryOffset >= ddb->dataSize || entryOffset < 32)
+			uint32_t entryOffset = 0;
+			if (!DDB_DecodeStoredOffset(ddb, read16(entry + 2, ddb->littleEndian), ddb->dataSize, false, &entryOffset) || entryOffset < 32)
 			{
 				DDB_Warning("Invalid entry %d offset 0x%04X in process %d", entryIndex, entryOffset, n);
 				ddbError = DDB_ERROR_INVALID_FILE;
@@ -975,7 +1015,8 @@ void DDB_FixOffsets (DDB* ddb)
 				MemCopy(entry + 2, &zero, sizeof(zero));
 				break;
 			}
-			MemCopy(entry + 2, &entryOffset, sizeof(entryOffset));
+			uint16_t normalizedOffset = (uint16_t)entryOffset;
+			MemCopy(entry + 2, &normalizedOffset, sizeof(normalizedOffset));
 
 			entry += 4;
 			entryIndex++;

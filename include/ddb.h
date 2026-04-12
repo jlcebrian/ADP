@@ -496,6 +496,41 @@ struct DDB
 	uint16_t		baseOffset;
 };
 
+static inline bool DDB_DecodeStoredOffset(const DDB* ddb, uint16_t rawOffset, uint32_t limit, bool allowNull, uint32_t* offset)
+{
+	if (allowNull && rawOffset == 0)
+	{
+		if (offset != 0)
+			*offset = 0;
+		return true;
+	}
+
+	if (ddb->baseOffset != 0 && rawOffset >= ddb->baseOffset)
+	{
+		uint32_t relativeOffset = rawOffset - ddb->baseOffset;
+		if (relativeOffset < limit)
+		{
+			if (offset != 0)
+				*offset = relativeOffset;
+			return true;
+		}
+	}
+
+	if (rawOffset < limit)
+	{
+		if (offset != 0)
+			*offset = rawOffset;
+		return true;
+	}
+
+	return false;
+}
+
+static inline uint16_t DDB_EncodeStoredOffset(uint32_t offset, uint16_t storedBase)
+{
+	return (uint16_t)(offset + storedBase);
+}
+
 enum
 {
 	DDB_PSG_SAMPLE_RATE = 12500,

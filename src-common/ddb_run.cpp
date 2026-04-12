@@ -3883,7 +3883,9 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (matchesTemplos)
 					{
 						uint16_t length  = read16(ptr + 3, i->ddb->littleEndian);
-						uint16_t address = read16(ptr + 6, i->ddb->littleEndian) - i->ddb->baseOffset;
+						uint32_t address = 0;
+						if (!DDB_DecodeStoredOffset(i->ddb, read16(ptr + 6, i->ddb->littleEndian), i->ddb->dataSize, false, &address))
+							break;
 						uint8_t* data    = i->ddb->data;
 						if (address < i->ddb->dataSize && address + length <= i->ddb->dataSize && length < 256 - param0)
 							MemCopy(i->flags + param0, data + address, length);

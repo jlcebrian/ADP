@@ -224,6 +224,8 @@ cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dsk.exe ^
 	src-common\dim_adf.cpp ^
 	src-common\dim_cpc.cpp ^
 	src-common\dim_fat.cpp ^
+	src-tools\bas_cpc.cpp ^
+	src-tools\bas_zx.cpp ^
 	src-tools\tool_dsk.cpp ^
 	%TOOLLIBS% /link %LINK% /SUBSYSTEM:CONSOLE
 IF %ERRORLEVEL% NEQ 0 GOTO :EOF

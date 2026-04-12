@@ -1471,6 +1471,7 @@ bool DDB_LoadPAWSGraphics (const uint8_t* data)
 {
 	vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 	vectorGraphicsRAM     = data;
+	pixelMode             = false;
 
 	start   = read16LE(data + 65533);		// FFFD
 	table   = read16LE(data + 65521);		// FFF1
@@ -1519,6 +1520,7 @@ void DDB_LoadUDGs()
 bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t size)
 {
 	vectorGraphicsMachine = target;
+	pixelMode = false;
 
 	mixShades = false;
 
@@ -1564,6 +1566,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, const uint8_t* data, size_t siz
 				return false;
 
 			vectorGraphicsRAM = data;
+			pixelMode = true;
 
 			start   = read16LE(data + 0x9DEF);
 			table   = read16LE(data + 0x9DF1);
