@@ -2,10 +2,14 @@
 # for better annotations add -dA -dP
 # to generate assembler source with LTO, add to LDFLAGS: -save-temps=cwd
 
-VERSION ?= BETA0.3
+VERSION      ?= BETA0.3
 DEBUG_MEMORY ?= 0
 DEBUG_ALLOCS ?= 1
-DEBUGPRINT ?= 1
+DEBUGPRINT   ?= 1
+OPTIM        ?= -Os
+STACK_WARNING ?= 1024
+STACK_DIAGNOSTICS ?= 0
+STACK_PROBES ?= 0
 
 ifdef OS
 	WINDOWS = 1
@@ -62,7 +66,7 @@ CCFLAGS += -DVERSION=$(VERSION)
 CCFLAGS += -DDEBUG_MEMORY=$(DEBUG_MEMORY)
 CCFLAGS += -DDEBUG_ALLOCS=$(DEBUG_ALLOCS)
 CCFLAGS += -DNO_SAMPLES
-CCFLAGS += -Os
+CCFLAGS += $(OPTIM)
 ifeq ($(DEBUGPRINT),1)
 CCFLAGS += -D_DEBUGPRINT
 #CCFLAGS += -DDEBUG_IMAGE_CACHE
@@ -75,6 +79,12 @@ CCFLAGS += -g -MP -MMD -m68000 -nostdlib
 CCFLAGS += -Wextra -Wno-unused-function -Wno-volatile-register-var 
 CCFLAGS += -fno-tree-loop-distribution -fno-exceptions -fomit-frame-pointer 
 CCFLAGS += -Iinclude -Isupport -D_AMIGA
+ifeq ($(STACK_DIAGNOSTICS),1)
+CCFLAGS += -fstack-usage -Wstack-usage=$(STACK_WARNING) -Wframe-larger-than=$(STACK_WARNING)
+endif
+ifeq ($(STACK_PROBES),1)
+CCFLAGS += -fstack-check
+endif
 CPPFLAGS= $(CCFLAGS) -fno-rtti -fcoroutines -fno-use-cxa-atexit
 ASFLAGS = -Wa,-g,--register-prefix-optional,-I$(SDKDIR),-D
 LDFLAGS = -Wl,--emit-relocs,-Ttext=0,-Map=$(OUT).map 
@@ -94,7 +104,9 @@ endif
 $(OUT).exe: $(OUT).elf
 	$(info Elf2Hunk $(program).exe)
 	@elf2hunk $(OUT).elf $(OUT).exe -s
+ifdef SHRINKLER	
 	@$(SHRINKLER) $(OUT).exe $(OUT).exe
+endif
 
 $(ADF_STAGE_DIR):
 	mkdir -p "$(ADF_STAGE_DIR)/S"

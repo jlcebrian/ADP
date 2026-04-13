@@ -6,6 +6,7 @@
 
 #ifdef _AMIGA
 extern void VID_PresentDefaultScreen();
+extern void VID_SetPaletteRangeFast(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank);
 #endif
 
 bool		waitingForKey = false;
@@ -16,16 +17,64 @@ uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
 
+#ifdef __cplusplus
+void VID_Clear(int x, int y, int w, int h, uint8_t color)
+{
+	VID_Clear(x, y, w, h, color, VID_CLEAR_TEXT_LAYER);
+}
+#endif
+
 void VID_ResetDisplay()
 {
 #ifdef _AMIGA
 	VID_PresentDefaultScreen();
 #else
-	VID_ClearAllPlanes(0, 0, screenWidth, screenHeight, 0);
+	VID_Clear(0, 0, screenWidth, screenHeight, 0, VID_CLEAR_ALL_PLANES);
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
 	VID_SetDefaultPalette();
 	VID_ActivatePalette();
+#endif
+}
+
+#ifndef _AMIGA
+void VID_SetPaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
+{
+	uint16_t paletteSize = VID_GetPaletteSize();
+	if (firstColor > paletteSize)
+		return;
+	if (count > paletteSize - firstColor)
+		count = paletteSize - firstColor;
+
+	if (clearOutside)
+	{
+		for (uint16_t i = 0; i < firstColor; i++)
+			VID_SetPaletteColor(i, 0, 0, 0);
+		for (uint16_t i = firstColor + count; i < paletteSize; i++)
+			VID_SetPaletteColor(i, 0, 0, 0);
+	}
+
+	for (uint16_t i = 0; i < count; i++)
+	{
+		uint32_t color = palette[i];
+		VID_SetPaletteColor(firstColor + i,
+			(color >> 16) & 0xFF,
+			(color >> 8) & 0xFF,
+			color & 0xFF);
+	}
+
+	if (waitForVBlank)
+		VID_VSync();
+	VID_ActivatePalette();
+}
+#endif
+
+void VID_SetPaletteRange(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
+{
+#ifdef _AMIGA
+	VID_SetPaletteRangeFast(palette, count, firstColor, clearOutside, waitForVBlank);
+#else
+	VID_SetPaletteEntries(palette, count, firstColor, clearOutside, waitForVBlank);
 #endif
 }
 

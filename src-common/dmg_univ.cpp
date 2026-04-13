@@ -45,9 +45,11 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			case DMG_DAT5_COLORMODE_EGA:
 				decompressedSize = ((uint32_t)entry->width * entry->height + 1) / 2;
 				break;
-			case DMG_DAT5_COLORMODE_I16:
-			case DMG_DAT5_COLORMODE_I32:
-			case DMG_DAT5_COLORMODE_I256:
+			case DMG_DAT5_COLORMODE_PLANAR4:
+			case DMG_DAT5_COLORMODE_PLANAR5:
+			case DMG_DAT5_COLORMODE_PLANAR8:
+			case DMG_DAT5_COLORMODE_PLANAR4ST:
+			case DMG_DAT5_COLORMODE_PLANAR8ST:
 				decompressedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
 				break;
 			default:
@@ -155,9 +157,9 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			paletteMode = ColorPaletteMode_EGA;
 			break;
 
-		case DMG_DAT5_COLORMODE_I16:
-		case DMG_DAT5_COLORMODE_I32:
-		case DMG_DAT5_COLORMODE_I256:
+			case DMG_DAT5_COLORMODE_PLANAR4:
+			case DMG_DAT5_COLORMODE_PLANAR5:
+			case DMG_DAT5_COLORMODE_PLANAR8:
 			if (!DMG_UnpackBitplaneBytes(fileData, entry->width, entry->height, entry->bitDepth, buffer))
 			{
 				if (tempFileData)
@@ -166,6 +168,17 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 				return 0;
 			}
 			break;
+
+			case DMG_DAT5_COLORMODE_PLANAR4ST:
+			case DMG_DAT5_COLORMODE_PLANAR8ST:
+				if (!DMG_UnpackBitplaneWords(fileData, entry->width, entry->height, entry->bitDepth, buffer))
+				{
+					if (tempFileData)
+						Free(tempFileData);
+					DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+					return 0;
+				}
+				break;
 
 		default:
 			if (tempFileData)
@@ -240,6 +253,14 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 
 	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST)
 	{
+		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode)))
+		{
+			MemMove(buffer, fileData, imageDataLength);
+			if (tempFileData)
+				Free(tempFileData);
+			return buffer;
+		}
 		if (tempFileData)
 			Free(tempFileData);
 		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
@@ -520,8 +541,10 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 
 uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 {
-	#if defined(_AMIGA) || defined(_ATARIST)
+	#if defined(_AMIGA)
 	return DMG_GetEntryDataPlanar(dmg, index);
+	#elif defined(_ATARIST)
+	return DMG_GetEntryData(dmg, index, ImageMode_PlanarST);
 	#else
 	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
 	#endif

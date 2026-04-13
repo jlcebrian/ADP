@@ -32,6 +32,7 @@ const uint32_t SCR_ALLOCATE = SCR_WIDTHPX * SCR_HEIGHTPX / 2;
 extern void VID_SetColor (uint8_t n, uint16_t pal);
 extern void VID_VSync    ();
 extern void VID_ActivatePalette();
+extern void VID_Finish();
 extern void VID_PresentDefaultScreen();
 
 extern bool isPAL;

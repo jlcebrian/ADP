@@ -148,13 +148,76 @@ DMG_Version;
 typedef enum
 {
     DMG_DAT5_COLORMODE_NONE = 0,
-    DMG_DAT5_COLORMODE_CGA  = 1,
-    DMG_DAT5_COLORMODE_EGA  = 2,
-    DMG_DAT5_COLORMODE_I16  = 3,
-    DMG_DAT5_COLORMODE_I32  = 4,
-    DMG_DAT5_COLORMODE_I256 = 5,
+    DMG_DAT5_COLORMODE_CGA       = 1,
+    DMG_DAT5_COLORMODE_EGA       = 2,
+    DMG_DAT5_COLORMODE_PLANAR4   = 3,
+    DMG_DAT5_COLORMODE_PLANAR5   = 4,
+    DMG_DAT5_COLORMODE_PLANAR8   = 5,
+    DMG_DAT5_COLORMODE_PLANAR4ST = 6,
+    DMG_DAT5_COLORMODE_PLANAR8ST = 7,
+
+    DMG_DAT5_COLORMODE_I16  = DMG_DAT5_COLORMODE_PLANAR4,
+    DMG_DAT5_COLORMODE_I32  = DMG_DAT5_COLORMODE_PLANAR5,
+    DMG_DAT5_COLORMODE_I256 = DMG_DAT5_COLORMODE_PLANAR8,
 }
 DMG_DAT5ColorMode;
+
+static inline bool DMG_DAT5ModeUsesPalette(uint8_t mode)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR5:
+		case DMG_DAT5_COLORMODE_PLANAR8:
+		case DMG_DAT5_COLORMODE_PLANAR4ST:
+		case DMG_DAT5_COLORMODE_PLANAR8ST:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static inline bool DMG_DAT5ModeIsPlaneMajor(uint8_t mode)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR5:
+		case DMG_DAT5_COLORMODE_PLANAR8:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static inline bool DMG_DAT5ModeIsSTInterleaved(uint8_t mode)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_PLANAR4ST:
+		case DMG_DAT5_COLORMODE_PLANAR8ST:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static inline uint8_t DMG_DAT5ModePlaneCount(uint8_t mode)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR4ST:
+			return 4;
+		case DMG_DAT5_COLORMODE_PLANAR5:
+			return 5;
+		case DMG_DAT5_COLORMODE_PLANAR8:
+		case DMG_DAT5_COLORMODE_PLANAR8ST:
+			return 8;
+		default:
+			return 0;
+	}
+}
 
 typedef enum
 {
@@ -265,6 +328,7 @@ DMG*        DMG_Create             (const char* filename);
 DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry = 0, uint8_t lastEntry = 255);
 DMG_Entry*	DMG_GetEntry		   (DMG* dmg, uint8_t index);
 bool        DMG_UpdateEntry        (DMG* dmg, uint8_t index);
+bool        DMG_UpdateFileHeader   (DMG* dmg);
 uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint8_t*    DMG_GetEntryDataNative (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
@@ -320,6 +384,7 @@ bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* 
 uint8_t*    DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width);
 bool 		DMG_ConvertPlanar8ToPlanar (const DMG_Entry* entry, const uint8_t* data, uint32_t packedSize, uint8_t* output, uint32_t outputSize);
 bool        DMG_UnpackBitplaneBytes    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
+bool        DMG_UnpackBitplaneWords    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 bool        DMG_UnpackChunkyPixels     (const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 
 bool        DMG_DecompressCGA          (const uint8_t* data, uint16_t dataLength, uint8_t* buffer, int width, int height);

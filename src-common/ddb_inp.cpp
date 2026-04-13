@@ -187,6 +187,8 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 			DDB_Reset(i);
 			DDB_ResetWindows(i);
 			VID_ResetDisplay();
+			if (!i->ddb->oldMainLoop)
+				i->state = DDB_RUNNING;
 		}
 		else
 		{
@@ -196,8 +198,8 @@ void DDB_ResolveInputEnd(DDB_Interpreter* i)
 			i->procstack[0].entry = 0;
 			i->procstack[0].process = 0;
 			i->procstack[0].offset = 0;
+			i->state = DDB_RUNNING;
 		}
-		i->state = DDB_RUNNING;
 	}
 	else
 	{

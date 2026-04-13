@@ -36,6 +36,11 @@ static bool     quit;
 static uint8_t  palette[16][3];
 static uint16_t colors[16];
 
+static uint16_t Read16BE(const uint8_t* ptr)
+{
+	return (uint16_t)(((uint16_t)ptr[0] << 8) | ptr[1]);
+}
+
 struct STPaletteState
 {
 	uint8_t  palette[16][3];
@@ -452,6 +457,44 @@ bool VID_AnyKey ()
 	return KeyboardHit();
 }
 
+static bool ProbeDataFileHeader(const char* fileName, uint8_t* requiredPlanes, uint16_t* width, uint16_t* height, uint8_t* colorMode)
+{
+	File* file = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
+	if (file == 0)
+		return false;
+
+	uint8_t header[16];
+	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	if (!ok)
+		return false;
+
+	if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 &&
+		header[4] == 0 && header[5] == 5)
+	{
+		if (width) *width = Read16BE(header + 0x06);
+		if (height) *height = Read16BE(header + 0x08);
+		if (colorMode) *colorMode = header[0x0E];
+		if (requiredPlanes)
+		{
+			uint8_t planeCount = DMG_DAT5ModePlaneCount(header[0x0E]);
+			*requiredPlanes = planeCount == 0 ? 4 : planeCount;
+		}
+		return true;
+	}
+
+	if (requiredPlanes) *requiredPlanes = 4;
+	if (width) *width = 0;
+	if (height) *height = 0;
+	if (colorMode) *colorMode = 0;
+	return true;
+}
+
+static bool IsSupportedDAT5ColorMode(uint8_t colorMode)
+{
+	return colorMode == DMG_DAT5_COLORMODE_PLANAR4ST;
+}
+
 bool VID_LoadDataFile (const char* fileName)
 {
 	for (int n = 0; n < 256; n++)
@@ -465,6 +508,27 @@ bool VID_LoadDataFile (const char* fileName)
 		dmg = 0;
 	}
 
+	uint8_t probePlanes = 4;
+	uint16_t probeWidth = 0;
+	uint16_t probeHeight = 0;
+	uint8_t probeColorMode = 0;
+	if (ProbeDataFileHeader(fileName, &probePlanes, &probeWidth, &probeHeight, &probeColorMode))
+	{
+		if (probeColorMode != 0)
+		{
+			if (!IsSupportedDAT5ColorMode(probeColorMode))
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+			if (probeWidth != 320 || probeHeight != 200 || probePlanes != 4)
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+		}
+	}
+
 	dmg = DMG_Open(ChangeExtension(fileName, ".dat"), true);
 	if (dmg == 0)
 		dmg = DMG_Open(ChangeExtension(fileName, ".ega"), true);
@@ -474,6 +538,16 @@ bool VID_LoadDataFile (const char* fileName)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
+	}
+	if (dmg->version == DMG_Version5)
+	{
+		if (!IsSupportedDAT5ColorMode(dmg->colorMode) || dmg->targetWidth != 320 || dmg->targetHeight != 200)
+		{
+			DMG_Close(dmg);
+			dmg = 0;
+			DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+			return false;
+		}
 	}
 	if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
 		!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
@@ -541,8 +615,9 @@ bool VID_LoadDataFile (const char* fileName)
 	return true;
 }
 
-void VID_Clear (int x, int y, int w, int h, uint8_t color)
+void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
 {
+	(void)mode;
 	uint16_t* scr = screen + 80*y + 4*(x >> 4);
 
 	uint16_t p0 = (color & 0x01) ? 0xFFFF : 0x0000;
@@ -618,11 +693,6 @@ void VID_ClearBuffer (bool front)
 			(displaySwap ? backBuffer : frontBuffer) :
 			(displaySwap ? frontBuffer : backBuffer);
 	MemClear(ptr, 32000);
-}
-
-void VID_ClearAllPlanes (int x, int y, int w, int h, uint8_t color)
-{
-	VID_Clear(x, y, w, h, color);
 }
 
 void VID_Finish ()

@@ -26,13 +26,15 @@
     0x0008      2           Target screen height in pixels (usually 200 or 400)
     0x000A      2           Number of the first entry in the file (usually 0)
     0x000C      2           Number of the last entry in the file (usually 255)
-    0x000E      1           Color mode
+    0x000E      1           Image encoding mode
 
-                            1                   CGA:     All graphics data is chunky 2bpp, fixed palette
-                            2                   EGA:     All graphics data is chunky 4bpp, fixed palette
-                            3                   I16:     All images are 4bpp deep
-                            4                   I32:     All images are 5bpp deep
-                            5                   I256:    All images are 8bpp deep
+                            1                   CGA:        Chunky 2bpp, fixed palette
+                            2                   EGA:        Chunky 4bpp, fixed palette
+                            3                   Planar4:    Plane-major bitplanes with palette
+                            4                   Planar5:    Plane-major bitplanes with palette
+                            5                   Planar8:    Plane-major bitplanes with palette
+                            6                   Planar4ST:  ST interleaved words with palette
+                            7                   Planar8ST:  Falcon interleaved words with palette
 
     0x000F      0           Flags (reserved for future usage)
 
@@ -72,7 +74,8 @@
     0x001A		4			Reserved (must be zero)
     0x001E      2           CRC value (naive XOR of data & palette info)
 
-    For custom indexed modes (I16, I32 and I256), the entry payload
+    For palette-based planar modes (Planar4, Planar5, Planar8,
+    Planar4ST and Planar8ST), the entry payload
     begins with palette data stored as a sequence of RGB byte triplets.
     The number of palette entries is equal to last-first+1 according
     to the entry header, so the palette prefix size is:
@@ -83,16 +86,16 @@
 
         palette prefix + image data
 
-    Palettes are only present for custom indexed modes (I16,
-    I32 and I256). CGA and EGA modes use their fixed hardware
+    Palettes are only present for palette-based planar modes.
+    CGA and EGA modes use their fixed hardware
     palettes, so their payload does not contain a palette prefix.
 
     If the file is CGA or EGA specific, palette data is not present,
     bit depth is 0, and the graphic data is a single ZX0 or binary
     stream containing chunky pixels (either 2bpp or 4bpp). If the
-    file is indexed, bit depth can be 4, 5 or 8, the palette prefix
-    is stored first, and the graphic data that follows it is stored
-    as complete plane-separated bitmaps:
+    file uses a plane-major palette mode, bit depth can be 4, 5 or 8,
+    the palette prefix is stored first, and the graphic data that
+    follows it is stored as complete plane-separated bitmaps:
 
         Plane 0 (all rows)
         Plane 1 (all rows)
@@ -103,6 +106,16 @@
     This layout matches the Amiga bitmap memory organization and lets
     the interpreter decompress graphics directly into their final
     blitter-friendly form without an extra CPU-side reshuffling step.
+
+    If the file uses an ST interleaved palette mode, bit depth can be
+    4 or 8, the palette prefix is stored first, and the graphic data
+    that follows it is stored row by row as one 16-bit word per
+    bitplane, matching Atari ST/Falcon screen memory layout.
+
+    The image encoding mode describes how image data is stored, not how
+    many palette entries are present. The palette range still comes from
+    the image header (first/last color), which leaves room for future
+    modes such as Amiga EHB where plane count and palette size differ.
 
     ─────────────────────
      Entry Header: Audio
@@ -191,12 +204,15 @@
 
     2) EGA-specific files, with chunky 4bpp graphics and no palette data.
 
-    3) ST-specific files, with 4 plane-separated bitplanes and
-       per-image palettes.
+     3) ST-specific files, with Planar4ST graphics and per-image
+         palettes.
 
-    4) Amiga OCS-specific files, with 5 plane-separated bitplanes
-       and up to 32 colors.
+     4) Amiga OCS-specific files, with Planar5 graphics and up to
+         32 colors.
 
-    5) VGA or Amiga AGA-specific files, with 8 plane-separated
-       bitplanes and up to 256 colors.
+     5) VGA or Amiga AGA-specific files, with Planar8 graphics and
+         up to 256 colors.
+
+     6) Atari Falcon-specific files, with Planar8ST graphics and
+         up to 256 colors.
        

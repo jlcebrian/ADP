@@ -129,9 +129,7 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 	if (entry->type != DMGEntry_Image)
 		return 0;
 
-	if (dmg->colorMode != DMG_DAT5_COLORMODE_I16 &&
-		dmg->colorMode != DMG_DAT5_COLORMODE_I32 &&
-		dmg->colorMode != DMG_DAT5_COLORMODE_I256)
+	if (!DMG_DAT5ModeIsPlaneMajor(dmg->colorMode))
 	{
 		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 		return 0;

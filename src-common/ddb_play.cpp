@@ -21,6 +21,7 @@ static int         ddbFileCount = -1;
 static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
+static char        introScreenName[FILE_MAX_PATH];
 
 #ifdef HAS_VIRTUALFILESYSTEM
 static void IgnoreDDBWarning(const char* message)
@@ -31,6 +32,29 @@ static void IgnoreDDBWarning(const char* message)
 
 static void CloseEnum();
 static int CountDDBFiles();
+static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version);
+
+#ifdef _AMIGA
+extern bool VID_IsAGAAvailable();
+extern void OpenKeyboard();
+extern bool OpenAudio();
+#endif
+
+static bool ValidateResolvedVideoConfig(DDB_Machine machine, uint8_t planes)
+{
+#ifdef _AMIGA
+	if (planes >= 8 && !VID_IsAGAAvailable())
+	{
+		DebugPrintf("Rejecting DAT5 Planar8 during initial probe on non-AGA machine\n");
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+#else
+	(void)machine;
+	(void)planes;
+#endif
+	return true;
+}
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -77,6 +101,36 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 	return introScreen;
 }
 #endif
+
+static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version, DDB_ScreenMode* screenMode, uint8_t* displayPlanes)
+{
+	DDB_Machine resolvedMachine = DDB_MACHINE_AMIGA;
+	DDB_Language resolvedLanguage = DDB_SPANISH;
+	DDB_Version resolvedVersion = DDB_VERSION_2;
+	if (!GetDDBMetadata(fileName, &resolvedMachine, &resolvedLanguage, &resolvedVersion))
+		return false;
+
+	if (machine)
+		*machine = resolvedMachine;
+	if (language)
+		*language = resolvedLanguage;
+	if (version)
+		*version = resolvedVersion;
+
+	DDB_ScreenMode resolvedScreenMode = DDB_GetDefaultScreenMode(resolvedMachine);
+	uint8_t resolvedPlanes = 4;
+
+	DDB_CheckDataFileConfig(fileName, resolvedMachine, &resolvedScreenMode, &resolvedPlanes);
+	if (!ValidateResolvedVideoConfig(resolvedMachine, resolvedPlanes))
+		return false;
+
+	if (screenMode)
+		*screenMode = resolvedScreenMode;
+	if (displayPlanes)
+		*displayPlanes = resolvedPlanes;
+
+	return true;
+}
 
 static void EnumFiles(const char* pattern = "*")
 {
@@ -173,26 +227,32 @@ static int CountFiles(const char* extension)
 static bool TryMountDiskImageWithDDBs()
 {
 #ifdef HAS_VIRTUALFILESYSTEM
-	char candidates[MAX_FILES][FILE_MAX_PATH];
+	char* candidates = Allocate<char>("Mount candidates", MAX_FILES * FILE_MAX_PATH);
+	if (candidates == 0)
+		return false;
 	int candidateCount = fileCount;
 	if (candidateCount > MAX_FILES)
 		candidateCount = MAX_FILES;
 
 	for (int n = 0; n < candidateCount; n++)
-		StrCopy(candidates[n], sizeof(candidates[n]), files[n]);
+		StrCopy(candidates + n * FILE_MAX_PATH, FILE_MAX_PATH, files[n]);
 
 	for (int n = 0; n < candidateCount; n++)
 	{
-		if (!File_MountDisk(candidates[n]))
+		if (!File_MountDisk(candidates + n * FILE_MAX_PATH))
 			continue;
 
 		EnumFiles();
 		if (CountDDBFiles() > 0)
+		{
+			Free(candidates);
 			return true;
+		}
 
 		CloseEnum();
 		File_UnmountDisk();
 	}
+	Free(candidates);
 #endif
 	return false;
 }
@@ -239,19 +299,7 @@ static const char* GetDDBFile(int index)
 
 static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version)
 {
-	DDB* ddb = DDB_Load(fileName);
-	if (ddb == 0)
-		return false;
-
-	if (machine != 0)
-		*machine = ddb->target;
-	if (language != 0)
-		*language = ddb->language;
-	if (version != 0)
-		*version = ddb->version;
-
-	DDB_Close(ddb);
-	return true;
+	return DDB_Check(fileName, machine, language, version);
 }
 
 static void ShowLoaderPrompt(int parts, DDB_Language language)
@@ -307,10 +355,23 @@ static void WaitForKeyUpdate(int elapsed)
 	}
 }
 
+static void ScaleFadePalette(const uint32_t* sourcePalette, uint32_t* fadedPalette, uint16_t count, uint16_t scale)
+{
+	for (uint16_t n = 0; n < count; n++)
+	{
+		uint32_t v0 = ((sourcePalette[n] & 0xFF00FFUL) * scale) >> 8;
+		uint32_t v1 = ((sourcePalette[n] & 0x00FF00UL) * scale) >> 8;
+		fadedPalette[n] = (v0 & 0xFF00FFUL) | (v1 & 0x00FF00UL);
+	}
+}
+
 #if _WEB
 
 static int frame;
-static uint8_t r[256], g[256], b[256];
+static const int fadeSteps = 8;
+static const uint16_t fadeScale[fadeSteps] = { 256, 219, 183, 146, 110, 73, 37, 0 };
+static uint32_t fadeSourcePalette[256];
+static uint32_t fadeWorkingPalette[256];
 
 static PlayerState state = Player_Starting;
 static DDB*        ddb;
@@ -364,20 +425,15 @@ static const char* GetSnapshot(int index)
 
 static void FadeOutStep(int elapsed)
 {
+	(void)elapsed;
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
-	for (uint16_t i = 0; i < fadePaletteSize; i++)
-	{
-		uint8_t r2 = r[i] * (15 - frame) / 15;
-		uint8_t g2 = g[i] * (15 - frame) / 15;
-		uint8_t b2 = b[i] * (15 - frame) / 15;
-		VID_SetPaletteColor(i, r2, g2, b2);
-	}
+	uint16_t scale = fadeScale[frame];
+	ScaleFadePalette(fadeSourcePalette, fadeWorkingPalette, fadePaletteSize, scale);
+	VID_SetPaletteEntries(fadeWorkingPalette, fadePaletteSize, 0, false, true);
 	frame++;
-	VID_ActivatePalette();
 	
-	if (frame >= 16)
+	if (frame >= fadeSteps)
 	{
-		VID_ResetDisplay();
 		VID_Quit();
 	}
 }
@@ -388,7 +444,11 @@ static void FadeOut()
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
 	for (uint16_t i = 0; i < fadePaletteSize; i++)
-		VID_GetPaletteColor(i, &r[i], &g[i], &b[i]);
+	{
+		uint8_t r, g, b;
+		VID_GetPaletteColor(i, &r, &g, &b);
+		fadeSourcePalette[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+	}
 	frame = 0;
 	FadeOutStep(0);
 
@@ -419,6 +479,9 @@ void DDB_RestartAsyncPlayer()
 PlayerState DDB_RunPlayerAsync(const char* location)
 {
 	static DDB_ScreenMode screenMode = ScreenMode_VGA16;
+	static uint8_t displayPlanes = 4;
+	static DDB_Machine initializedMachine = DDB_MACHINE_AMIGA;
+	static DDB_Version initializedVersion = DDB_VERSION_2;
 
 	if (state == Player_Finished || state == Player_Error)
 		return state;
@@ -427,6 +490,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
+		VID_SetPaletteRange(DefaultPalette, 16, 0, true, true);
 
 		DebugPrintf("Starting interpreter\n");
 		DDB_Run(interpreter);
@@ -510,15 +574,13 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		else
 		{
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));
-			if (!GetDDBMetadata(ddbFileName, &machine, &language, &version))
+			if (!ResolveDDBVideoConfig(ddbFileName, &machine, &language, &version, &screenMode, &displayPlanes))
 			{
 				DebugPrintf("Rejected invalid DDB %s before initialization\n", ddbFileName);
-				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				if (DDB_GetError() == DDB_ERROR_NONE)
+					DDB_SetError(DDB_ERROR_INVALID_FILE);
 				return state = Player_Error;
 			}
-			screenMode = DDB_GetDefaultScreenMode(machine);
-			uint8_t displayPlanes = 4;
-			DDB_CheckDataFileConfig(ddbFileName, machine, &screenMode, &displayPlanes);
 			VID_SetDisplayPlanesHint(displayPlanes);
 			#if HAS_PCX
 			introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
@@ -527,8 +589,16 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			#endif
 			DebugPrintf("Checked %s\n", ddbFileName);
 			VID_Initialize(machine, version, screenMode);
-            if (DDB_SupportsDataFile(version, machine) && !VID_LoadDataFile(ddbFileName))
+				initializedMachine = machine;
+				initializedVersion = version;
+		    if (DDB_SupportsDataFile(version, machine) && !VID_LoadDataFile(ddbFileName))
+			{
 				DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+				VID_ShowError(DDB_GetErrorString());
+				CloseEnum();
+				VID_Finish();
+				return state = Player_Error;
+			}
 		}
 		
 		if (scrCount > 0)
@@ -576,6 +646,29 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
 	if (ddbSelected != 0)
 		StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
+
+	DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
+	DDB_Language selectedLanguage = DDB_SPANISH;
+	DDB_Version selectedVersion = DDB_VERSION_2;
+	DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
+	uint8_t selectedDisplayPlanes = 4;
+	if (!ResolveDDBVideoConfig(ddbFileName, &selectedMachine, &selectedLanguage, &selectedVersion, &selectedScreenMode, &selectedDisplayPlanes))
+	{
+		CloseEnum();
+		if (DDB_GetError() == DDB_ERROR_NONE)
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return state = Player_Error;
+	}
+	if (selectedMachine != initializedMachine || selectedVersion != initializedVersion || selectedScreenMode != screenMode || selectedDisplayPlanes != displayPlanes)
+	{
+		VID_Finish();
+		VID_SetDisplayPlanesHint(selectedDisplayPlanes);
+		VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode);
+		initializedMachine = selectedMachine;
+		initializedVersion = selectedVersion;
+		screenMode = selectedScreenMode;
+		displayPlanes = selectedDisplayPlanes;
+	}
 	CloseEnum();
 	
 	DebugPrintf("Loading %s\n", ddbFileName);
@@ -596,7 +689,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		return state = Player_Error;
 	}
 	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+	{
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+		VID_ShowError(DDB_GetErrorString());
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		VID_Finish();
+		return state = Player_Error;
+	}
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 		screenMode = ScreenMode_VGA;
@@ -607,29 +707,28 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 #else
 
-static uint8_t fadeR[256];
-static uint8_t fadeG[256];
-static uint8_t fadeB[256];
+static const int fadeSteps = 8;
+static const uint16_t fadeScale[fadeSteps] = { 256, 219, 183, 146, 110, 73, 37, 0 };
 
 static void FadeOut()
 {
+	uint32_t sourcePalette[256];
+	uint32_t palette[256];
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
 	for (uint16_t i = 0; i < fadePaletteSize; i++)
-		VID_GetPaletteColor(i, &fadeR[i], &fadeG[i], &fadeB[i]);
-	for (int frame = 0; frame < 16; frame++)
 	{
-		for (uint16_t i = 0; i < fadePaletteSize; i++)
-		{
-			uint8_t r = fadeR[i] * (15 - frame) / 15;
-			uint8_t g = fadeG[i] * (15 - frame) / 15;
-			uint8_t b = fadeB[i] * (15 - frame) / 15;
-			VID_SetPaletteColor(i, r, g, b);
-		}
-		VID_VSync();
+		uint8_t r, g, b;
+		VID_GetPaletteColor(i, &r, &g, &b);
+		sourcePalette[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 	}
-	VID_ResetDisplay();
+	for (int frame = 0; frame < fadeSteps; frame++)
+	{
+		uint16_t scale = fadeScale[frame];
+		ScaleFadePalette(sourcePalette, palette, fadePaletteSize, scale);
+		VID_SetPaletteEntries(palette, fadePaletteSize, 0, false, true);
+	}
 }
 
 // Checks for intro screen files and, if found, updates machine and screenMode accordingly
@@ -676,7 +775,7 @@ bool DDB_RunPlayer()
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(machine);
 	DDB_Version version = DDB_VERSION_2;
 	const char* introScreen = 0;
-	char introScreenName[FILE_MAX_PATH] = { 0 };
+	introScreenName[0] = 0;
 
 	EnumFiles();
 	
@@ -691,18 +790,24 @@ bool DDB_RunPlayer()
 		}
 
 		ddbCount = CountDDBFiles();
+		if (ddbCount == 0)
+		{
+			CloseEnum();
+			DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
+			return false;
+		}
 	}
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));
-	if (!GetDDBMetadata(ddbFileName, &machine, &language, &version))
+	uint8_t displayPlanes = 4;
+
+	if (!ResolveDDBVideoConfig(ddbFileName, &machine, &language, &version, &screenMode, &displayPlanes))
 	{
 		CloseEnum();
-		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		if (DDB_GetError() == DDB_ERROR_NONE)
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
 		return false;
 	}
-	screenMode = DDB_GetDefaultScreenMode(machine);
-	uint8_t displayPlanes = 4;
-	DDB_CheckDataFileConfig(ddbFileName, machine, &screenMode, &displayPlanes);
 	VID_SetDisplayPlanesHint(displayPlanes);
 
 	#if HAS_PCX
@@ -715,6 +820,11 @@ bool DDB_RunPlayer()
 		StrCopy(introScreenName, sizeof(introScreenName), introScreen);
 		introScreen = introScreenName;
 	}
+
+	#ifdef _AMIGA
+	OpenKeyboard();
+	OpenAudio();
+	#endif
 
 	VID_Initialize(machine, version, screenMode);
 	if (introScreen != 0)
@@ -742,6 +852,43 @@ bool DDB_RunPlayer()
 		DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
 		if (ddbSelected != 0)
 			StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
+
+		DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
+		DDB_Language selectedLanguage = DDB_SPANISH;
+		DDB_Version selectedVersion = DDB_VERSION_2;
+		DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
+		uint8_t selectedDisplayPlanes = 4;
+		if (!ResolveDDBVideoConfig(ddbFileName, &selectedMachine, &selectedLanguage, &selectedVersion, &selectedScreenMode, &selectedDisplayPlanes))
+		{
+			CloseEnum();
+			if (DDB_GetError() == DDB_ERROR_NONE)
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
+		#if HAS_PCX
+		CheckIntroScreenFiles(ddbFileName, &introScreen, &selectedMachine, selectedVersion, &selectedScreenMode);
+		#else
+		CheckIntroScreenFiles(&introScreen, &selectedMachine, &selectedScreenMode);
+		#endif
+		if (introScreen != 0 && introScreen[0] != 0)
+		{
+			StrCopy(introScreenName, sizeof(introScreenName), introScreen);
+			introScreen = introScreenName;
+		}
+
+		if (selectedMachine != machine || selectedVersion != version || selectedScreenMode != screenMode || selectedDisplayPlanes != displayPlanes)
+		{
+			VID_Finish();
+			VID_SetDisplayPlanesHint(selectedDisplayPlanes);
+			VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode);
+			machine = selectedMachine;
+			version = selectedVersion;
+			screenMode = selectedScreenMode;
+			displayPlanes = selectedDisplayPlanes;
+			if (introScreen != 0)
+				VID_DisplaySCRFile(introScreen, machine, false);
+		}
 	}
 
 	CloseEnum();
@@ -778,6 +925,11 @@ bool DDB_RunPlayer()
 	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName)) 
 	{
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+		VID_ShowError(DDB_GetErrorString());
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		VID_Finish();
+		return false;
 	}
 
 	#if HAS_PCX
@@ -805,6 +957,7 @@ bool DDB_RunPlayer()
 
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
+	VID_SetPaletteRange(DefaultPalette, 16, 0, true, true);
 
 	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);

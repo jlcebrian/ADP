@@ -432,6 +432,41 @@ bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t heigh
 	return true;
 }
 
+bool DMG_UnpackBitplaneWords(const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
+{
+	if (bitsPerPixel == 0 || bitsPerPixel > 8)
+		return false;
+
+	const uint32_t wordsPerRow = (width + 15) >> 4;
+	const uint32_t rowStride = wordsPerRow * bitsPerPixel * 2;
+	MemClear(output, (uint32_t)width * height);
+
+	for (uint16_t y = 0; y < height; y++)
+	{
+		const uint8_t* rowPtr = data + y * rowStride;
+		uint8_t* dst = output + y * width;
+		for (uint32_t wordIndex = 0; wordIndex < wordsPerRow; wordIndex++)
+		{
+			uint16_t baseX = (uint16_t)(wordIndex << 4);
+			for (uint8_t plane = 0; plane < bitsPerPixel; plane++)
+			{
+				const uint8_t* src = rowPtr + (wordIndex * bitsPerPixel + plane) * 2;
+				uint16_t value = (uint16_t)(src[0] << 8) | src[1];
+				uint8_t planeMask = (uint8_t)(1u << plane);
+				for (int bit = 15; bit >= 0; bit--)
+				{
+					uint16_t x = (uint16_t)(baseX + (15 - bit));
+					if (x >= width)
+						break;
+					if ((value >> bit) & 1)
+						dst[x] |= planeMask;
+				}
+			}
+		}
+	}
+	return true;
+}
+
 static bool DMG_ReadDAT5Entries(DMG* dmg)
 {
     uint8_t header[16];
@@ -460,8 +495,12 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
         return false;
     }
 
-    if (dmg->targetWidth == 320 && dmg->targetHeight == 200)
-        dmg->screenMode = (dmg->colorMode == DMG_DAT5_COLORMODE_I256) ? ScreenMode_VGA : ScreenMode_VGA16;
+	if (dmg->targetWidth == 320 && dmg->targetHeight == 200)
+		dmg->screenMode =
+			(dmg->colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
+			(dmg->colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
+			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8) ? ScreenMode_VGA :
+			ScreenMode_VGA16;
     else if (dmg->targetWidth == 640 && dmg->targetHeight == 200)
         dmg->screenMode = ScreenMode_HiRes;
     else if (dmg->targetWidth == 640 && dmg->targetHeight == 400)

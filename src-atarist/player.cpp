@@ -217,15 +217,24 @@ int main (int argc, char *argv[])
 	if (!ddb)
 		error(DDB_GetErrorString());
 
-	if (!VID_Initialize(ddb->target, ddb->version, ScreenMode_VGA16))
+	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
+	uint8_t displayPlanes = 4;
+	DDB_CheckDataFileConfig(file, ddb->target, &screenMode, &displayPlanes);
+	VID_SetDisplayPlanesHint(displayPlanes);
+
+	if (!VID_Initialize(ddb->target, ddb->version, screenMode))
 		error(DDB_GetErrorString());
 
-	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, ScreenMode_VGA16);
+	DDB_Interpreter* interpreter = DDB_CreateInterpreter(ddb, screenMode);
 	if (interpreter == 0)
 		error(DDB_GetErrorString());
 
-	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(file);
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(file))
+	{
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		error(DDB_GetErrorString());
+	}
 
 	DDB_Run(interpreter);
 	DDB_CloseInterpreter(interpreter);

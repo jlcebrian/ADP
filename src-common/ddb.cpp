@@ -812,22 +812,27 @@ void DDB_SetWarningHandler(void (*handler)(const char* message))
 
 void DDB_Warning(const char* format, ...)
 {
-	if (warningHandler != 0)
-	{
 	#if _STDCLIB && !defined(NO_PRINTF)
 		char buffer[256];
 		va_list args;
 		va_start(args, format);
 		vsnprintf(buffer, sizeof(buffer), format, args);
 		va_end(args);
-		warningHandler(buffer);
+	#elif defined(AMIGA)
+		char buffer[256];
+		va_list args;
+		va_start(args, format);
+		vsnprintf_(buffer, sizeof(buffer), format, args);
+		va_end(args);
 	#else
-		warningHandler(format);
+		const char* buffer = format;
 	#endif
-	}
+	DebugPrintf("%s\n", buffer);
+	if (warningHandler != 0)
+		warningHandler(buffer);
 }
 
-/* ───────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────── ────────────────────────────────────── */
 
 const char* DDB_GetDebugMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId)
 {
@@ -1138,10 +1143,10 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_Scree
             if (width == 320 && height == 200)
             {
                 if (mode) *mode = 
-					(colorMode == DMG_DAT5_COLORMODE_I256) ? ScreenMode_VGA :
-					(colorMode == DMG_DAT5_COLORMODE_I16) ? ScreenMode_VGA16 :
 					(colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
 					(colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
+					(DMG_DAT5ModePlaneCount(colorMode) >= 8) ? ScreenMode_VGA :
+					(DMG_DAT5ModePlaneCount(colorMode) > 0) ? ScreenMode_VGA16 :
 					 ScreenMode_VGA;
             }
             else if (width == 640 && height == 200)
@@ -1155,12 +1160,8 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_Scree
 
             if (planes)
             {
-                switch (colorMode)
-                {
-                    case DMG_DAT5_COLORMODE_I32: *planes = 5; break;
-                    case DMG_DAT5_COLORMODE_I256: *planes = 8; break;
-                    default: *planes = 4; break;
-                }
+				uint8_t planeCount = DMG_DAT5ModePlaneCount(colorMode);
+				*planes = planeCount == 0 ? 4 : planeCount;
             }
         }
         else
@@ -1196,50 +1197,82 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_Scree
 
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
 {
-	uint8_t buffer[512];
-	DDB check;
-	MemSet(&check, 0, sizeof(check));
-
-	File* file = File_Open(filename, ReadOnly);
-	if (file == 0)
-		return false;
-
-	uint64_t fileSize = File_GetSize(file);
-	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
+	const uint32_t checkBufferSize = 512;
+	uint8_t* buffer = Allocate<uint8_t>("DDB Check buffer", checkBufferSize);
+	DDB* check = Allocate<DDB>("DDB Check", 1, true);
+	if (buffer == 0 || check == 0)
 	{
-		File_Close(file);
+		ddbError = DDB_ERROR_OUT_OF_MEMORY;
+		if (buffer != 0)
+			Free(buffer);
+		if (check != 0)
+			Free(check);
 		return false;
 	}
 
-	uint32_t readSize = fileSize < sizeof(buffer) ? (uint32_t)fileSize : (uint32_t)sizeof(buffer);
+	uint64_t fileSize = File_GetSizeByName(filename);
+	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
+	{
+		DebugPrintf("Rejecting DDB %s due to size %lu (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
+		Free(check);
+		Free(buffer);
+		return false;
+	}
+
+	File* file = File_Open(filename, ReadOnly);
+	if (file == 0)
+	{
+		Free(check);
+		Free(buffer);
+		return false;
+	}
+
+	uint32_t readSize = fileSize < checkBufferSize ? (uint32_t)fileSize : checkBufferSize;
 	if (File_Read(file, buffer, readSize) != readSize)
 	{
 		File_Close(file);
+		Free(check);
+		Free(buffer);
 		return false;
 	}
 	File_Close(file);
 
 	ddbError = DDB_ERROR_NONE;
-	if (!DDB_ParseHeader(&check, buffer, fileSize, readSize))
+	if (!DDB_ParseHeader(check, buffer, fileSize, readSize))
+	{
+		Free(check);
+		Free(buffer);
 		return false;
+	}
 
-	if (!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 10, check.littleEndian), check.numProcesses, "Processes") ||
-		!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 16, check.littleEndian), check.numMessages, "Messages") ||
-		!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 18, check.littleEndian), check.numSystemMessages, "System messages") ||
-		!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 12, check.littleEndian), check.numObjects, "Object names") ||
-		!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 14, check.littleEndian), check.numLocations, "Location descriptions") ||
-		!DDB_ValidateOffsetTablePrefix(&check, buffer, readSize, read16(buffer + 20, check.littleEndian), check.numLocations, "Connections"))
+	if (!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 10, check->littleEndian), check->numProcesses, "Processes") ||
+		!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 16, check->littleEndian), check->numMessages, "Messages") ||
+		!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 18, check->littleEndian), check->numSystemMessages, "System messages") ||
+		!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 12, check->littleEndian), check->numObjects, "Object names") ||
+		!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 14, check->littleEndian), check->numLocations, "Location descriptions") ||
+		!DDB_ValidateOffsetTablePrefix(check, buffer, readSize, read16(buffer + 20, check->littleEndian), check->numLocations, "Connections"))
+	{
+		Free(check);
+		Free(buffer);
 		return false;
+	}
 
 	if (ddbError != DDB_ERROR_NONE)
+	{
+		Free(check);
+		Free(buffer);
 		return false;
+	}
 
 	if (language != 0)
-		*language = check.language;
+		*language = check->language;
 	if (target != 0)
-		*target = check.target;
+		*target = check->target;
 	if (version != 0)
-		*version = check.version;
+		*version = check->version;
+
+	Free(check);
+	Free(buffer);
 
 	return true;
 }
@@ -1537,6 +1570,8 @@ DDB* DDB_Load(const char* filename)
 		return 0;
 	}
 
+	DebugPrintf("Loading DDB: %s\n", filename);
+
 	uint64_t fileSize = File_GetSize(file);
 	uint8_t* memory = 0;
 	uint8_t* data = 0;
@@ -1607,6 +1642,7 @@ DDB* DDB_Load(const char* filename)
 		if (fileSize > MAX_DDB_SIZE)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
+			DebugPrintf("Invalid DDB file size for %s: %lu bytes (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
 			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", MAX_DDB_SIZE);
 			File_Close(file);
 			Free(ddb);

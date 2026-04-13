@@ -64,3 +64,38 @@ bool DMG_PackBitplaneBytes(const uint8_t* input, uint16_t width, uint16_t height
 	}
 	return true;
 }
+
+bool DMG_PackBitplaneWords(const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
+{
+	if (bitsPerPixel == 0 || bitsPerPixel > 8)
+		return false;
+
+	const uint32_t wordsPerRow = (width + 15) >> 4;
+	const uint32_t rowStride = wordsPerRow * bitsPerPixel * 2;
+	MemClear(output, rowStride * height);
+
+	for (uint16_t y = 0; y < height; y++)
+	{
+		const uint8_t* src = input + y * width;
+		uint8_t* rowPtr = output + y * rowStride;
+		for (uint32_t wordIndex = 0; wordIndex < wordsPerRow; wordIndex++)
+		{
+			uint16_t baseX = (uint16_t)(wordIndex << 4);
+			for (uint8_t plane = 0; plane < bitsPerPixel; plane++)
+			{
+				uint16_t word = 0;
+				uint8_t planeMask = (uint8_t)(1u << plane);
+				for (uint16_t bit = 0; bit < 16; bit++)
+				{
+					uint16_t x = (uint16_t)(baseX + bit);
+					if (x < width && (src[x] & planeMask))
+						word |= (uint16_t)(0x8000 >> bit);
+				}
+				uint8_t* dst = rowPtr + (wordIndex * bitsPerPixel + plane) * 2;
+				dst[0] = (uint8_t)(word >> 8);
+				dst[1] = (uint8_t)word;
+			}
+		}
+	}
+	return true;
+}

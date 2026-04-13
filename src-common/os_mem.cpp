@@ -297,7 +297,7 @@ void DumpMemory(uint32_t totalFree, uint32_t largestBlock, uint32_t stackUsed, u
 				next = next->next;
 			}
 
-			VID_ClearAllPlanes(6, y, 230, 8, 0);
+			VID_Clear(6, y, 230, 8, 0, VID_CLEAR_ALL_PLANES);
 			
 			char buf[16];
 			LongToChar(count, buf, 10);
@@ -313,15 +313,15 @@ void DumpMemory(uint32_t totalFree, uint32_t largestBlock, uint32_t stackUsed, u
 		r = r->next;
 	}
 
-	VID_ClearAllPlanes(  5,  14,   3, y-12, 0);
-	VID_ClearAllPlanes(234,  14,   3, y-12, 0);
-	VID_ClearAllPlanes(  5,  13, 232,    3, 0);
-	VID_ClearAllPlanes(  5,   y, 232,    3, 0);
+	VID_Clear(  5,  14,   3, y-12, 0, VID_CLEAR_ALL_PLANES);
+	VID_Clear(234,  14,   3, y-12, 0, VID_CLEAR_ALL_PLANES);
+	VID_Clear(  5,  13, 232,    3, 0, VID_CLEAR_ALL_PLANES);
+	VID_Clear(  5,   y, 232,    3, 0, VID_CLEAR_ALL_PLANES);
 
-	VID_ClearAllPlanes(  6,  15,   1, y-14, 15);
-	VID_ClearAllPlanes(235,  15,   1, y-14, 15);
-	VID_ClearAllPlanes(  6,  14, 230,    1, 15);
-	VID_ClearAllPlanes(  6, y+1, 230,    1, 15);
+	VID_Clear(  6,  15,   1, y-14, 15, VID_CLEAR_ALL_PLANES);
+	VID_Clear(235,  15,   1, y-14, 15, VID_CLEAR_ALL_PLANES);
+	VID_Clear(  6,  14, 230,    1, 15, VID_CLEAR_ALL_PLANES);
+	VID_Clear(  6, y+1, 230,    1, 15, VID_CLEAR_ALL_PLANES);
 
 	y += 10;
 
@@ -355,7 +355,7 @@ void DumpMemory(uint32_t totalFree, uint32_t largestBlock, uint32_t stackUsed, u
 		LongToChar(stackTotal / 1024, buf + StrLen(buf), 10);
 		StrCat(buf, sizeof(buf), "K stack");
 	}
-	VID_ClearAllPlanes(6, 2, MeasureDebugTextWidth(buf), 8, 0);
+	VID_Clear(6, 2, MeasureDebugTextWidth(buf), 8, 0, VID_CLEAR_ALL_PLANES);
 	VID_DrawTextSpan(6, 2, (const uint8_t*)buf, (uint16_t)StrLen(buf), 0, 15);
 }
 

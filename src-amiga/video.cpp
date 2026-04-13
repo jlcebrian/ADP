@@ -81,6 +81,13 @@ static uint16_t 	savedPaletteColors = 16;
 
 static uint16_t* 	activePaletteAGAHigh = 0;
 static uint16_t* 	activePaletteAGALow = 0;
+static uint16_t   paletteHighR[256];
+static uint16_t   paletteHighG[256];
+static uint16_t   paletteHighB[256];
+static uint16_t   paletteLowR[256];
+static uint16_t   paletteLowG[256];
+static uint16_t   paletteLowB[256];
+static uint8_t    paletteNibbleExpand[16];
 
 static DMG*       	pictureOrigin;
 static DMG_Entry* 	pictureEntry = 0;
@@ -105,10 +112,11 @@ static inline uint16_t* BeginCopperBuild();
 static inline void CommitCopperBuild(uint16_t* program, uint16_t* end);
 static void UpdateDrawPlanes();
 static void SetPlanePointers(uint8_t* buffer, uint8_t** out);
+static void RefreshBackPlanePointers();
 static void ProgramDisplay();
+static void InitializePaletteEncodeTables();
 static void VID_CommitPalette(bool waitForVBlank);
-static void VID_StagePaletteColor(uint8_t color, uint8_t r, uint8_t g, uint8_t b);
-static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t firstColor = 0, bool clearOutside = true, bool immediate = true);
+static void VID_StagePaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor = 0, bool clearOutside = true, bool immediate = true);
 static uint16_t* AppendCopperPalette(uint16_t* copListEnd);
 
 static uint16_t GetDisplayPaletteCapacity()
@@ -198,7 +206,16 @@ static void UpdatePaletteStore(uint32_t* store, const uint32_t* palette, uint16_
 static void ApplyPaletteStore(const uint32_t* store, bool waitForVBlank)
 {
 	CopyPaletteStore(activePalette, store);
-	VID_SetPaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
+	VID_StagePaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
+	VID_CommitPalette(waitForVBlank);
+}
+
+void VID_SetPaletteRangeFast(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
+{
+	uint32_t* store = GetVisiblePaletteStore();
+	UpdatePaletteStore(activePalette, palette, count, firstColor, clearOutside);
+	UpdatePaletteStore(store, palette, count, firstColor, clearOutside);
+	VID_StagePaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
 	VID_CommitPalette(waitForVBlank);
 }
 
@@ -250,7 +267,7 @@ static void ClearScratchDisplayBuffer(uint8_t color)
 static void PresentScratchDisplayBuffer()
 {
 	CopyPaletteStore(activePalette, scratchDisplayPalette);
-	VID_SetPaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
+	VID_StagePaletteEntries(activePalette, GetDisplayPaletteCapacity(), 0, false, false);
 
 	if (isAGA && displayPlanes == 8)
 	{
@@ -289,7 +306,7 @@ static void PresentScratchDisplayBuffer()
 		CopyPaletteStore(oldPalette, backPalette);
 		backBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
-		SetPlanePointers(backBuffer, backPlane);
+		RefreshBackPlanePointers();
 		CopyPaletteStore(backPalette, scratchDisplayPalette);
 		CopyPaletteStore(scratchDisplayPalette, oldPalette);
 	}
@@ -301,6 +318,7 @@ static void PresentScratchDisplayBuffer()
 		frontBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
+		RefreshBackPlanePointers();
 		CopyPaletteStore(frontPalette, scratchDisplayPalette);
 		CopyPaletteStore(scratchDisplayPalette, oldPalette);
 	}
@@ -343,7 +361,7 @@ static void PresentScratchDisplayPlanesOnly()
 		uint8_t* oldVisible = backBuffer;
 		backBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
-		SetPlanePointers(backBuffer, backPlane);
+		RefreshBackPlanePointers();
 	}
 	else
 	{
@@ -351,6 +369,7 @@ static void PresentScratchDisplayPlanesOnly()
 		frontBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
+		RefreshBackPlanePointers();
 	}
 
 	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
@@ -457,29 +476,48 @@ static inline uint16_t EncodePlaneCount(uint8_t planes)
 
 static inline uint16_t EncodeColor12(uint8_t r, uint8_t g, uint8_t b)
 {
-	return (uint16_t)(((r & 0xF0) << 4) | (g & 0xF0) | (b >> 4));
+	return (uint16_t)(paletteHighR[r] | paletteHighG[g] | paletteHighB[b]);
 }
 
 static inline uint16_t EncodeColor24High(uint32_t rgb)
 {
-	return (uint16_t)((((rgb >> 20) & 0x0F) << 8) |
-		(((rgb >> 12) & 0x0F) << 4) |
-		((rgb >> 4) & 0x0F));
+	return (uint16_t)(paletteHighR[(rgb >> 16) & 0xFF] |
+		paletteHighG[(rgb >> 8) & 0xFF] |
+		paletteHighB[rgb & 0xFF]);
 }
 
 static inline uint16_t EncodeColor24Low(uint32_t rgb)
 {
-	return (uint16_t)((((rgb >> 16) & 0x0F) << 8) |
-		(((rgb >> 8) & 0x0F) << 4) |
-		(rgb & 0x0F));
+	return (uint16_t)(paletteLowR[(rgb >> 16) & 0xFF] |
+		paletteLowG[(rgb >> 8) & 0xFF] |
+		paletteLowB[rgb & 0xFF]);
 }
 
 static inline void SetEncodedAGAPalette(uint8_t color, uint32_t rgb)
 {
 	if (activePaletteAGAHigh == 0 || activePaletteAGALow == 0)
 		return;
-	activePaletteAGAHigh[color] = EncodeColor24High(rgb);
-	activePaletteAGALow[color] = EncodeColor24Low(rgb);
+	uint8_t r = (uint8_t)(rgb >> 16);
+	uint8_t g = (uint8_t)(rgb >> 8);
+	uint8_t b = (uint8_t)rgb;
+	activePaletteAGAHigh[color] = (uint16_t)(paletteHighR[r] | paletteHighG[g] | paletteHighB[b]);
+	activePaletteAGALow[color] = (uint16_t)(paletteLowR[r] | paletteLowG[g] | paletteLowB[b]);
+}
+
+static void InitializePaletteEncodeTables()
+{
+	for (uint16_t value = 0; value < 256; value++)
+	{
+		paletteHighR[value] = (uint16_t)((value & 0xF0) << 4);
+		paletteHighG[value] = (uint16_t)(value & 0xF0);
+		paletteHighB[value] = (uint16_t)(value >> 4);
+		paletteLowR[value] = (uint16_t)((value & 0x0F) << 8);
+		paletteLowG[value] = (uint16_t)((value & 0x0F) << 4);
+		paletteLowB[value] = (uint16_t)(value & 0x0F);
+	}
+
+	for (uint16_t value = 0; value < 16; value++)
+		paletteNibbleExpand[value] = (uint8_t)((value << 4) | value);
 }
 
 static void UpdateDrawPlanes()
@@ -497,6 +535,14 @@ static void SetPlanePointers(uint8_t* buffer, uint8_t** out)
 {
 	for (unsigned n = 0; n < MAX_PLANES; n++)
 		out[n] = (n < displayPlanes && buffer != 0) ? buffer + screenBytesPerPlane * n : 0;
+}
+
+static void RefreshBackPlanePointers()
+{
+	if (backBufferEnabled && backBuffer != 0)
+		SetPlanePointers(backBuffer, backPlane);
+	else
+		SetPlanePointers(frontBuffer, backPlane);
 }
 
 static void UploadAGAPalette(uint16_t count)
@@ -548,6 +594,15 @@ static inline void CommitCopperBuild(uint16_t* program, uint16_t* end)
 	RunCopperProgram(program, end);
 	copper1 = program;
 	activeCopperList = (program == copperLists[1]) ? 1 : 0;
+}
+
+bool VID_IsAGAAvailable()
+{
+	if (GfxBase == 0 || GfxBase->LibNode.lib_Version < 39)
+		return false;
+
+	uint8_t chipRevBits0 = GfxBase->ChipRevBits0;
+	return (chipRevBits0 & (GFXF_AA_ALICE | GFXF_AA_LISA | GFXF_AA_MLISA)) != 0;
 }
 
 void VID_ActivateCharset()
@@ -738,16 +793,27 @@ static uint8_t GetRequiredDisplayPlanes(DMG* file)
 
 	switch (file->colorMode)
 	{
-		case DMG_DAT5_COLORMODE_CGA:
-		case DMG_DAT5_COLORMODE_EGA:
-		case DMG_DAT5_COLORMODE_I16:
+		case DMG_DAT5_COLORMODE_PLANAR4:
 			return TEXT_PLANES;
-		case DMG_DAT5_COLORMODE_I32:
+		case DMG_DAT5_COLORMODE_PLANAR5:
 			return 5;
-		case DMG_DAT5_COLORMODE_I256:
+		case DMG_DAT5_COLORMODE_PLANAR8:
 			return 8;
 		default:
 			return TEXT_PLANES;
+	}
+}
+
+static bool IsSupportedDAT5ColorMode(uint8_t colorMode)
+{
+	switch ((DMG_DAT5ColorMode)colorMode)
+	{
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR5:
+		case DMG_DAT5_COLORMODE_PLANAR8:
+			return true;
+		default:
+			return false;
 	}
 }
 
@@ -771,12 +837,8 @@ static bool ProbeDataFileHeader(const char* fileName, uint8_t* requiredPlanes, u
 		if (colorMode) *colorMode = header[0x0E];
 		if (requiredPlanes)
 		{
-			switch (header[0x0E])
-			{
-				case DMG_DAT5_COLORMODE_I32: *requiredPlanes = 5; break;
-				case DMG_DAT5_COLORMODE_I256: *requiredPlanes = 8; break;
-				default: *requiredPlanes = 4; break;
-			}
+			uint8_t planeCount = DMG_DAT5ModePlaneCount(header[0x0E]);
+			*requiredPlanes = planeCount == 0 ? 4 : planeCount;
 		}
 		return true;
 	}
@@ -824,7 +886,7 @@ static bool ConfigureDisplayPlanes(uint8_t planes)
 		uint8_t* oldBack = backBuffer;
 		MemClear(newBack, allocate);
 		backBuffer = newBack;
-		SetPlanePointers(backBuffer, backPlane);
+		RefreshBackPlanePointers();
 		if (oldBack != 0)
 			Free(oldBack);
 	}
@@ -842,6 +904,7 @@ static bool ConfigureDisplayPlanes(uint8_t planes)
 	drawToBack = false;
 
 	SetPlanePointers(frontBuffer, frontPlane);
+	RefreshBackPlanePointers();
 	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
 	if (dmg != 0)
 		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
@@ -872,7 +935,7 @@ void VID_EnableBackBuffer()
 		}
 		
 		MemClear(backBuffer, allocate);
-		SetPlanePointers(backBuffer, backPlane);
+		RefreshBackPlanePointers();
 	}
 }
 
@@ -885,6 +948,7 @@ void VID_SetDisplayPlanesHint(uint8_t planes)
 {
 	if (planes < TEXT_PLANES || planes > MAX_PLANES)
 		planes = TEXT_PLANES;
+
 	requestedDisplayPlanes = planes;
 }
 
@@ -893,12 +957,9 @@ void VID_SetColor(uint8_t color, uint16_t pal)
 	if (color >= 32)
 		return;
 
-	uint8_t r = (pal >> 4) & 0xF0;
-	uint8_t g = pal & 0xF0;
-	uint8_t b = (pal & 0x0F) << 4;
-	r |= r >> 4;
-	g |= g >> 4;
-	b |= b >> 4;
+	uint8_t r = paletteNibbleExpand[(pal >> 8) & 0x0F];
+	uint8_t g = paletteNibbleExpand[(pal >> 4) & 0x0F];
+	uint8_t b = paletteNibbleExpand[pal & 0x0F];
 	activePalette[color] = (r << 16) | (g << 8) | b;
 	SetEncodedAGAPalette(color, activePalette[color]);
 
@@ -939,14 +1000,6 @@ void VID_ActivatePalette()
 	VID_CommitPalette(true);
 }
 
-static void VID_StagePaletteColor(uint8_t color, uint8_t r, uint8_t g, uint8_t b)
-{
-	activePalette[color] = (r << 16) | (g << 8) | b;
-	SetEncodedAGAPalette(color, activePalette[color]);
-	if (!isAGA || displayPlanes != 8 || color < 32)
-		copper2[color * 2 + 1] = EncodeColor12(r, g, b);
-}
-
 static uint16_t* AppendCopperPalette(uint16_t* copListEnd)
 {
 	for (uint16_t i = 0; i < 32 * 2; i += 2)
@@ -957,7 +1010,7 @@ static uint16_t* AppendCopperPalette(uint16_t* copListEnd)
 	return copListEnd;
 }
 
-static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool immediate)
+static void VID_StagePaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool immediate)
 {
 	uint16_t maxColors = (displayPlanes == 8 && isAGA) ? 256 : 32;
 	if (firstColor >= maxColors)
@@ -965,28 +1018,60 @@ static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t fi
 	if (count > maxColors - firstColor)
 		count = maxColors - firstColor;
 
-	for (uint16_t n = 0; n < count; n++)
+	if (immediate)
 	{
-		uint8_t r = (palette[n] >> 16) & 0xFF;
-		uint8_t g = (palette[n] >>  8) & 0xFF;
-		uint8_t b = (palette[n]      ) & 0xFF;
-		if (immediate)
-			VID_SetPaletteColor(firstColor + n, r, g, b);
-		else
-			VID_StagePaletteColor(firstColor + n, r, g, b);
+		for (uint16_t n = 0; n < count; n++)
+		{
+			uint32_t rgb = palette[n];
+			VID_SetPaletteColor(firstColor + n,
+				(rgb >> 16) & 0xFF,
+				(rgb >> 8) & 0xFF,
+				rgb & 0xFF);
+		}
+		if (clearOutside)
+		{
+			for (uint16_t n = 0; n < firstColor; n++)
+				VID_SetPaletteColor(n, 0, 0, 0);
+			for (uint16_t n = firstColor + count; n < maxColors; n++)
+				VID_SetPaletteColor(n, 0, 0, 0);
+		}
 	}
-	if (clearOutside)
+	else
 	{
-		for (uint16_t n = 0; n < firstColor; n++)
-			if (immediate)
-				VID_SetPaletteColor(n, 0, 0, 0);
-			else
-				VID_StagePaletteColor(n, 0, 0, 0);
-		for (uint16_t n = firstColor + count; n < maxColors; n++)
-			if (immediate)
-				VID_SetPaletteColor(n, 0, 0, 0);
-			else
-				VID_StagePaletteColor(n, 0, 0, 0);
+		bool updateCopper = !isAGA || displayPlanes != 8;
+		for (uint16_t n = 0; n < count; n++)
+		{
+			uint16_t color = firstColor + n;
+			uint32_t rgb = palette[n];
+			uint8_t r = (uint8_t)(rgb >> 16);
+			uint8_t g = (uint8_t)(rgb >> 8);
+			uint8_t b = (uint8_t)rgb;
+			activePalette[color] = rgb;
+			if (activePaletteAGAHigh != 0 && activePaletteAGALow != 0)
+			{
+				activePaletteAGAHigh[color] = (uint16_t)(paletteHighR[r] | paletteHighG[g] | paletteHighB[b]);
+				activePaletteAGALow[color] = (uint16_t)(paletteLowR[r] | paletteLowG[g] | paletteLowB[b]);
+			}
+			if (updateCopper || color < 32)
+				copper2[color * 2 + 1] = (uint16_t)(paletteHighR[r] | paletteHighG[g] | paletteHighB[b]);
+		}
+		if (clearOutside)
+		{
+			for (uint16_t color = 0; color < firstColor; color++)
+			{
+				activePalette[color] = 0;
+				SetEncodedAGAPalette((uint8_t)color, 0);
+				if (updateCopper || color < 32)
+					copper2[color * 2 + 1] = 0;
+			}
+			for (uint16_t color = firstColor + count; color < maxColors; color++)
+			{
+				activePalette[color] = 0;
+				SetEncodedAGAPalette((uint8_t)color, 0);
+				if (updateCopper || color < 32)
+					copper2[color * 2 + 1] = 0;
+			}
+		}
 	}
 
 #if DEBUG_PALETTE
@@ -1002,24 +1087,27 @@ static void VID_SetPaletteEntries(uint32_t* palette, uint16_t count, uint16_t fi
 #endif
 }
 
-void VID_SetPalette (uint32_t* palette)
+void VID_SetPaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
 {
-	UpdatePaletteStore(GetVisiblePaletteStore(), palette, 16, 0, true);
-	VID_SetPaletteEntries(palette, 16);
-}
-
-void VID_WaitForKey()
-{
-	DebugPrintf("Waiting for key\n");
-	InputBufferHead = InputBufferTail = 0;
-	while (InputBufferHead == InputBufferTail)
-		;
-	DebugPrintf("Key pressed\n");
+	VID_StagePaletteEntries(palette, count, firstColor, clearOutside, false);
+	VID_CommitPalette(waitForVBlank);
 }
 
 bool VID_AnyKey ()
 {
 	return InputBufferHead != InputBufferTail;
+}
+
+void VID_WaitForKey ()
+{
+	while (VID_AnyKey())
+	{
+		uint8_t key;
+		VID_GetKey(&key, 0, 0);
+	}
+
+	while (!VID_AnyKey())
+		;
 }
 
 bool VID_LoadDataFile (const char* fileName)
@@ -1047,6 +1135,12 @@ bool VID_LoadDataFile (const char* fileName)
 	{
 		if (probeColorMode != 0)
 		{
+			if (!IsSupportedDAT5ColorMode(probeColorMode))
+			{
+				DebugPrintf("Rejecting DAT5 mode %u on Amiga target\n", (unsigned)probeColorMode);
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
 			if (probeWidth != 320 || probeHeight != 200)
 			{
 				DebugPrintf("Rejecting DAT5 from header probe due to unsupported target size %ux%u\n",
@@ -1056,14 +1150,7 @@ bool VID_LoadDataFile (const char* fileName)
 			}
 			if (probePlanes == 8 && !isAGA)
 			{
-				DebugPrintf("Rejecting DAT5 I256 from header probe on non-AGA machine\n");
-				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
-				return false;
-			}
-			if (probePlanes != displayPlanes)
-			{
-				DebugPrintf("Rejecting DAT5 from header probe due to plane mismatch (required=%u active=%u)\n",
-					(unsigned)probePlanes, (unsigned)displayPlanes);
+				DebugPrintf("Rejecting DAT5 Planar8 from header probe on non-AGA machine\n");
 				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 				return false;
 			}
@@ -1107,9 +1194,6 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	#endif
 
-	if (scratchDisplayBuffer != 0)
-		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
-
 	uint8_t requiredPlanes = GetRequiredDisplayPlanes(dmg);
 	if (dmg->version == DMG_Version5 && (dmg->targetWidth != 320 || dmg->targetHeight != 200))
 	{
@@ -1119,9 +1203,17 @@ bool VID_LoadDataFile (const char* fileName)
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}
+	if (dmg->version == DMG_Version5 && !IsSupportedDAT5ColorMode(dmg->colorMode))
+	{
+		DebugPrintf("Rejecting DAT5 mode %u on Amiga target\n", (unsigned)dmg->colorMode);
+		DMG_Close(dmg);
+		dmg = 0;
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
 	if (requiredPlanes == 8 && !isAGA)
 	{
-		DebugPrintf("Rejecting I256 DAT5 on non-AGA machine\n");
+		DebugPrintf("Rejecting Planar8 DAT5 on non-AGA machine\n");
 		DMG_Close(dmg);
 		dmg = 0;
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
@@ -1129,13 +1221,18 @@ bool VID_LoadDataFile (const char* fileName)
 	}
 	if (requiredPlanes != displayPlanes)
 	{
-		DebugPrintf("Rejecting data file due to plane mismatch (required=%u active=%u)\n",
+		DebugPrintf("Reconfiguring display planes for data file (required=%u active=%u)\n",
 			(unsigned)requiredPlanes, (unsigned)displayPlanes);
-		DMG_Close(dmg);
-		dmg = 0;
-		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
-		return false;
+		if (!ConfigureDisplayPlanes(requiredPlanes))
+		{
+			DMG_Close(dmg);
+			dmg = 0;
+			return false;
+		}
 	}
+
+	if (scratchDisplayBuffer != 0)
+		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 	uint32_t requiredImageCache = 0;
 	if (dmg->version == DMG_Version5)
 		requiredImageCache = GetRecommendedDAT5ImageCacheSize(dmg);
@@ -1239,7 +1336,7 @@ static inline bool AdjustCoordinates(int &x, int &y, int &w, int &h)
 	return !(w < 1 || h < 1);
 }
 
-void VID_Clear (int x, int y, int w, int h, uint8_t color)
+void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
 {
 	int originalX = x;
 	int originalY = y;
@@ -1267,29 +1364,15 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color)
 	if (w*h >= 8192)
 		VID_VSync();
 
-	uint8_t planesToClear = TEXT_PLANES;
-	// Keep text/window clears on the low 4 planes so upper picture planes survive.
-	// Only full-screen clears or colors that explicitly use upper bits clear every plane.
-	if (fullScreenClear ||
-		((color >> TEXT_PLANES) != 0))
-		planesToClear = displayPlanes;
+	uint8_t planesToClear = mode == VID_CLEAR_ALL_PLANES ? displayPlanes : TEXT_PLANES;
+	if (mode != VID_CLEAR_ALL_PLANES)
+	{
+		// Keep text/window clears on the low planes so picture data survives.
+		if (fullScreenClear || ((color >> TEXT_PLANES) != 0))
+			planesToClear = displayPlanes;
+	}
 
 	for (uint8_t p = 0; p < planesToClear; p++)
-		BlitterRect(plane[p], x, y, w, h, (color & (1 << p)) != 0);
-}
-
-void VID_ClearAllPlanes(int x, int y, int w, int h, uint8_t color)
-{
-	if (!AdjustCoordinates(x, y, w, h))
-		return;
-
-	if (y >= screenHeight || w < 1 || h < 1)
-		return;
-
-	if (w * h >= 8192)
-		VID_VSync();
-
-	for (uint8_t p = 0; p < displayPlanes; p++)
 		BlitterRect(plane[p], x, y, w, h, (color & (1 << p)) != 0);
 }
 
@@ -1317,7 +1400,7 @@ void VID_PresentDefaultScreen()
 		BlitterRect(scratchDisplayPlane[n], 0, 0, screenWidth, screenHeight, 0);
 	WaitBlit();
 
-	VID_SetPaletteEntries(DefaultPalette, 16, 0, true, false);
+	VID_StagePaletteEntries(DefaultPalette, 16, 0, true, false);
 	UpdatePaletteStore(scratchDisplayPalette, DefaultPalette, 16, 0, true);
 	PresentScratchDisplayBuffer();
 	CopyPaletteStore(GetHiddenPaletteStore(), GetVisiblePaletteStore());
@@ -1373,6 +1456,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	bool paletteChangeNeeded = false;
 	bool shouldUpdatePalette = false;
 	bool clearOutside = true;
+	bool visibleTarget = false;
 	uint8_t** targetPlanes = presentingScratch ? scratchDisplayPlane : plane;
 	uint32_t* targetPaletteStore = GetPlaneTargetPaletteStore();
 	switch (screenMode)
@@ -1410,7 +1494,8 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	if (shouldUpdatePalette)
 	{
 		paletteChangeNeeded = PaletteStoreNeedsUpdate(targetPaletteStore, palette, paletteSize, paletteFirst, clearOutside);
-		presentingScratch = IsVisiblePlaneTarget() && paletteChangeNeeded;
+		visibleTarget = IsVisiblePlaneTarget();
+		presentingScratch = visibleTarget && paletteChangeNeeded;
 		if (presentingScratch)
 		{
 			CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
@@ -1437,7 +1522,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	if (presentingScratch)
 	{
-		DebugPrintf("Using scratch display buffer flip to present picture");
+		// DebugPrintf("Using scratch display buffer flip to present picture");
 		CopyScreenBuffer(GetVisiblePlanes(), scratchDisplayPlane);
 	}
 
@@ -1626,8 +1711,6 @@ void VID_PlaySample (uint8_t no, int* duration)
 		// - It may not be in chip RAM in the future
 		//
 		// So, we're aborting for now. This case should never happen anyway,
-		// since we should have enough image cache for any audio sample.
-		return;
 	}
 
 	uint16_t inputHz;
@@ -1933,10 +2016,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 	else
 		isPAL = false;
 
-	uint8_t chipRevBits0 = 0;
-	if (GfxBase->LibNode.lib_Version >= 39)
-		chipRevBits0 = GfxBase->ChipRevBits0;
-	isAGA = (chipRevBits0 & (GFXF_AA_ALICE | GFXF_AA_LISA | GFXF_AA_MLISA)) != 0;
+	isAGA = VID_IsAGAAvailable();
 	copperListBytes = isAGA ? 4096 : 1024;
 	screenMachine = machine;
 	DebugPrintf("Video: %s %u plane%s%s\n",
@@ -1955,6 +2035,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 
 	memcpy(charset,      DefaultCharset, 1024);
 	memcpy(charset+1024, DefaultCharset, 1024);
+	InitializePaletteEncodeTables();
 	if (isAGA)
 	{
 		activePaletteAGAHigh = Allocate<uint16_t>("AGA palette high", 256);
@@ -1989,7 +2070,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		return false;
 	}
 
-	VID_SetPalette(DefaultPalette);
+	VID_SetDefaultPalette();
 	VID_ActivatePalette();
 
 	return true;

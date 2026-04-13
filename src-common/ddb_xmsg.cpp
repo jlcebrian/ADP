@@ -133,7 +133,9 @@ bool DDB_OpenXMessageFile (const char* filename)
         xmsgFileSize = File_GetSize(xmsgFile);
         DebugPrintf("XMessage file opened (%lu bytes)\n", (unsigned long)xmsgFileSize);
         if (xmsgFileSize > XMSG_MAXFILESIZE)
+        {
             DebugPrintf("WARNING: XMessage file size %lu exceedes specs max", (unsigned long)xmsgFileSize);
+        }
     }
 
     return xmsgFilePresent = (xmsgFile != 0);

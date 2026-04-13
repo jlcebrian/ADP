@@ -225,11 +225,17 @@ enum DDB_Error
 enum DAT5_ColorMode
 {
     DAT5_COLORMODE_UNIVERSAL = 0,
-    DAT5_COLORMODE_CGA  = 1,
-    DAT5_COLORMODE_EGA  = 2,
-    DAT5_COLORMODE_I16  = 3,
-    DAT5_COLORMODE_I32  = 4,
-    DAT5_COLORMODE_I256 = 5,
+	DAT5_COLORMODE_CGA       = 1,
+	DAT5_COLORMODE_EGA       = 2,
+	DAT5_COLORMODE_PLANAR4   = 3,
+	DAT5_COLORMODE_PLANAR5   = 4,
+	DAT5_COLORMODE_PLANAR8   = 5,
+	DAT5_COLORMODE_PLANAR4ST = 6,
+	DAT5_COLORMODE_PLANAR8ST = 7,
+
+	DAT5_COLORMODE_I16  = DAT5_COLORMODE_PLANAR4,
+	DAT5_COLORMODE_I32  = DAT5_COLORMODE_PLANAR5,
+	DAT5_COLORMODE_I256 = DAT5_COLORMODE_PLANAR8,
 };
 
 enum DDB_Condact
@@ -741,6 +747,7 @@ extern bool             DDB_FileRequiresBackBuffer(const char* filename);
 extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_ScreenMode* mode);
 extern DDB_ScreenMode   DDB_GetDefaultScreenMode (DDB_Machine machine);
 extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes);
+extern DDB_Error        DDB_GetError             ();
 extern DDB*             DDB_Create               ();
 extern bool             DDB_SupportsDataFile     (DDB_Version ddb, DDB_Machine target);
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);
