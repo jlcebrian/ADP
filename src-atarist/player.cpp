@@ -191,16 +191,6 @@ int main (int argc, char *argv[])
 
 	uint32_t freeRam = Malloc(-1);
 	DebugPrintf("Free RAM: %d\n", freeRam);
-	if (freeRam > 16384)
-	{
-		size_t reservedArena = OSReserveArena(freeRam - 2048);
-		if (reservedArena != 0)
-			DebugPrintf("Reserved OS arena: %lu bytes\n", (unsigned long)reservedArena);
-		else
-			DebugPrintf("Reserved OS arena: failed\n");
-	}
-
-	DMG_GetTemporaryBuffer(ImageMode_PlanarST);
 
 	if (argc < 2)
 	{

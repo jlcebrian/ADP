@@ -1,5 +1,6 @@
 #include <dmg.h>
 #include <ddb.h>
+#include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <os_mem.h>
 #include <os_lib.h>
@@ -68,6 +69,10 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		{
 			compressedData = buffer + bufferSize - imageDataLength;
 		}
+		else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= imageDataLength)
+		{
+			compressedData = dmg->zx0Scratch;
+		}
 		else
 		{
 			compressedData = Allocate<uint8_t>("ZX0 input", imageDataLength, false);
@@ -85,13 +90,41 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
 		}
+		uint32_t t0, t1;
+		VID_GetMilliseconds(&t0);
 		if (!DMG_DecompressZX0(compressedData, imageDataLength, buffer, decompressedSize))
 		{
+			VID_GetMilliseconds(&t1);
 			if (freeCompressedData)
 				Free(compressedData);
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 			return 0;
 		}
+		VID_GetMilliseconds(&t1);
+		uint32_t dt = t1 - t0;
+		dmg->zx0ProfileCount++;
+		dmg->zx0ProfileInputBytes += imageDataLength;
+		dmg->zx0ProfileOutputBytes += decompressedSize;
+		dmg->zx0ProfileTotalMs += dt;
+		if (dt >= dmg->zx0ProfileMaxMs)
+		{
+			dmg->zx0ProfileMaxMs = dt;
+			dmg->zx0ProfileMaxIndex = index;
+		}
+		DebugPrintf("Decompressed DAT5 ZX0 image %u: %lu -> %lu bytes in %lu ms\n",
+			(unsigned)index,
+			(unsigned long)imageDataLength,
+			(unsigned long)decompressedSize,
+			(unsigned long)dt);
+
+		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode)))
+		{
+			if (freeCompressedData)
+				Free(compressedData);
+			return buffer;
+		}
+
 		tempFileData = Allocate<uint8_t>("DAT5 decompressed", decompressedSize, false);
 		if (tempFileData == 0)
 		{
@@ -104,6 +137,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		if (freeCompressedData)
 			Free(compressedData);
 		fileData = tempFileData;
+		imageDataLength = decompressedSize;
 	}
 	else
 	{

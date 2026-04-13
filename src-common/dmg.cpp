@@ -112,9 +112,36 @@ bool DMG_ReserveTemporaryBuffer(uint32_t size)
 
 uint8_t* DMG_GetTemporaryBuffer(DMG_ImageMode mode)
 {
+	uint32_t basePixels = DMG_BUFFER_SIZE;
+	if (dmg != 0)
+	{
+		uint32_t width = dmg->targetWidth;
+		uint32_t height = dmg->targetHeight;
+		if (width == 0 || height == 0)
+		{
+			switch (dmg->screenMode)
+			{
+				case ScreenMode_HiRes:
+					width = 640;
+					height = 200;
+					break;
+				case ScreenMode_SHiRes:
+					width = 640;
+					height = 400;
+					break;
+				default:
+					width = 320;
+					height = 200;
+					break;
+			}
+		}
+		if (width != 0 && height != 0)
+			basePixels = width * height;
+	}
+
 	uint32_t size = 
-			DMG_IS_INDEXED(mode) ? 2*DMG_BUFFER_SIZE : 
-			DMG_IS_RGBA32(mode) ? 4*DMG_BUFFER_SIZE : DMG_BUFFER_SIZE;
+			DMG_IS_INDEXED(mode) ? 2 * basePixels : 
+			DMG_IS_RGBA32(mode) ? 4 * basePixels : basePixels;
 	if (!DMG_ReserveTemporaryBuffer(size))
 		return 0;
 	
@@ -1323,6 +1350,19 @@ void DMG_Close(DMG* d)
 {
 	if (d == 0)
 		return;
+
+	if (d->zx0ProfileCount != 0)
+	{
+		uint32_t averageMs = d->zx0ProfileTotalMs / d->zx0ProfileCount;
+		DebugPrintf("DAT5 ZX0 summary: %lu images, %lu -> %lu bytes, %lu ms total, %lu ms avg, slowest image %u (%lu ms)\n",
+			(unsigned long)d->zx0ProfileCount,
+			(unsigned long)d->zx0ProfileInputBytes,
+			(unsigned long)d->zx0ProfileOutputBytes,
+			(unsigned long)d->zx0ProfileTotalMs,
+			(unsigned long)averageMs,
+			(unsigned)d->zx0ProfileMaxIndex,
+			(unsigned long)d->zx0ProfileMaxMs);
+	}
 
 #ifndef NO_CACHE
 	DMG_FreeImageCache(d);

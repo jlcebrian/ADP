@@ -12,6 +12,80 @@
 /* ───────────────────────────────────────────────────────────────────────── */
 
 static bool DMG_UpdateEntryV5(DMG* dmg, uint8_t index);
+static bool DMG_InsertBlock(DMG* dmg, uint32_t offset, uint32_t size);
+
+static bool DMG_WriteZeroBlock(DMG* dmg, uint32_t offset, uint32_t size)
+{
+	uint8_t* buffer = DMG_GetTemporaryBuffer(ImageMode_RGBA32);
+	uint32_t bufferSize = DMG_GetTemporaryBufferSize();
+	if (buffer == 0 || bufferSize == 0)
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+
+	MemClear(buffer, bufferSize);
+	while (size > 0)
+	{
+		uint32_t chunkSize = size > bufferSize ? bufferSize : size;
+		if (!File_Seek(dmg->file, offset))
+		{
+			DMG_SetError(DMG_ERROR_SEEKING_FILE);
+			return false;
+		}
+		if (File_Write(dmg->file, buffer, chunkSize) != chunkSize)
+		{
+			DMG_SetError(DMG_ERROR_WRITING_FILE);
+			return false;
+		}
+		offset += chunkSize;
+		size -= chunkSize;
+	}
+	return true;
+}
+
+static bool DMG_EnsureDAT5EntryRange(DMG* dmg, uint8_t index)
+{
+	if (dmg == 0 || dmg->version != DMG_Version5)
+		return true;
+	if (index >= dmg->firstEntry && index <= dmg->lastEntry)
+		return true;
+
+	uint8_t originalFirst = dmg->firstEntry;
+	uint8_t originalLast = dmg->lastEntry;
+
+	if (index < originalFirst)
+	{
+		uint32_t insertEntries = (uint32_t)(originalFirst - index);
+		uint32_t insertSize = insertEntries * 32;
+		dmg->firstEntry = index;
+		if (!DMG_InsertBlock(dmg, 0x10, insertSize))
+		{
+			dmg->firstEntry = originalFirst;
+			return false;
+		}
+		if (!DMG_WriteZeroBlock(dmg, 0x10, insertSize))
+			return false;
+	}
+
+	if (index > originalLast)
+	{
+		uint32_t oldCount = (uint32_t)(dmg->lastEntry - dmg->firstEntry + 1);
+		uint32_t insertEntries = (uint32_t)(index - originalLast);
+		uint32_t insertOffset = 0x10 + oldCount * 32;
+		uint32_t insertSize = insertEntries * 32;
+		dmg->lastEntry = index;
+		if (!DMG_InsertBlock(dmg, insertOffset, insertSize))
+		{
+			dmg->lastEntry = originalLast;
+			return false;
+		}
+		if (!DMG_WriteZeroBlock(dmg, insertOffset, insertSize))
+			return false;
+	}
+
+	return DMG_UpdateFileHeader(dmg);
+}
 
 static bool DMG_GetDAT5UsedRange(DMG* dmg, uint8_t* first, uint8_t* last)
 {
@@ -582,6 +656,9 @@ bool DMG_SetEntryPaletteEx (DMG* dmg, uint8_t index, uint32_t* palette, uint16_t
 
 bool DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize, uint8_t firstColor, uint8_t lastColor)
 {
+	if (dmg->version == DMG_Version5 && !DMG_EnsureDAT5EntryRange(dmg, index))
+		return false;
+
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	int n;
 
@@ -643,13 +720,31 @@ bool DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16
 
 bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq)
 {
+	if (dmg->version == DMG_Version5 && !DMG_EnsureDAT5EntryRange(dmg, index))
+		return false;
+
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	uint8_t header[6];
 
     if (dmg->version == DMG_Version5)
     {
-        if (entry == 0)
-            return false;
+		if (entry == 0)
+		{
+			if (dmg->entries[index] == 0)
+			{
+				dmg->entries[index] = Allocate<DMG_Entry>("DMG Entry");
+				if (dmg->entries[index] == 0)
+				{
+					DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+					return false;
+				}
+				entry = dmg->entries[index];
+				MemClear(entry, sizeof(DMG_Entry));
+				entry->type = DMGEntry_Empty;
+			}
+			else
+				return false;
+		}
 
         if (entry->type != DMGEntry_Empty && !DMG_RemoveDAT5EntryBlocks(dmg, index))
             return false;
@@ -721,13 +816,31 @@ bool DMG_SetImageData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width,
 
 bool DMG_SetImageDataEx (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth)
 {
+	if (dmg->version == DMG_Version5 && !DMG_EnsureDAT5EntryRange(dmg, index))
+		return false;
+
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	uint8_t header[6];
 
     if (dmg->version == DMG_Version5)
     {
-        if (entry == 0)
-            return false;
+		if (entry == 0)
+		{
+			if (dmg->entries[index] == 0)
+			{
+				dmg->entries[index] = Allocate<DMG_Entry>("DMG Entry");
+				if (dmg->entries[index] == 0)
+				{
+					DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+					return false;
+				}
+				entry = dmg->entries[index];
+				MemClear(entry, sizeof(DMG_Entry));
+				entry->type = DMGEntry_Empty;
+			}
+			else
+				return false;
+		}
 
         if (entry->type != DMGEntry_Empty && !DMG_RemoveDAT5EntryBlocks(dmg, index))
             return false;

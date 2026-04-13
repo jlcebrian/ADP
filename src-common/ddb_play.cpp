@@ -40,7 +40,34 @@ extern void OpenKeyboard();
 extern bool OpenAudio();
 #endif
 
-static bool ValidateResolvedVideoConfig(DDB_Machine machine, uint8_t planes)
+static uint16_t Read16BE(const uint8_t* ptr)
+{
+	return (uint16_t)(((uint16_t)ptr[0] << 8) | ptr[1]);
+}
+
+static bool ProbeDAT5Header(const char* fileName, uint16_t* width, uint16_t* height, uint8_t* colorMode)
+{
+	File* dat = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
+	if (dat == 0)
+		return false;
+
+	uint8_t header[16];
+	bool ok = File_Read(dat, header, sizeof(header)) == sizeof(header);
+	File_Close(dat);
+	if (!ok)
+		return false;
+
+	if (!(header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 &&
+		header[4] == 0 && header[5] == 5))
+		return false;
+
+	if (width) *width = Read16BE(header + 0x06);
+	if (height) *height = Read16BE(header + 0x08);
+	if (colorMode) *colorMode = header[0x0E];
+	return true;
+}
+
+static bool ValidateResolvedVideoConfig(const char* fileName, DDB_Machine machine, DDB_ScreenMode screenMode, uint8_t planes)
 {
 #ifdef _AMIGA
 	if (planes >= 8 && !VID_IsAGAAvailable())
@@ -49,10 +76,35 @@ static bool ValidateResolvedVideoConfig(DDB_Machine machine, uint8_t planes)
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}
-#else
-	(void)machine;
-	(void)planes;
 #endif
+
+#ifdef _ATARIST
+	if (machine == DDB_MACHINE_ATARIST)
+	{
+		uint16_t width = 0;
+		uint16_t height = 0;
+		uint8_t colorMode = 0;
+		if (ProbeDAT5Header(fileName, &width, &height, &colorMode))
+		{
+			if (colorMode != DMG_DAT5_COLORMODE_PLANAR4ST || width != 320 || height != 200 || planes != 4 || screenMode != ScreenMode_VGA16)
+			{
+				DebugPrintf("Rejecting unsupported DAT5 during initial ST probe (mode=%u size=%ux%u planes=%u screen=%u)\n",
+					(unsigned)colorMode,
+					(unsigned)width,
+					(unsigned)height,
+					(unsigned)planes,
+					(unsigned)screenMode);
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+		}
+	}
+#endif
+
+	(void)fileName;
+	(void)machine;
+	(void)screenMode;
+	(void)planes;
 	return true;
 }
 
@@ -121,7 +173,7 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 	uint8_t resolvedPlanes = 4;
 
 	DDB_CheckDataFileConfig(fileName, resolvedMachine, &resolvedScreenMode, &resolvedPlanes);
-	if (!ValidateResolvedVideoConfig(resolvedMachine, resolvedPlanes))
+	if (!ValidateResolvedVideoConfig(fileName, resolvedMachine, resolvedScreenMode, resolvedPlanes))
 		return false;
 
 	if (screenMode)

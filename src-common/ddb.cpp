@@ -1097,6 +1097,8 @@ DDB_ScreenMode DDB_GetDefaultScreenMode(DDB_Machine machine)
 	return machine == DDB_MACHINE_PCW ? ScreenMode_HiRes : ScreenMode_VGA16;
 }
 
+#if HAS_SNAPSHOTS
+
 static bool DDB_HasSnapshotExtension(const char* filename)
 {
 	const char* dot = (const char*)StrRChr(filename, '.');
@@ -1115,6 +1117,8 @@ static bool DDB_HasSnapshotExtension(const char* filename)
 		StrIComp(dot, ".rom") == 0 ||
 		StrIComp(dot, ".raw") == 0;
 }
+
+#endif
 
 bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes)
 {

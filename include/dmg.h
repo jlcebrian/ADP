@@ -315,6 +315,12 @@ struct DMG
     uint8_t*    zx0Scratch;
     uint32_t    zx0ScratchSize;
     bool        zx0ScratchOwned;
+	uint32_t    zx0ProfileCount;
+	uint32_t    zx0ProfileInputBytes;
+	uint32_t    zx0ProfileOutputBytes;
+	uint32_t    zx0ProfileTotalMs;
+	uint32_t    zx0ProfileMaxMs;
+	uint8_t     zx0ProfileMaxIndex;
 
 	File*		file;
 	uint32_t    fileSize;

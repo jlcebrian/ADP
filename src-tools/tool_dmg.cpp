@@ -5,6 +5,7 @@
 #include <ddb.h>
 #include <os_lib.h>
 #include <os_mem.h>
+#include <os_file.h>
 #include <session_commands.h>
 
 #include <stdio.h>
@@ -76,6 +77,7 @@ frequencies[] =
 static uint8_t* buffer = NULL;
 static uint32_t bufferSize = 0;
 static DMG_ImageMode extractMode = ImageMode_Indexed;
+static char extractOutputDirectory[FILE_MAX_PATH];
 static char filename[1024];
 static char newfilename[1024];
 static bool selected[256];
@@ -87,6 +89,13 @@ static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
 static bool compressionEnabled = true;
+static void ResetCreateSettings()
+{
+    createDAT5 = false;
+    createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
+    createDAT5Width = 320;
+    createDAT5Height = 200;
+}
 
 typedef enum
 {
@@ -224,10 +233,12 @@ static void PrintHelp()
 	printf("\n");
 	printf("Extract/test options:\n\n");
 	printf("   If no selector is supplied, all entries are used.\n");
+    printf("   Extracted files default to the current host directory.\n");
 	printf("   -i         Save indexed images (default)\n");
 	printf("   -t         Save truecolor images\n");
 	printf("   -e         Export EGA version of images/palettes\n");
 	printf("   -c         Export CGA version of images/palettes\n");
+    printf("   out:<dir>  Write extracted files to the given host directory\n");
 	printf("\n");
 	printf("Add/create/update arguments:\n\n");
 	printf("   Selectors set the current target entries.\n");
@@ -264,7 +275,8 @@ static void PrintHelp()
     printf("   dmg u file.dat 0-50 fixed:1\n");
     printf("   dmg add file.dat 12 x:24 y:80\n");
     printf("   dmg add file.dat remap:std 0:image.png\n");
-	printf("   dmg update file.dat out.dat 0-50 fixed:1\n");
+    printf("   dmg update file.dat out.dat 0-50 fixed:1\n");
+    printf("   dmg extract file.dat 0-10 out:exports\n");
     printf("   dmg file.dat -- list 0-15 :: extract 12-14 -t\n");
     printf("   dmg shell file.dat\n");
 }
@@ -479,6 +491,43 @@ static bool GetUsedDAT5Range(DMG* dmg, uint8_t* first, uint8_t* last)
         return false;
 
     for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    {
+        DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
+        if (entry == 0 || entry->type == DMGEntry_Empty)
+            continue;
+        if (!found)
+        {
+            usedFirst = (uint8_t)n;
+            usedLast = (uint8_t)n;
+            found = true;
+        }
+        else
+        {
+            if (n < usedFirst) usedFirst = (uint8_t)n;
+            if (n > usedLast) usedLast = (uint8_t)n;
+        }
+    }
+
+    if (!found)
+        return false;
+    if (first) *first = usedFirst;
+    if (last) *last = usedLast;
+    return true;
+}
+
+static bool GetUsedEntryRange(DMG* dmg, uint8_t* first, uint8_t* last)
+{
+    bool found = false;
+    uint8_t usedFirst = 255;
+    uint8_t usedLast = 0;
+
+    if (dmg == 0)
+        return false;
+
+    int start = dmg->version == DMG_Version5 ? dmg->firstEntry : 0;
+    int end = dmg->version == DMG_Version5 ? dmg->lastEntry : 255;
+
+    for (int n = start; n <= end; n++)
     {
         DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
         if (entry == 0 || entry->type == DMGEntry_Empty)
@@ -942,18 +991,28 @@ static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ s
 	return true;
 }
 
-const char* MakeFileName(const char* original, int index, const char* extension)
+static bool IsExtractOutputToken(const char* token)
 {
-	char* ptr = newfilename;
+    return strnicmp(token, "out:", 4) == 0;
+}
 
-	while (ptr < newfilename + sizeof(newfilename) - 16 && *original)
-		*ptr++ = *original++;
-	*ptr = 0;
-	while (ptr > newfilename && *ptr != '\\' && *ptr != '/')
-		ptr--;
-	if (*ptr == '\\' || *ptr == '/')
-		ptr++;
-	snprintf(ptr, newfilename+sizeof(newfilename)-ptr, "%03d.%s", index, extension);
+const char* MakeFileName(const char* outputDirectory, int index, const char* extension)
+{
+    const char* directory = outputDirectory;
+    if (directory == 0 || directory[0] == 0)
+        directory = ".";
+
+    StrCopy(newfilename, sizeof(newfilename), directory);
+    char* ptr = newfilename + strlen(newfilename);
+    if (ptr > newfilename && ptr[-1] != '\\' && ptr[-1] != '/')
+    {
+        if ((size_t)(ptr - newfilename) + 1 < sizeof(newfilename))
+        {
+            *ptr++ = '/';
+            *ptr = 0;
+        }
+    }
+    snprintf(ptr, newfilename + sizeof(newfilename) - ptr, "%03d.%s", index, extension);
 	return newfilename;
 }
 
@@ -1057,6 +1116,11 @@ static bool IsSelectionToken(const char* token)
 static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
 {
     ClearSelection(selected);
+    extractMode = ImageMode_Indexed;
+    extractOutputDirectory[0] = 0;
+
+    if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST) && !OS_GetCurrentDirectory(extractOutputDirectory, sizeof(extractOutputDirectory)))
+        StrCopy(extractOutputDirectory, sizeof(extractOutputDirectory), ".");
 
     for (int i = 0; i < tokenCount; i++)
     {
@@ -1073,6 +1137,18 @@ static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
                 if (temp[n])
                     selected[n] = true;
             }
+            continue;
+        }
+
+        if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST) && IsExtractOutputToken(ptr))
+        {
+            const char* value = ptr + 4;
+            if (*value == 0)
+            {
+                fprintf(stderr, "Error: Missing output directory in argument: \"%s\"\n", tokens[i]);
+                return false;
+            }
+            StrCopy(extractOutputDirectory, sizeof(extractOutputDirectory), value);
             continue;
         }
 
@@ -1148,7 +1224,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					}
 					if (saveToFile && paletteOnly)
 					{
-						outputFileName = MakeFileName(filename, n, "col");
+                        outputFileName = MakeFileName(extractOutputDirectory, n, "col");
                         palette = (uint32_t*)DMG_GetEntryStoredPalette(dmg, n);
                         int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
                         success = SaveCOLPalette(outputFileName, palette, paletteSize);
@@ -1161,7 +1237,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					}
 					else if (saveToFile)
 					{
-						outputFileName = MakeFileName(filename, n, "png");
+                        outputFileName = MakeFileName(extractOutputDirectory, n, "png");
 						if (DMG_IS_INDEXED(extractMode))
 						{
                             palette = DMG_GetEntryStoredPalette(dmg, n);
@@ -1197,7 +1273,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					}
 					if (saveToFile)
 					{
-						outputFileName = MakeFileName(filename, n, "wav");
+                        outputFileName = MakeFileName(extractOutputDirectory, n, "wav");
 						if (!SaveWAV(outputFileName, buffer, entry->length, (DMG_KHZ)entry->x))
 						{
 							fprintf(stderr, "%03d: Error: Unable to write audio entry to %s\n", n, outputFileName);
@@ -1996,6 +2072,8 @@ static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
     bool added[256];
     MemClear(added, sizeof(added));
     int count = 0;
+    int start = dmg->version == DMG_Version5 ? dmg->firstEntry : 0;
+    int end = dmg->version == DMG_Version5 ? dmg->lastEntry : 255;
 
     for (int i = 0; i < priorityEntryCount; i++)
     {
@@ -2007,7 +2085,7 @@ static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
         added[n] = true;
     }
 
-    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    for (int n = start; n <= end; n++)
     {
         DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
         if (entry == 0 || entry->type == DMGEntry_Empty || added[n] || (entry->flags & DMG_FLAG_BUFFERED) == 0)
@@ -2016,7 +2094,7 @@ static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
         added[n] = true;
     }
 
-    for (int n = dmg->firstEntry; n <= dmg->lastEntry; n++)
+    for (int n = start; n <= end; n++)
     {
         DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)n);
         if (entry == 0 || entry->type == DMGEntry_Empty || added[n])
@@ -2521,18 +2599,37 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 {
 	int n, i;
     uint8_t rebuildOrder[256];
-    uint8_t firstEntry = dmg->firstEntry;
-    uint8_t lastEntry = dmg->lastEntry;
-    if (dmg->version == DMG_Version5)
+    uint8_t firstEntry = dmg->version == DMG_Version5 ? dmg->firstEntry : 0;
+    uint8_t lastEntry = dmg->version == DMG_Version5 ? dmg->lastEntry : 255;
+    bool outputIsDAT5 = dmg->version == DMG_Version5 || createDAT5;
+    DMG_DAT5ColorMode outputColorMode = dmg->version == DMG_Version5 ? (DMG_DAT5ColorMode)dmg->colorMode : DMG_DAT5_COLORMODE_NONE;
+    uint16_t outputWidth = dmg->version == DMG_Version5 ? dmg->targetWidth : 320;
+    uint16_t outputHeight = dmg->version == DMG_Version5 ? dmg->targetHeight : 200;
+
+    if (createDAT5)
     {
-        if (!GetUsedDAT5Range(dmg, &firstEntry, &lastEntry))
+        outputWidth = createDAT5Width;
+        outputHeight = createDAT5Height;
+        if (createDAT5Mode != DMG_DAT5_COLORMODE_NONE)
+            outputColorMode = createDAT5Mode;
+    }
+
+    if (outputIsDAT5 && outputColorMode == DMG_DAT5_COLORMODE_NONE)
+    {
+        fprintf(stderr, "Error: DAT5 rebuild requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st>\n");
+        return false;
+    }
+
+    if (outputIsDAT5)
+    {
+        if (!GetUsedEntryRange(dmg, &firstEntry, &lastEntry))
         {
-            firstEntry = dmg->firstEntry;
-            lastEntry = dmg->firstEntry;
+            firstEntry = dmg->version == DMG_Version5 ? dmg->firstEntry : 0;
+            lastEntry = firstEntry;
         }
     }
-	DMG* out = dmg->version == DMG_Version5 ?
-        DMG_CreateDAT5(outputFileName, (DMG_DAT5ColorMode)dmg->colorMode, dmg->targetWidth, dmg->targetHeight, firstEntry, lastEntry) :
+	DMG* out = outputIsDAT5 ?
+        DMG_CreateDAT5(outputFileName, outputColorMode, outputWidth, outputHeight, firstEntry, lastEntry) :
         DMG_Create(outputFileName);
 	if (out == NULL)
 	{
@@ -2598,8 +2695,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			uint8_t* outPtr;
             uint32_t requiredBuffer = size + 64;
 
-            if (dmg->version == DMG_Version5)
-                requiredBuffer = size + GetDAT5EncodedSize((DMG_DAT5ColorMode)dmg->colorMode, width, height);
+            if (out->version == DMG_Version5)
+                requiredBuffer = size + GetDAT5EncodedSize((DMG_DAT5ColorMode)out->colorMode, width, height);
 
 			if (bufferSize < requiredBuffer)
 			{
@@ -2620,21 +2717,21 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
-            if (dmg->version == DMG_Version5)
+            if (out->version == DMG_Version5)
             {
                 uint32_t encodedSize = 0;
                 uint32_t storedSize = 0;
                 uint8_t* storedBuffer = 0;
                 uint32_t paletteBuffer[256];
-                uint32_t* palettePtr = DMG_GetEntryStoredPalette(dmg, n);
-                int paletteSize = entry->paletteColors;
-                int firstColor = entry->firstColor;
-                int lastColor = entry->lastColor;
-                if (paletteSize > 0)
+                uint32_t* palettePtr = dmg->version == DMG_Version5 ? DMG_GetEntryStoredPalette(dmg, n) : DMG_GetEntryPalette(dmg, n);
+                int paletteSize = dmg->version == DMG_Version5 ? entry->paletteColors : 16;
+                int firstColor = dmg->version == DMG_Version5 ? entry->firstColor : 0;
+                int lastColor = dmg->version == DMG_Version5 ? entry->lastColor : 15;
+                if (paletteSize > 0 && DMG_DAT5ModeUsesPalette(out->colorMode))
                 {
                     memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
                     if (remapMode != REMAP_NONE)
-                        ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
+                        ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)out->colorMode), &firstColor, &lastColor);
                     if (!DMG_SetEntryPaletteRange(out, n, paletteBuffer, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
                     {
                         fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
@@ -2642,7 +2739,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                         return false;
                     }
                 }
-                if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, inPtr, width, height, outPtr, &encodedSize))
+                if (!EncodeDAT5Image((DMG_DAT5ColorMode)out->colorMode, inPtr, width, height, outPtr, &encodedSize))
                 {
                     fprintf(stderr, "%03d: Error: Unable to encode DAT5 image\n", n);
                     DMG_Close(out);
@@ -2662,7 +2759,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                     storedBuffer = outPtr;
                     storedSize = encodedSize;
                 }
-                if (!DMG_SetImageDataEx(out, n, storedBuffer, width, height, storedSize, compressed, entry->bitDepth))
+                if (!DMG_SetImageDataEx(out, n, storedBuffer, width, height, storedSize, compressed, GetBitDepthForMode((DMG_DAT5ColorMode)out->colorMode)))
                 {
                     fprintf(stderr, "Error: Unable to set DAT5 image data: %s\n", DMG_GetErrorString());
                     if (compressed)
@@ -2788,6 +2885,21 @@ static bool ParseUpdateArguments(int tokenCount, const char* tokens[], const cha
     return true;
 }
 
+static int FilterUpdateEditTokens(DMG* dmg, int tokenCount, const char* tokens[], const char** filteredTokens)
+{
+    int filteredCount = 0;
+    for (int i = 0; i < tokenCount; i++)
+    {
+        const char* token = tokens[i];
+        if (IsDAT5ModeToken(token))
+            continue;
+        if (dmg->version != DMG_Version5 && IsDAT5ScreenToken(token))
+            continue;
+        filteredTokens[filteredCount++] = token;
+    }
+    return filteredCount;
+}
+
 static bool UpdateTokenRequiresRebuild(const char* token)
 {
     if (token == 0 || *token == 0)
@@ -2828,6 +2940,7 @@ static void ResetCommandExecutionState(Action commandAction)
 {
     action = commandAction;
     extractMode = ImageMode_Indexed;
+    ResetCreateSettings();
     remapMode = REMAP_NONE;
     remapRangeFirst = 0;
     remapRangeLast = 0;
@@ -3150,6 +3263,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     remapRangeFirst = 0;
     remapRangeLast = 0;
     compressionEnabled = true;
+    ResetCreateSettings();
     ResetPriorityEntries();
 
 	if (strlen(commandLine.arguments[0]) > 1000)
@@ -3183,7 +3297,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     remainingArgs = expandedArgs;
     remainingArgCount = expandedArgCount;
 
-    if (action == ACTION_NEW && !ParseCreateArguments(remainingArgCount, remainingArgs))
+    if ((action == ACTION_NEW || action == ACTION_UPDATE) && !ParseCreateArguments(remainingArgCount, remainingArgs))
         return false;
 
     if (action == ACTION_NEW && priorityEntryCount > 0)
@@ -3291,11 +3405,14 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
 		case ACTION_UPDATE:
         {
             const char* editTokens[CLI_MAX_ARGUMENTS];
+            const char* filteredEditTokens[CLI_MAX_ARGUMENTS];
             int editTokenCount = 0;
+            int filteredEditTokenCount = 0;
             bool hasExplicitOutputFile = false;
             bool replaceOriginal = false;
             ParseUpdateArguments(remainingArgCount, remainingArgs, &outputFileName, &hasExplicitOutputFile, &editTokenCount, editTokens);
-            if (editTokenCount > 0 && !ParseEntryChanges(dmg, editTokenCount, editTokens))
+            filteredEditTokenCount = FilterUpdateEditTokens(dmg, editTokenCount, editTokens, filteredEditTokens);
+            if (filteredEditTokenCount > 0 && !ParseEntryChanges(dmg, filteredEditTokenCount, filteredEditTokens))
             {
                 exitCode = 1;
                 break;

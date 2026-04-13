@@ -14,7 +14,7 @@ extern "C" {
 
 namespace
 {
-#ifdef _AMIGA
+#if defined(_AMIGA) || defined(_ATARIST)
     extern "C" void zx0_decompress(const uint8_t* input, uint8_t* output);
     extern "C" void zx0_decompress_fast(const uint8_t* input, uint8_t* output);
     static const uint32_t ZX0_FAST_68K_MAX_OUTPUT = 65535;
@@ -109,7 +109,7 @@ namespace
 
 bool DMG_DecompressZX0(const uint8_t* data, uint32_t dataLength, uint8_t* buffer, uint32_t outputSize)
 {
-#ifdef _AMIGA
+#if defined(_AMIGA) || defined(_ATARIST)
     (void)dataLength;
     if (outputSize <= ZX0_FAST_68K_MAX_OUTPUT)
         zx0_decompress_fast(data, buffer);

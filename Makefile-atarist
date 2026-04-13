@@ -90,6 +90,8 @@ CPPFILES := 		\
 	video.cpp
 ASMFILES :=			\
 	decrle_old_planar8.asm	\
+	unzx0.asm		\
+	unzx0_fast.asm	\
 	decrle.asm		\
 	audio.asm
 
@@ -110,7 +112,8 @@ $(TARGET): $(CPPOBJS) $(ASMOBJS) | $(OUTDIR)
 	$(NM) --print-size --size-sort --radix=d $@ >> $(DUMP)
 	$(STRIP) $@
 	$(PACK_CMD)
-	@find tests/atarist/ -type d -exec cp out/atarist/adp.prg {} \;
+	@find tests/atarist/ -type d -exec echo cp $(TARGET) {} \;
+	@find tests/atarist/ -type d -exec cp $(TARGET) {} \;
 
 $(OUTDIR):
 	mkdir -p $@
