@@ -12,4 +12,5 @@ extern uint32_t CPCPalette[4];
 extern uint32_t EGAPalette[16];
 extern uint32_t CGAPaletteRed[16];
 extern uint32_t CGAPaletteCyan[16];
+extern uint32_t PCWDefaultPalette[16];
 extern uint32_t DefaultPalette[16];

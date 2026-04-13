@@ -339,6 +339,13 @@ static bool CPC_ValidateInferredFilesystemLayout(CPC_Disk* disk, uint8_t expecte
 	uint32_t totalTracks = disk->header.tracks * (disk->header.sides == 0 ? 1 : disk->header.sides);
 	if (totalTracks == 0)
 		return false;
+	uint32_t protectedTrackCount = disk->reservedTracks;
+	if (disk->sectorsPerTrack != 0 && disk->sectorSize != 0)
+	{
+		uint32_t bytesPerTrack = (uint32_t)disk->sectorsPerTrack * disk->sectorSize;
+		uint32_t directoryBytes = (uint32_t)disk->directoryBlocks * disk->blockSize;
+		protectedTrackCount += (directoryBytes + bytesPerTrack - 1) / bytesPerTrack;
+	}
 
 	for (uint32_t trackNumber = 0; trackNumber < totalTracks; trackNumber++)
 	{
@@ -355,30 +362,61 @@ static bool CPC_ValidateInferredFilesystemLayout(CPC_Disk* disk, uint8_t expecte
 			return false;
 		if (MemComp(info->signature, CPC_TRACKINFO_SIGNATURE, 12) != 0)
 			return false;
+		bool allowRawFallback = !disk->extended && trackNumber >= protectedTrackCount &&
+			disk->header.trackSize == (uint16_t)(256 + (uint32_t)disk->sectorsPerTrack * disk->sectorSize);
 
 		if (info->sectorCount != disk->sectorsPerTrack)
+		{
+			if (allowRawFallback)
+				continue;
 			return false;
+		}
 
 		uint32_t computedTrackSize = 256;
 		bool seen[256] = { false };
+		bool invalidDescriptors = false;
 		for (int n = 0; n < info->sectorCount; n++)
 		{
 			uint32_t sectorSize = disk->extended ? info->sectors[n].dataLength : (128U << info->sectors[n].size);
 			if (sectorSize != disk->sectorSize)
-				return false;
+			{
+				invalidDescriptors = true;
+				break;
+			}
 
 			uint8_t sectorId = info->sectors[n].id;
 			if (sectorId < expectedFirstSectorId || sectorId >= expectedFirstSectorId + disk->sectorsPerTrack)
-				return false;
+			{
+				invalidDescriptors = true;
+				break;
+			}
 			if (seen[sectorId])
-				return false;
+			{
+				invalidDescriptors = true;
+				break;
+			}
 			seen[sectorId] = true;
 			computedTrackSize += sectorSize;
+		}
+		if (invalidDescriptors)
+		{
+			if (allowRawFallback)
+				continue;
+			return false;
 		}
 
 		for (uint32_t sectorId = expectedFirstSectorId; sectorId < expectedFirstSectorId + disk->sectorsPerTrack; sectorId++)
 			if (!seen[sectorId])
+			{
+				if (allowRawFallback)
+				{
+					invalidDescriptors = true;
+					break;
+				}
 				return false;
+			}
+		if (invalidDescriptors)
+			continue;
 
 		if (!disk->extended && computedTrackSize != disk->header.trackSize)
 			return false;
@@ -391,6 +429,42 @@ static bool CPC_ValidateInferredFilesystemLayout(CPC_Disk* disk, uint8_t expecte
 	}
 
 	return true;
+}
+
+static bool CPC_CanUseRawTrackFallback(CPC_Disk* disk, CPC_TrackInfoBlock* info)
+{
+	if (disk->extended)
+		return false;
+	if (MemComp(info->signature, CPC_TRACKINFO_SIGNATURE, 12) != 0)
+		return false;
+	return disk->header.trackSize == (uint16_t)(256 + (uint32_t)disk->sectorsPerTrack * disk->sectorSize);
+}
+
+static void CPC_BuildRawTrackLayout(CPC_Disk* disk, uint32_t* totalSize,
+	uint32_t sectorOffsets[232], uint32_t sectorSizes[232], uint8_t* sectorCount)
+{
+	*sectorCount = disk->sectorsPerTrack;
+	*totalSize = (uint32_t)disk->sectorsPerTrack * disk->sectorSize;
+	for (uint32_t n = 0; n < *sectorCount; n++)
+	{
+		sectorOffsets[n] = n * disk->sectorSize;
+		sectorSizes[n] = disk->sectorSize;
+	}
+}
+
+static bool CPC_TryInferredFilesystemLayout(CPC_Disk* disk, CPC_DiskType diskType,
+	uint16_t tracksPerSide, uint8_t sectorsPerTrack, uint16_t sectorSize,
+	uint8_t reservedTracks, uint8_t directoryBlocks, uint16_t blockSize,
+	uint8_t expectedFirstSectorId)
+{
+	disk->diskType = diskType;
+	disk->tracksPerSide = tracksPerSide;
+	disk->sectorsPerTrack = sectorsPerTrack;
+	disk->sectorSize = sectorSize;
+	disk->reservedTracks = reservedTracks;
+	disk->directoryBlocks = directoryBlocks;
+	disk->blockSize = blockSize;
+	return CPC_ValidateInferredFilesystemLayout(disk, expectedFirstSectorId);
 }
 
 static bool CPC_ReadTrackLayout(CPC_Disk* disk, uint32_t trackNumber,
@@ -415,6 +489,11 @@ static bool CPC_ReadTrackLayout(CPC_Disk* disk, uint32_t trackNumber,
 	*dataPosition = File_GetPosition(disk->file);
 	*sectorCount = info->sectorCount;
 	*totalSize = 0;
+	if (info->sectorCount != disk->sectorsPerTrack && CPC_CanUseRawTrackFallback(disk, info))
+	{
+		CPC_BuildRawTrackLayout(disk, totalSize, sectorOffsets, sectorSizes, sectorCount);
+		return true;
+	}
 
 	int previous = -1;
 	for (int n = 0; n < info->sectorCount; n++)
@@ -436,6 +515,11 @@ static bool CPC_ReadTrackLayout(CPC_Disk* disk, uint32_t trackNumber,
 		}
 		if (current == 999)
 		{
+			if (CPC_CanUseRawTrackFallback(disk, info))
+			{
+				CPC_BuildRawTrackLayout(disk, totalSize, sectorOffsets, sectorSizes, sectorCount);
+				return true;
+			}
 			DIM_SetError(DIMError_InvalidDisk);
 			return false;
 		}
@@ -638,25 +722,13 @@ uint32_t CPC_GetTrackOffsetInFile (CPC_Disk* disk, uint32_t trackNumber)
 
 uint32_t CPC_ReadTrack (CPC_Disk* disk, uint32_t trackNumber, uint32_t baseOffset, uint8_t* buffer, uint32_t bufferSize, uint32_t skip = 0)
 {
-	uint8_t trackInfoBlock[256];
-	CPC_TrackInfoBlock* info = (CPC_TrackInfoBlock*) &trackInfoBlock;
-
-	int offsetInFile = CPC_GetTrackOffsetInFile(disk, trackNumber);
-	File_Seek(disk->file, offsetInFile);
-	if (File_Read(disk->file, trackInfoBlock, 256) != 256)
-	{
-		DIM_SetError(DIMError_ReadError);
-		return 0;
-	}
-
+	uint32_t sectorOffsets[232];
+	uint32_t sectorSizes[232];
+	uint8_t sectorCount = 0;
 	uint32_t size = 0;
-	if (!disk->extended)
-		size = (info->sectorSize * 256) * info->sectorCount;
-	else
-	{
-		for (int n = 0; n < info->sectorCount; n++)
-			size += info->sectors[n].dataLength;
-	}
+	uint64_t dataPosition = 0;
+	if (!CPC_ReadTrackLayout(disk, trackNumber, &dataPosition, &size, sectorOffsets, sectorSizes, &sectorCount))
+		return 0;
 
 	if (baseOffset >= size)
 		return 0;
@@ -664,30 +736,11 @@ uint32_t CPC_ReadTrack (CPC_Disk* disk, uint32_t trackNumber, uint32_t baseOffse
 	uint32_t remainingToRead = bufferSize;
 	uint32_t remainingSkip = skip;
 
-	uint64_t pos = File_GetPosition(disk->file);
-
 	uint32_t totalRead = 0;
-	int previous = -1;
-	for (int n = 0; n < info->sectorCount; n++)
+	for (int n = 0; n < sectorCount; n++)
 	{
-		int offset = 0;
-		int current = 999;
-		uint32_t currentSize = 0;
-		int currentOffset = 0;
-		for (int i = 0; i < info->sectorCount; i++)
-		{
-			int sectorSize = disk->extended ? info->sectors[i].dataLength : info->sectorSize * 256;
-			if (info->sectors[i].id < current && info->sectors[i].id > previous)
-			{
-				currentOffset = offset;
-				current = info->sectors[i].id;
-				currentSize = sectorSize;
-			}
-			offset += sectorSize;
-		}
-		if (current == 999)
-			return 0;
-		previous = current;
+		uint32_t currentOffset = sectorOffsets[n];
+		uint32_t currentSize = sectorSizes[n];
 
 		if (baseOffset >= currentSize)
 		{
@@ -715,7 +768,7 @@ uint32_t CPC_ReadTrack (CPC_Disk* disk, uint32_t trackNumber, uint32_t baseOffse
 		if (currentSize == 0)
 			continue;
 
-		File_Seek(disk->file, pos + currentOffset);
+		File_Seek(disk->file, dataPosition + currentOffset);
 		if (File_Read(disk->file, buffer, currentSize) != currentSize)
 		{
 			DIM_SetError(DIMError_ReadError);
@@ -816,22 +869,17 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 		return NULL;
 	}
 
-	if (firstTrackInfo->sectors[0].id == 0x41 ||
-		firstTrackInfo->sectors[0].id == 0xC1)
+	if (CPC_TryInferredFilesystemLayout(disk, CPC_FORMAT_CPC_SYSTEM, 40, 9, 512, 2, 2, 1024, 0x41))
 	{
-		// CPC System or Data disk
-		bool system = firstTrackInfo->sectors[0].id == 0x41;
-		disk->diskType = system ? CPC_FORMAT_CPC_SYSTEM : CPC_FORMAT_CPC_DATA;
-		disk->tracksPerSide = 40;
-		disk->sectorsPerTrack = 9;
-		disk->sectorSize = 512;
-		disk->reservedTracks = system ? 2 : 0;
-		disk->blockSize = 1024;
-		disk->directoryBlocks = 2;
-		ok = CPC_ValidateInferredFilesystemLayout(disk, system ? 0x41 : 0xC1);
+		ok = true;
+	}
+	else if (CPC_TryInferredFilesystemLayout(disk, CPC_FORMAT_CPC_DATA, 40, 9, 512, 0, 2, 1024, 0xC1))
+	{
+		ok = true;
 	}
 	else
 	{
+		File_Seek(file, 512);
 		if (File_Read(file, buffer, 256) != 256)
 		{
 			File_Close(file);
@@ -848,14 +896,7 @@ CPC_Disk* CPC_OpenDisk (const char* fileName)
 		if (matches)
 		{
 			// Assume this is a standard disk
-			disk->diskType = CPC_FORMAT_SPECTRUM;
-			disk->tracksPerSide = 40;
-			disk->sectorsPerTrack = 9;
-			disk->sectorSize = 512;
-			disk->reservedTracks = 1;
-			disk->directoryBlocks = 2;
-			disk->blockSize = 1024;
-			ok = CPC_ValidateInferredFilesystemLayout(disk, 0x01);
+			ok = CPC_TryInferredFilesystemLayout(disk, CPC_FORMAT_SPECTRUM, 40, 9, 512, 1, 2, 1024, 0x01);
 		}
 		else
 		{
@@ -1114,12 +1155,12 @@ bool CPC_FindNextFile (CPC_Disk* disk, CPC_FindResults* result)
 
 		if (headerValid)
 		{
-			result->fileSize = (uint16_t)logicalSize;
+			result->fileSize = logicalSize;
 			result->osHeaderType = osHeaderType;
 		}
 		else
 		{
-			result->fileSize = (uint16_t)physicalSize;
+			result->fileSize = physicalSize;
 			result->description[0] = 0;
 			result->osHeaderType = CPC_HEADER_NONE;
 		}

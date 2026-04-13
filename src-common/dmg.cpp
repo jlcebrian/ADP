@@ -13,7 +13,7 @@
 #define PRINTF_WARNINGS
 #endif
 
-#define DMG_BUFFER_SIZE 	32768
+#define DMG_BUFFER_SIZE 	(640 * 400)
 #define DMG_MIN_FILE_SIZE 	16
 #define DMG_MAX_FILE_SIZE 	0x1000000
 
@@ -643,6 +643,16 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 	if ((dmg->entries[n]->flags & DMG_FLAG_PROCESSED) != 0)
 		return dmg->entries[n];
 
+	if (dmg->entries[n]->fileOffset + sizeof(header) > dmg->fileSize)
+	{
+		DMG_Warning("Entry %d: Data offset %04X-%04X out of bounds (0-%04X)", n,
+			dmg->entries[n]->fileOffset,
+			dmg->entries[n]->fileOffset + (uint32_t)sizeof(header) - 1,
+			dmg->fileSize);
+		DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
+		return 0;
+	}
+
 	const uint8_t* cachedHeader = (const uint8_t*)DMG_GetFromFileCache(dmg, dmg->entries[n]->fileOffset, sizeof(header));
 	if (cachedHeader != 0)
 		MemCopy(header, cachedHeader, sizeof(header));
@@ -668,11 +678,12 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 		return 0;
 	}
 
-	if (dmg->entries[n]->length + dmg->entries[n]->fileOffset + 6 > dmg->fileSize)
+	uint32_t entryHeaderSize = 6u;
+	if (dmg->entries[n]->length + dmg->entries[n]->fileOffset + entryHeaderSize > dmg->fileSize)
 	{
 		DMG_Warning("Entry %d: Data offset %04X-%04X out of bounds (0-%04X)", n,
 			dmg->entries[n]->fileOffset,
-			dmg->entries[n]->fileOffset + 6 + dmg->entries[n]->length - 1,
+			dmg->entries[n]->fileOffset + entryHeaderSize + dmg->entries[n]->length - 1,
 			dmg->fileSize);
 		DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
 		return 0;
@@ -689,51 +700,70 @@ DMG_Entry* DMG_GetEntry (DMG* dmg, uint8_t n)
 bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 {
 	int n, p;
+	uint16_t entryCount = 256;
+	uint32_t directorySize = 2560;
 
-	if (!DMG_ReserveTemporaryBuffer(2560))
+	if (version == DMG_Version1_PCW)
+	{
+		uint8_t header[6];
+		if (!File_Seek(dmg->file, 0) || File_Read(dmg->file, header, sizeof(header)) != sizeof(header))
+		{
+			DMG_SetError(DMG_ERROR_READING_FILE);
+			return false;
+		}
+
+		uint16_t pictureCount = read16(header + 4, true);
+		if (pictureCount > 256)
+		{
+			DMG_SetError(DMG_ERROR_INVALID_ENTRY_COUNT);
+			return false;
+		}
+	}
+
+	if (!DMG_ReserveTemporaryBuffer(directorySize))
 	{
 		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 		return false;
 	}
 
 	uint8_t* buffer = DMG_GetTemporaryBufferBase();
-	uint32_t entryCount = 0;
+	uint32_t usedEntryCount = 0;
 
 	File_Seek(dmg->file, 0x06);
-	if (File_Read(dmg->file, buffer, 2560) != 2560)
+	if (File_Read(dmg->file, buffer, directorySize) != directorySize)
 	{
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return false;
 	}
 
-	for (n = 0; n < 256; n++)
+	for (n = 0; n < entryCount; n++)
 	{
 		uint8_t* ptr = buffer + n * 10;
 		uint32_t offset = read32(ptr, dmg->littleEndian);
-		if (offset != 0 && (offset < 0xA06 || offset >= dmg->fileSize))
+		if (offset != 0 && offset < 0xA06)
 		{
 			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
 			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
 			return false;
 		}
 		if (offset != 0)
-			entryCount++;
+			usedEntryCount++;
 	}
 
-	if (entryCount != 0)
+	if (usedEntryCount != 0)
 	{
-		dmg->entryBlock = Allocate<DMG_Entry>("DMG entries", entryCount);
+		dmg->entryBlock = Allocate<DMG_Entry>(version == DMG_Version1_PCW ? "PCW DAT entries" : "DMG entries", usedEntryCount);
 		if (dmg->entryBlock == 0)
 		{
 			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 			return false;
 		}
-		MemClear(dmg->entryBlock, sizeof(DMG_Entry) * entryCount);
+		MemClear(dmg->entryBlock, sizeof(DMG_Entry) * usedEntryCount);
 	}
 
 	uint32_t nextEntry = 0;
 
-	for (n = 0; n < 256; n++)
+	for (n = 0; n < entryCount; n++)
 	{
 		uint8_t* ptr     = buffer + n * 10;
 		uint32_t offset  = read32(ptr, dmg->littleEndian);
@@ -741,7 +771,7 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 		int16_t  x       = (int16_t)read16(ptr + 6, dmg->littleEndian);
 		int16_t  y       = (int16_t)read16(ptr + 8, dmg->littleEndian);
 
-		if (offset != 0 && (offset < 0xA06 || offset >= dmg->fileSize))
+		if (offset != 0 && offset < 0xA06)
 		{
 			DMG_Warning("Entry %d: Data offset %06X out of bounds (0-%06X)", n, offset, dmg->fileSize);
 			DMG_SetError(DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS);
@@ -752,7 +782,8 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 		
 		dmg->entries[n] = dmg->entryBlock + nextEntry++;
 		dmg->entries[n]->type = DMGEntry_Image;
-		dmg->entries[n]->bitDepth = version == DMG_Version1_CGA ? 2 : 4;
+		dmg->entries[n]->bitDepth = version == DMG_Version1_CGA ? 2 :
+			version == DMG_Version1_PCW ? 1 : 4;
 		dmg->entries[n]->flags = 0;
         if ((flags & 0x0002) != 0)
 		    dmg->entries[n]->flags |= DMG_FLAG_BUFFERED;
@@ -766,6 +797,8 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 		for (p = 0; p < 16; p++) {
 			if (version == DMG_Version1_EGA)
 				dmg->entries[n]->RGB32Palette[p] = EGAPalette[p];
+			else if (version == DMG_Version1_PCW)
+				dmg->entries[n]->RGB32Palette[p] = PCWDefaultPalette[p];
 			else if (flags & 0x00800)
 				dmg->entries[n]->RGB32Palette[p] = CGAPaletteRed[p];
 			else
@@ -774,6 +807,31 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 			dmg->entries[n]->CGAPalette[p] = p & 0x03;
 		}
 	}
+	return true;
+}
+
+static bool DMG_LooksLikePCWDataFile(const uint8_t* header, size_t fileSize, const char* extension)
+{
+	if (fileSize < 6)
+		return false;
+
+	if (extension != NULL && StrIComp(extension, ".dat") != 0)
+		return false;
+
+	uint16_t machine = read16(header + 0, true);
+	uint16_t mode = read16(header + 2, true);
+	uint16_t pictureCount = read16(header + 4, true);
+	uint32_t directorySize = 6u + 256u * 10u;
+
+	if (machine != 0)
+		return false;
+	if (mode != 4)
+		return false;
+	if (pictureCount > 256)
+		return false;
+	if (directorySize > fileSize)
+		return false;
+
 	return true;
 }
 
@@ -1030,9 +1088,9 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 
-	size_t fileSize = File_GetSizeByName(filename);
-	if (fileSize == 0)
-		fileSize = File_GetSize(file);
+	DebugPrintf("Probing %s\n", filename);
+
+	size_t fileSize = (size_t)File_GetSize(file);
 	if (fileSize < DMG_MIN_FILE_SIZE)
 	{
 		DMG_SetError(DMG_ERROR_FILE_TOO_SMALL);
@@ -1066,8 +1124,15 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 	signature = read16BE(header);
+	if (DMG_LooksLikePCWDataFile(header, fileSize, extension))
+	{
+		d->version = DMG_Version1_PCW;
+		d->littleEndian = true;
+		d->screenMode = ScreenMode_HiRes;
+		success = DMG_ReadV1DOSEntries(d, DMG_Version1_PCW);
+	}
 
-	if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
+	else if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
 	{
 		success = DMG_ReadDAT5Entries(d);
 		entryCount = d->lastEntry >= d->firstEntry ? (uint16_t)(d->lastEntry - d->firstEntry + 1) : 0;
@@ -1138,7 +1203,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		DMG_Close(d);
 		return 0;
 	}
-	if (d->version != DMG_Version5)
+	if (d->version != DMG_Version5 && d->version != DMG_Version1_PCW)
     {
 		entryCount = read16(header + 4, d->littleEndian);
     	realEntryCount = DMG_GetEntryCount(d);
@@ -1306,8 +1371,28 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 	uint16_t width  = entry->width;
 	uint16_t height = entry->height;
 
+	if (mode == ImageMode_Audio)
+	{
+		if (entry->type == DMGEntry_Audio)
+			return entry->length;
+		if (dmg != 0 && dmg->version == DMG_Version5)
+		{
+			if (entry->bitDepth <= 4)
+				return (width * height + 1) / 2;
+			return width * height;
+		}
+		if (dmg->screenMode == ScreenMode_CGA)
+			return width * height / 4;
+		return width * height / 2;
+	}
+
 	switch (mode)
 	{
+		case ImageMode_Raw:
+			if (dmg != 0 && dmg->version == DMG_Version1_PCW)
+				return ((width + 7) >> 3) * height;
+			return width * height / 2;
+
 		case ImageMode_Packed:
             if (dmg != 0 && dmg->version == DMG_Version5)
             {
@@ -1330,19 +1415,6 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 
 		case ImageMode_Indexed:
 			return width * height;
-
-		case ImageMode_Audio:
-			if (entry->type == DMGEntry_Audio)
-				return entry->length;
-            else if (dmg != 0 && dmg->version == DMG_Version5)
-            {
-                if (entry->bitDepth <= 4)
-                    return (width * height + 1) / 2;
-                return width * height;
-            }
-			else if (dmg->screenMode == ScreenMode_CGA)
-				return width * height / 4;
-			return width * height / 2;
 
 		default:
 			return width * height / 2;

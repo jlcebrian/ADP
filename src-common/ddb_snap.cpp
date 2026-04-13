@@ -35,6 +35,13 @@ static bool AllocateSnapshot(uint32_t size)
 {
 	if (snapshotRAM != 0 && snapshotSize >= size)
 		return true;
+	if (snapshotRAM != 0)
+	{
+		Free(snapshotRAM);
+		snapshotRAM = 0;
+		snapshotSize = 0;
+		snapshotDDB = 0;
+	}
 	snapshotRAM = Allocate<uint8_t>("Snapshot RAM", size);
 	if (snapshotRAM == 0)
 	{
@@ -769,16 +776,23 @@ static void RelocateCPCGraphicsFromRAW(size_t ddbOffset)
 
 bool LoadSnapshotFromRAW(File* file)
 {
-	uint64_t fileSize = (size_t)File_GetSize(file);
-	if (fileSize > 128 * 1024)
+	uint64_t fileSize64 = File_GetSize(file);
+	if (fileSize64 > 128 * 1024)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}
+	if (fileSize64 < 32)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+	size_t fileSize = (size_t)fileSize64;
 
 	snapshotSize = fileSize > 65536 ? (size_t)fileSize : 65536;
 	if (!AllocateSnapshot(snapshotSize))
 		return false;
+	MemClear(snapshotRAM, snapshotSize);
 
 	if (File_Read(file, snapshotRAM, fileSize) != fileSize)
 	{
@@ -786,7 +800,8 @@ bool LoadSnapshotFromRAW(File* file)
 		return false;
 	}
 
-	for (size_t offset = 0; offset < snapshotSize - 32; offset++)
+	uint8_t* fileEnd = snapshotRAM + fileSize;
+	for (size_t offset = 0; offset + 32 <= fileSize; offset++)
 	{
 		uint8_t *ptr = snapshotRAM + offset;
 		if ((ptr[0] == 1 || ptr[0] == 2) && (ptr[2] == 0x5F))
@@ -804,16 +819,21 @@ bool LoadSnapshotFromRAW(File* file)
 			}
 			if (baseOffset != 0)
 			{
+				if (offset + 0x18 > fileSize)
+					continue;
+
 				// Check the vocabulary table
 				uint16_t voc = read16(ptr + 0x16, true);
 				if (voc < baseOffset)
 					continue;
 				uint8_t* vocdata = ptr + voc - baseOffset;
+				if (vocdata + 7 > fileEnd)
+					continue;
 				bool valid = true;
 				bool spaces = false;
 				bool endingZero = false;
 				int wordCount = 0;
-				while (vocdata < snapshotRAM + snapshotSize)
+				while (vocdata + 7 <= fileEnd)
 				{
 					if (vocdata[0] == 0)	// Vocabulary must end with a zero
 					{
@@ -830,11 +850,13 @@ bool LoadSnapshotFromRAW(File* file)
 					vocdata += 7;
 					wordCount++;
 				}
-				if (wordCount < 16 || !spaces || !valid)
+				if (wordCount < 16 || !spaces || !valid || !endingZero)
 					continue;
 
 				// Move the data into its base address
 				uint16_t remaining = 65536 - baseOffset;
+				if (offset + remaining > fileSize)
+					continue;
 				snapshotDDB = snapshotRAM + baseOffset;
 				MemMove(snapshotDDB, ptr, remaining);
 				if (platform == DDB_MACHINE_CPC)
@@ -911,15 +933,6 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 	}
 	else
 	{
-		if (!File_Seek(file, 0))
-		{
-			DDB_SetError(DDB_ERROR_READING_FILE);
-			return false;
-		}
-
-		if (LoadSnapshotFromRAW(file))
-			return DetachSnapshot(ram, size, machine, (DDB_Machine)(snapshotDDB[1] >> 4));
-
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}

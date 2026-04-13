@@ -1087,7 +1087,31 @@ bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
     return true;
 }
 
-bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t* planes)
+DDB_ScreenMode DDB_GetDefaultScreenMode(DDB_Machine machine)
+{
+	return machine == DDB_MACHINE_PCW ? ScreenMode_HiRes : ScreenMode_VGA16;
+}
+
+static bool DDB_HasSnapshotExtension(const char* filename)
+{
+	const char* dot = (const char*)StrRChr(filename, '.');
+	if (dot == 0)
+		return false;
+
+	return 
+		StrIComp(dot, ".z80") == 0 ||
+		StrIComp(dot, ".sna") == 0 ||
+		StrIComp(dot, ".tzx") == 0 ||
+		StrIComp(dot, ".sta") == 0 ||
+		StrIComp(dot, ".vsf") == 0 ||
+		StrIComp(dot, ".tap") == 0 ||
+		StrIComp(dot, ".cas") == 0 ||
+		StrIComp(dot, ".bin") == 0 ||
+		StrIComp(dot, ".rom") == 0 ||
+		StrIComp(dot, ".raw") == 0;
+}
+
+bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes)
 {
     if (planes)
         *planes = 4;
@@ -1141,7 +1165,7 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_ScreenMode* mode, uint8_t
         }
         else
         {
-            if (mode)
+			if (mode && target != DDB_MACHINE_PCW)
                 *mode = ScreenMode_VGA16;
             if (planes)
                 *planes = 4;
@@ -1231,6 +1255,7 @@ bool DDB_SupportsDataFile(DDB_Version version, DDB_Machine target)
 		target == DDB_MACHINE_SPECTRUM ||
 		target == DDB_MACHINE_AMIGA ||
 		target == DDB_MACHINE_ATARIST ||
+		target == DDB_MACHINE_PCW ||
 		target == DDB_MACHINE_IBMPC;
 }
 
@@ -1512,9 +1537,7 @@ DDB* DDB_Load(const char* filename)
 		return 0;
 	}
 
-	uint64_t fileSize = File_GetSizeByName(filename);
-	if (fileSize == 0)
-		fileSize = File_GetSize(file);
+	uint64_t fileSize = File_GetSize(file);
 	uint8_t* memory = 0;
 	uint8_t* data = 0;
 
@@ -1532,8 +1555,7 @@ DDB* DDB_Load(const char* filename)
 
 	size_t ramSize;
 	DDB_Machine snapshotMachine;
-	const char* dot = (const char*)StrRChr(filename, '.');
-	bool shouldProbeSnapshot = !(dot != 0 && StrIComp(dot, ".ddb") == 0);
+	bool shouldProbeSnapshot = DDB_HasSnapshotExtension(filename);
 	if (shouldProbeSnapshot && DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
 	{
 		File_Close(file);

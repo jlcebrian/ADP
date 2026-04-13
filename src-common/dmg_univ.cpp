@@ -310,8 +310,10 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		return result;
 	}
 
+	uint32_t dataOffset = entry->fileOffset + 6;
+
 #ifndef NO_CACHE
-	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);
+	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
 	if (fileData == 0)
 #endif
 	{
@@ -323,7 +325,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		}
 
 		fileData = buffer + bufferSize - entry->length;
-		if (DMG_ReadFromFile(dmg, entry->fileOffset + 6, fileData, entry->length) != entry->length)
+		if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
@@ -337,6 +339,10 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	{
 		if (false)
 		{
+		}
+		else if (dmg->version == DMG_Version1_PCW)
+		{
+			success = DMG_DecodePCWCompressedToPacked(fileData, entry->length, entry, buffer, DMG_CalculateRequiredSize(entry, ImageMode_Packed));
 		}
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
@@ -393,6 +399,8 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		if (entry->length != expectedSize)
 			success = false;
+		else if (dmg->version == DMG_Version1_PCW)
+			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
 			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);

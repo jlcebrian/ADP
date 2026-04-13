@@ -25,6 +25,67 @@
 DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
+static inline uint32_t PackSurfaceRGB(SDL_PixelFormat* format, uint8_t r, uint8_t g, uint8_t b)
+{
+	return (((uint32_t)(r >> format->Rloss)) << format->Rshift) |
+		(((uint32_t)(g >> format->Gloss)) << format->Gshift) |
+		(((uint32_t)(b >> format->Bloss)) << format->Bshift) |
+		format->Amask;
+}
+
+static void GetDisplayAspect(int* width, int* height)
+{
+	*width = screenWidth;
+	*height = screenHeight;
+
+	if (screenMode == ScreenMode_HiRes)
+		*height *= 2;
+}
+
+static const int InitialWindowBorderWidth = 160;
+static const int InitialWindowBorderHeight = 100;
+
+static int GetMinimumBorderSize()
+{
+	SDL_DisplayMode DM;
+	SDL_GetCurrentDisplayMode(0, &DM);
+
+	if (DM.h >= 2000)
+		return 100;
+	if (DM.h >= 1440)
+		return 40;
+	return 0;
+}
+
+static int GetInitialWindowScale()
+{
+	int displayWidth, displayHeight;
+	GetDisplayAspect(&displayWidth, &displayHeight);
+
+	SDL_DisplayMode DM;
+	SDL_GetCurrentDisplayMode(0, &DM);
+
+	int preferredScale = 3;
+	if (DM.h >= 1440)
+		preferredScale = 4;
+	if (DM.h >= 2000)
+		preferredScale = 6;
+
+	int minBorderSize = GetMinimumBorderSize();
+	int maxWindowWidth = DM.w - minBorderSize;
+	int maxWindowHeight = DM.h - minBorderSize;
+
+	int scale = 1;
+	while ((scale + 1) * displayWidth + InitialWindowBorderWidth <= maxWindowWidth &&
+		(scale + 1) * displayHeight + InitialWindowBorderHeight <= maxWindowHeight &&
+		scale < preferredScale)
+	{
+		scale++;
+	}
+
+	return scale;
+}
+
 void VID_SetDisplayPlanesHint(uint8_t planes)
 {
 	(void)planes;
@@ -1054,8 +1115,11 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 
 	bufferedEntry = entry;
 	bufferedIndex = picno;
-	pictureData   = DMG_GetEntryData(dmg, picno,
-            dmg->version == DMG_Version5 ? ImageMode_Indexed : ImageMode_Packed);
+	if (dmg->version == DMG_Version1_PCW)
+		pictureData = DMG_GetEntryDataChunky(dmg, picno);
+	else
+		pictureData = DMG_GetEntryData(dmg, picno,
+			dmg->version == DMG_Version5 ? ImageMode_Indexed : ImageMode_Packed);
 	if (pictureData == 0)
 	{
 		bufferedEntry = NULL;
@@ -1532,12 +1596,7 @@ void VID_InnerLoop()
 	static int minBorderSize = 0;
 
 	if (minBorderSize == 0)
-	{
-		SDL_DisplayMode DM;
-		SDL_GetCurrentDisplayMode(0, &DM);
-		if (DM.h >= 1440) minBorderSize = 40;
-		if (DM.h >= 2000) minBorderSize = 100;
-	}
+		minBorderSize = GetMinimumBorderSize();
 
 	if (ticks == 0)
 		ticks = SDL_GetTicks();
@@ -1629,7 +1688,7 @@ void VID_InnerLoop()
 		return;
 	}
 
-	uint32_t clearColor = SDL_MapRGB(surface->format, (palette[0] >> 16) & 0xFF, (palette[0] >> 8) & 0xFF, palette[0] & 0xFF);
+		uint32_t clearColor = PackSurfaceRGB(surface->format, (palette[0] >> 16) & 0xFF, (palette[0] >> 8) & 0xFF, palette[0] & 0xFF);
 	SDL_FillRect(surface, NULL, clearColor);
 
 	if (SDL_LockSurface(surface) != 0)
@@ -1644,13 +1703,47 @@ void VID_InnerLoop()
 
 		int srcWidth = screenWidth;
 		int srcHeight = screenHeight;
+		int displayWidth, displayHeight;
+		GetDisplayAspect(&displayWidth, &displayHeight);
 
 		int scale = 1;
-		while (scale < (surface->w-minBorderSize) / srcWidth && scale < (surface->h-minBorderSize) / srcHeight)
-			scale++;
+		int exactScaleX = surface->w / displayWidth;
+		int exactScaleY = surface->h / displayHeight;
+		if (surface->w % displayWidth == 0 && surface->h % displayHeight == 0 && exactScaleX == exactScaleY)
+		{
+			scale = exactScaleX;
+		}
+		else
+		{
+			while (scale < (surface->w-minBorderSize) / displayWidth && scale < (surface->h-minBorderSize) / displayHeight)
+				scale++;
+		}
 
-		int dstX = (surface->w - srcWidth * scale) / 2;
-		int dstY = (surface->h - srcHeight * scale) / 2;
+		int scaleX = scale;
+		int scaleY = displayHeight * scale / srcHeight;
+
+		int dstX = (surface->w - srcWidth * scaleX) / 2;
+		int dstY = (surface->h - srcHeight * scaleY) / 2;
+		int dstW = srcWidth * scaleX;
+		int dstH = srcHeight * scaleY;
+
+		static int lastSurfaceW = -1;
+		static int lastSurfaceH = -1;
+		static int lastDstX = -1;
+		static int lastDstY = -1;
+		static int lastDstW = -1;
+		static int lastDstH = -1;
+		if (surface->w != lastSurfaceW || surface->h != lastSurfaceH ||
+			dstX != lastDstX || dstY != lastDstY ||
+			dstW != lastDstW || dstH != lastDstH)
+		{
+			lastSurfaceW = surface->w;
+			lastSurfaceH = surface->h;
+			lastDstX = dstX;
+			lastDstY = dstY;
+			lastDstW = dstW;
+			lastDstH = dstH;
+		}
 
 		uint32_t surfacePalette[256];
 		for (int c = 0; c < 256; c++)
@@ -1658,7 +1751,7 @@ void VID_InnerLoop()
 			uint8_t r = palette[c] >> 16;
 			uint8_t g = palette[c] >> 8;
 			uint8_t b = palette[c];
-			surfacePalette[c] = SDL_MapRGB(surface->format, r, g, b);
+			surfacePalette[c] = PackSurfaceRGB(surface->format, r, g, b);
 		}
 
 		uint8_t* srcPtr = frontBuffer;
@@ -1666,17 +1759,16 @@ void VID_InnerLoop()
 		for (int dy = 0; dy < srcHeight; dy++, srcPtr += screenWidth)
 		{
 			uint32_t* dst = dstPtr;
-			uint8_t*  src = srcPtr;
 			for (int dx = 0; dx < srcWidth; dx++)
 			{
-				for (int n = 0; n < scale; n++)
-					*dst++ = surfacePalette[*src];
-					src++;
+				uint32_t pixel = surfacePalette[srcPtr[dx]];
+				for (int n = 0; n < scaleX; n++)
+					*dst++ = pixel;
 			}
 			dstPtr += surface->pitch / 4;
-			for (int n = 1; n < scale; n++)
+			for (int n = 1; n < scaleY; n++)
 			{
-				memcpy(dstPtr, dstPtr - surface->pitch / 4, srcWidth * 4 * scale);
+				memcpy(dstPtr, dstPtr - surface->pitch / 4, srcWidth * 4 * scaleX);
 				dstPtr += surface->pitch / 4;
 			}
 		}
@@ -1827,7 +1919,6 @@ bool VID_LoadDataFile(const char* fileName)
 	FreeBufferedPCXPicture();
 	VID_SetExternalPictureBase(0);
 	#endif
-	columnWidth = 6;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
 	memcpy(charset, DefaultCharset, 1024);
@@ -1917,7 +2008,7 @@ bool VID_LoadDataFile(const char* fileName)
 	return true;
 }
 
-bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode screenMode)
+bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode)
 {
 	if (!videoInitialized)
 		DebugPrintf("Initializing video subsystem for %s\n", DDB_DescribeMachine(machine));
@@ -1930,8 +2021,11 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 	SDL_StopTextInput();
 
 	lineHeight  = 8;
-	columnWidth = version == DDB_VERSION_PAWS ? 8 : 6;
+	columnWidth = (version == DDB_VERSION_PAWS || machine == DDB_MACHINE_PCW) ? 8 : 6;
 	defaultCharWidth = columnWidth;
+	screenMode = mode;
+	xCoordMultiplier = 1;
+	yCoordMultiplier = 1;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = columnWidth;
 
@@ -1978,10 +2072,21 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 			for (int n = 0; n < 256; n++)
 				charWidth[n] = 8;
 			break;
+		case DDB_MACHINE_PCW:
+			screenMachine = machine;
+			screenWidth   = 720;
+			screenHeight  = 256;
+			stride        = 40;
+			columnWidth   = 8;
+			defaultCharWidth = 8;
+			memcpy(DefaultPalette, PCWDefaultPalette, sizeof(PCWDefaultPalette));
+			for (int n = 0; n < 256; n++)
+				charWidth[n] = 8;
+			break;
 		default:
 			memcpy(DefaultPalette, EGAPalette, sizeof(EGAPalette));
 			screenMachine = DDB_MACHINE_IBMPC;
-            switch (screenMode)
+			switch (mode)
             {
                 case ScreenMode_HiRes:
                     screenWidth  = 640;
@@ -2023,11 +2128,9 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 		charsetInitialized = true;
 	}
 
-	int scale = 3;
-	SDL_DisplayMode DM;
-	SDL_GetCurrentDisplayMode(0, &DM);
-	if (DM.h >= 1440) scale = 4;
-	if (DM.h >= 2000) scale = 6;
+	int displayWidth, displayHeight;
+	GetDisplayAspect(&displayWidth, &displayHeight);
+	int scale = GetInitialWindowScale();
 #if _WEB
 	int options = SDL_WINDOW_SHOWN;
 #else
@@ -2036,7 +2139,8 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode sc
 	window = SDL_CreateWindow("ADP " VERSION_STR,
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
-		360*scale, 224*scale,
+		displayWidth * scale + InitialWindowBorderWidth,
+		displayHeight * scale + InitialWindowBorderHeight,
 		options);
 	if (window == NULL)
 	{

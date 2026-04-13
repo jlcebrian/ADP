@@ -5,6 +5,123 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
+static void DMG_ExpandPCWByteToPacked(uint8_t value, uint8_t* output)
+{
+	output[0] = (value & 0x80 ? 0xF0 : 0x00) | (value & 0x40 ? 0x0F : 0x00);
+	output[1] = (value & 0x20 ? 0xF0 : 0x00) | (value & 0x10 ? 0x0F : 0x00);
+	output[2] = (value & 0x08 ? 0xF0 : 0x00) | (value & 0x04 ? 0x0F : 0x00);
+	output[3] = (value & 0x02 ? 0xF0 : 0x00) | (value & 0x01 ? 0x0F : 0x00);
+}
+
+static bool DMG_RearrangePCWDecodedToStoredLayout(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t rowBytes = ((uint32_t)width + 7) >> 3;
+	uint32_t monoSize = rowBytes * height;
+	if (outputSize < monoSize || (height & 1) != 0)
+		return false;
+
+	MemClear(output, monoSize);
+	for (uint32_t pair = 0; pair < height / 2; pair++)
+	{
+		uint32_t sourceTop = pair * rowBytes * 2;
+		uint32_t sourceBottom = sourceTop + rowBytes * 2 - 1;
+		uint32_t destBase = (pair >> 2) * width + (pair & 3) * 2;
+		for (uint32_t xByte = 0; xByte < rowBytes; xByte++)
+		{
+			uint32_t dest = destBase + (xByte << 3);
+			output[dest + 0] = input[sourceTop + xByte];
+			output[dest + 1] = input[sourceBottom - xByte];
+		}
+	}
+
+	return true;
+}
+
+bool DMG_ExpandPCWStoredLayoutToPacked(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t rowBytes = ((uint32_t)width + 7) >> 3;
+	uint32_t packedSize = ((uint32_t)width * height + 1) >> 1;
+	if (outputSize < packedSize)
+		return false;
+
+	for (uint32_t y = 0; y < height; y++)
+	{
+		uint8_t* rowOut = output + y * (((uint32_t)width + 1) >> 1);
+		uint32_t base = (y >> 3) * width + (y & 7);
+		for (uint32_t xByte = 0; xByte < rowBytes; xByte++)
+			DMG_ExpandPCWByteToPacked(input[base + (xByte << 3)], rowOut + xByte * 4);
+	}
+
+	return true;
+}
+
+static bool DMG_DecodePCWByteStream(const uint8_t* input, uint32_t inputSize, uint8_t* output, uint32_t outputSize)
+{
+	if (inputSize < 5)
+		return false;
+
+	uint8_t tokenCount = input[0];
+	if (tokenCount > 4)
+		return false;
+
+	const uint8_t* tokens = input + 1;
+	const uint8_t* ptr = input + 5;
+	const uint8_t* end = input + inputSize;
+	uint32_t out = 0;
+
+	while (ptr < end && out < outputSize)
+	{
+		uint8_t value = *ptr++;
+		uint32_t repeat = 1;
+		for (uint8_t n = 0; n < tokenCount; n++)
+		{
+			if (value == tokens[n])
+			{
+				if (ptr >= end)
+					return false;
+				repeat = *ptr++;
+				break;
+			}
+		}
+
+		if (out + repeat > outputSize)
+			return false;
+		MemSet(output + out, value, repeat);
+		out += repeat;
+	}
+
+	return out == outputSize && ptr == end;
+}
+
+bool DMG_DecodePCWCompressedToPacked(const uint8_t* input, uint32_t inputSize, const DMG_Entry* entry, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t monoSize = (((uint32_t)entry->width + 7) >> 3) * entry->height;
+
+	uint8_t* decoded = Allocate<uint8_t>("PCW decode", monoSize, false);
+	if (decoded == 0)
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	uint8_t* stored = Allocate<uint8_t>("PCW layout", monoSize, false);
+	if (stored == 0)
+	{
+		Free(decoded);
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	bool success = DMG_DecodePCWByteStream(input, inputSize, decoded, monoSize);
+	if (success)
+		success = DMG_RearrangePCWDecodedToStoredLayout(decoded, entry->width, entry->height, stored, monoSize) &&
+			DMG_ExpandPCWStoredLayoutToPacked(stored, entry->width, entry->height, output, outputSize);
+
+	Free(stored);
+	Free(decoded);
+	return success;
+}
+
 uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 {
 	bool success;
@@ -50,7 +167,8 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	}
 
 #ifndef NO_CACHE
-	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);
+	uint32_t dataOffset = entry->fileOffset + 6;
+	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
 	if (fileData == 0)
 #endif
 	{
@@ -62,7 +180,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		}
 
 		fileData = buffer + bufferSize - entry->length;
-		if (DMG_ReadFromFile(dmg, entry->fileOffset + 6, fileData, entry->length) != entry->length)
+		if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
@@ -76,6 +194,10 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	{
 		if (false)
 		{
+		}
+		else if (dmg->version == DMG_Version1_PCW)
+		{
+			success = DMG_DecodePCWCompressedToPacked(fileData, entry->length, entry, buffer, requiredSize);
 		}
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
@@ -119,6 +241,8 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		if (entry->length != expectedSize)
 			success = false;
+		else if (dmg->version == DMG_Version1_PCW)
+			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
 			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);

@@ -20,7 +20,7 @@ struct CPC_FindResults
 {
 	uint16_t offset;
 	uint16_t entries;
-	uint16_t fileSize;
+	uint32_t fileSize;
 	char     fileName[13];
 	char     description[32];
 	uint8_t  osHeaderType;

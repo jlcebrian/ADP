@@ -261,9 +261,11 @@ static DDB* LoadDDBFromInput(const char* inputFileName, const char** resolvedDDB
 				if (results.attributes & FileAttribute_Directory)
 					continue;
 
-				DDB* ddb = DDB_Load(results.fileName);
-				if (ddb != 0)
+				if (DDB_Check(results.fileName, 0, 0, 0))
 				{
+					DDB* ddb = DDB_Load(results.fileName);
+					if (ddb == 0)
+						continue;
 					*resolvedDDBFileName = results.fileName;
 					DDB_SetWarningHandler(PrintWarning);
 					return ddb;
@@ -845,7 +847,7 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	DDB_ScreenMode screenMode = ScreenMode_VGA16;
+	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
 	if (ddb->target == DDB_MACHINE_IBMPC)
 		DDB_CheckVideoMode(inputFileName, &screenMode);
 

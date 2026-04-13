@@ -200,6 +200,7 @@ enum DDB_ScreenMode
 	ScreenMode_Text    = 0x02,
 	ScreenMode_CGA     = 0x04,
 	ScreenMode_EGA     = 0x0D,
+	ScreenMode_PCW     = 0x0F,		 // 640x200 2c
 	ScreenMode_VGA16   = 0x8D,
 	ScreenMode_VGA     = 0x9D,       // 320x200 256c
     ScreenMode_HiRes   = 0x90,       // 640x200 256c
@@ -738,7 +739,8 @@ extern bool             DDB_Check                (const char* filename, DDB_Mach
 extern bool             DDB_RequiresBackBuffer   (DDB* ddb);
 extern bool             DDB_FileRequiresBackBuffer(const char* filename);
 extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_ScreenMode* mode);
-extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_ScreenMode* mode, uint8_t* planes);
+extern DDB_ScreenMode   DDB_GetDefaultScreenMode (DDB_Machine machine);
+extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes);
 extern DDB*             DDB_Create               ();
 extern bool             DDB_SupportsDataFile     (DDB_Version ddb, DDB_Machine target);
 extern bool				DDB_Write				 (DDB* ddb, const char* filename);

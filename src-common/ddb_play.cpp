@@ -134,16 +134,7 @@ static void DetectDDBFiles()
 	DDB_SetWarningHandler(IgnoreDDBWarning);
 	for (int n = 0; n < fileCount && ddbFileCount < MAX_FILES; n++)
 	{
-		if (File_IsDiskMounted())
-		{
-			DDB* ddb = DDB_Load(files[n]);
-			if (ddb != 0)
-			{
-				ddbFiles[ddbFileCount++] = n;
-				DDB_Close(ddb);
-			}
-		}
-		else if (DDB_Check(files[n], 0, 0, 0))
+		if (DDB_Check(files[n], 0, 0, 0))
 		{
 			ddbFiles[ddbFileCount++] = n;
 		}
@@ -455,6 +446,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		DDB_Machine machine = DDB_MACHINE_AMIGA;
 		DDB_Language language = DDB_SPANISH;
 		DDB_Version version = DDB_VERSION_2;
+		screenMode = DDB_GetDefaultScreenMode(machine);
 
 		char path[FILE_MAX_PATH];
 		StrCopy(path, FILE_MAX_PATH, location);
@@ -524,8 +516,9 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				DDB_SetError(DDB_ERROR_INVALID_FILE);
 				return state = Player_Error;
 			}
+			screenMode = DDB_GetDefaultScreenMode(machine);
 			uint8_t displayPlanes = 4;
-			DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
+			DDB_CheckDataFileConfig(ddbFileName, machine, &screenMode, &displayPlanes);
 			VID_SetDisplayPlanesHint(displayPlanes);
 			#if HAS_PCX
 			introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
@@ -680,7 +673,7 @@ bool DDB_RunPlayer()
 {
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;
-	DDB_ScreenMode screenMode = ScreenMode_VGA16;
+	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(machine);
 	DDB_Version version = DDB_VERSION_2;
 	const char* introScreen = 0;
 	char introScreenName[FILE_MAX_PATH] = { 0 };
@@ -707,8 +700,9 @@ bool DDB_RunPlayer()
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
 		return false;
 	}
+	screenMode = DDB_GetDefaultScreenMode(machine);
 	uint8_t displayPlanes = 4;
-	DDB_CheckDataFileConfig(ddbFileName, &screenMode, &displayPlanes);
+	DDB_CheckDataFileConfig(ddbFileName, machine, &screenMode, &displayPlanes);
 	VID_SetDisplayPlanesHint(displayPlanes);
 
 	#if HAS_PCX

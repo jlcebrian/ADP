@@ -280,3 +280,71 @@
 	EGA images are stored as 4 separate bitplanes
 	(i.e. as 4 1-bit images of the specified width
 	and height). CGA images use the expected 2bpp format.
+
+
+───────────────────────────────────────────────────────────────────────────────
+  .DAT      PCW Graphics Bank File Format
+───────────────────────────────────────────────────────────────────────────────
+
+    The PCW version ships with its own picture file, using a
+    design similar to the early DOS CGA/EGA graphic files.
+
+    OFFSET              SIZE            DESCRIPTION
+
+    0x0000              2               Machine field
+    0x0002              2               Mode field
+    0x0004              2               Number of pictures in file
+    0x0006              256 * 10        Picture directory
+    ...                 ...             Picture data blocks
+
+    ────────
+     Entry 					(little endian!)
+    ────────
+
+    OFFSET              SIZE            DESCRIPTION
+
+    0x0000              2               Low 16 bits of picture offset
+    0x0002              2               High 16 bits of picture offset
+    0x0004              2               Flags
+    0x0006              2               X position
+    0x0008              2               Y position
+
+    Flags:
+
+        Bit 0           1: Floating picture
+                        0: Fixed-position picture
+
+    Note: runtime placement uses an 8-pixel cell grid for clipping and display.
+
+    ───────
+     Image
+    ───────
+
+    Each non-empty directory entry points to a picture data block.
+    Every block begins with a 6-byte header.
+
+    OFFSET              SIZE            DESCRIPTION
+
+    0x0000              2               Width
+                                        Bit 15     1: Compressed picture
+                                                   0: Uncompressed picture
+                                        Bit 0-14   Pixel width
+
+    0x0002              2               Pixel height
+    0x0004              2               Stored data length
+    0x0006              ...             Data
+
+    The stored data length does not include the 6-byte picture header.
+
+    ─────────────────────────
+     Compressed Picture Data
+    ─────────────────────────
+
+    Compressed picture data uses a simple RLE encoding format. The picture
+    block starts with a 1 byte token count, then 5 one-byte token values. 
+    Only the first N tokens from that table are used, as specified by the
+    earlier token count (which can only be 0-4).
+
+    The picture data then follows. Any byte inside the data that matches
+    one of the tokens before will be followed by a count byte with its
+    repetition count.    

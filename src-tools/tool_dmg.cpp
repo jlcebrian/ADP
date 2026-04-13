@@ -1141,7 +1141,8 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					{
 						outputFileName = MakeFileName(filename, n, "col");
                         palette = (uint32_t*)DMG_GetEntryStoredPalette(dmg, n);
-						success = SaveCOLPalette(outputFileName, palette, DMG_GetEntryPaletteSize(dmg, n));
+                        int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+                        success = SaveCOLPalette(outputFileName, palette, paletteSize);
 						if (!success)
 						{
 							fprintf(stderr, "%03d: Error: Unable to write palette to %s\n", n, outputFileName);
@@ -1155,7 +1156,8 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 						if (DMG_IS_INDEXED(extractMode))
 						{
                             palette = DMG_GetEntryStoredPalette(dmg, n);
-							success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, DMG_GetEntryPaletteSize(dmg, n), 0);
+                            int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+                            success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize, 0);
 						}
 						else if (DMG_IS_RGBA32(extractMode))
 						{
@@ -1237,6 +1239,7 @@ static const char *DescribeVersion(DMG_Version v)
 		case DMG_Version1:      return "Version1";
 		case DMG_Version1_CGA:  return "CGA";
 		case DMG_Version1_EGA:  return "EGA";
+        case DMG_Version1_PCW:  return "PCW";
 		case DMG_Version2:      return "Version2";
         case DMG_Version5:      return "Version5";
 		default:                return "unknown DAT";
@@ -1379,14 +1382,16 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
                 printf("\n");
                 if (verbose)
                 {
+					uint32_t* storedPalette = DMG_GetEntryStoredPalette(dmg, n);
+					uint16_t storedPaletteSize = DMG_GetEntryPaletteSize(dmg, n);
                     printf("     File offset: %08X\n", entry->fileOffset);
                     printf("     Color range:  %d-%d\n", entry->firstColor, entry->lastColor);
                     printf("     Bit depth:    %d\n", entry->bitDepth);
-                    printf("     Palette size: %d\n", DMG_GetEntryPaletteSize(dmg, n));
+                    printf("     Palette size: %d\n", storedPaletteSize);
                     printf("     Palette:      ");
-                    for (i = 0; i < DMG_GetEntryPaletteSize(dmg, n); i++)
+                    for (i = 0; i < storedPaletteSize; i++)
                     {
-                        uint32_t c = DMG_GetEntryStoredPalette(dmg, n)[i];
+                        uint32_t c = storedPalette[i];
                         printf("%03X ", ((c >> 4) & 0xF) | ((c >> 8) & 0xF0) | ((c >> 12) & 0xF00));
                     }
                     printf("\n");
