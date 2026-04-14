@@ -613,6 +613,7 @@ static void SelectSingleEntry(bool* entries, int index);
 static bool ParseSelectionToken(const char* token, bool* entries);
 static bool IsPropertyToken(const char* token);
 static bool ApplyPropertyToSelection(DMG* dmg, const bool* currentSelection, const char* token);
+static void PrepareIndexedExportPalette(DMG* dmg, const DMG_Entry* entry, uint32_t* palette, int paletteSize, uint32_t* expandedPalette, uint32_t** exportPalette, int* exportPaletteSize);
 static bool IsImageToken(const char* token);
 static bool IsTargetedFileToken(const char* token);
 static bool ParseOptionValue(const char* ptr, int* value);
@@ -1476,112 +1477,145 @@ static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
 
 static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 {
-	const char* outputFileName;
-	int n;
-	bool success;
+    const char* outputFileName;
+    int n;
+    bool success;
 
-	for (n = 0; n < 256; n++)
-	{
-		if (selected[n])
-		{
-			DMG_Entry* entry = DMG_GetEntry(dmg, n);
-			size_t size;
-			uint32_t* palette;
+    for (n = 0; n < 256; n++)
+    {
+        if (selected[n])
+        {
+            DMG_Entry* entry = DMG_GetEntry(dmg, n);
+            size_t size;
+            uint32_t* palette;
+            uint32_t expandedPalette[256];
 
-			if (entry == NULL)
-			{
-				if (DMG_GetError() != DMG_ERROR_NONE)
-					fprintf(stderr, "%03d: Error: Unable to read entry: %s\n", n, DMG_GetErrorString());
-				continue;
-			}
-			switch (entry->type)
-			{
-				case DMGEntry_Image:
-				{
-					size = entry->width * entry->height * 4;
-					if (size == 0)
-						continue;
-					uint8_t* buffer = DMG_GetEntryData(dmg, n, extractMode);
-					if (buffer == 0)
-					{
-						fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
-						continue;
-					}
-					if (saveToFile && paletteOnly)
-					{
+            if (entry == NULL)
+            {
+                if (DMG_GetError() != DMG_ERROR_NONE)
+                    fprintf(stderr, "%03d: Error: Unable to read entry: %s\n", n, DMG_GetErrorString());
+                continue;
+            }
+            switch (entry->type)
+            {
+                case DMGEntry_Image:
+                {
+                    size = entry->width * entry->height * 4;
+                    if (size == 0)
+                        continue;
+                    uint8_t* buffer = DMG_GetEntryData(dmg, n, extractMode);
+                    if (buffer == 0)
+                    {
+                        fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
+                        continue;
+                    }
+                    if (saveToFile && paletteOnly)
+                    {
                         outputFileName = MakeFileName(extractOutputDirectory, n, "col");
                         palette = (uint32_t*)DMG_GetEntryStoredPalette(dmg, n);
                         int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
                         success = SaveCOLPalette(outputFileName, palette, paletteSize);
-						if (!success)
-						{
-							fprintf(stderr, "%03d: Error: Unable to write palette to %s\n", n, outputFileName);
-							continue;
-						}
-						printf("%s saved\n", outputFileName);
-					}
-					else if (saveToFile)
-					{
+                        if (!success)
+                        {
+                            fprintf(stderr, "%03d: Error: Unable to write palette to %s\n", n, outputFileName);
+                            continue;
+                        }
+                        printf("%s saved\n", outputFileName);
+                    }
+                    else if (saveToFile)
+                    {
                         const char* extension = "png";
+                        uint32_t* exportPalette = 0;
+                        int exportPaletteSize = 0;
                         if (extractFormat == ExtractFormat_PI1) extension = "pi1";
                         else if (extractFormat == ExtractFormat_PL1) extension = "pl1";
                         else if (extractFormat == ExtractFormat_IFF) extension = "iff";
                         outputFileName = MakeFileName(extractOutputDirectory, n, extension);
                         palette = DMG_GetEntryStoredPalette(dmg, n);
                         int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+                        PrepareIndexedExportPalette(dmg, entry, palette, paletteSize, expandedPalette, &exportPalette, &exportPaletteSize);
                         if (extractFormat == ExtractFormat_PI1 || extractFormat == ExtractFormat_PL1)
-                            success = SavePI1Indexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize);
+                            success = SavePI1Indexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize);
                         else if (extractFormat == ExtractFormat_IFF)
-                            success = SaveIFFIndexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize);
+                            success = SaveIFFIndexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize);
                         else if (DMG_IS_INDEXED(extractMode))
-                            success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize, 0);
+                            success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize, 0);
                         else
                             success = SavePNGRGB32(outputFileName, (uint32_t*)buffer, entry->width, entry->height);
-						if (!success)
-						{
-							fprintf(stderr, "%03d: Error: Unable to write image to %s\n", n, outputFileName);
-							continue;
-						}
-						printf("%s saved\n", outputFileName);
-					}
-					else
-					{
-						printf("%03d: (%dx%d image, %s) %d bytes ok.\n", n, entry->width, entry->height,
-						       (entry->flags & DMG_FLAG_COMPRESSED) ? "compressed" : "uncompressed", entry->length);
-					}
-					break;
-				}
+                        if (!success)
+                        {
+                            fprintf(stderr, "%03d: Error: Unable to write image to %s\n", n, outputFileName);
+                            continue;
+                        }
+                        printf("%s saved\n", outputFileName);
+                    }
+                    else
+                    {
+                        printf("%03d: (%dx%d image, %s) %d bytes ok.\n", n, entry->width, entry->height,
+                               (entry->flags & DMG_FLAG_COMPRESSED) ? "compressed" : "uncompressed", entry->length);
+                    }
+                    break;
+                }
 
-				case DMGEntry_Audio:
-				{
-					uint8_t* buffer = DMG_GetEntryData(dmg, n, extractMode);
-					if (buffer == 0)
-					{
-						fprintf(stderr, "%03d: Error: Unable to read audio entry: %s\n", n, DMG_GetErrorString());
-						continue;
-					}
-					if (saveToFile)
-					{
+                case DMGEntry_Audio:
+                {
+                    uint8_t* buffer = DMG_GetEntryData(dmg, n, extractMode);
+                    if (buffer == 0)
+                    {
+                        fprintf(stderr, "%03d: Error: Unable to read audio entry: %s\n", n, DMG_GetErrorString());
+                        continue;
+                    }
+                    if (saveToFile)
+                    {
                         outputFileName = MakeFileName(extractOutputDirectory, n, "wav");
-						if (!SaveWAV(outputFileName, buffer, entry->length, (DMG_KHZ)entry->x))
-						{
-							fprintf(stderr, "%03d: Error: Unable to write audio entry to %s\n", n, outputFileName);
-							continue;
-						}
-						printf("%s saved\n", outputFileName);
-					}
-					else
-					{
-						printf("%03d: %s (audio sample) %d bytes ok.\n", n, filename, entry->length);
-					}
-					break;
-				}
+                        if (!SaveWAV(outputFileName, buffer, entry->length, (DMG_KHZ)entry->x))
+                        {
+                            fprintf(stderr, "%03d: Error: Unable to write audio entry to %s\n", n, outputFileName);
+                            continue;
+                        }
+                        printf("%s saved\n", outputFileName);
+                    }
+                    else
+                    {
+                        printf("%03d: %s (audio sample) %d bytes ok.\n", n, filename, entry->length);
+                    }
+                    break;
+                }
 
-				case DMGEntry_Empty:
-					break;
-			}
-		}
-	}
+                case DMGEntry_Empty:
+                    break;
+            }
+        }
+    }
+}
+
+static void PrepareIndexedExportPalette(DMG* dmg, const DMG_Entry* entry, uint32_t* palette, int paletteSize, uint32_t* expandedPalette, uint32_t** exportPalette, int* exportPaletteSize)
+{
+    *exportPalette = palette;
+    *exportPaletteSize = paletteSize;
+
+    if (dmg == 0 || entry == 0 || palette == 0 || paletteSize <= 0)
+        return;
+    if (dmg->version != DMG_Version5)
+        return;
+
+    int modePaletteSize = GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode);
+    if (modePaletteSize <= 0 || modePaletteSize > 256)
+        return;
+    if (entry->firstColor == 0 && paletteSize >= modePaletteSize)
+        return;
+    if (entry->firstColor >= modePaletteSize)
+        return;
+
+    MemClear(expandedPalette, sizeof(uint32_t) * 256);
+    int copyCount = paletteSize;
+    if (copyCount > modePaletteSize - entry->firstColor)
+        copyCount = modePaletteSize - entry->firstColor;
+    if (copyCount > 0)
+        MemCopy(expandedPalette + entry->firstColor, palette, sizeof(uint32_t) * copyCount);
+
+    *exportPalette = expandedPalette;
+    *exportPaletteSize = modePaletteSize;
 }
 
 static void DeleteSelectedEntries(DMG* dmg)
@@ -1751,11 +1785,11 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
             case DMGEntry_Image:
                 if (entry->width * entry->height == 0 || entry->length == 0)
                     continue;
-                printf("%03d: Image %3dx%-3d %s %s at X:%-4d Y:%-4d %5d bytes",
+                printf("%03d: Image %3dx%-3d %s %s X:%-4dY:%-4d C:%03d-%03d  %5d",
                     n, entry->width, entry->height,
-                    (entry->flags & DMG_FLAG_BUFFERED)   ? "buffer ":"       ",
-                    (entry->flags & DMG_FLAG_FIXED)      ? "fixed":"float",
-                    entry->x, entry->y, entry->length);
+                    (entry->flags & DMG_FLAG_BUFFERED)   ? "+buf":"    ",
+                    (entry->flags & DMG_FLAG_FIXED)      ? "fix":"flt",
+                    entry->x, entry->y, entry->firstColor, entry->lastColor, entry->length);
                 PrintCompressionGain(entry);
                 printf("\n");
                 if (verbose)
@@ -2652,8 +2686,17 @@ static bool ApplyDAT5HeaderToken(DMG* dmg, const char* token)
 
     if (IsDAT5ModeToken(token))
     {
-        fprintf(stderr, "Error: Updating DAT5 mode in place is not supported; rebuild via a new DAT5 if the encoding changes\n");
-        return false;
+        DMG_DAT5ColorMode mode = DMG_DAT5_COLORMODE_NONE;
+        if (!ParseDAT5Mode(token + 5, &mode))
+        {
+            fprintf(stderr, "Error: Invalid DAT5 mode: \"%s\"\n", token + 5);
+            return false;
+        }
+
+        createDAT5 = true;
+        createDAT5Mode = mode;
+        printf("DAT5 mode set to %s\n", DescribeDAT5ColorMode(mode));
+        return true;
     }
 
     return false;

@@ -1,4 +1,4 @@
-	xdef	DecompressOldRLEToSTAsmOriginalPrototype
+	xdef	DecompressOldRLEToSTAsmOriginal
 
 	; Parameters from stack:
 
@@ -17,7 +17,7 @@ ARG_OUT			equ	80
 ARG_PIXELS		equ	84
 ARG_MASK		equ	90
 
-DecompressOldRLEToSTAsmOriginalPrototype
+DecompressOldRLEToSTAsmOriginal
 
 	movem.l	d2-d7/a2-a6,-(sp)
 	lea	-24(sp),sp

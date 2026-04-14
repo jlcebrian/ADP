@@ -1214,18 +1214,19 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 		return false;
 	}
 
-	uint64_t fileSize = File_GetSizeByName(filename);
-	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
+	File* file = File_Open(filename, ReadOnly);
+	if (file == 0)
 	{
-		DebugPrintf("Rejecting DDB %s due to size %lu (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
 		Free(check);
 		Free(buffer);
 		return false;
 	}
 
-	File* file = File_Open(filename, ReadOnly);
-	if (file == 0)
+	uint64_t fileSize = File_GetSize(file);
+	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
 	{
+		DebugPrintf("Rejecting DDB %s due to size %lu (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
+		File_Close(file);
 		Free(check);
 		Free(buffer);
 		return false;

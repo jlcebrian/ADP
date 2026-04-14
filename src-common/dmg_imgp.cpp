@@ -103,10 +103,9 @@ bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
 
 static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* payload)
 {
-    if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0 || entry->RGB32PaletteV5 != 0)
+	if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0 || entry->paletteDecoded)
         return true;
 
-    entry->RGB32PaletteV5 = Allocate<uint32_t>("DAT5 palette", entry->paletteColors);
     if (entry->RGB32PaletteV5 == 0)
     {
         DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
@@ -121,6 +120,7 @@ static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* pa
             ((uint32_t)payload[p * 3 + 1] << 8) |
             (uint32_t)payload[p * 3 + 2];
     }
+	entry->paletteDecoded = true;
     return true;
 }
 
@@ -163,8 +163,8 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 		{
 			if (bufferSize >= requiredSize + entry->length)
 				scratch = buffer + bufferSize - entry->length;
-			else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length)
-				scratch = dmg->zx0Scratch;
+			else if (DMG_GetScratchBufferSize(dmg) >= entry->length)
+				scratch = DMG_GetScratchBuffer(dmg, entry->length);
 			else
 			{
 				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
@@ -208,8 +208,8 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
     uint8_t* scratch = 0;
     if (bufferSize >= requiredSize + entry->length)
         scratch = buffer + bufferSize - entry->length;
-    else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= entry->length)
-        scratch = dmg->zx0Scratch;
+	else if (DMG_GetScratchBufferSize(dmg) >= entry->length)
+		scratch = DMG_GetScratchBuffer(dmg, entry->length);
     else
     {
         DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
@@ -349,8 +349,8 @@ static bool DMG_DecompressOldRLEToNativeAmiga(const DMG_Entry* entry, DMG* dmg,
 		oldRLEOutput = buffer + requiredSize;
 	else if (fileDataSharesOutputBuffer && bufferSize >= requiredSize + entry->length + prototypePackedSize)
 		oldRLEOutput = buffer + requiredSize;
-	else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= prototypePackedSize)
-		oldRLEOutput = dmg->zx0Scratch;
+	else if (DMG_GetScratchBufferSize(dmg) >= prototypePackedSize)
+		oldRLEOutput = DMG_GetScratchBuffer(dmg, prototypePackedSize);
 	else
 	{
 		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
@@ -414,6 +414,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	uint8_t* fileData;
 	uint32_t bufferSize = 0;
 	DMG_Cache* cache = 0;
+
+	bool destinationIsImageCache = false;
 	bool fileDataSharesOutputBuffer = false;
 
 	unsigned requiredSize = DMG_CalculateRequiredSize(entry, ImageMode_PlanarST);
@@ -426,6 +428,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		if (cache->populated)
 			return buffer;
 		bufferSize = cache->size;
+		destinationIsImageCache = true;
 	}
 #endif
 
@@ -470,8 +473,22 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			return 0;
 		}
 
-		fileData = buffer + bufferSize - entry->length;
-		fileDataSharesOutputBuffer = true;
+		if (destinationIsImageCache)
+		{
+			if (!DMG_ReserveTemporaryBuffer(entry->length))
+			{
+				DMG_Warning("Entry %d: Internal buffer too small for entry (%d bytes required)", index, requiredSize);
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				return 0;
+			}
+			fileData = DMG_GetTemporaryBufferBase();
+		}
+		else
+		{
+			DebugPrintf("WARNING: file data will be read into image output buffer (!)\n");
+			fileData = buffer + bufferSize - entry->length;
+			fileDataSharesOutputBuffer = true;
+		}
 		if (DMG_ReadFromFile(dmg, entry->fileOffset + 6, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
@@ -651,7 +668,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		{
 			uint32_t t0, t1;
 			VID_GetMilliseconds(&t0);
-			if (!DMG_ConvertPlanarSTToPlanar(entry, buffer, requiredSize, dmg->zx0Scratch, dmg->zx0ScratchSize))
+			uint8_t* scratch = DMG_GetScratchBuffer(dmg, requiredSize);
+			if (scratch == 0 || !DMG_ConvertPlanarSTToPlanar(entry, buffer, requiredSize, scratch, DMG_GetScratchBufferSize(dmg)))
 			{
 				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 				if (cache != 0)

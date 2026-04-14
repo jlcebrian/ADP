@@ -2,9 +2,11 @@
 VERSION    ?= BETA0.3
 LIBCMINI   ?= $(HOME)/libcmini
 
-DEBUGPRINT ?= 0
+DEBUGPRINT ?= 1
 DEBUGCACHE ?= 0
-DEBUGALLOC ?= 0
+DEBUGALLOC ?= 1
+DEBUGLTIME ?= 0
+DEBUG      ?= 0
 TRACE      ?= 0
 UPX        ?= 1
 UPXFLAGS   ?= -q -5
@@ -39,6 +41,9 @@ CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
 endif
 ifeq ($(DEBUGALLOC),1)
 CPPFLAGS += -DDEBUG_ALLOCS=1
+endif
+ifeq ($(DEBUGLTIME),1)
+CPPFLAGS += -DDEBUG_RLE -DDEBUG_ZX0
 endif
 endif
 
@@ -90,7 +95,11 @@ CPPFILES := 		\
 	textdraw.cpp	\
 	files.cpp		\
 	player.cpp		\
-	video.cpp
+	vbl.cpp		    \
+	video.cpp		\
+	video_st.cpp	\
+	video_falcon.cpp
+
 ASMFILES :=			\
 	decrle_old_planar8.asm	\
 	unzx0.asm		\
@@ -117,8 +126,10 @@ $(TARGET): $(CPPOBJS) $(ASMOBJS) | $(OUTDIR)
 	echo ------------------------------------------------ >> $(DUMP)
 	echo >> $(DUMP)
 	$(NM) --print-size --size-sort --radix=d $@ >> $(DUMP)
+ifeq ($(DEBUG),0)	
 	$(STRIP) $@
 	$(PACK_CMD)
+endif
 	@find tests/atarist/ -type d -exec echo cp $(TARGET) {} \;
 	@find tests/atarist/ -type d -exec cp $(TARGET) {} \;
 

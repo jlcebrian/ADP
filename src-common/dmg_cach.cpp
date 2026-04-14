@@ -15,102 +15,127 @@ static const uint32_t kMinImageCacheSize = 4096;
 
 void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(uint16_t))
 {
-	uint32_t blockSize = freeMemory;
+	uint32_t totalBufferedBytes = 0;
 
 #if DEBUG_FILE_CACHE
-	DebugPrintf("Setting up file cache (%ld bytes per alloc)\n", (long)blockSize);
+	DebugPrintf("Setting up file cache\n");
 #endif
 
-	for (int n = 0; n < DMG_CACHE_BLOCKS; n++)
+	if (dmg->fileCacheData != 0)
 	{
-		if (dmg->fileCacheBlocks[n])
-		{
-			Free(dmg->fileCacheBlocks[n]);
-			dmg->fileCacheBlocks[n] = 0;
-		}
+		Free(dmg->fileCacheData);
+		dmg->fileCacheData = 0;
 	}
-	
-	dmg->fileCacheOffset = 0;
-	dmg->fileCacheBlockSize = 0;
+
 	dmg->fileCacheSize = 0;
-    uint32_t fileCacheEnd = 0;
-    bool haveBufferedRange = false;
+	bool haveBufferedEntries = false;
 
 	for (int n = 0; n < 256; n++)
 	{
+		if (dmg->entries[n] != 0)
+		{
+			dmg->entries[n]->cachedFileData = 0;
+			dmg->entries[n]->cachedFileSize = 0;
+		}
 		if (dmg->entries[n] == 0 || 
 			dmg->entries[n]->type == DMGEntry_Empty)
 			continue;
-        DMG_Entry* entry = dmg->entries[n];
-        if ((entry->flags & DMG_FLAG_BUFFERED) == 0)
-            continue;
+		DMG_Entry* entry = dmg->entries[n];
+		if ((entry->flags & DMG_FLAG_BUFFERED) == 0)
+			continue;
+		entry = DMG_GetEntry(dmg, (uint8_t)n);
+		if (entry == 0 || entry->type == DMGEntry_Empty)
+			continue;
 
-        uint32_t entryStart = entry->fileOffset;
-        uint32_t entryEnd = entry->fileOffset + entry->length;
-        if (dmg->version != DMG_Version5)
-            entryEnd += 6;
-
-		if (!haveBufferedRange || dmg->fileCacheOffset > entryStart)
-			dmg->fileCacheOffset = entryStart;
-        if (!haveBufferedRange || fileCacheEnd < entryEnd)
-            fileCacheEnd = entryEnd;
-        haveBufferedRange = true;
-
+		uint32_t bytes = entry->length;
+		if (dmg->version != DMG_Version5)
+			bytes += 6;
+		totalBufferedBytes += bytes;
+		haveBufferedEntries = true;
 	}
 
-    if (!haveBufferedRange || fileCacheEnd <= dmg->fileCacheOffset)
-    {
-        if (progressFunction)
-            progressFunction(255);
-        return;
-    }
+	if (!haveBufferedEntries || totalBufferedBytes == 0)
+	{
+		if (progressFunction)
+			progressFunction(255);
+		return;
+	}
 
-	uint32_t fileSize = File_GetSize(dmg->file);
-	if (fileCacheEnd > fileSize)
-		fileCacheEnd = fileSize;
-	uint32_t remaining = fileCacheEnd - dmg->fileCacheOffset;
-	uint32_t cacheableSize = remaining;
-	if (blockSize > remaining || blockSize == 0)
-		blockSize = remaining;
+	if (freeMemory != 0 && totalBufferedBytes > freeMemory)
+	{
+		#if DEBUG_FILE_CACHE
+		DebugPrintf("File cache skipped: %lu bytes required, %lu available\n",
+			(unsigned long)totalBufferedBytes,
+			(unsigned long)freeMemory);
+		#endif
+		if (progressFunction)
+			progressFunction(255);
+		return;
+	}
 
 #if DEBUG_FILE_CACHE
-	DebugPrintf("File cache source range: offset=%lu size=%lu bytes\n",
-		(unsigned long)dmg->fileCacheOffset, (unsigned long)remaining);
+	DebugPrintf("File cache buffered payload bytes: %lu\n", (unsigned long)totalBufferedBytes);
 #endif
 
 	if (progressFunction)
 		progressFunction(64);
 
-	File_Seek(dmg->file, dmg->fileCacheOffset);
-
-	int n;
-	for (n = 0; n < DMG_CACHE_BLOCKS; n++)
+	dmg->fileCacheData = Allocate<uint8_t>("DAT Cache", totalBufferedBytes, false);
+	if (dmg->fileCacheData == 0)
 	{
-		uint8_t* ptr = Allocate<uint8_t>("DAT Cache", blockSize, false);
-		if (ptr == 0)
+		#if DEBUG_FILE_CACHE
+		DebugPrintf("File cache allocation failed\n");
+		#endif
+		if (progressFunction)
+			progressFunction(255);
+		return;
+	}
+
+	uint32_t cachedBytes = 0;
+	for (int n = 0; n < 256; n++)
+	{
+		if (dmg->entries[n] == 0 || dmg->entries[n]->type == DMGEntry_Empty)
+			continue;
+		DMG_Entry* entry = dmg->entries[n];
+		if ((entry->flags & DMG_FLAG_BUFFERED) == 0)
+			continue;
+		entry = DMG_GetEntry(dmg, (uint8_t)n);
+		if (entry == 0 || entry->type == DMGEntry_Empty)
+			continue;
+
+		uint32_t entryOffset = entry->fileOffset;
+		uint32_t entrySize = entry->length;
+		if (dmg->version != DMG_Version5)
+			entrySize += 6;
+		if (entrySize == 0)
+			continue;
+
+		uint8_t* ptr = dmg->fileCacheData + cachedBytes;
+
+		if (!File_Seek(dmg->file, entryOffset))
 		{
-			if (n == 0)
+			Free(dmg->fileCacheData);
+			dmg->fileCacheData = 0;
+			dmg->fileCacheSize = 0;
+			for (int i = 0; i < 256; i++)
 			{
-				if (blockSize > 8192)
+				if (dmg->entries[i] != 0)
 				{
-					blockSize = 8192;
-					n--;
-					continue;
+					dmg->entries[i]->cachedFileData = 0;
+					dmg->entries[i]->cachedFileSize = 0;
 				}
-				DebugPrintf("File cache allocation failed (no cache!)\n");
-				return;
 			}
 			break;
 		}
 
-		uint32_t amount = blockSize > remaining ? remaining : blockSize;
+		uint32_t amount = entrySize;
 #if DEBUG_FILE_CACHE
-		uint32_t blockOffset = dmg->fileCacheOffset + (cacheableSize - remaining);
-		DebugPrintf("File cache block %d: reading %lu bytes from file offset %lu\n",
-			n, (unsigned long)amount, (unsigned long)blockOffset);
+		DebugPrintf("File cache entry %d: reading %lu bytes from file offset %lu\n",
+			n, (unsigned long)amount, (unsigned long)entryOffset);
 #endif
 
-		dmg->fileCacheBlocks[n] = ptr;
+		entry->cachedFileData = ptr;
+		entry->cachedFileSize = entrySize;
 
 		while (amount > 0)
 		{
@@ -119,8 +144,17 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 
 			if (read < part) 	// Read error
 			{
-				Free(dmg->fileCacheBlocks[n]);
-				dmg->fileCacheBlocks[n] = 0;
+				Free(dmg->fileCacheData);
+				dmg->fileCacheData = 0;
+				dmg->fileCacheSize = 0;
+				for (int i = 0; i < 256; i++)
+				{
+					if (dmg->entries[i] != 0)
+					{
+						dmg->entries[i]->cachedFileData = 0;
+						dmg->entries[i]->cachedFileSize = 0;
+					}
+				}
 
 				if (progressFunction)
 					progressFunction(256);
@@ -128,52 +162,51 @@ void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(
 				DebugPrintf("File cache allocation partial (read error!)\n");
 				return;
 			}
-			remaining -= read;
 			amount -= read;
 			ptr += read;
+			cachedBytes += read;
 			
 			if (progressFunction)
 			{
-				uint32_t cached = cacheableSize - remaining;
-				uint32_t progress = 64 + (cacheableSize == 0 ? 192 : cached * 192 / cacheableSize);
+				uint32_t progress = 64 + (totalBufferedBytes == 0 ? 192 : cachedBytes * 192 / totalBufferedBytes);
 				if (progress > 255)
 					progress = 255;
 				progressFunction(progress);
 			}
 		}
-			
-		if (remaining == 0)
-			break;
 	}
-	dmg->fileCacheBlockSize = blockSize;
-	dmg->fileCacheSize = cacheableSize - remaining;
+	dmg->fileCacheSize = cachedBytes;
 
 #if DEBUG_FILE_CACHE
-	DebugPrintf("File cache allocated: %ld bytes x %ld block(s)\n", (long)blockSize, (long)(n+1));
+	DebugPrintf("File cache allocated: %lu bytes in one block\n",
+		(unsigned long)cachedBytes);
 #endif
+
+	if (progressFunction)
+		progressFunction(255);
 }
 
 void* DMG_GetFromFileCache(DMG* dmg, uint32_t offset, uint32_t size)
 {
-	if (dmg->fileCacheBlockSize == 0)
+	if (dmg->fileCacheData == 0)
 		return 0;
-	if (offset < dmg->fileCacheOffset)
-		return 0;
-	offset -= dmg->fileCacheOffset;
-	if (offset >= dmg->fileCacheSize)
-		return 0;
-	if (size > dmg->fileCacheSize - offset)
-		return 0;
-
-	int block = offset / dmg->fileCacheBlockSize;
-	uint32_t skip  = offset % dmg->fileCacheBlockSize;
-	uint32_t remaining = dmg->fileCacheBlockSize - skip;
-	if (block >= DMG_CACHE_BLOCKS || dmg->fileCacheBlocks[block] == 0)
-		return 0;
-	if (remaining < size)
-		return 0;
-
-	return dmg->fileCacheBlocks[block] + skip;
+	for (int n = 0; n < 256; n++)
+	{
+		DMG_Entry* entry = dmg->entries[n];
+		if (entry == 0 || entry->cachedFileData == 0 || entry->cachedFileSize == 0)
+			continue;
+		uint32_t entryOffset = entry->fileOffset;
+		uint32_t entrySize = entry->cachedFileSize;
+		if (offset < entryOffset)
+			continue;
+		uint32_t skip = offset - entryOffset;
+		if (skip > entrySize)
+			continue;
+		if (size > entrySize - skip)
+			continue;
+		return entry->cachedFileData + skip;
+	}
+	return 0;
 }
 
 void DMG_FreeImageCache(DMG* dmg)
@@ -339,7 +372,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	// We're adding 32 bytes of extra pdding to help decompression
 	// inside the same buffer as read
 
-	uint32_t required = ((size + 31) & ~31) + sizeof(DMG_Cache);
+	uint32_t required = ((size + 63) & ~31) + sizeof(DMG_Cache);
 #if DEBUG_IMAGE_CACHE
 	DebugPrintf("Image cache lookup: index=%u miss required=%lu payload=%lu free=%lu total=%lu\n",
 		(unsigned)index,
@@ -396,11 +429,12 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 
 	dmg->cacheFree -= required;
 #if DEBUG_IMAGE_CACHE
-	DebugPrintf("Image cache insert: index=%u required=%lu remaining=%lu buffered=%d\n",
+	DebugPrintf("Image cache insert: index=%u required=%lu remaining=%lu size=%d -> %p\n",
 		(unsigned)index,
 		(unsigned long)required,
 		(unsigned long)dmg->cacheFree,
-		item->buffer ? 1 : 0);
+		size,
+		item);
 #endif
 	return item;
 }

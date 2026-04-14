@@ -9,6 +9,7 @@
 #ifdef _ATARIST
 
 #include <mint/cookie.h>
+#include <mint/falcon.h>
 #include <mint/basepage.h>
 #include <mint/ostruct.h>
 #include <mint/sysvars.h>
@@ -21,6 +22,7 @@
 
 static uint32_t ret;
 static uint16_t defaultPalette[16];
+static uint32_t savedFalconPalette[256];
 static uint16_t savedPalette[256];
 static uint16_t savedConterm;
 static void* savedLogbase;
@@ -105,6 +107,27 @@ static void FalconSetScreen(void* logbase, void* physbase, int16_t mode)
 		(short)SCR_MODECODE, (short)mode);
 }
 
+static void RestoreDesktopVideoState()
+{
+	Vsync();
+	memset(Physbase(), 0, 32000);
+	for (int n = 0; n < 16; n++)
+		Setcolor(n, defaultPalette[n]);
+	*conterm = savedConterm;
+	if (savedFalconModeValid)
+	{
+		(void)FalconSetMode(savedFalconMode);
+		FalconSetScreen(savedLogbase, savedPhysbase, savedFalconMode);
+		VsetRGB(0, 256, (long*)savedFalconPalette);
+	}
+	else if (savedRez != ST_LOW)
+	{
+		Setscreen(savedLogbase, savedPhysbase, -1);
+		EsetShift(savedShift);
+		EsetPalette(0, 256, savedPalette);
+	}
+}
+
 static void init()
 {
 	bool hasFalconVideo = HasFalconVideo();
@@ -115,21 +138,22 @@ static void init()
 	savedPhysbase = Physbase();
 	savedRez = Getrez();
 	savedShift = hasFalconVideo ? -1 : EgetShift();
-	savedFalconModeValid = false;
-	if (savedRez != ST_LOW)
+	savedFalconModeValid = hasFalconVideo;
+	if (hasFalconVideo)
+	{
+		savedFalconMode = initialFalconMode;
+		VgetRGB(0, 256, (long*)savedFalconPalette);
+		if (initialFalconMode != FalconModeSTLow)
+		{
+			(void)FalconSetMode(FalconModeSTLow);
+			FalconSetScreen((void*)-1, (void*)-1, FalconModeSTLow);
+		}
+	}
+	else if (savedRez != ST_LOW)
 	{
 		EgetPalette(0, 256, savedPalette);
-		if (hasFalconVideo)
-		{
-			savedFalconMode = initialFalconMode;
-			FalconSetScreen(0, 0, FalconModeSTLow);
-			savedFalconModeValid = true;
-		}
-		else
-		{
-			EsetShift(ST_LOW);
-			Setscreen(-1, -1, ST_LOW);
-		}
+		EsetShift(ST_LOW);
+		Setscreen(-1, -1, ST_LOW);
 	}
 
 	for (int n = 0; n < 16; n++)
@@ -142,22 +166,9 @@ static void init()
 
 static void quit()
 {
-	Vsync();
-	memset(Physbase(), 0, 32000);
-	for (int n = 0; n < 16; n++)
-		Setcolor(n, defaultPalette[n]);
-	*conterm = savedConterm;
-	if (savedRez != ST_LOW)
-	{
-		if (savedFalconModeValid)
-			FalconSetScreen(savedLogbase, savedPhysbase, savedFalconMode);
-		else
-		{
-			Setscreen(savedLogbase, savedPhysbase, -1);
-			EsetShift(savedShift);
-		}
-		EsetPalette(0, 256, savedPalette);
-	}
+	RestoreDesktopVideoState();
+
+	VID_Finish();
 
 	OSReleaseArena();
 
@@ -168,6 +179,7 @@ static void quit()
 static void error(const char* message)
 {
 	VID_Finish();
+	RestoreDesktopVideoState();
 
 	char text[256];
 	strcpy(text, "[4][");
@@ -189,10 +201,20 @@ int main (int argc, char *argv[])
 	init();
 	ChangeToExecutableDirectory(argc, argv);
 
-	#if _DEBUGPRINT
 	uint32_t freeRam = Malloc(-1);
+	#if _DEBUGPRINT
 	DebugPrintf("Free RAM: %d\n", freeRam);
 	#endif
+	if (freeRam > 16384)
+	{
+		size_t reservedArena = OSReserveArena(freeRam - 2048);
+		#if _DEBUGPRINT
+		if (reservedArena != 0)
+			DebugPrintf("Reserved OS arena: %lu bytes\n", (unsigned long)reservedArena);
+		else
+			DebugPrintf("Reserved OS arena: failed\n");
+		#endif
+	}
 
 	if (argc < 2)
 	{
@@ -212,6 +234,8 @@ int main (int argc, char *argv[])
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
 	uint8_t displayPlanes = 4;
 	DDB_CheckDataFileConfig(file, ddb->target, &screenMode, &displayPlanes);
+	if (displayPlanes >= 8 && !HasFalconVideo())
+		error("This game requires an Atari Falcon");
 	VID_SetDisplayPlanesHint(displayPlanes);
 
 	if (!VID_Initialize(ddb->target, ddb->version, screenMode))

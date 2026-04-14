@@ -78,7 +78,9 @@ static inline bool DMG_IsClassicNativeDATByteOrder(bool littleEndian)
 #if defined(_AMIGA)
 #define DMG_NATIVE_IMAGE_MODE ImageMode_Planar
 #elif defined(_ATARIST)
-#define DMG_NATIVE_IMAGE_MODE ImageMode_PlanarST
+enum DMG_ImageMode;
+extern DMG_ImageMode screenMode;
+#define DMG_NATIVE_IMAGE_MODE screenMode
 #else
 #define DMG_NATIVE_IMAGE_MODE ImageMode_Indexed
 #endif
@@ -267,6 +269,9 @@ struct DMG_Entry
     uint32_t        paletteOffset;
     uint32_t        paletteSize;
     uint16_t        paletteColors;
+	bool            paletteDecoded;
+	uint8_t*        cachedFileData;
+	uint32_t        cachedFileSize;
     uint8_t*        storedData;
     uint32_t        storedDataSize;
     bool            ownsStoredData;
@@ -312,9 +317,7 @@ struct DMG
 	uint32_t    cacheFree;
 	uint8_t     cacheBitmap[32];
 
-	uint32_t    fileCacheBlockSize;
-	uint8_t*    fileCacheBlocks[128];
-	uint32_t    fileCacheOffset;
+	uint8_t*    fileCacheData;
 	uint32_t    fileCacheSize;
     uint8_t*    zx0Scratch;
     uint32_t    zx0ScratchSize;
@@ -377,6 +380,8 @@ uint32_t    DMG_ReadFromFile       (DMG* dmg, uint32_t offset, void* buffer, uin
 void*       DMG_GetFromFileCache   (DMG* dmg, uint32_t offset, uint32_t size);
 void        DMG_FreeFileImageCache (DMG* dmg);
 void        DMG_SetZX0ScratchBuffer(DMG* dmg, uint8_t* buffer, uint32_t size, bool owned = false);
+uint8_t*    DMG_GetScratchBuffer   (DMG* dmg, uint32_t size);
+uint32_t    DMG_GetScratchBufferSize(DMG* dmg);
 
 void        DMG_Warning            (const char* format, ...);
 void        DMG_SetError           (DMG_Error error);
@@ -397,6 +402,7 @@ bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, ui
 bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
 bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* output, int pixels);
 uint8_t*    DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width);
+uint8_t*    DMG_ConvertPlanar8ToPlanarFalcon(uint8_t* data, uint8_t* buffer, int length, uint32_t width);
 bool 		DMG_ConvertPlanar8ToPlanar (const DMG_Entry* entry, const uint8_t* data, uint32_t packedSize, uint8_t* output, uint32_t outputSize);
 bool        DMG_UnpackBitplaneBytes    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
 bool        DMG_UnpackBitplaneWords    (const uint8_t* data, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output);
@@ -420,6 +426,7 @@ bool        DMG_DecompressZX0          (const uint8_t* data, uint32_t dataLength
 uint8_t*    DMG_CompressZX0            (const uint8_t* data, uint32_t dataLength, uint32_t* outputSize);
 bool        DMG_Planar8ToPacked        (const uint8_t* data, uint16_t length, uint8_t* output, int pixels, uint32_t width);
 void        DMG_ConvertPackedToPlanarST(uint8_t *buffer, uint32_t bufferSize, uint32_t width);
+void        DMG_ConvertPackedToPlanarFalcon(uint8_t *buffer, uint32_t bufferSize, uint32_t width);
 bool        DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize);
 
 uint32_t    DMG_CalculateRequiredSize  (DMG_Entry* entry, DMG_ImageMode mode);

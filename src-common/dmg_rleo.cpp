@@ -20,8 +20,8 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 	bool outcm = false;
 
 	DMG_SetError(DMG_ERROR_NONE);
-	
-	#ifdef DEBUG_RLE
+	DebugPrintf("Decompressing old RLE image (%u bytes)\n", (unsigned)dataLength);
+	#ifdef DEBUG
 	uint32_t t0, t1;
 	VID_GetMilliseconds(&t0);
 	#endif
@@ -143,7 +143,7 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 		DMG_Warning("Data stream contains %u extra bytes (at offset %lu)",
 			(unsigned)remaining, (unsigned long)(ptr - start));
 
-	#ifdef DEBUGRLE
+	#ifdef DEBUG
 	VID_GetMilliseconds(&t1);
 	DebugPrintf("Decompressed old RLE image in %lu ms\n", (unsigned long)(t1 - t0));
 	#endif

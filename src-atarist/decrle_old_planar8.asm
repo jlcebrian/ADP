@@ -56,6 +56,7 @@ _DecompressOldRLEToPlanar8Asm:
 	move.w	ARG_MASK(sp),d6		; D6 <- RLE Mask (lower word)
 	move.l	#$01000000,a5		; A5 <- Decrement value for D6 shift counter
 	move.l  d6,a6			; A6 <- Reset value for D6
+	sub.l	#1,a4
 
 .mainLoop
 
@@ -69,7 +70,6 @@ _DecompressOldRLEToPlanar8Asm:
 .emit	add.w	d4,d4
 	add.w	d4,d4
 	move.l	.ColorTable(pc,d4),d4
-	sub.l	#1,a4
 .loop	add.l	d5,d5
 	or.l	d4,d5
 	sub.l	a5,d6
@@ -79,8 +79,9 @@ _DecompressOldRLEToPlanar8Asm:
 	clr.l	d5
 .next	dbra	d7,.loop
 
+	sub.l	#1,a4
 	move.l	a4,d4		; Has pixel count reached zero?
-	bne.w	.mainLoop
+	bpl.w	.mainLoop
 
 .done	rol.l	#8,d6
 	cmp.b	#8,d6

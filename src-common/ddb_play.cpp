@@ -7,6 +7,10 @@
 #include <os_lib.h>
 #include <os_mem.h>
 
+#ifdef _ATARIST
+#include <mint/cookie.h>
+#endif
+
 #define MAX_FILES          64
 #define NAME_BUFFER_SIZE 2048
 
@@ -81,12 +85,23 @@ static bool ValidateResolvedVideoConfig(const char* fileName, DDB_Machine machin
 #ifdef _ATARIST
 	if (machine == DDB_MACHINE_ATARIST)
 	{
+		long cookieValue = 0;
+		bool hasFalconVideo = Getcookie(C__VDO, &cookieValue) == C_FOUND && cookieValue >= 0x00030000L;
 		uint16_t width = 0;
 		uint16_t height = 0;
 		uint8_t colorMode = 0;
 		if (ProbeDAT5Header(fileName, &width, &height, &colorMode))
 		{
-			if (colorMode != DMG_DAT5_COLORMODE_PLANAR4ST || width != 320 || height != 200 || planes != 4 || screenMode != ScreenMode_VGA16)
+			bool supported = false;
+			if (width == 320 && height == 200)
+			{
+				if (colorMode == DMG_DAT5_COLORMODE_PLANAR4ST && planes == 4 && screenMode == ScreenMode_VGA16)
+					supported = true;
+				else if (colorMode == DMG_DAT5_COLORMODE_PLANAR8ST && hasFalconVideo && planes == 8 && screenMode == ScreenMode_VGA)
+					supported = true;
+			}
+
+			if (!supported)
 			{
 				DebugPrintf("Rejecting unsupported DAT5 during initial ST probe (mode=%u size=%ux%u planes=%u screen=%u)\n",
 					(unsigned)colorMode,

@@ -90,6 +90,8 @@ void DMG_InitializeOldRLETables()
 
 static bool DMG_DecompressOldRLEToST_C(const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels)
 {
+	Abort();
+	
     const uint8_t* src = data;
     uint32_t packedColors = 0;
     uint8_t packedColorCount = 0;
@@ -189,6 +191,8 @@ static bool DMG_DecompressOldRLEToST_C(const uint8_t* data, uint16_t rleMask, ui
 		*out++ = plane3;
 	}
 
+	DebugPrintf("Decompress old RLE finished at %p (%u bytes written, tail has %d pixels)\n", out, (uint8_t*)out-(uint8_t*)buffer, bitsUsed);
+
     return true;
 }
 
@@ -196,11 +200,6 @@ bool DMG_DecompressOldRLEToPlanarST (const uint8_t* data, uint16_t rleMask, uint
 {
 	#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 	bool shouldSwap = !DMG_IsHostByteOrder(littleEndian);
-	#else
-	(void)littleEndian;
-	bool shouldSwap = false;
-	#endif
-
 	if (shouldSwap)
 	{
 		uint32_t* src = (uint32_t*)data;
@@ -210,6 +209,7 @@ bool DMG_DecompressOldRLEToPlanarST (const uint8_t* data, uint16_t rleMask, uint
 		for (int n = 0; n < wordCount; n++)
 			src[n] = fix32(src[n], littleEndian);
 	}
+	#endif
 
 	return DMG_DecompressOldRLEToST_C(data, rleMask, dataLength, buffer, pixels);
 }

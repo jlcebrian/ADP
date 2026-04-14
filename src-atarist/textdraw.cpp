@@ -25,18 +25,25 @@ enum TextByteAlignment
 typedef void (*DrawCharacterSolidPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in, uint16_t cover);
 typedef void (*DrawCharacterTransparentPatchedAsmFn)(uint8_t* out, const uint16_t* rotation, const uint8_t* in);
 
-// Worst case today is 79 words: 24-word setup, 8 byte blocks at 6 words each,
-// and a 7-word loop epilogue. Keep one word of slack.
-static const uint32_t solidTextStubWords = 80;
+// Worst case is 127 words in Falcon mode: 24-word setup, 16 byte blocks at
+// 6 words each, and a 7-word loop epilogue. Keep one word of slack.
+static const uint32_t solidTextStubWords = 128;
 static uint16_t solidTextStubCode[TextByteAlignment_Count][solidTextStubWords];
-static uint8_t lastSolidAttributes = 0xFF;
-// Worst case today is 71 words: 16-word setup, 8 byte blocks at 6 words each,
-// and a 7-word loop epilogue. Keep one word of slack.
-static const uint32_t transparentTextStubWords = 72;
+static uint16_t lastSolidAttributes = 0xFFFF;
+// Worst case is 119 words in Falcon mode: 16-word setup, 16 byte blocks at
+// 6 words each, and a 7-word loop epilogue. Keep one word of slack.
+static const uint32_t transparentTextStubWords = 120;
 static uint16_t transparentTextStubCode[TextByteAlignment_Count][transparentTextStubWords];
-static uint8_t lastTransparentInk = 0xFF;
+static uint16_t lastTransparentInk = 0xFFFF;
 static bool textDrawTablesReady = false;
 static uint16_t textRotationTable[8][256];
+static uint16_t lastTextRowBytes = 0;
+static uint8_t lastTextGroupBytes = 0;
+
+static int GetTextPlaneCount()
+{
+	return screenGroupBytes >= 16 ? 8 : 4;
+}
 
 static uint8_t GetSolidPatchMode(uint8_t ink, uint8_t paper, int planeIndex);
 static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t ink, uint8_t paper, bool rightByte);
@@ -56,15 +63,17 @@ bool VID_InitializeTextDraw()
 		textDrawTablesReady = true;
 	}
 
-	lastSolidAttributes = 0xFF;
-	lastTransparentInk = 0xFF;
+	lastSolidAttributes = 0xFFFF;
+	lastTransparentInk = 0xFFFF;
+	lastTextRowBytes = screenRowBytes;
+	lastTextGroupBytes = screenGroupBytes;
 	return true;
 }
 
 void VID_FinishTextDraw()
 {
-	lastSolidAttributes = 0xFF;
-	lastTransparentInk = 0xFF;
+	lastSolidAttributes = 0xFFFF;
+	lastTransparentInk = 0xFFFF;
 }
 
 struct WordEmitter
@@ -210,17 +219,17 @@ static bool EmitSolidTextStub(uint16_t* code, uint32_t templateWords, uint8_t in
 	emitter.Emit(0x3802); // move.w d2,d4
 	emitter.Emit(0xE04C); // lsr.w #8,d4
 
-	for (int planeIndex = 0; planeIndex < 4; planeIndex++)
+	for (int planeIndex = 0; planeIndex < GetTextPlaneCount(); planeIndex++)
 	{
 		uint16_t firstOffset = (uint16_t)(planeIndex * 2 + (rightByte ? 1 : 0));
-		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + 8) : (planeIndex * 2 + 1));
+		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + screenGroupBytes) : (planeIndex * 2 + 1));
 		uint8_t mode = GetSolidPatchMode(ink, paper, planeIndex);
 		EmitSolidByteBlock(emitter, firstOffset, false, mode);
 		EmitSolidByteBlock(emitter, secondOffset, true, mode);
 	}
 
-	emitter.Emit(0x41E8);       // lea 160(a0),a0
-	emitter.Emit(0x00A0);       // 160(a0)
+	emitter.Emit(0x41E8);       // lea xxxx(a0),a0
+	emitter.Emit(screenRowBytes);
 	emitter.Emit(0x51CB);       // dbra d3,loop
 	uint16_t displacement = (uint16_t)(((int32_t)loopStart - (int32_t)(emitter.ptr - code)) * 2);
 	emitter.Emit(displacement); // xxxx displacement
@@ -254,17 +263,17 @@ static bool EmitTransparentTextStub(uint16_t* code, uint32_t templateWords, uint
 	emitter.Emit(0x3802); // move.w d2,d4
 	emitter.Emit(0xE04C); // lsr.w #8,d4
 
-	for (int planeIndex = 0; planeIndex < 4; planeIndex++)
+	for (int planeIndex = 0; planeIndex < GetTextPlaneCount(); planeIndex++)
 	{
 		uint16_t firstOffset = (uint16_t)(planeIndex * 2 + (rightByte ? 1 : 0));
-		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + 8) : (planeIndex * 2 + 1));
+		uint16_t secondOffset = (uint16_t)(rightByte ? (planeIndex * 2 + screenGroupBytes) : (planeIndex * 2 + 1));
 		bool inkBit = ((ink >> planeIndex) & 1) != 0;
 		EmitTransparentByteBlock(emitter, firstOffset, false, inkBit);
 		EmitTransparentByteBlock(emitter, secondOffset, true, inkBit);
 	}
 
-	emitter.Emit(0x41E8); // lea 160(a0),a0
-	emitter.Emit(0x00A0); // 160(a0)
+	emitter.Emit(0x41E8); // lea xxxx(a0),a0
+	emitter.Emit(screenRowBytes);
 	emitter.Emit(0x51CB); // dbra d3,loop
 	emitter.Emit((uint16_t)(((int32_t)loopStart - (int32_t)(emitter.ptr - code)) * 2)); // xxxx displacement
 	emitter.Emit(0x4CDF); // movem.l (sp)+,d2-d7/a2
@@ -278,8 +287,16 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 {
 	if (length == 0 || text == 0)
 		return;
+	if (lastTextRowBytes != screenRowBytes || lastTextGroupBytes != screenGroupBytes)
+	{
+		lastSolidAttributes = 0xFFFF;
+		lastTransparentInk = 0xFFFF;
+		lastTextRowBytes = screenRowBytes;
+		lastTextGroupBytes = screenGroupBytes;
+	}
 
-	ink &= 0x0F;
+	uint8_t paletteMask = screenGroupBytes >= 16 ? 0xFF : 0x0F;
+	ink &= paletteMask;
 
 	if (paper == 255)
 	{
@@ -291,7 +308,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 			lastTransparentInk = ink;
 		}
 
-		uint8_t* out = (uint8_t*)textScreen + 160 * y + ((x >> 4) << 3);
+		uint8_t* out = (uint8_t*)textScreen + screenRowBytes * y + (uint32_t)((x >> 4) * screenGroupBytes);
 		uint8_t phase = (uint8_t)(x & 0x0F);
 
 		for (uint16_t n = 0; n < length && x < screenWidth; n++)
@@ -309,14 +326,14 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 			draw(out, textRotationTable[shift], charset + 8 * ch);
 			x += width;
 			phase = (uint8_t)(phase + width);
-			out += (phase >> 4) << 3;
+			out += (uint32_t)((phase >> 4) * screenGroupBytes);
 			phase &= 0x0F;
 		}
 		return;
 	}
 
-	paper &= 0x0F;
-	uint8_t attributes = (uint8_t)((paper << 4) | ink);
+	paper &= paletteMask;
+	uint16_t attributes = (uint16_t)(((uint16_t)paper << 8) | ink);
 	if (lastSolidAttributes != attributes)
 	{
 		if (!EmitSolidTextStub(solidTextStubCode[TextByteAlignment_Left], solidTextStubWords, ink, paper, false) ||
@@ -325,7 +342,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 		lastSolidAttributes = attributes;
 	}
 
-	uint8_t* out = (uint8_t*)textScreen + 160 * y + ((x >> 4) << 3);
+	uint8_t* out = (uint8_t*)textScreen + screenRowBytes * y + (uint32_t)((x >> 4) * screenGroupBytes);
 	uint8_t phase = (uint8_t)(x & 0x0F);
 
 	for (uint16_t n = 0; n < length && x < screenWidth; n++)
@@ -346,7 +363,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 		draw(out, rotation, charset + 8 * ch, cover);
 		x += width;
 		phase = (uint8_t)(phase + width);
-		out += (phase >> 4) << 3;
+		out += (uint32_t)((phase >> 4) * screenGroupBytes);
 		phase &= 0x0F;
 	}
 }

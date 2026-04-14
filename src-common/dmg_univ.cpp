@@ -79,9 +79,9 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		{
 			compressedData = buffer + bufferSize - imageDataLength;
 		}
-		else if (dmg->zx0Scratch != 0 && dmg->zx0ScratchSize >= imageDataLength)
+		else if (DMG_GetScratchBufferSize(dmg) >= imageDataLength)
 		{
-			compressedData = dmg->zx0Scratch;
+			compressedData = DMG_GetScratchBuffer(dmg, imageDataLength);
 		}
 		else
 		{
@@ -134,7 +134,8 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		#endif
 
 		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
-			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode)))
+			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
+			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8))
 		{
 			if (freeCompressedData)
 				Free(compressedData);
@@ -310,10 +311,11 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		return buffer;
 	}
 
-	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST)
+	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST || mode == ImageMode_PlanarFalcon)
 	{
 		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
-			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode)))
+			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
+			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8))
 		{
 			MemMove(buffer, fileData, imageDataLength);
 			if (tempFileData)
@@ -495,10 +497,12 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		else if (dmg->littleEndian)
 			success = DMG_CopyImageData(fileData, entry->length, buffer, packedSize);
 		#endif
-		else if (mode != ImageMode_PlanarST)
-			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
-		else
+		else if (mode == ImageMode_PlanarST)
 			return DMG_ConvertPlanar8ToPlanarST(fileData, buffer, packedSize, entry->width);
+		else if (mode == ImageMode_PlanarFalcon)
+			return DMG_ConvertPlanar8ToPlanarFalcon(fileData, buffer, packedSize, entry->width);
+		else
+			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
 	}
 	if (success && mode != ImageMode_Packed)
 	{
@@ -515,7 +519,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 				break;
 			case ImageMode_PlanarFalcon:
-				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				DMG_ConvertPackedToPlanarFalcon(buffer, requiredSize, entry->width);
 				break;
 			case ImageMode_PlanarST:
 				DMG_ConvertPackedToPlanarST(buffer, requiredSize, entry->width);
@@ -605,7 +609,9 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 	#if defined(_AMIGA)
 	return DMG_GetEntryDataPlanar(dmg, index);
 	#elif defined(_ATARIST)
-	return DMG_GetEntryData(dmg, index, ImageMode_PlanarST);
+	if (screenMode == ImageMode_PlanarFalcon)
+		return DMG_GetEntryData(dmg, index, screenMode);
+	return DMG_GetEntryDataPlanar(dmg, index);
 	#else
 	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
 	#endif
