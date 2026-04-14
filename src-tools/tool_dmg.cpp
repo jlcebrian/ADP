@@ -19,7 +19,16 @@ static bool debug = false;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
 
-static const char* imageExtensions[] = { "png", "pcx", "vga" };
+typedef enum
+{
+    ExtractFormat_PNG,
+    ExtractFormat_PI1,
+    ExtractFormat_PL1,
+    ExtractFormat_IFF,
+}
+ExtractFormat;
+
+static const char* imageExtensions[] = { "png", "pcx", "vga", "pi1", "pl1", "iff", "ilbm" };
 static const int count = sizeof(imageExtensions) / sizeof(imageExtensions[0]);
 
 typedef enum
@@ -77,6 +86,7 @@ frequencies[] =
 static uint8_t* buffer = NULL;
 static uint32_t bufferSize = 0;
 static DMG_ImageMode extractMode = ImageMode_Indexed;
+static ExtractFormat extractFormat = ExtractFormat_PNG;
 static char extractOutputDirectory[FILE_MAX_PATH];
 static char filename[1024];
 static char newfilename[1024];
@@ -85,6 +95,7 @@ static bool verbose = false;
 static bool listSortById = false;
 static bool readOnly = true;
 static bool createDAT5 = false;
+static DMG_Version createLegacyVersion = DMG_Version2;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
@@ -92,6 +103,7 @@ static bool compressionEnabled = true;
 static void ResetCreateSettings()
 {
     createDAT5 = false;
+    createLegacyVersion = DMG_Version2;
     createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
     createDAT5Width = 320;
     createDAT5Height = 200;
@@ -113,6 +125,38 @@ static int remapRangeFirst = 0;
 static int remapRangeLast = 0;
 static uint8_t priorityEntries[256];
 static int priorityEntryCount = 0;
+
+typedef struct
+{
+    bool hasX;
+    bool hasY;
+    bool hasFirstColor;
+    bool hasLastColor;
+    bool hasBuffer;
+    bool hasFixed;
+    bool hasClone;
+    bool hasCompression;
+    bool useSidecarJson;
+    bool hasJsonFile;
+    int x;
+    int y;
+    int firstColor;
+    int lastColor;
+    int cloneSource;
+    bool buffer;
+    bool fixed;
+    bool compression;
+    char jsonFile[FILE_MAX_PATH];
+}
+PendingInputOptions;
+
+static PendingInputOptions pendingInputOptions;
+
+static void ResetPendingInputOptions()
+{
+    MemClear(&pendingInputOptions, sizeof(pendingInputOptions));
+    pendingInputOptions.useSidecarJson = true;
+}
 
 typedef enum
 {
@@ -199,21 +243,19 @@ void TracePrintf(const char* format, ...)
 static void PrintHelp()
 {
 	printf("DMG file utility for DAAD " VERSION_STR "\n\n");
-    printf("Usage: dmg [global options] <action> <file.dat> [arguments]\n");
-    printf("       dmg [global options] <file.dat> [arguments]\n\n");
-    printf("Batch mode: dmg [global options] <file.dat> -- command [args] :: command [args]\n");
-    printf("            dmg [global options] <file.dat> @commands.txt\n\n");
+    printf("Usage: dmg [global options] <action> <file> [arguments]\n");
+    printf("       dmg [global options] <file> [arguments]\n\n");
 	printf("Actions:\n\n");
-	printf("    list, l              List contents of DAT file (default)\n");
-	printf("    list-palettes, v     List contents of DAT file with palettes\n");
+	printf("    list, l              List contents of a container (default)\n");
+	printf("    list-palettes, v     List contents with palettes\n");
 	printf("    extract, x           Extract image/audio entries\n");
-	printf("    test, t              Test image/audio entries\n");
+	printf("    test, t              Decode and validate entries\n");
 	printf("    extract-palettes, p  Extract image palettes\n");
-	printf("    add, a               Add or replace image/audio entries\n");
-	printf("    delete, d            Delete image/audio entries\n");
-	printf("    create, n            Create a new DAT file\n");
-	printf("    update, u            Update/rebuild DAT file to newer version\n");
-	printf("    shell                Open DAT file and enter an interactive shell\n");
+	printf("    add, a               Add or replace entries\n");
+	printf("    delete, d            Delete entries\n");
+	printf("    create, n            Create a new container\n");
+	printf("    update, u            Rebuild or modify a container\n");
+	printf("    shell                Open an interactive shell\n");
 	printf("    help, h              Show this help\n");
     printf("\n");
     printf("Global options:\n\n");
@@ -221,64 +263,53 @@ static void PrintHelp()
     printf("   -n, --sort-by-id   List entries by id instead of file offset\n");
 	printf("   -h, --help         Show this help\n");
     printf("\n");
-    printf("Use :: as the shared command separator in batch and shell mode.\n");
-    printf("Use @commands.txt to execute one command line per file line.\n");
-    printf("Session mode uses explicit commands such as list, extract, add, delete and update.\n");
+    printf("Modern options accept both '-name value' and '-name=value'.\n");
+    printf("Double-dash forms are accepted too.\n");
+    printf("File metadata options bind to the adjacent file token and do not stay sticky.\n");
     printf("\n");
-	printf("Selectors:\n\n");
-	printf("   #          Select one entry (0-255)\n");
-	printf("   #,#...     Select a comma-separated list of entries\n");
-	printf("   #-#        Select an inclusive range of entries\n");
-	printf("   #-         Select from the given entry to 255\n");
-	printf("\n");
-	printf("Extract/test options:\n\n");
-	printf("   If no selector is supplied, all entries are used.\n");
-    printf("   Extracted files default to the current host directory.\n");
-	printf("   -i         Save indexed images (default)\n");
-	printf("   -t         Save truecolor images\n");
-	printf("   -e         Export EGA version of images/palettes\n");
-	printf("   -c         Export CGA version of images/palettes\n");
-    printf("   out:<dir>  Write extracted files to the given host directory\n");
-	printf("\n");
-	printf("Add/create/update arguments:\n\n");
-	printf("   Selectors set the current target entries.\n");
-	printf("   Following property tokens apply to the current target entries\n");
-	printf("   until another selector appears.\n");
-	printf("   remap:* tokens affect DAT5 image writes/rebuilds for this command.\n");
-	printf("   Image/audio files affect one entry only.\n");
-	printf("   Use #:<file> to target a specific entry.\n\n");
-	printf("   file.png   Add/replace image contents & palette\n");
-    printf("   file.pcx   Add/replace image contents & palette\n");
-    printf("   file.vga   Add/replace image contents & palette\n");
-	printf("   file.wav   Add/replace audio sample contents\n");
-	printf("   #:<file>   Add/replace image or audio in a specific entry\n");
-	printf("   x:#        Set X coordinate\n");
-	printf("   y:#        Set Y coordinate\n");
-	printf("   first:#    Set first color\n");
-	printf("   last:#     Set last color\n");
-	printf("   cga:#      Set CGA mode (red or blue)\n");
-	printf("   freq:#     Set frequency (5, 7, 9.5, 15, 20 or 30)\n");
-	printf("   buffer:#   Set buffer flag (0 or 1)\n");
-    printf("   fixed:#    Set fixed flag (0 or 1)\n");
-    printf("   remap:min  Remap DAT5 palettes by fixing only slots 0 and 15\n");
-    printf("   remap:reserve Reserve low color slots by shifting the image palette up\n");
-    printf("                up to 16 slots, or as many as the mode still allows\n");
-    printf("   remap:std  Remap DAT5 palettes using the standard bright-slot order\n");
-    printf("   remap:dark Remap DAT5 palettes strictly from dark to bright\n");
-    printf("   remap:A-B  Shift image palette indices into color range A-B when it fits\n");
-    printf("   compression:# Set image compression for a/n/u (0 or 1)\n");
-    printf("   priority:#,#... Prioritize physical DAT order for these entries on n/u\n");
-    printf("   mode:<id>  When creating a DAT5: cga, ega, planar4, planar5, planar8, planar4st, planar8st\n");
-    printf("   screen:WxH When creating a DAT5: 320x200, 640x200 or 640x400\n");
+	printf("Container formats:\n\n");
+    printf("   dat5       Modern DAT V5\n");
+    printf("   dat2       DAT V2\n");
+    printf("   dat1       DAT V1\n");
+    printf("   ega        DOS EGA DAT\n");
+    printf("   cga        DOS CGA DAT\n");
+    printf("   pcw        Amstrad PCW DAT\n");
+    printf("\n");
+	printf("Input formats:\n\n");
+	printf("   .png       Indexed PNG input\n");
+    printf("   .pcx/.vga  Indexed PCX input\n");
+    printf("   .pi1/.pl1  Atari ST Degas low-res input\n");
+    printf("   .iff/.ilbm Amiga ILBM indexed input\n");
+	printf("   .wav       Audio input\n");
+    printf("\n");
+	printf("Common add/create/update options:\n\n");
+    printf("   -format <id>       Container format: dat5, dat2, dat1, ega, cga, pcw\n");
+    printf("   -mode <id>         DAT5 mode: cga, ega, planar4, planar5, planar8,\n");
+    printf("                      planar4st, planar8st\n");
+    printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
+    printf("   -id <n>            Target entry id for the following file. Repeats increment automatically.\n");
+    printf("   -fixed|-float      Set or clear fixed flag on the adjacent file, or on selected entries during update\n");
+    printf("   -buffer|-nobuffer  Set or clear buffered flag on the adjacent file, or on selected entries during update\n");
+    printf("   -compress|-nocompress Enable or disable image compression\n");
+    printf("   -x <n> -y <n>      Set image coordinates on the adjacent file, or on selected entries during update\n");
+    printf("   -pcs <n> -pce <n>  Set first and last palette color on the adjacent file, or on selected entries during update\n");
+    printf("   -json auto|off|<file> Use adjacent JSON metadata, disable it, or force a file\n");
+    printf("   -clone <n>         Clone entry data from another slot instead of reading a file\n");
+    printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: min, reserve, std, dark, A-B\n");
+    printf("   -priority <list>   Rebuild order preference for update/create\n");
+    printf("\n");
+    printf("Extract options:\n\n");
+    printf("   -output <dir>      Destination directory\n");
+    printf("   -as <fmt>          Image output format: png, pi1, pl1, iff\n");
+    printf("   Selectors accept: 12, 12,14,18, 12-20, 12-\n");
     printf("\n");
     printf("Examples:\n\n");
-    printf("   dmg u file.dat 0-50 fixed:1\n");
-    printf("   dmg add file.dat 12 x:24 y:80\n");
-    printf("   dmg add file.dat remap:std 0:image.png\n");
-    printf("   dmg update file.dat out.dat 0-50 fixed:1\n");
-    printf("   dmg extract file.dat 0-10 out:exports\n");
-    printf("   dmg file.dat -- list 0-15 :: extract 12-14 -t\n");
-    printf("   dmg shell file.dat\n");
+    printf("   dmg create game.dat -format dat5 -mode planar4 -screen 320x200 title.png -id 0\n");
+    printf("   dmg create intro.ega -format ega intro.pi1 -id 0\n");
+    printf("   dmg add game.dat sprites/*.png -id 32 -buffer -json auto\n");
+    printf("   dmg update game.dat -priority 0,1,2 -output game-repacked.dat\n");
+    printf("   dmg extract game.dat 0-10 -as iff -output exports\n");
+    printf("   dmg shell game.dat\n");
 }
 
 static void ShowWarning(const char* message)
@@ -340,15 +371,253 @@ static bool ParseDAT5Size(const char* value, uint16_t* width, uint16_t* height)
     return true;
 }
 
+static bool ParseContainerFormat(const char* value, bool* isDAT5, DMG_Version* legacyVersion)
+{
+    *isDAT5 = false;
+    *legacyVersion = DMG_Version2;
+    if (stricmp(value, "dat1") == 0) *legacyVersion = DMG_Version1;
+    else if (stricmp(value, "dat2") == 0) *legacyVersion = DMG_Version2;
+    else if (stricmp(value, "ega") == 0) *legacyVersion = DMG_Version1_EGA;
+    else if (stricmp(value, "cga") == 0) *legacyVersion = DMG_Version1_CGA;
+    else if (stricmp(value, "pcw") == 0) *legacyVersion = DMG_Version1_PCW;
+    else if (stricmp(value, "dat5") == 0) *isDAT5 = true;
+    else return false;
+    return true;
+}
+
+static void BuildSidecarPath(const char* fileName, const char* extension, char* output, size_t outputSize)
+{
+    StrCopy(output, outputSize, fileName);
+    char* dot = strrchr(output, '.');
+    if (dot != 0)
+        *dot = 0;
+    StrCat(output, outputSize, extension);
+}
+
+static bool ParseJsonIntField(const char* json, const char* key, int* outValue)
+{
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+    const char* ptr = strstr(json, pattern);
+    if (ptr == 0)
+        return false;
+    ptr += strlen(pattern);
+    while (*ptr != 0 && isspace((unsigned char)*ptr))
+        ptr++;
+    if (*ptr != ':')
+        return false;
+    ptr++;
+    while (*ptr != 0 && isspace((unsigned char)*ptr))
+        ptr++;
+    if (*ptr == '-' || isdigit((unsigned char)*ptr))
+    {
+        *outValue = atoi(ptr);
+        return true;
+    }
+    return false;
+}
+
+static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions* options)
+{
+    File* file = File_Open(jsonFile, ReadOnly);
+    if (file == 0)
+        return false;
+
+    uint32_t size = (uint32_t)File_GetSize(file);
+    char* json = Allocate<char>("Image JSON", size + 1);
+    if (json == 0)
+    {
+        File_Close(file);
+        return false;
+    }
+    bool ok = File_Read(file, json, size) == size;
+    File_Close(file);
+    if (!ok)
+    {
+        Free(json);
+        return false;
+    }
+    json[size] = 0;
+
+    int value = 0;
+    if (ParseJsonIntField(json, "X", &value)) { options->hasX = true; options->x = value; }
+    if (ParseJsonIntField(json, "Y", &value)) { options->hasY = true; options->y = value; }
+    if (ParseJsonIntField(json, "PCS", &value)) { options->hasFirstColor = true; options->firstColor = value; }
+    if (ParseJsonIntField(json, "PCE", &value)) { options->hasLastColor = true; options->lastColor = value; }
+    if (ParseJsonIntField(json, "float", &value)) { options->hasFixed = true; options->fixed = value == 0; }
+    if (ParseJsonIntField(json, "buffer", &value)) { options->hasBuffer = true; options->buffer = value != 0; }
+    if (ParseJsonIntField(json, "clone", &value) && value != 0)
+    {
+        if (ParseJsonIntField(json, "location", &value))
+        {
+            options->hasClone = true;
+            options->cloneSource = value;
+        }
+    }
+    if (ParseJsonIntField(json, "compress", &value))
+    {
+        options->hasCompression = true;
+        options->compression = value != 0;
+    }
+
+    Free(json);
+    return true;
+}
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t version;
+    uint32_t sourceSize;
+    uint32_t sourceTime;
+    uint32_t width;
+    uint32_t height;
+    uint32_t payloadSize;
+    uint16_t format;
+    uint16_t colorMode;
+    uint8_t  compressed;
+    uint8_t  remap;
+    uint8_t  firstColor;
+    uint8_t  lastColor;
+}
+DMGCacheHeader;
+
+#define DMG_CACHE_MAGIC 0x444D4743u
+#define DMG_CACHE_VERSION 1u
+
+static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, uint8_t** payload, uint32_t* payloadSize)
+{
+    FindFileResults sourceInfo;
+    if (!File_FindFirst(sourceFile, &sourceInfo))
+        return false;
+
+    File* file = File_Open(cacheFile, ReadOnly);
+    if (file == 0)
+        return false;
+
+    DMGCacheHeader header;
+    bool ok = File_Read(file, &header, sizeof(header)) == sizeof(header) &&
+        header.magic == DMG_CACHE_MAGIC &&
+        header.version == DMG_CACHE_VERSION &&
+        header.sourceSize == sourceInfo.fileSize &&
+        header.sourceTime == sourceInfo.modifyTime &&
+        header.format == format &&
+        header.colorMode == colorMode &&
+        header.remap == remap &&
+        header.firstColor == firstColor &&
+        header.lastColor == lastColor &&
+        header.width == width &&
+        header.height == height &&
+        header.compressed == compressed;
+    if (!ok)
+    {
+        File_Close(file);
+        return false;
+    }
+
+    uint8_t* data = Allocate<uint8_t>("DMG cache payload", header.payloadSize);
+    if (data == 0)
+    {
+        File_Close(file);
+        return false;
+    }
+
+    ok = File_Read(file, data, header.payloadSize) == header.payloadSize;
+    File_Close(file);
+    if (!ok)
+    {
+        Free(data);
+        return false;
+    }
+
+    *payload = data;
+    *payloadSize = header.payloadSize;
+    return true;
+}
+
+static void SaveCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, const uint8_t* payload, uint32_t payloadSize)
+{
+    FindFileResults sourceInfo;
+    if (!File_FindFirst(sourceFile, &sourceInfo))
+        return;
+
+    File* file = File_Create(cacheFile);
+    if (file == 0)
+        return;
+
+    DMGCacheHeader header;
+    header.magic = DMG_CACHE_MAGIC;
+    header.version = DMG_CACHE_VERSION;
+    header.sourceSize = sourceInfo.fileSize;
+    header.sourceTime = sourceInfo.modifyTime;
+    header.width = width;
+    header.height = height;
+    header.payloadSize = payloadSize;
+    header.format = (uint16_t)format;
+    header.colorMode = (uint16_t)colorMode;
+    header.compressed = compressed;
+    header.remap = remap;
+    header.firstColor = firstColor;
+    header.lastColor = lastColor;
+
+    File_Write(file, &header, sizeof(header));
+    File_Write(file, payload, payloadSize);
+    File_Close(file);
+}
+
+static bool EncodePCWStoredLayout(const uint8_t* indexed, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize)
+{
+    uint32_t rowBytes = ((uint32_t)width + 7) >> 3;
+    uint32_t monoSize = rowBytes * height;
+    if ((height & 1) != 0 || outputSize < monoSize)
+        return false;
+
+    uint8_t* decoded = Allocate<uint8_t>("PCW mono", monoSize);
+    if (decoded == 0)
+        return false;
+
+    for (uint16_t y = 0; y < height; y++)
+    {
+        const uint8_t* src = indexed + y * width;
+        uint8_t* row = decoded + y * rowBytes;
+        MemClear(row, rowBytes);
+        for (uint16_t x = 0; x < width; x++)
+        {
+            if (src[x] != 0)
+                row[x >> 3] |= (uint8_t)(0x80u >> (x & 7));
+        }
+    }
+
+    MemClear(output, monoSize);
+    for (uint32_t pair = 0; pair < height / 2; pair++)
+    {
+        uint32_t sourceTop = pair * rowBytes * 2;
+        uint32_t sourceBottom = sourceTop + rowBytes * 2 - 1;
+        uint32_t destBase = (pair >> 2) * width + (pair & 3) * 2;
+        for (uint32_t xByte = 0; xByte < rowBytes; xByte++)
+        {
+            uint32_t dest = destBase + (xByte << 3);
+            output[dest + 0] = decoded[sourceTop + xByte];
+            output[dest + 1] = decoded[sourceBottom - xByte];
+        }
+    }
+
+    Free(decoded);
+    return true;
+}
+
 static void ClearSelection(bool* entries);
 static int CountSelectedEntries(const bool* entries);
 static int FirstSelectedEntry(const bool* entries);
 static void SelectSingleEntry(bool* entries, int index);
 static bool ParseSelectionToken(const char* token, bool* entries);
 static bool IsPropertyToken(const char* token);
+static bool ApplyPropertyToSelection(DMG* dmg, const bool* currentSelection, const char* token);
 static bool IsImageToken(const char* token);
 static bool IsTargetedFileToken(const char* token);
+static bool ParseOptionValue(const char* ptr, int* value);
 static bool ExecuteCLICommandLine(int argc, char* argv[]);
+static bool TranslateModernArguments(Action action, int inputCount, const char* inputArgs[], const char** translatedArgs, int* translatedCount, const char** explicitOutputFile);
 static bool PrepareSessionTarget(int argc, char* argv[], DMG** outDmg);
 static bool RunSessionCommands(int argc, char* argv[], DMG* dmg);
 static bool RunInteractiveSession(DMG* dmg);
@@ -1117,6 +1386,7 @@ static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
 {
     ClearSelection(selected);
     extractMode = ImageMode_Indexed;
+    extractFormat = ExtractFormat_PNG;
     extractOutputDirectory[0] = 0;
 
     if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST) && !OS_GetCurrentDirectory(extractOutputDirectory, sizeof(extractOutputDirectory)))
@@ -1149,6 +1419,21 @@ static bool ParseEntrySelectionList(int tokenCount, const char* tokens[])
                 return false;
             }
             StrCopy(extractOutputDirectory, sizeof(extractOutputDirectory), value);
+            continue;
+        }
+
+        if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && strnicmp(ptr, "--as=", 5) == 0)
+        {
+            const char* value = ptr + 5;
+            if (stricmp(value, "png") == 0) extractFormat = ExtractFormat_PNG;
+            else if (stricmp(value, "pi1") == 0) extractFormat = ExtractFormat_PI1;
+            else if (stricmp(value, "pl1") == 0) extractFormat = ExtractFormat_PL1;
+            else if (stricmp(value, "iff") == 0 || stricmp(value, "ilbm") == 0) extractFormat = ExtractFormat_IFF;
+            else
+            {
+                fprintf(stderr, "Error: Invalid extract format: \"%s\"\n", value);
+                return false;
+            }
             continue;
         }
 
@@ -1237,17 +1522,21 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
 					}
 					else if (saveToFile)
 					{
-                        outputFileName = MakeFileName(extractOutputDirectory, n, "png");
-						if (DMG_IS_INDEXED(extractMode))
-						{
-                            palette = DMG_GetEntryStoredPalette(dmg, n);
-                            int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+                        const char* extension = "png";
+                        if (extractFormat == ExtractFormat_PI1) extension = "pi1";
+                        else if (extractFormat == ExtractFormat_PL1) extension = "pl1";
+                        else if (extractFormat == ExtractFormat_IFF) extension = "iff";
+                        outputFileName = MakeFileName(extractOutputDirectory, n, extension);
+                        palette = DMG_GetEntryStoredPalette(dmg, n);
+                        int paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+                        if (extractFormat == ExtractFormat_PI1 || extractFormat == ExtractFormat_PL1)
+                            success = SavePI1Indexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize);
+                        else if (extractFormat == ExtractFormat_IFF)
+                            success = SaveIFFIndexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize);
+                        else if (DMG_IS_INDEXED(extractMode))
                             success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, palette, paletteSize, 0);
-						}
-						else if (DMG_IS_RGBA32(extractMode))
-						{
-							success = SavePNGRGB32(outputFileName, (uint32_t*)buffer, entry->width, entry->height);
-						}
+                        else
+                            success = SavePNGRGB32(outputFileName, (uint32_t*)buffer, entry->width, entry->height);
 						if (!success)
 						{
 							fprintf(stderr, "%03d: Error: Unable to write image to %s\n", n, outputFileName);
@@ -1562,14 +1851,25 @@ static bool IsImageFileExtension(const char* extension)
 	return false;
 }
 
-static bool LoadIndexedImageFile(const char* fileName, uint8_t* pixels, uint32_t pixelsBufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize)
+static bool LoadIndexedImageFile(const char* fileName, uint8_t* pixels, uint32_t pixelsBufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, int maxColors, bool* reduced, int* sourceColorCount)
 {
     const char* dot = strrchr(fileName, '.');
     if (dot == 0)
         return false;
 
     if (stricmp(dot + 1, "png") == 0)
-        return LoadPNGIndexed(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize, 0);
+        return LoadPNGIndexed(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize, 0, maxColors, reduced, sourceColorCount);
+
+    if (reduced)
+        *reduced = false;
+    if (sourceColorCount)
+        *sourceColorCount = 0;
+
+    if (stricmp(dot + 1, "pi1") == 0 || stricmp(dot + 1, "pl1") == 0)
+        return LoadPI1Indexed(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize);
+
+    if (stricmp(dot + 1, "iff") == 0 || stricmp(dot + 1, "ilbm") == 0)
+        return LoadIFFIndexed(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize);
 
 #if HAS_PCX
     if (stricmp(dot + 1, "pcx") == 0 || stricmp(dot + 1, "vga") == 0)
@@ -1587,6 +1887,31 @@ static bool LoadIndexedImageFile(const char* fileName, uint8_t* pixels, uint32_t
 #endif
 
     return false;
+}
+
+static int GetImportPaletteLimit(const DMG* dmg)
+{
+    if (dmg == 0)
+        return 256;
+    if (dmg->version == DMG_Version5)
+        return GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode);
+    if (dmg->version == DMG_Version1_CGA)
+        return 4;
+    if (dmg->version == DMG_Version1_PCW)
+        return 2;
+    return 16;
+}
+
+static int GetRequestedImportPaletteLimit(const DMG* dmg)
+{
+    int limit = GetImportPaletteLimit(dmg);
+    if (remapMode == REMAP_RANGE)
+    {
+        int available = remapRangeLast - remapRangeFirst + 1;
+        if (available > 0 && available < limit)
+            limit = available;
+    }
+    return limit;
 }
 
 static bool IsImageToken(const char* token)
@@ -1609,6 +1934,242 @@ static bool IsPropertyToken(const char* token)
             return true;
     }
     return false;
+}
+
+static bool ParseInputOptionToken(const char* token)
+{
+    int value = 0;
+    if (strnicmp(token, "set-x:", 6) == 0 && ParseOptionValue(token + 6, &value))
+    {
+        pendingInputOptions.hasX = true;
+        pendingInputOptions.x = value;
+        return true;
+    }
+    if (strnicmp(token, "set-y:", 6) == 0 && ParseOptionValue(token + 6, &value))
+    {
+        pendingInputOptions.hasY = true;
+        pendingInputOptions.y = value;
+        return true;
+    }
+    if (strnicmp(token, "set-pcs:", 8) == 0 && ParseOptionValue(token + 8, &value))
+    {
+        pendingInputOptions.hasFirstColor = true;
+        pendingInputOptions.firstColor = value;
+        return true;
+    }
+    if (strnicmp(token, "set-pce:", 8) == 0 && ParseOptionValue(token + 8, &value))
+    {
+        pendingInputOptions.hasLastColor = true;
+        pendingInputOptions.lastColor = value;
+        return true;
+    }
+    if (strnicmp(token, "set-fixed:", 10) == 0 && ParseOptionValue(token + 10, &value))
+    {
+        pendingInputOptions.hasFixed = true;
+        pendingInputOptions.fixed = value != 0;
+        return true;
+    }
+    if (strnicmp(token, "set-buffer:", 11) == 0 && ParseOptionValue(token + 11, &value))
+    {
+        pendingInputOptions.hasBuffer = true;
+        pendingInputOptions.buffer = value != 0;
+        return true;
+    }
+    if (strnicmp(token, "set-clone:", 10) == 0 && ParseOptionValue(token + 10, &value))
+    {
+        pendingInputOptions.hasClone = true;
+        pendingInputOptions.cloneSource = value;
+        return true;
+    }
+    if (stricmp(token, "set-json:off") == 0)
+    {
+        pendingInputOptions.useSidecarJson = false;
+        pendingInputOptions.hasJsonFile = false;
+        pendingInputOptions.jsonFile[0] = 0;
+        return true;
+    }
+    if (stricmp(token, "set-json:auto") == 0)
+    {
+        pendingInputOptions.useSidecarJson = true;
+        pendingInputOptions.hasJsonFile = false;
+        pendingInputOptions.jsonFile[0] = 0;
+        return true;
+    }
+    if (strnicmp(token, "set-json-file:", 14) == 0)
+    {
+        pendingInputOptions.useSidecarJson = false;
+        pendingInputOptions.hasJsonFile = true;
+        StrCopy(pendingInputOptions.jsonFile, sizeof(pendingInputOptions.jsonFile), token + 14);
+        return true;
+    }
+    return false;
+}
+
+static bool IsInputOptionToken(const char* token)
+{
+    PendingInputOptions saved = pendingInputOptions;
+    bool ok = ParseInputOptionToken(token);
+    pendingInputOptions = saved;
+    return ok;
+}
+
+static bool IsTrailingEntryOptionToken(const char* token)
+{
+    return strnicmp(token, "set-x:", 6) == 0 ||
+        strnicmp(token, "set-y:", 6) == 0 ||
+        strnicmp(token, "set-pcs:", 8) == 0 ||
+        strnicmp(token, "set-pce:", 8) == 0 ||
+        strnicmp(token, "set-fixed:", 10) == 0 ||
+        strnicmp(token, "set-buffer:", 11) == 0;
+}
+
+static bool HasPendingTrailingEntryOptions()
+{
+    return pendingInputOptions.hasX || pendingInputOptions.hasY ||
+        pendingInputOptions.hasFirstColor || pendingInputOptions.hasLastColor ||
+        pendingInputOptions.hasBuffer || pendingInputOptions.hasFixed;
+}
+
+static bool HasPendingImageOnlyInputOptions()
+{
+    return pendingInputOptions.hasClone || pendingInputOptions.hasJsonFile || !pendingInputOptions.useSidecarJson;
+}
+
+static void ClearPendingTrailingEntryOptions()
+{
+    pendingInputOptions.hasX = false;
+    pendingInputOptions.hasY = false;
+    pendingInputOptions.hasFirstColor = false;
+    pendingInputOptions.hasLastColor = false;
+    pendingInputOptions.hasBuffer = false;
+    pendingInputOptions.hasFixed = false;
+}
+
+static bool ConvertTrailingInputOptionToPropertyToken(const char* token, char* propertyToken, size_t propertyTokenSize)
+{
+    const char* propertyPrefix = 0;
+    const char* value = 0;
+
+    if (strnicmp(token, "set-x:", 6) == 0) { propertyPrefix = "x:"; value = token + 6; }
+    else if (strnicmp(token, "set-y:", 6) == 0) { propertyPrefix = "y:"; value = token + 6; }
+    else if (strnicmp(token, "set-pcs:", 8) == 0) { propertyPrefix = "first:"; value = token + 8; }
+    else if (strnicmp(token, "set-pce:", 8) == 0) { propertyPrefix = "last:"; value = token + 8; }
+    else if (strnicmp(token, "set-fixed:", 10) == 0) { propertyPrefix = "fixed:"; value = token + 10; }
+    else if (strnicmp(token, "set-buffer:", 11) == 0) { propertyPrefix = "buffer:"; value = token + 11; }
+    else
+        return false;
+
+    snprintf(propertyToken, propertyTokenSize, "%s%s", propertyPrefix, value);
+    return true;
+}
+
+static bool ApplyPendingTrailingEntryOptionsToSelection(DMG* dmg, const bool* currentSelection)
+{
+    char propertyToken[64];
+
+    if (pendingInputOptions.hasX)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "x:%d", pendingInputOptions.x);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+    if (pendingInputOptions.hasY)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "y:%d", pendingInputOptions.y);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+    if (pendingInputOptions.hasFirstColor)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "first:%d", pendingInputOptions.firstColor);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+    if (pendingInputOptions.hasLastColor)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "last:%d", pendingInputOptions.lastColor);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+    if (pendingInputOptions.hasBuffer)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "buffer:%d", pendingInputOptions.buffer ? 1 : 0);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+    if (pendingInputOptions.hasFixed)
+    {
+        snprintf(propertyToken, sizeof(propertyToken), "fixed:%d", pendingInputOptions.fixed ? 1 : 0);
+        if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+            return false;
+    }
+
+    ClearPendingTrailingEntryOptions();
+    return true;
+}
+
+static bool ApplyPendingEntryOptions(DMG* dmg, int entryIndex)
+{
+    DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)entryIndex);
+    if (entry == 0)
+    {
+        if (DMG_GetError() != DMG_ERROR_NONE)
+            fprintf(stderr, "%03d: Error: Unable to read entry: %s\n", entryIndex, DMG_GetErrorString());
+        return false;
+    }
+    if (entry->type == DMGEntry_Empty)
+    {
+        fprintf(stderr, "%03d: Error: Entry is empty\n", entryIndex);
+        return false;
+    }
+
+    if (pendingInputOptions.hasX) entry->x = pendingInputOptions.x;
+    if (pendingInputOptions.hasY) entry->y = pendingInputOptions.y;
+    if (pendingInputOptions.hasBuffer)
+    {
+        if (pendingInputOptions.buffer) entry->flags |= DMG_FLAG_BUFFERED;
+        else entry->flags &= ~DMG_FLAG_BUFFERED;
+    }
+    if (pendingInputOptions.hasFixed)
+    {
+        if (pendingInputOptions.fixed) entry->flags |= DMG_FLAG_FIXED;
+        else entry->flags &= ~DMG_FLAG_FIXED;
+    }
+    if (pendingInputOptions.hasFirstColor) entry->firstColor = (uint8_t)pendingInputOptions.firstColor;
+    if (pendingInputOptions.hasLastColor) entry->lastColor = (uint8_t)pendingInputOptions.lastColor;
+    return DMG_UpdateEntry(dmg, (uint8_t)entryIndex);
+}
+
+static bool IsClassicPaletteDAT(const DMG* dmg)
+{
+    return dmg != 0 && (dmg->version == DMG_Version1 || dmg->version == DMG_Version2);
+}
+
+static void BuildClassicPalette16(uint32_t* outputPalette, const uint32_t* inputPalette, int paletteSize, int firstColor)
+{
+    MemClear(outputPalette, sizeof(uint32_t) * 16);
+    if (inputPalette == 0 || paletteSize <= 0)
+        return;
+
+    if (firstColor < 0)
+        firstColor = 0;
+    if (firstColor >= 16)
+        return;
+
+    int available = 16 - firstColor;
+    if (paletteSize > available)
+        paletteSize = available;
+    for (int i = 0; i < paletteSize; i++)
+        outputPalette[firstColor + i] = inputPalette[i];
+}
+
+static const char* BuildWorkingFileName(const char* targetFileName)
+{
+    const char* working = ChangeExtension(targetFileName, ".wrk");
+    if (strcmp(working, targetFileName) != 0)
+        return working;
+    snprintf(newfilename, sizeof(newfilename), "%s.tmp", targetFileName);
+    return newfilename;
 }
 
 static bool ParseRemapMode(const char* token, RemapMode* mode)
@@ -1726,6 +2287,50 @@ static char* DuplicateString(const char* text)
     if (copy != 0)
         memcpy(copy, text, len);
     return copy;
+}
+
+static char* DuplicatePrefixedString(const char* prefix, const char* suffix)
+{
+    char temp[FILE_MAX_PATH * 2];
+    snprintf(temp, sizeof(temp), "%s%s", prefix, suffix);
+    return DuplicateString(temp);
+}
+
+static bool MatchFlagToken(const char* token, const char* name)
+{
+    if (token == 0 || name == 0)
+        return false;
+    if (strcmp(token, name) == 0)
+        return true;
+    if (name[0] == '-' && name[1] == '-' && token[0] == '-' && token[1] != '-')
+        return strcmp(token + 1, name + 2) == 0;
+    return false;
+}
+
+static const char* MatchOptionValueToken(const char* token, const char* name)
+{
+    size_t nameLength;
+
+    if (token == 0 || name == 0)
+        return 0;
+    if (strcmp(token, name) == 0)
+        return "";
+
+    nameLength = strlen(name);
+    if (strncmp(token, name, nameLength) == 0 && token[nameLength] == '=')
+        return token + nameLength + 1;
+
+    if (name[0] == '-' && name[1] == '-' && token[0] == '-' && token[1] != '-')
+    {
+        const char* shortName = name + 2;
+        size_t shortNameLength = strlen(shortName);
+        if (strcmp(token + 1, shortName) == 0)
+            return "";
+        if (strncmp(token + 1, shortName, shortNameLength) == 0 && token[1 + shortNameLength] == '=')
+            return token + 1 + shortNameLength + 1;
+    }
+
+    return 0;
 }
 
 static int CompareStringsIgnoreCase(const void* a, const void* b)
@@ -2326,6 +2931,10 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     const char* filepart = slash ? slash + 1 : backslash ? backslash + 1 : token;
     int targetIndex = -1;
 
+    PendingInputOptions effectiveOptions;
+    MemClear(&effectiveOptions, sizeof(effectiveOptions));
+    effectiveOptions.useSidecarJson = true;
+
     if (colon != 0 && colon != token && isdigit(*token))
     {
         targetIndex = atoi(token);
@@ -2367,6 +2976,61 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         }
     }
 
+    if (pendingInputOptions.useSidecarJson)
+    {
+        char sidecar[FILE_MAX_PATH];
+        BuildSidecarPath(path, ".json", sidecar, sizeof(sidecar));
+        LoadPendingOptionsFromJson(sidecar, &effectiveOptions);
+    }
+    else if (pendingInputOptions.hasJsonFile)
+    {
+        LoadPendingOptionsFromJson(pendingInputOptions.jsonFile, &effectiveOptions);
+    }
+
+    if (pendingInputOptions.hasX) { effectiveOptions.hasX = true; effectiveOptions.x = pendingInputOptions.x; }
+    if (pendingInputOptions.hasY) { effectiveOptions.hasY = true; effectiveOptions.y = pendingInputOptions.y; }
+    if (pendingInputOptions.hasFirstColor) { effectiveOptions.hasFirstColor = true; effectiveOptions.firstColor = pendingInputOptions.firstColor; }
+    if (pendingInputOptions.hasLastColor) { effectiveOptions.hasLastColor = true; effectiveOptions.lastColor = pendingInputOptions.lastColor; }
+    if (pendingInputOptions.hasBuffer) { effectiveOptions.hasBuffer = true; effectiveOptions.buffer = pendingInputOptions.buffer; }
+    if (pendingInputOptions.hasFixed) { effectiveOptions.hasFixed = true; effectiveOptions.fixed = pendingInputOptions.fixed; }
+    if (pendingInputOptions.hasClone) { effectiveOptions.hasClone = true; effectiveOptions.cloneSource = pendingInputOptions.cloneSource; }
+    if (pendingInputOptions.hasCompression) { effectiveOptions.hasCompression = true; effectiveOptions.compression = pendingInputOptions.compression; }
+
+    bool localCompressionEnabled = effectiveOptions.hasCompression ? effectiveOptions.compression : compressionEnabled;
+
+    if (effectiveOptions.hasClone)
+    {
+        if (!DMG_ReuseEntryData(dmg, (uint8_t)targetIndex, (uint8_t)effectiveOptions.cloneSource))
+        {
+            fprintf(stderr, "Error: Unable to clone entry %d into %d: %s\n", effectiveOptions.cloneSource, targetIndex, DMG_GetErrorString());
+            return false;
+        }
+        DMG_Entry* cloned = DMG_GetEntry(dmg, (uint8_t)targetIndex);
+        if (cloned != 0)
+        {
+            if (effectiveOptions.hasX) cloned->x = effectiveOptions.x;
+            if (effectiveOptions.hasY) cloned->y = effectiveOptions.y;
+            if (effectiveOptions.hasBuffer)
+            {
+                if (effectiveOptions.buffer) cloned->flags |= DMG_FLAG_BUFFERED;
+                else cloned->flags &= ~DMG_FLAG_BUFFERED;
+            }
+            if (effectiveOptions.hasFixed)
+            {
+                if (effectiveOptions.fixed) cloned->flags |= DMG_FLAG_FIXED;
+                else cloned->flags &= ~DMG_FLAG_FIXED;
+            }
+            DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
+        }
+        SelectSingleEntry(currentSelection, targetIndex);
+        *explicitSelection = false;
+        *currentIndex = targetIndex;
+        *currentFileSaved = true;
+        ResetPendingInputOptions();
+        printf("%03d: Cloned entry %03d\n", targetIndex, effectiveOptions.cloneSource);
+        return true;
+    }
+
     if (bufferSize < LOAD_BUFFER_SIZE)
     {
         bufferSize = LOAD_BUFFER_SIZE;
@@ -2381,9 +3045,12 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     uint16_t width = 0, height = 0;
     uint32_t palette[256];
     int paletteSize = 0;
+    int sourceColorCount = 0;
+    int importPaletteLimit = GetRequestedImportPaletteLimit(dmg);
     int firstColor = 0;
     int lastColor = 0;
-    if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize))
+    bool quantized = false;
+    if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount))
     {
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
@@ -2405,7 +3072,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 fprintf(stderr, "Error: Out of memory: unable to allocate %d bytes\n", bufferSize);
                 return false;
             }
-            if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize))
+            if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount))
             {
                 fprintf(stderr, "Error: Unable to reload image \"%s\": %s\n", path, DMG_GetErrorString());
                 return false;
@@ -2413,8 +3080,19 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             size = width * height;
         }
     }
+    if (quantized)
+    {
+        char warning[256];
+        snprintf(warning, sizeof(warning), "Image \"%s\" reduced from %d to %d colors", path, sourceColorCount, paletteSize);
+        ShowWarning(warning);
+    }
     if (remapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
         ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
+
+    if (effectiveOptions.hasFirstColor)
+        firstColor = effectiveOptions.firstColor;
+    if (effectiveOptions.hasLastColor)
+        lastColor = effectiveOptions.lastColor;
 
     if (dmg->version == DMG_Version5)
     {
@@ -2430,23 +3108,37 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Image palette has %d colors, limit is %d for this DAT5 mode\n", paletteSize, limit);
             return false;
         }
-        if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
+        char cacheFile[FILE_MAX_PATH];
+        uint8_t* cachedPayload = 0;
+        uint32_t cachedPayloadSize = 0;
+        BuildSidecarPath(path, ".zx0", cacheFile, sizeof(cacheFile));
+        if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize))
         {
-            fprintf(stderr, "Error: Unable to encode image \"%s\" for DAT5 mode\n", path);
-            return false;
-        }
-        if (compressionEnabled)
-        {
-            if (!CompressDAT5Image(outBuffer, encodedSize, &storedBuffer, &storedSize, &compressed))
+            if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
             {
-                fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
+                fprintf(stderr, "Error: Unable to encode image \"%s\" for DAT5 mode\n", path);
                 return false;
             }
+            if (localCompressionEnabled)
+            {
+                if (!CompressDAT5Image(outBuffer, encodedSize, &storedBuffer, &storedSize, &compressed))
+                {
+                    fprintf(stderr, "Error: Unable to compress image \"%s\"\n", path);
+                    return false;
+                }
+            }
+            else
+            {
+                storedBuffer = outBuffer;
+                storedSize = encodedSize;
+            }
+            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, storedBuffer, storedSize);
         }
         else
         {
-            storedBuffer = outBuffer;
-            storedSize = encodedSize;
+            storedBuffer = cachedPayload;
+            storedSize = cachedPayloadSize;
+            compressed = localCompressionEnabled;
         }
         if (!DMG_SetEntryPaletteRange(dmg, targetIndex, palette, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
         {
@@ -2463,7 +3155,9 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             return false;
         }
         printf("%03d: Added image %s (%u bytes%s)\n", targetIndex, path, storedSize, compressed ? ", ZX0" : "");
-        if (compressed)
+        if (storedBuffer == cachedPayload)
+            Free(cachedPayload);
+        else if (compressed)
             Free(storedBuffer);
     }
     else
@@ -2474,10 +3168,49 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Legacy DAT formats only support up to 16 colors. Use DAT5 mode:planar4/mode:planar5/mode:planar8.\n");
             return false;
         }
+        if (remapMode != REMAP_NONE && IsClassicPaletteDAT(dmg) && paletteSize > 0)
+            ApplyPaletteRemap(buffer, size, palette, &paletteSize, 16, &firstColor, &lastColor);
         uint8_t* storedBuffer = buffer;
         uint16_t compressedSize = (uint16_t)size;
         bool compressed = false;
-        if (compressionEnabled)
+        if (dmg->version == DMG_Version1_EGA || dmg->version == DMG_Version1_CGA || dmg->version == DMG_Version1_PCW)
+        {
+            uint8_t* outBuffer = buffer + size;
+            if (dmg->version == DMG_Version1_EGA)
+            {
+                compressedSize = (uint16_t)(((uint32_t)(width + 15) >> 4) * height * 4 * 2);
+                if (!DMG_PackBitplaneBytes(buffer, width, height, 4, outBuffer))
+                {
+                    fprintf(stderr, "Error: Unable to encode EGA image \"%s\"\n", path);
+                    return false;
+                }
+            }
+            else if (dmg->version == DMG_Version1_CGA)
+            {
+                if (maxIndex > 3)
+                {
+                    fprintf(stderr, "Error: CGA output only supports 4 colors\n");
+                    return false;
+                }
+                compressedSize = (uint16_t)(((uint32_t)width * height + 3) / 4);
+                if (!DMG_PackChunkyPixels(buffer, width, height, 2, outBuffer))
+                {
+                    fprintf(stderr, "Error: Unable to encode CGA image \"%s\"\n", path);
+                    return false;
+                }
+            }
+            else
+            {
+                compressedSize = (uint16_t)((((uint32_t)width + 7) >> 3) * height);
+                if (!EncodePCWStoredLayout(buffer, width, height, outBuffer, LOAD_BUFFER_SIZE - size))
+                {
+                    fprintf(stderr, "Error: Unable to encode PCW image \"%s\"\n", path);
+                    return false;
+                }
+            }
+            storedBuffer = outBuffer;
+        }
+        else if (localCompressionEnabled)
         {
             uint8_t* outBuffer = buffer + size;
             if (!CompressImage(buffer, size, outBuffer, LOAD_BUFFER_SIZE - size, &compressed, &compressedSize, debug))
@@ -2487,7 +3220,9 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             }
             storedBuffer = outBuffer;
         }
-        if (!DMG_SetEntryPalette(dmg, targetIndex, palette))
+        uint32_t classicPalette[16];
+        BuildClassicPalette16(classicPalette, palette, paletteSize, firstColor);
+        if (!DMG_SetEntryPalette(dmg, targetIndex, classicPalette))
         {
             fprintf(stderr, "Error: Unable to set image data: %s\n", DMG_GetErrorString());
             return false;
@@ -2500,10 +3235,31 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         printf("%03d: Added image %s (%d bytes%s)\n", targetIndex, path, compressedSize, compressed ? ", compressed" : "");
     }
 
+    DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)targetIndex);
+    if (entry != 0)
+    {
+        if (effectiveOptions.hasX) entry->x = effectiveOptions.x;
+        if (effectiveOptions.hasY) entry->y = effectiveOptions.y;
+        if (effectiveOptions.hasBuffer)
+        {
+            if (effectiveOptions.buffer) entry->flags |= DMG_FLAG_BUFFERED;
+            else entry->flags &= ~DMG_FLAG_BUFFERED;
+        }
+        if (effectiveOptions.hasFixed)
+        {
+            if (effectiveOptions.fixed) entry->flags |= DMG_FLAG_FIXED;
+            else entry->flags &= ~DMG_FLAG_FIXED;
+        }
+        if (effectiveOptions.hasFirstColor) entry->firstColor = (uint8_t)effectiveOptions.firstColor;
+        if (effectiveOptions.hasLastColor) entry->lastColor = (uint8_t)effectiveOptions.lastColor;
+        DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
+    }
+
     SelectSingleEntry(currentSelection, targetIndex);
     *explicitSelection = false;
     *currentIndex = targetIndex;
     *currentFileSaved = true;
+    ResetPendingInputOptions();
     return true;
 }
 
@@ -2514,6 +3270,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
     bool currentSelection[256];
     bool explicitSelection = false;
     ClearSelection(currentSelection);
+    ResetPendingInputOptions();
 
     for (int i = 0; i < tokenCount; i++)
     {
@@ -2551,6 +3308,37 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             continue;
         }
 
+        if (IsInputOptionToken(token))
+        {
+            if (!ParseInputOptionToken(token))
+            {
+                fprintf(stderr, "Error: Invalid input option: \"%s\"\n", token);
+                return false;
+            }
+
+            if (action == ACTION_UPDATE && !currentFileSaved && CountSelectedEntries(currentSelection) > 0 && IsTrailingEntryOptionToken(token))
+            {
+                char propertyToken[64];
+                if (!ConvertTrailingInputOptionToPropertyToken(token, propertyToken, sizeof(propertyToken)))
+                {
+                    fprintf(stderr, "Error: Invalid input option: \"%s\"\n", token);
+                    return false;
+                }
+                if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
+                    return false;
+                ClearPendingTrailingEntryOptions();
+                continue;
+            }
+
+            if (currentFileSaved && currentIndex >= 0 && IsTrailingEntryOptionToken(token))
+            {
+                if (!ApplyPendingEntryOptions(dmg, currentIndex))
+                    return false;
+                ResetPendingInputOptions();
+            }
+            continue;
+        }
+
         if (IsCreateToken(token))
         {
             if (action == ACTION_UPDATE)
@@ -2571,6 +3359,11 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             explicitSelection = true;
             currentIndex = FirstSelectedEntry(currentSelection);
             currentFileSaved = false;
+            if (action == ACTION_UPDATE && HasPendingTrailingEntryOptions())
+            {
+                if (!ApplyPendingTrailingEntryOptionsToSelection(dmg, currentSelection))
+                    return false;
+            }
             continue;
         }
 
@@ -2589,6 +3382,15 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         }
 
         fprintf(stderr, "Error: Invalid argument: \"%s\"\n", token);
+        return false;
+    }
+
+    if (HasPendingTrailingEntryOptions() || HasPendingImageOnlyInputOptions())
+    {
+        if (action == ACTION_UPDATE)
+            fprintf(stderr, "Error: Option requires a following image file, or an entry selection before it during update\n");
+        else
+            fprintf(stderr, "Error: Option requires a following image file\n");
         return false;
     }
 
@@ -2693,6 +3495,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			bool compressed;
 			uint16_t compressedSize;
 			uint8_t* outPtr;
+            uint32_t paletteBuffer[256];
+            uint32_t classicPalette[16];
             uint32_t requiredBuffer = size + 64;
 
             if (out->version == DMG_Version5)
@@ -2717,16 +3521,15 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 				fprintf(stderr, "%03d: Error: Unable to read image entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
+            uint32_t* palettePtr = dmg->version == DMG_Version5 ? DMG_GetEntryStoredPalette(dmg, n) : DMG_GetEntryPalette(dmg, n);
+            int paletteSize = dmg->version == DMG_Version5 ? entry->paletteColors : 16;
+            int firstColor = dmg->version == DMG_Version5 ? entry->firstColor : 0;
+            int lastColor = dmg->version == DMG_Version5 ? entry->lastColor : 15;
             if (out->version == DMG_Version5)
             {
                 uint32_t encodedSize = 0;
                 uint32_t storedSize = 0;
                 uint8_t* storedBuffer = 0;
-                uint32_t paletteBuffer[256];
-                uint32_t* palettePtr = dmg->version == DMG_Version5 ? DMG_GetEntryStoredPalette(dmg, n) : DMG_GetEntryPalette(dmg, n);
-                int paletteSize = dmg->version == DMG_Version5 ? entry->paletteColors : 16;
-                int firstColor = dmg->version == DMG_Version5 ? entry->firstColor : 0;
-                int lastColor = dmg->version == DMG_Version5 ? entry->lastColor : 15;
                 if (paletteSize > 0 && DMG_DAT5ModeUsesPalette(out->colorMode))
                 {
                     memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
@@ -2773,6 +3576,20 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 continue;
             }
 
+            if (IsClassicPaletteDAT(out) && palettePtr != 0)
+            {
+                memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
+                if (remapMode != REMAP_NONE && paletteSize > 0)
+                    ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, 16, &firstColor, &lastColor);
+                BuildClassicPalette16(classicPalette, paletteBuffer, paletteSize, firstColor);
+                if (!DMG_SetEntryPalette(out, n, classicPalette))
+                {
+                    fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
+                    DMG_Close(out);
+                    return false;
+                }
+            }
+
             uint8_t* storedBuffer = inPtr;
             compressedSize = (uint16_t)size;
             if (compressionEnabled)
@@ -2798,6 +3615,12 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			DMG_UpdateEntry(out, n);
 		}
 	}
+    if (!DMG_Save(out))
+    {
+        fprintf(stderr, "Error: Failed to save \"%s\": %s\n", outputFileName, DMG_GetErrorString());
+        DMG_Close(out);
+        return false;
+    }
 	DMG_Close(out);
 	return true;
 }
@@ -2908,6 +3731,8 @@ static bool UpdateTokenRequiresRebuild(const char* token)
         return true;
     if (IsRemapToken(token))
         return true;
+    if (IsCompressionToken(token))
+        return true;
     if (IsDAT5ModeToken(token))
         return true;
     if (IsDAT5ScreenToken(token))
@@ -2996,7 +3821,7 @@ static bool ExecuteDMGAction(DMG* dmg, Action commandAction, int argumentCount, 
                 return false;
             if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
             {
-                if (editTokenCount > 0)
+                if (dmg->dirty)
                     printf("%s updated in place.\n", filename);
                 else
                     printf("%s already up to date.\n", filename);
@@ -3106,7 +3931,24 @@ static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
         expandedArgCount++;
     }
 
-    bool ok = ExecuteDMGAction(session->dmg, commandAction, expandedArgCount, expandedArgs);
+    const char* translatedArgs[CLI_MAX_ARGUMENTS * 4];
+    int translatedArgCount = 0;
+    const char* explicitOutputFile = 0;
+    bool ok = TranslateModernArguments(commandAction, expandedArgCount, expandedArgs, translatedArgs, &translatedArgCount, &explicitOutputFile);
+    if (!ok)
+    {
+        fprintf(stderr, "Error: Invalid arguments for command \"%s\"\n", argv[0]);
+    }
+    else if (explicitOutputFile != 0)
+    {
+        fprintf(stderr, "Error: Command \"%s\" does not support -output/--output inside session mode\n", argv[0]);
+        ok = false;
+    }
+    else
+    {
+        ok = ExecuteDMGAction(session->dmg, commandAction, translatedArgCount, translatedArgs);
+    }
+
     for (int i = 0; i < expandedArgCount; i++)
     {
         if (expandedArgOwned[i])
@@ -3220,254 +4062,527 @@ static bool PrepareSessionTarget(int argc, char* argv[], DMG** outDmg)
     return true;
 }
 
-static bool ExecuteCLICommandLine(int argc, char *argv[])
+static bool CopyFileExact(const char* sourceFileName, const char* destFileName)
 {
-	DMG* dmg = NULL;
-	const char* outputFileName;
-    const char* workingFileName = 0;
-    int exitCode = 0;
-    char parseError[256];
-    CLI_CommandLine commandLine;
-
-	if (argc < 2)
-	{
-		PrintHelp();
-		return true;
-	}
-
-    if (!CLI_ParseCommandLine(argc, argv, actionSpecs, ACTION_LIST, optionSpecs, &commandLine, parseError, sizeof(parseError)))
+    File* src = File_Open(sourceFileName, ReadOnly);
+    if (src == 0)
+        return false;
+    File* dst = File_Create(destFileName);
+    if (dst == 0)
     {
-        fprintf(stderr, "Error: %s\n", parseError);
+        File_Close(src);
         return false;
     }
 
-    action = (Action)commandLine.action;
-    verbose = commandLine.actionName != 0 && stricmp(commandLine.actionName, "list-palettes") == 0;
-    debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
-    listSortById = CLI_HasOption(&commandLine, DMG_OPTION_SORT_BY_ID);
-    readOnly = action != ACTION_ADD && action != ACTION_DELETE && action != ACTION_NEW && action != ACTION_UPDATE && action != ACTION_SHELL;
+    uint8_t* temp = Allocate<uint8_t>("DMG copy", 65536);
+    if (temp == 0)
+    {
+        File_Close(dst);
+        File_Close(src);
+        return false;
+    }
 
-    if (action == ACTION_HELP || CLI_HasOption(&commandLine, DMG_OPTION_HELP))
+    bool ok = true;
+    while (true)
+    {
+        uint64_t read = File_Read(src, temp, 65536);
+        if (read == 0)
+            break;
+        if (File_Write(dst, temp, read) != read)
+        {
+            ok = false;
+            break;
+        }
+    }
+
+    Free(temp);
+    File_Close(dst);
+    File_Close(src);
+    return ok;
+}
+
+static bool TranslateModernArguments(Action action, int inputCount, const char* inputArgs[], const char** translatedArgs, int* translatedCount, const char** explicitOutputFile)
+{
+    int nextId = -1;
+    bool haveExplicitId = false;
+    *translatedCount = 0;
+    *explicitOutputFile = 0;
+
+    for (int i = 0; i < inputCount; i++)
+    {
+        const char* token = inputArgs[i];
+        const char* inlineValue;
+        if (token == 0 || *token == 0)
+            continue;
+
+        inlineValue = MatchOptionValueToken(token, "--format");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            bool isDAT5 = false;
+            DMG_Version legacyVersion = DMG_Version2;
+            if (value == 0 || !ParseContainerFormat(value, &isDAT5, &legacyVersion))
+                return false;
+            createDAT5 = isDAT5;
+            createLegacyVersion = legacyVersion;
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--mode");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("mode:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--screen");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("screen:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--id");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            nextId = atoi(value);
+            haveExplicitId = true;
+            continue;
+        }
+        if (MatchFlagToken(token, "--fixed")) { translatedArgs[(*translatedCount)++] = "set-fixed:1"; continue; }
+        if (MatchFlagToken(token, "--float")) { translatedArgs[(*translatedCount)++] = "set-fixed:0"; continue; }
+        if (MatchFlagToken(token, "--buffer")) { translatedArgs[(*translatedCount)++] = "set-buffer:1"; continue; }
+        if (MatchFlagToken(token, "--nobuffer")) { translatedArgs[(*translatedCount)++] = "set-buffer:0"; continue; }
+        if (MatchFlagToken(token, "--compress")) { translatedArgs[(*translatedCount)++] = "compression:1"; continue; }
+        if (MatchFlagToken(token, "--nocompress")) { translatedArgs[(*translatedCount)++] = "compression:0"; continue; }
+        inlineValue = MatchOptionValueToken(token, "--x");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-x:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--y");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-y:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--pcs");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-pcs:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--pce");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-pce:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--width");
+        if (inlineValue != 0)
+            return false;
+        inlineValue = MatchOptionValueToken(token, "--height");
+        if (inlineValue != 0)
+            return false;
+        inlineValue = MatchOptionValueToken(token, "--clone");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-clone:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--json");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            if (stricmp(value, "off") == 0) translatedArgs[(*translatedCount)++] = "set-json:off";
+            else if (stricmp(value, "auto") == 0) translatedArgs[(*translatedCount)++] = "set-json:auto";
+            else translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-json-file:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--remap");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("remap:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--priority");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("priority:", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--as");
+        if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("--as=", value);
+            continue;
+        }
+        inlineValue = MatchOptionValueToken(token, "--output");
+        if (inlineValue != 0)
+        {
+            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            if (value == 0)
+                return false;
+            if (action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST)
+                translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("out:", value);
+            else
+                *explicitOutputFile = value;
+            continue;
+        }
+
+        if (haveExplicitId)
+        {
+            char idToken[16];
+            snprintf(idToken, sizeof(idToken), "%d", nextId);
+            translatedArgs[(*translatedCount)++] = DuplicateString(idToken);
+            nextId++;
+        }
+        translatedArgs[(*translatedCount)++] = token;
+    }
+    return true;
+}
+
+static bool ExecuteCLICommandLine(int argc, char *argv[])
+{
+    DMG* dmg = 0;
+    const char* workingFileName = 0;
+    const char* explicitOutputFile = 0;
+    const char* translatedArgs[CLI_MAX_ARGUMENTS * 4];
+    int translatedCount = 0;
+    int argIndex = 1;
+    bool actionSet = false;
+    bool filenameSet = false;
+
+    if (argc < 2)
     {
         PrintHelp();
         return true;
     }
 
-    if (commandLine.argumentCount < 1)
+    ResetCreateSettings();
+    ResetPriorityEntries();
+    remapMode = REMAP_NONE;
+    remapRangeFirst = 0;
+    remapRangeLast = 0;
+    compressionEnabled = true;
+    debug = false;
+    listSortById = false;
+    verbose = false;
+
+    action = ACTION_LIST;
+    while (argIndex < argc)
+    {
+        const char* token = argv[argIndex];
+        if (strcmp(token, "-v") == 0 || strcmp(token, "--verbose") == 0)
+        {
+            argIndex++;
+            debug = true;
+            continue;
+        }
+        if (strcmp(token, "-n") == 0 || strcmp(token, "--sort-by-id") == 0)
+        {
+            argIndex++;
+            listSortById = true;
+            continue;
+        }
+        if (strcmp(token, "-h") == 0 || strcmp(token, "--help") == 0)
+        {
+            PrintHelp();
+            return true;
+        }
+
+        if (!actionSet)
+        {
+            const CLI_ActionSpec* actionSpec = FindCLIActionSpec(token);
+            if (actionSpec != 0)
+            {
+                action = (Action)actionSpec->value;
+                verbose = actionSpec->canonicalName != 0 && stricmp(actionSpec->canonicalName, "list-palettes") == 0;
+                actionSet = true;
+                argIndex++;
+                continue;
+            }
+        }
+
+        if (!filenameSet)
+        {
+            StrCopy(filename, sizeof(filename), token);
+            filenameSet = true;
+            argIndex++;
+            continue;
+        }
+
+        if (!actionSet)
+        {
+            const CLI_ActionSpec* actionSpec = FindCLIActionSpec(token);
+            if (actionSpec != 0)
+            {
+                action = (Action)actionSpec->value;
+                verbose = actionSpec->canonicalName != 0 && stricmp(actionSpec->canonicalName, "list-palettes") == 0;
+                actionSet = true;
+                argIndex++;
+                continue;
+            }
+        }
+
+        break;
+    }
+
+    if (!filenameSet)
     {
         fprintf(stderr, "Error: Missing filename\n");
         return false;
     }
 
-    remapMode = REMAP_NONE;
-    remapRangeFirst = 0;
-    remapRangeLast = 0;
-    compressionEnabled = true;
-    ResetCreateSettings();
-    ResetPriorityEntries();
-
-	if (strlen(commandLine.arguments[0]) > 1000)
-	{
-		fprintf(stderr, "Error: Invalid filename: \"%s\"\n", commandLine.arguments[0]);
-		return false;
-	}
-	strcpy(filename, commandLine.arguments[0]);
-
-    const char** remainingArgs = commandLine.arguments + 1;
-    int remainingArgCount = commandLine.argumentCount - 1;
-    const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
-    bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
-    int expandedArgCount = 0;
-    const char* reorderedCreateArgs[CLI_MAX_ARGUMENTS];
-    bool createPriorityHandledDirectly = false;
-
-    for (int i = 0; i < remainingArgCount; i++)
+    if (!TranslateModernArguments(action, argc - argIndex, (const char**)argv + argIndex, translatedArgs, &translatedCount, &explicitOutputFile))
     {
-        int before = expandedArgCount;
-        if (ExpandWildcardToken(remainingArgs[i], expandedArgs, &expandedArgCount))
-        {
-            for (int n = before; n < expandedArgCount; n++)
-                expandedArgOwned[n] = true;
-            continue;
-        }
-        expandedArgs[expandedArgCount] = remainingArgs[i];
-        expandedArgOwned[expandedArgCount] = false;
-        expandedArgCount++;
-    }
-    remainingArgs = expandedArgs;
-    remainingArgCount = expandedArgCount;
-
-    if ((action == ACTION_NEW || action == ACTION_UPDATE) && !ParseCreateArguments(remainingArgCount, remainingArgs))
+        fprintf(stderr, "Error: Invalid arguments\n");
         return false;
-
-    if (action == ACTION_NEW && priorityEntryCount > 0)
-    {
-        createPriorityHandledDirectly = BuildDirectCreatePriorityArguments(remainingArgCount, remainingArgs, reorderedCreateArgs);
-        if (createPriorityHandledDirectly)
-            remainingArgs = reorderedCreateArgs;
     }
 
-	if (action == ACTION_NEW)
-	{
-        workingFileName = ChangeExtension(filename, ".wrk");
+    if (action == ACTION_HELP)
+    {
+        PrintHelp();
+        return true;
+    }
+
+    if (action == ACTION_LIST || action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST)
+    {
+        dmg = DMG_Open(filename, true);
+        if (dmg == 0)
+        {
+            fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
+            return false;
+        }
+        bool ok = ParseEntrySelectionList(translatedCount, translatedArgs);
+        if (ok)
+        {
+            if (action == ACTION_LIST) ListSelectedEntries(dmg, verbose);
+            else ExtractSelectedEntries(dmg, action != ACTION_TEST, action == ACTION_EXTRACT_PALETTES);
+        }
+        DMG_Close(dmg);
+        return ok;
+    }
+
+    if (action == ACTION_SHELL)
+    {
+        dmg = DMG_Open(filename, false);
+        if (dmg == 0)
+        {
+            fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
+            return false;
+        }
+        bool ok = RunInteractiveSession(dmg);
+        if (ok && dmg->dirty)
+            ok = DMG_Save(dmg);
+        DMG_Close(dmg);
+        return ok;
+    }
+
+    if (action == ACTION_NEW)
+    {
+        workingFileName = BuildWorkingFileName(filename);
+        if (!ParseCreateArguments(translatedCount, translatedArgs))
+            return false;
         if (createDAT5)
         {
             uint8_t firstEntry = 0;
             uint8_t lastEntry = 255;
             if (createDAT5Mode == DMG_DAT5_COLORMODE_NONE)
             {
-                fprintf(stderr, "Error: DAT5 creation requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st>\n");
+                fprintf(stderr, "Error: DAT5 creation requires --mode\n");
                 return false;
             }
-            InferDAT5CreateRange(remainingArgCount, remainingArgs, &firstEntry, &lastEntry);
+            InferDAT5CreateRange(translatedCount, translatedArgs, &firstEntry, &lastEntry);
             dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
         }
         else
-		    dmg = DMG_Create(workingFileName);
-		if (dmg == NULL)
-		{
-			fprintf(stderr, "Error: Failed to create \"%s\": %s\n", workingFileName, DMG_GetErrorString());
-			return false;
-		}
-		printf("Created new DAT file \"%s\"\n", filename);
-	}
-	else
-	{
-		dmg = DMG_Open(filename, readOnly);
-		if (dmg == NULL)
-		{
-			fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
-			return false;
-		}
-	}
-
-	switch (action)
-	{
-		case ACTION_HELP:
-			break;
-		case ACTION_LIST:
-			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
-				ListSelectedEntries(dmg, verbose);
-			break;
-		case ACTION_DELETE:
-			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
-				DeleteSelectedEntries(dmg);
-			break;
-		case ACTION_EXTRACT:
-		case ACTION_EXTRACT_PALETTES:
-		case ACTION_TEST:
-			if (ParseEntrySelectionList(remainingArgCount, remainingArgs))
-				ExtractSelectedEntries(dmg, action != ACTION_TEST, action == ACTION_EXTRACT_PALETTES);
-			break;
-		case ACTION_ADD:
-		case ACTION_NEW:
-			if (!ParseEntryChanges(dmg, remainingArgCount, remainingArgs))
-            {
-                if (action == ACTION_NEW && dmg != NULL)
-                {
-                    DMG_Close(dmg);
-                    dmg = NULL;
-                    if (workingFileName != 0)
-                        remove(workingFileName);
-                }
-                exitCode = 1;
-            }
-            else if (action == ACTION_NEW && !createPriorityHandledDirectly && (priorityEntryCount > 0 || HasBufferedEntries(dmg)))
-            {
-                remove(filename);
-                if (!RebuildDAT(dmg, filename))
-                {
-                    exitCode = 1;
-                    break;
-                }
-                DMG_Close(dmg);
-                dmg = NULL;
-                if (workingFileName != 0)
-                    remove(workingFileName);
-            }
-            else if (action == ACTION_NEW)
-            {
-                DMG_Close(dmg);
-                dmg = NULL;
-                remove(filename);
-                if (rename(workingFileName, filename) != 0)
-                {
-                    fprintf(stderr, "Error: Failed to rename \"%s\" to \"%s\"\n", workingFileName, filename);
-                    exitCode = 1;
-                    break;
-                }
-            }
-			break;
-        case ACTION_SHELL:
-            if (!RunInteractiveSession(dmg))
-                exitCode = 1;
-            break;
-		case ACTION_UPDATE:
         {
-            const char* editTokens[CLI_MAX_ARGUMENTS];
-            const char* filteredEditTokens[CLI_MAX_ARGUMENTS];
-            int editTokenCount = 0;
-            int filteredEditTokenCount = 0;
-            bool hasExplicitOutputFile = false;
-            bool replaceOriginal = false;
-            ParseUpdateArguments(remainingArgCount, remainingArgs, &outputFileName, &hasExplicitOutputFile, &editTokenCount, editTokens);
-            filteredEditTokenCount = FilterUpdateEditTokens(dmg, editTokenCount, editTokens, filteredEditTokens);
-            if (filteredEditTokenCount > 0 && !ParseEntryChanges(dmg, filteredEditTokenCount, filteredEditTokens))
-            {
-                exitCode = 1;
-                break;
-            }
-            if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
-            {
-                if (editTokenCount > 0)
-                    printf("%s updated in place.\n", filename);
-                else
-                    printf("%s already up to date.\n", filename);
-                break;
-            }
-			if (!hasExplicitOutputFile)
-            {
-				outputFileName = ChangeExtension(filename, ".new");
-                replaceOriginal = true;
-            }
-			if (RebuildDAT(dmg, outputFileName))
-			{
-                if (replaceOriginal)
-                {
-                    DMG_Close(dmg);
-                    dmg = NULL;
-                    remove(filename);
-                    if (rename(outputFileName, filename) != 0)
-                    {
-                        fprintf(stderr, "Error: Failed to replace \"%s\" with rebuilt file \"%s\"\n", filename, outputFileName);
-                        exitCode = 1;
-                        break;
-                    }
-				    printf("%s updated.\n", filename);
-                }
-                else
-                {
-				    printf("%s written.\n", outputFileName);
-                }
-			}
-            else
-            {
-                exitCode = 1;
-            }
-
-			break;
+            dmg = DMG_CreateFormat(workingFileName, createLegacyVersion);
         }
-	}
-	if (dmg != NULL)
-		DMG_Close(dmg);
-
-    for (int i = 0; i < expandedArgCount; i++)
-    {
-        if (expandedArgOwned[i])
-            free((void*)expandedArgs[i]);
+        if (dmg == 0)
+        {
+            fprintf(stderr, "Error: Failed to create \"%s\": %s\n", workingFileName, DMG_GetErrorString());
+            return false;
+        }
+        bool ok = ParseEntryChanges(dmg, translatedCount, translatedArgs);
+        if (ok && dmg->dirty)
+            ok = DMG_Save(dmg);
+        if (!ok)
+            fprintf(stderr, "Error: Failed to write \"%s\": %s\n", workingFileName, DMG_GetErrorString());
+        DMG_Close(dmg);
+        if (!ok)
+        {
+            remove(workingFileName);
+            return false;
+        }
+        remove(filename);
+        return rename(workingFileName, filename) == 0;
     }
 
-	return exitCode == 0;
+    if (action == ACTION_UPDATE)
+    {
+        const char* editTokens[CLI_MAX_ARGUMENTS];
+        int editTokenCount = translatedCount;
+        bool replaceTarget = explicitOutputFile == 0 || strcmp(explicitOutputFile, filename) == 0;
+        const char* finalOutputFile = explicitOutputFile != 0 ? explicitOutputFile : filename;
+        for (int i = 0; i < translatedCount; i++)
+            editTokens[i] = translatedArgs[i];
+
+        dmg = DMG_Open(filename, false);
+        if (dmg == 0)
+        {
+            fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
+            return false;
+        }
+
+        bool ok = ParseCreateArguments(translatedCount, translatedArgs);
+        if (ok && editTokenCount > 0)
+            ok = ParseEntryChanges(dmg, editTokenCount, editTokens);
+        if (!ok)
+        {
+            DMG_Close(dmg);
+            return false;
+        }
+
+        if (!UpdateRequiresRebuild(dmg, explicitOutputFile, editTokenCount, editTokens))
+        {
+            bool modifiedInPlace = dmg->dirty;
+            if (modifiedInPlace)
+                ok = DMG_Save(dmg);
+            DMG_Close(dmg);
+            if (!ok)
+            {
+                fprintf(stderr, "Error: Failed to update \"%s\": %s\n", filename, DMG_GetErrorString());
+                return false;
+            }
+            if (modifiedInPlace)
+                printf("%s updated in place.\n", filename);
+            else
+                printf("%s already up to date.\n", filename);
+            return true;
+        }
+
+        workingFileName = replaceTarget ? BuildWorkingFileName(finalOutputFile) : finalOutputFile;
+        ok = RebuildDAT(dmg, workingFileName);
+        DMG_Close(dmg);
+        if (!ok)
+        {
+            if (replaceTarget)
+                remove(workingFileName);
+            return false;
+        }
+
+        if (replaceTarget)
+        {
+            remove(finalOutputFile);
+            if (rename(workingFileName, finalOutputFile) != 0)
+            {
+                fprintf(stderr, "Error: Failed to replace \"%s\"\n", finalOutputFile);
+                return false;
+            }
+            printf("%s updated.\n", finalOutputFile);
+        }
+        else
+        {
+            printf("%s written.\n", finalOutputFile);
+        }
+        return true;
+    }
+
+    const char* finalOutputFile = explicitOutputFile != 0 ? explicitOutputFile : filename;
+    bool replaceTarget = explicitOutputFile == 0 || strcmp(explicitOutputFile, filename) == 0;
+    workingFileName = replaceTarget ? BuildWorkingFileName(finalOutputFile) : finalOutputFile;
+    if (!CopyFileExact(filename, workingFileName))
+    {
+        fprintf(stderr, "Error: Failed to create working copy \"%s\"\n", workingFileName);
+        return false;
+    }
+
+    dmg = DMG_Open(workingFileName, false);
+    if (dmg == 0)
+    {
+        fprintf(stderr, "Error: Failed to open \"%s\": %s\n", workingFileName, DMG_GetErrorString());
+        return false;
+    }
+
+    bool ok = true;
+    bool changed = false;
+    if (action == ACTION_DELETE)
+    {
+        ok = ParseEntrySelectionList(translatedCount, translatedArgs);
+        if (ok)
+            DeleteSelectedEntries(dmg);
+    }
+    else
+    {
+        ok = ParseCreateArguments(translatedCount, translatedArgs);
+        if (ok)
+            ok = ParseEntryChanges(dmg, translatedCount, translatedArgs);
+    }
+    changed = ok && dmg->dirty;
+    if (changed)
+        ok = DMG_Save(dmg);
+    if (!ok)
+        fprintf(stderr, "Error: Failed to write \"%s\": %s\n", workingFileName, DMG_GetErrorString());
+    DMG_Close(dmg);
+
+    if (!ok)
+    {
+        if (replaceTarget)
+            remove(workingFileName);
+        return false;
+    }
+
+    if (replaceTarget && !changed)
+    {
+        remove(workingFileName);
+        return true;
+    }
+
+    if (replaceTarget)
+    {
+        remove(finalOutputFile);
+        if (rename(workingFileName, finalOutputFile) != 0)
+        {
+            fprintf(stderr, "Error: Failed to replace \"%s\"\n", finalOutputFile);
+            return false;
+        }
+    }
+    return true;
 }
 
 static bool RunCommandLine(int argc, char* argv[])
@@ -3505,6 +4620,8 @@ static bool RunCommandLine(int argc, char* argv[])
             return false;
         }
         bool ok = RunSessionCommands(argc - separatorIndex - 1, argv + separatorIndex + 1, dmg);
+        if (ok && dmg->dirty)
+            ok = DMG_Save(dmg);
         DMG_Close(dmg);
         return ok;
     }
@@ -3515,6 +4632,8 @@ static bool RunCommandLine(int argc, char* argv[])
         if (!PrepareSessionTarget(argc - 2, argv + 1, &dmg))
             return false;
         bool ok = RunSessionCommands(1, argv + argc - 1, dmg);
+        if (ok && dmg->dirty)
+            ok = DMG_Save(dmg);
         DMG_Close(dmg);
         return ok;
     }

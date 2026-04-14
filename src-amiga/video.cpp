@@ -1336,7 +1336,7 @@ static inline bool AdjustCoordinates(int &x, int &y, int &w, int &h)
 	return !(w < 1 || h < 1);
 }
 
-void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
+void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
 	int originalX = x;
 	int originalY = y;
@@ -1364,8 +1364,8 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
 	if (w*h >= 8192)
 		VID_VSync();
 
-	uint8_t planesToClear = mode == VID_CLEAR_ALL_PLANES ? displayPlanes : TEXT_PLANES;
-	if (mode != VID_CLEAR_ALL_PLANES)
+	uint8_t planesToClear = mode == Clear_All ? displayPlanes : TEXT_PLANES;
+	if (mode != Clear_All)
 	{
 		// Keep text/window clears on the low planes so picture data survives.
 		if (fullScreenClear || ((color >> TEXT_PLANES) != 0))

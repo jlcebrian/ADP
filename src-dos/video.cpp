@@ -836,12 +836,7 @@ void VID_EnableBackBuffer()
 	// Always enabled
 }
 
-void VID_ClearAllPlanes (int x, int y, int width, int height, uint8_t color)
-{
-	VID_Clear(x, y, width, height, color);
-}
-
-void VID_Clear (int x, int y, int width, int height, uint8_t color)
+void VID_Clear (int x, int y, int width, int height, uint8_t color, VID_ClearMode mode)
 {
     int32_t i;
     int32_t x1;

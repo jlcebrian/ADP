@@ -172,7 +172,7 @@ void SCR_GetPictureInfo(bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t
 	VID_GetPictureInfo(fixed, x, y, w, h);
 }
 
-void SCR_Clear(int x, int y, int w, int h, uint8_t color, uint8_t mode)
+void SCR_Clear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
 	if (buffering)
 	{
@@ -238,7 +238,7 @@ void SCR_ConsumeBuffer()
 				VID_DisplayPicture(c->x, c->y, c->w, c->h,(DDB_ScreenMode)c->n);
 				break;
 			case SCR_COMMAND_CLEAR:
-				VID_Clear(c->x, c->y, c->w, c->h, c->n, c->ink);
+				VID_Clear(c->x, c->y, c->w, c->h, c->n, (VID_ClearMode)c->ink);
 				break;
 			case SCR_COMMAND_SCROLL:
 				if(scrollPerformed && smoothScrolling) {

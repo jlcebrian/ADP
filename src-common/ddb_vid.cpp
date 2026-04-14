@@ -17,19 +17,12 @@ uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
 
-#ifdef __cplusplus
-void VID_Clear(int x, int y, int w, int h, uint8_t color)
-{
-	VID_Clear(x, y, w, h, color, VID_CLEAR_TEXT_LAYER);
-}
-#endif
-
 void VID_ResetDisplay()
 {
 #ifdef _AMIGA
 	VID_PresentDefaultScreen();
 #else
-	VID_Clear(0, 0, screenWidth, screenHeight, 0, VID_CLEAR_ALL_PLANES);
+	VID_Clear(0, 0, screenWidth, screenHeight, 0, Clear_All);
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
 	VID_SetDefaultPalette();

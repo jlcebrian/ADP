@@ -267,6 +267,9 @@ struct DMG_Entry
     uint32_t        paletteOffset;
     uint32_t        paletteSize;
     uint16_t        paletteColors;
+    uint8_t*        storedData;
+    uint32_t        storedDataSize;
+    bool            ownsStoredData;
 };
 
 struct DMG_Slot
@@ -293,6 +296,7 @@ struct DMG
 	bool		littleEndian;
 	DMG_Version version;
 	uint8_t		screenMode;
+	bool        dirty;
     uint8_t     firstEntry;
     uint8_t     lastEntry;
     uint8_t     colorMode;
@@ -315,12 +319,15 @@ struct DMG
     uint8_t*    zx0Scratch;
     uint32_t    zx0ScratchSize;
     bool        zx0ScratchOwned;
+
+	#if DEBUG_ZX0
 	uint32_t    zx0ProfileCount;
 	uint32_t    zx0ProfileInputBytes;
 	uint32_t    zx0ProfileOutputBytes;
 	uint32_t    zx0ProfileTotalMs;
 	uint32_t    zx0ProfileMaxMs;
 	uint8_t     zx0ProfileMaxIndex;
+	#endif
 
 	File*		file;
 	uint32_t    fileSize;
@@ -331,10 +338,12 @@ extern DMG* dmg;
 DMG*		DMG_Open			   (const char* filename, bool readOnly);
 DMG*		DMG_OpenFromFile	   (File* file);
 DMG*        DMG_Create             (const char* filename);
+DMG*        DMG_CreateFormat       (const char* filename, DMG_Version version);
 DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry = 0, uint8_t lastEntry = 255);
 DMG_Entry*	DMG_GetEntry		   (DMG* dmg, uint8_t index);
 bool        DMG_UpdateEntry        (DMG* dmg, uint8_t index);
 bool        DMG_UpdateFileHeader   (DMG* dmg);
+bool        DMG_Save               (DMG* dmg);
 uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint8_t*    DMG_GetEntryDataNative (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);

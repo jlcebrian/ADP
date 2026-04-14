@@ -653,11 +653,11 @@ void VID_EnableBackBuffer()
 	// Always enabled
 }
 
-void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
+void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
 	// DebugPrintf("Clear %d,%d to %d,%d %d\n", x, y, x+w, y+h, color);
 
-	if (mode == VID_CLEAR_ALL_PLANES && attributes && x <= 0 && y <= 0 && w >= screenWidth && h >= screenHeight)
+	if (mode == Clear_All && attributes && x <= 0 && y <= 0 && w >= screenWidth && h >= screenHeight)
 	{
 		memset(bitmap, 0, stride * screenHeight);
 		memset(attributes, screenMachine == DDB_MACHINE_SPECTRUM ? 0x00 : (color << 4), stride * (screenHeight >> 3));
@@ -1197,7 +1197,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 		(void)w;
 		(void)h;
 		(void)mode;
-		VID_Clear(0, 0, screenWidth, screenHeight, 0, VID_CLEAR_ALL_PLANES);
+		VID_Clear(0, 0, screenWidth, screenHeight, 0, Clear_All);
 		memcpy(bitmap, zxsPictureBitmap, 32 * 192);
 		memcpy(attributes, zxsPictureAttributes, 32 * 24);
 		memcpy(palette, ZXSpectrumPalette, sizeof(ZXSpectrumPalette));

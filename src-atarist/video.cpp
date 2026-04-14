@@ -615,7 +615,7 @@ bool VID_LoadDataFile (const char* fileName)
 	return true;
 }
 
-void VID_Clear (int x, int y, int w, int h, uint8_t color, uint8_t mode)
+void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
 	(void)mode;
 	uint16_t* scr = screen + 80*y + 4*(x >> 4);

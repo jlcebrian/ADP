@@ -2,8 +2,9 @@
 VERSION    ?= BETA0.3
 LIBCMINI   ?= $(HOME)/libcmini
 
-DEBUGPRINT ?= 1
+DEBUGPRINT ?= 0
 DEBUGCACHE ?= 0
+DEBUGALLOC ?= 0
 TRACE      ?= 0
 UPX        ?= 1
 UPXFLAGS   ?= -q -5
@@ -18,7 +19,7 @@ VASM     = vasmm68k_mot
 
 OUTDIR := out/atarist
 TARGET := $(OUTDIR)/adp.prg
-DUMP   := $(OUTDIR)/player.dump
+DUMP   := $(OUTDIR)/adp.dump
 
 ifeq ($(UPX),1)
 PACK_CMD = upx $(UPXFLAGS) $(TARGET) >/dev/null
@@ -27,7 +28,7 @@ PACK_CMD = true
 endif
 
 CPPFLAGS += -Iinclude -DVERSION=$(VERSION) -D_STDCLIB -D_ATARIST -DHAS_ASM_RLE -DHAS_DRAWTEXT -DHAS_XMSG -DHAS_PSG
-CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_ALLOCS=1 -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
+CPPFLAGS += -DNO_PRINTF -DNO_SAMPLES -DDEBUG_MEMORY=0 -DNO_BUFFERING -D_BIG_ENDIAN
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
 
 ifeq ($(DEBUGPRINT),1)
@@ -35,6 +36,9 @@ CPPFLAGS += -DDEBUG_IMAGE_CACHE=$(DEBUGCACHE)
 CPPFLAGS += -D_DEBUGPRINT
 ifeq ($(TRACE),1)
 CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
+endif
+ifeq ($(DEBUGALLOC),1)
+CPPFLAGS += -DDEBUG_ALLOCS=1
 endif
 endif
 
@@ -56,7 +60,6 @@ SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS)))
 CPPFILES := 		\
 	ddb_data.cpp	\
 	ddb_draw.cpp	\
-	ddb_dump.cpp	\
 	ddb_inp.cpp		\
 	ddb_pal.cpp		\
 	ddb_play.cpp	\
@@ -94,6 +97,10 @@ ASMFILES :=			\
 	unzx0_fast.asm	\
 	decrle.asm		\
 	audio.asm
+
+ifeq ($(TRACE),1)
+CPPFILES += ddb_dump.cpp
+endif
 
 CPPOBJS := $(patsubst %.cpp,obj/atarist/%.o,$(CPPFILES))
 ASMOBJS := $(patsubst %.asm,obj/atarist/%.o,$(ASMFILES))

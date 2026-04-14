@@ -1106,30 +1106,15 @@ bool DMG_ReadV2Entries(DMG* dmg)
 
 int DMG_GetEntryCount(DMG* dmg)
 {
-	int n, i;
+	int n;
 	int count = 0;
-
-	uint32_t found[256];
 
 	if (dmg == 0)
 		return 0;
 	for (n = 0; n < 256; n++)
 	{
 		if (dmg->entries[n] != 0 && dmg->entries[n]->type != DMGEntry_Empty)
-		{
-			uint32_t offset = dmg->entries[n]->fileOffset;
-			bool repeated = false;
-			for (i = 0; i < count; i++)
-			{
-				if (found[i] == offset)
-				{
-					repeated = true;
-					break;
-				}
-			}
-			if (!repeated)
-				found[count++] = offset;
-		}
+            count++;
 	}
 	return count;
 }
@@ -1153,8 +1138,6 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		DMG_SetError(DMG_ERROR_FILE_NOT_FOUND);
 		return 0;
 	}
-
-	DebugPrintf("Probing %s\n", filename);
 
 	size_t fileSize = (size_t)File_GetSize(file);
 	if (fileSize < DMG_MIN_FILE_SIZE)
@@ -1180,6 +1163,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
     MemClear(d, sizeof(DMG));
 	d->file = file;
 	d->fileSize = (int)fileSize;
+    d->dirty = false;
 
 	// Read file header
 	MemClear(header, sizeof(header));
@@ -1351,6 +1335,7 @@ void DMG_Close(DMG* d)
 	if (d == 0)
 		return;
 
+	#ifdef DEBUG_ZX0
 	if (d->zx0ProfileCount != 0)
 	{
 		uint32_t averageMs = d->zx0ProfileTotalMs / d->zx0ProfileCount;
@@ -1363,13 +1348,16 @@ void DMG_Close(DMG* d)
 			(unsigned)d->zx0ProfileMaxIndex,
 			(unsigned long)d->zx0ProfileMaxMs);
 	}
+	#endif
 
-#ifndef NO_CACHE
+	#ifndef NO_CACHE
 	DMG_FreeImageCache(d);
-#endif
+	#endif
 
     for (int i = 0; i < 256; i++)
     {
+        if (d->entries[i] != 0 && d->entries[i]->storedData != 0 && d->entries[i]->ownsStoredData)
+            Free(d->entries[i]->storedData);
         if (d->entries[i] != 0 && d->entries[i]->RGB32PaletteV5 != 0)
             Free(d->entries[i]->RGB32PaletteV5);
     }

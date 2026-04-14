@@ -189,8 +189,10 @@ int main (int argc, char *argv[])
 	init();
 	ChangeToExecutableDirectory(argc, argv);
 
+	#if _DEBUGPRINT
 	uint32_t freeRam = Malloc(-1);
 	DebugPrintf("Free RAM: %d\n", freeRam);
+	#endif
 
 	if (argc < 2)
 	{

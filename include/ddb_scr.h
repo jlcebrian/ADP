@@ -115,7 +115,7 @@ extern bool SCR_LoadPicture      (uint8_t picno, DDB_ScreenMode screenMode);
 extern bool SCR_PictureExists    (uint8_t picno);
 extern bool SCR_SampleExists     (uint8_t no);
 extern bool SCR_Synchronized     ();
-extern void SCR_Clear            (int x, int y, int w, int h, uint8_t color, uint8_t mode);
+extern void SCR_Clear            (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode);
 extern void SCR_ClearBuffer      (bool front);
 extern void SCR_ConsumeBuffer    ();
 extern void SCR_DisplayPicture   (int x, int y, int w, int h, DDB_ScreenMode mode);
@@ -143,7 +143,7 @@ extern void SCR_UseInputFile     (const char* filename);
 #ifdef __cplusplus
 inline void SCR_Clear(int x, int y, int w, int h, uint8_t color)
 {
-	SCR_Clear(x, y, w, h, color, VID_CLEAR_TEXT_LAYER);
+	SCR_Clear(x, y, w, h, color, Clear_Text);
 }
 #endif
 

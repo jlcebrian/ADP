@@ -21,6 +21,16 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 
 	if (mode == ImageMode_Audio)
 	{
+		if (entry->storedData != 0)
+		{
+			if (entry->storedDataSize > bufferSize)
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				return 0;
+			}
+			MemCopy(fileData, entry->storedData, entry->storedDataSize);
+			return fileData;
+		}
 		if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
@@ -90,16 +100,21 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
 		}
+
+		#ifdef DEBUG_ZX0
 		uint32_t t0, t1;
 		VID_GetMilliseconds(&t0);
+		#endif
+
 		if (!DMG_DecompressZX0(compressedData, imageDataLength, buffer, decompressedSize))
 		{
-			VID_GetMilliseconds(&t1);
 			if (freeCompressedData)
 				Free(compressedData);
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 			return 0;
 		}
+
+		#ifdef DEBUG_ZX0
 		VID_GetMilliseconds(&t1);
 		uint32_t dt = t1 - t0;
 		dmg->zx0ProfileCount++;
@@ -116,6 +131,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			(unsigned long)imageDataLength,
 			(unsigned long)decompressedSize,
 			(unsigned long)dt);
+		#endif
 
 		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
 			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode)))
@@ -141,7 +157,16 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 	}
 	else
 	{
-		if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, fileData, imageDataLength) != imageDataLength)
+		if (entry->storedData != 0)
+		{
+			if (entry->storedDataSize != imageDataLength)
+			{
+				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				return 0;
+			}
+			MemCopy(fileData, entry->storedData, imageDataLength);
+		}
+		else if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, fileData, imageDataLength) != imageDataLength)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
@@ -368,7 +393,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	uint32_t dataOffset = entry->fileOffset + 6;
 
 #ifndef NO_CACHE
-	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
+	fileData = entry->storedData != 0 ? 0 : (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
 	if (fileData == 0)
 #endif
 	{
@@ -380,7 +405,9 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		}
 
 		fileData = buffer + bufferSize - entry->length;
-		if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
+		if (entry->storedData != 0)
+			MemCopy(fileData, entry->storedData, entry->length);
+		else if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;

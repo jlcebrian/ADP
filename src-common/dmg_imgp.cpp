@@ -514,8 +514,11 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			uint16_t mask = read16(fileData, dmg->littleEndian);
 			if (dmg->version != DMG_Version2)
 			{
+				#ifdef DEBUG_RLE
 				uint32_t t0, t1;
 				VID_GetMilliseconds(&t0);
+				#endif
+
 				#if defined(_AMIGA) && HAS_ASM_RLE
 				success = DMG_DecompressOldRLEToNativeAmiga(entry, dmg, fileData,
 					fileDataSharesOutputBuffer, buffer, bufferSize, requiredSize, mask, &outputMode);
@@ -526,6 +529,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 				success = DMG_DecompressOldRLEToPlanarST(fileData+2, mask,
 					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 				#endif
+
+				#ifdef DEBUG_RLE
 				VID_GetMilliseconds(&t1);
 				if (outputMode == ImageMode_Planar)
 				{
@@ -537,26 +542,39 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 					DebugPrintf("Decompressed old RLE image %u in %lu ms\n",
 						(unsigned)index, (unsigned long)(t1 - t0));
 				}
+				#endif
 			}
 			else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
 			{
+				#ifdef DEBUG_RLE
 				uint32_t t0, t1;
 				VID_GetMilliseconds(&t0);
+				#endif
+
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, entry->width, dmg->littleEndian);
+				
+				#ifdef DEBUG_RLE
 				VID_GetMilliseconds(&t1);
 				DebugPrintf("Decompressed new RLE image %u in %lu ms\n",
 					(unsigned)index, (unsigned long)(t1 - t0));
+				#endif
 			}
 			else
 			{
+				#ifdef DEBUG_RLE
 				uint32_t t0, t1;
 				VID_GetMilliseconds(&t0);
+				#endif
+
 				success = DMG_DecompressNewRLE(fileData+2, mask, 
 					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
+
+				#ifdef DEBUG_RLE
 				VID_GetMilliseconds(&t1);
 				DebugPrintf("Decompressed (non-native) new RLE image %u in %lu ms\n",
 					(unsigned)index, (unsigned long)(t1 - t0));
+				#endif
 			}
 		}
 	}
@@ -593,13 +611,19 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		#endif
 		else
 		{
+			#ifdef DEBUG_RLE
 			uint32_t t0, t1;
 			VID_GetMilliseconds(&t0);
+			#endif
+
 			DMG_ConvertPlanar8ToPlanarST(fileData, buffer, packedSize, entry->width);
+			success = true;
+			
+			#ifdef DEBUG_RLE
 			VID_GetMilliseconds(&t1);
 			DebugPrintf("Converted raw planar image %u to PlanarST in %lu ms\n",
 				(unsigned)index, (unsigned long)(t1 - t0));
-			success = true;
+			#endif
 		}
 	}
 
@@ -607,13 +631,19 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		if (outputMode == ImageMode_Packed)
 		{
+			#ifdef DEBUG_RLE
 			uint32_t t0, t1;
 			VID_GetMilliseconds(&t0);
+			#endif
+
 			DMG_ConvertPackedToPlanarST(buffer, requiredSize, entry->width);
+			outputMode = ImageMode_PlanarST;
+			
+			#ifdef DEBUG_RLE
 			VID_GetMilliseconds(&t1);
 			DebugPrintf("Converted chunky image %u to planar in %lu ms\n",
 				(unsigned)index, (unsigned long)(t1 - t0));
-			outputMode = ImageMode_PlanarST;
+			#endif
 		}
 
 		#ifdef _AMIGA

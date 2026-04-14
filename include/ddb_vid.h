@@ -7,8 +7,8 @@ extern DDB_Machine  screenMachine;
 
 enum VID_ClearMode
 {
-	VID_CLEAR_TEXT_LAYER = 0,
-	VID_CLEAR_ALL_PLANES = 1,
+	Clear_Text = 0,
+	Clear_All = 1,
 };
 
 extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode);
@@ -19,7 +19,7 @@ extern bool   VID_AnyKey              ();
 extern bool   VID_LoadDataFile        (const char* filename);
 extern bool   VID_PictureExists       (uint8_t picno);
 extern bool   VID_SampleExists        (uint8_t no);
-extern void   VID_Clear               (int x, int y, int w, int h, uint8_t color, uint8_t mode);
+extern void   VID_Clear               (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode = Clear_Text);
 extern void   VID_ClearBuffer         (bool front);
 extern void   VID_DisplayPicture      (int x, int y, int w, int h, DDB_ScreenMode screenMode);
 extern bool   VID_DisplaySCRFile      (const char* fileName, DDB_Machine target, bool fadeIn);
@@ -62,10 +62,6 @@ extern void   VID_SetOpBuffer         (SCR_Operation op, bool front);
 extern void   VID_SwapScreen          ();
 
 extern uint16_t VID_GetPaletteSize    ();
-
-#ifdef __cplusplus
-extern void   VID_Clear               (int x, int y, int w, int h, uint8_t color);
-#endif
 
 inline  void  VID_SetPaletteColor32   (uint8_t color, uint32_t rgb)
 {

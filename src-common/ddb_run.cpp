@@ -525,7 +525,7 @@ void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 		width = i->cellW * 8;
 	}
 
-	SCR_Clear(x, w->y, width, w->height, w->paper == 255 ? 0 : w->paper, VID_CLEAR_ALL_PLANES);
+	SCR_Clear(x, w->y, width, w->height, w->paper == 255 ? 0 : w->paper, Clear_All);
 
 	w->posX = w->x;
 	w->posY = w->y;
