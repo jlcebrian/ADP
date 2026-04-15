@@ -17,6 +17,49 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+
+static FileError fileError = FileError_None;
+static char fileErrorString[256];
+
+static void File_ClearErrorState()
+{
+	fileError = FileError_None;
+	fileErrorString[0] = 0;
+}
+
+static void File_SetErrorState(FileError error, const char* detail)
+{
+	fileError = error;
+	if (detail == 0)
+	{
+		fileErrorString[0] = 0;
+		return;
+	}
+	StrCopy(fileErrorString, sizeof(fileErrorString), detail);
+}
+
+static void File_SetErrnoState(FileError defaultError)
+{
+	FileError mapped = defaultError;
+	switch (errno)
+	{
+		case 0:
+			break;
+		case ENOENT:
+			mapped = FileError_FileNotFound;
+			break;
+		case EACCES:
+		case EPERM:
+			mapped = defaultError == FileError_NotReadable ? FileError_NotReadable : FileError_NotWritable;
+			break;
+		default:
+			break;
+	}
+
+	const char* detail = strerror(errno);
+	File_SetErrorState(mapped, detail != 0 ? detail : "");
+}
 
 // ----- Native files
 
@@ -71,11 +114,18 @@ File *Native_Open(const char *name, FileOpenMode mode)
 {
 	void* nativeFile = (void*) fopen(name, mode == ReadOnly ? "rb" : "rb+");
 	if (nativeFile == 0)
+	{
+		File_SetErrnoState(mode == ReadOnly ? FileError_NotReadable : FileError_NotWritable);
 		return 0;
+	}
 
 	File* file = Allocate<File>("File", 1);
 	if (file == 0)
+	{
+		fclose((FILE*)nativeFile);
+		File_SetErrorState(FileError_OutOfMemory, "Out of memory");
 		return 0;
+	}
 	file->close       = Native_Close;
 	file->seek        = Native_Seek;
 	file->getPosition = Native_GetPosition;
@@ -84,6 +134,7 @@ File *Native_Open(const char *name, FileOpenMode mode)
 	file->read        = Native_Read;
 	file->write       = Native_Write;
 	file->data        = nativeFile;
+	File_ClearErrorState();
 	return file;
 }
 
@@ -91,11 +142,18 @@ File *Native_Create(const char *name)
 {
 	FILE* nativeFile = fopen(name, "wb+");
 	if (nativeFile == 0)
+	{
+		File_SetErrnoState(FileError_NotWritable);
 		return 0;
+	}
 
 	File* file = Allocate<File>("File", 1);
 	if (file == 0)
+	{
+		fclose(nativeFile);
+		File_SetErrorState(FileError_OutOfMemory, "Out of memory");
 		return 0;
+	}
 	file->close       = Native_Close;
 	file->seek        = Native_Seek;
 	file->getPosition = Native_GetPosition;
@@ -104,6 +162,7 @@ File *Native_Create(const char *name)
 	file->read        = Native_Read;
 	file->write       = Native_Write;
 	file->data        = nativeFile;
+	File_ClearErrorState();
 	return file;
 }
 
@@ -163,7 +222,10 @@ File *Memory_Open(void *data, uint64_t dataSize)
 {
 	File* file = Allocate<File>("File", 1);
 	if (file == 0)
+	{
+		File_SetErrorState(FileError_OutOfMemory, "Out of memory");
 		return 0;
+	}
 
 	file->close       = Memory_Close;
 	file->seek        = Memory_Seek;
@@ -175,6 +237,7 @@ File *Memory_Open(void *data, uint64_t dataSize)
 	file->data        = data;
 	file->size        = dataSize;
 	file->pos         = 0;
+	File_ClearErrorState();
 	return file;
 }
 
@@ -213,13 +276,17 @@ File *File_Open(const char *fileName, FileOpenMode mode)
 		{
 			uint8_t* data = Allocate<uint8_t>("File", result.fileSize + 1);
 			if (data == 0)
+			{
+				File_SetErrorState(FileError_OutOfMemory, "Out of memory");
 				return 0;
+			}
 
 			data[result.fileSize] = 0;
 			uint32_t size = DIM_ReadFile(mountedDisk, result.fileName, data, result.fileSize);
 			if (size == 0)
 			{
 				Free(data);
+				File_SetErrorState(FileError_ReadError, "Failed to read mounted file");
 				return 0;
 			}
 			File* file = Memory_Open(data, size);
@@ -265,6 +332,31 @@ bool File_FindNext (FindFileResults* results)
 		return OS_FindNextFile(results); 
 }
 
+FileError File_GetError()
+{
+	return fileError;
+}
+
+const char* File_GetErrorString()
+{
+	if (fileErrorString[0] != 0)
+		return fileErrorString;
+
+	switch (fileError)
+	{
+		case FileError_None: return "No error";
+		case FileError_OutOfMemory: return "Out of memory";
+		case FileError_FileNotFound: return "File not found";
+		case FileError_NotWritable: return "File is not writable";
+		case FileError_NotReadable: return "File is not readable";
+		case FileError_NotSupported: return "Operation not supported";
+		case FileError_ReadError: return "Read error";
+		case FileError_WriteError: return "Write error";
+		case FileError_OutOfBounds: return "Out of bounds";
+		default: return "Unknown file error";
+	}
+}
+
 #elif _STDCLIB
 
 #ifdef _UNIX
@@ -278,15 +370,71 @@ bool File_FindNext (FindFileResults* results)
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+
+static FileError fileError = FileError_None;
+static char fileErrorString[256];
+
+static void File_ClearErrorState()
+{
+	fileError = FileError_None;
+	fileErrorString[0] = 0;
+}
+
+static void File_SetErrorState(FileError error, const char* detail)
+{
+	fileError = error;
+	if (detail == 0)
+	{
+		fileErrorString[0] = 0;
+		return;
+	}
+	StrCopy(fileErrorString, sizeof(fileErrorString), detail);
+}
+
+static void File_SetErrnoState(FileError defaultError)
+{
+	FileError mapped = defaultError;
+	switch (errno)
+	{
+		case 0:
+			break;
+		case ENOENT:
+			mapped = FileError_FileNotFound;
+			break;
+		case EACCES:
+		case EPERM:
+			mapped = defaultError == FileError_NotReadable ? FileError_NotReadable : FileError_NotWritable;
+			break;
+		default:
+			break;
+	}
+
+	const char* detail = strerror(errno);
+	File_SetErrorState(mapped, detail != 0 ? detail : "");
+}
 
 File *File_Open(const char *file, FileOpenMode mode)
 {
-	return (File*) fopen(file, mode == ReadOnly ? "rb" : "rb+");
+	FILE* f = fopen(file, mode == ReadOnly ? "rb" : "rb+");
+	if (f == 0)
+	{
+		File_SetErrnoState(mode == ReadOnly ? FileError_NotReadable : FileError_NotWritable);
+		return 0;
+	}
+	File_ClearErrorState();
+	return (File*) f;
 }
 
 File *File_Create(const char *file)
 {
 	FILE* f = fopen(file, "wb+");
+	if (f == 0)
+	{
+		File_SetErrnoState(FileError_NotWritable);
+		return 0;
+	}
+	File_ClearErrorState();
 	return (File*) f;
 }
 
@@ -345,6 +493,31 @@ uint64_t File_Write(File *file, const void *buffer, uint64_t bytes)
 bool File_Seek(File *file, uint64_t position)
 {
 	return fseek((FILE*)file, position, SEEK_SET) == 0;
+}
+
+FileError File_GetError()
+{
+	return fileError;
+}
+
+const char* File_GetErrorString()
+{
+	if (fileErrorString[0] != 0)
+		return fileErrorString;
+
+	switch (fileError)
+	{
+		case FileError_None: return "No error";
+		case FileError_OutOfMemory: return "Out of memory";
+		case FileError_FileNotFound: return "File not found";
+		case FileError_NotWritable: return "File is not writable";
+		case FileError_NotReadable: return "File is not readable";
+		case FileError_NotSupported: return "Operation not supported";
+		case FileError_ReadError: return "Read error";
+		case FileError_WriteError: return "Write error";
+		case FileError_OutOfBounds: return "Out of bounds";
+		default: return "Unknown file error";
+	}
 }
 
 #endif

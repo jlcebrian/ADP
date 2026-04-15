@@ -220,22 +220,20 @@ void DMG_FreeImageCache(DMG* dmg)
 
 bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 {
+	uint32_t minimumBytes = DMG_GetMinimumImageCacheAllocationSize(dmg, DMG_NATIVE_IMAGE_MODE);
+	if (minimumBytes < kMinImageCacheSize)
+		minimumBytes = kMinImageCacheSize;
+	if (bytes < minimumBytes)
+		bytes = minimumBytes;
+
 	if (dmg->cache != 0)
 	{
 		Free(dmg->cache);
 		dmg->cache = 0;
 	}
 
-	if (bytes < kMinImageCacheSize)
-	{
-		#if DEBUG_IMAGE_CACHE
-		DebugPrintf("Image cache skipped: requested size too small (%lu)\n", (unsigned long)bytes);
-		#endif
-		return false;
-	}
-
 	bytes &= ~31u;
-	if (bytes < kMinImageCacheSize)
+	if (bytes < minimumBytes)
 		return false;
 
 	while (true)
@@ -246,7 +244,7 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 		#if DEBUG_IMAGE_CACHE
 		DebugPrintf("Image cache allocation retry: %lu bytes failed\n", (unsigned long)bytes);
 		#endif
-		if (bytes <= kMinImageCacheSize)
+		if (bytes <= minimumBytes)
 		{
 			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 			dmg->cacheSize = 0;
@@ -255,8 +253,8 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 		}
 		bytes >>= 1;
 		bytes &= ~31u;
-		if (bytes < kMinImageCacheSize)
-			bytes = kMinImageCacheSize;
+		if (bytes < minimumBytes)
+			bytes = minimumBytes;
 		#if DEBUG_IMAGE_CACHE
 		DebugPrintf("Image cache allocation retry: shrinking request to %lu bytes\n", (unsigned long)bytes);
 		#endif

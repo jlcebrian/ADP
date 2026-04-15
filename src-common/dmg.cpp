@@ -13,6 +13,10 @@
 #define PRINTF_WARNINGS
 #endif
 
+#ifndef DEBUG_IMAGE_CACHE
+#define DEBUG_IMAGE_CACHE 0
+#endif
+
 #define DMG_BUFFER_SIZE 	(640 * 400)
 #define DMG_MIN_FILE_SIZE 	16
 #define DMG_MAX_FILE_SIZE 	0x1000000
@@ -30,6 +34,96 @@ static char      dmgWarningBuffer[1024];
 
 void DMG_InitializeOldRLETables();
 
+static void DMG_GetTargetSize(const DMG* d, uint32_t* width, uint32_t* height)
+{
+	uint32_t resolvedWidth = 640;
+	uint32_t resolvedHeight = 400;
+
+	if (d != 0)
+	{
+		resolvedWidth = d->targetWidth;
+		resolvedHeight = d->targetHeight;
+		if (resolvedWidth == 0 || resolvedHeight == 0)
+		{
+			switch (d->screenMode)
+			{
+				case ScreenMode_HiRes:
+					resolvedWidth = 640;
+					resolvedHeight = 200;
+					break;
+				case ScreenMode_SHiRes:
+					resolvedWidth = 640;
+					resolvedHeight = 400;
+					break;
+				default:
+					resolvedWidth = 320;
+					resolvedHeight = 200;
+					break;
+			}
+		}
+	}
+
+	if (width != 0)
+		*width = resolvedWidth;
+	if (height != 0)
+		*height = resolvedHeight;
+}
+
+static uint8_t DMG_GetNativePlaneCount(const DMG* d, DMG_ImageMode mode)
+{
+	switch (mode)
+	{
+		case ImageMode_Planar:
+		case ImageMode_PlanarST:
+		case ImageMode_Planar8:
+		case ImageMode_PlanarFalcon:
+			if (d != 0 && d->version == DMG_Version5)
+			{
+				uint8_t planes = DMG_DAT5ModePlaneCount(d->colorMode);
+				if (planes != 0)
+					return planes;
+			}
+			return 4;
+		default:
+			return 0;
+	}
+}
+
+uint32_t DMG_GetMinimumImageBufferSize(DMG* d, DMG_ImageMode mode)
+{
+	uint32_t width = 0;
+	uint32_t height = 0;
+	DMG_GetTargetSize(d, &width, &height);
+	uint32_t pixels = width * height;
+
+	switch (mode)
+	{
+		case ImageMode_Packed:
+			return (pixels + 1) >> 1;
+		case ImageMode_RGBA32:
+			return pixels * 4u;
+		case ImageMode_Planar:
+		case ImageMode_PlanarST:
+		case ImageMode_Planar8:
+		case ImageMode_PlanarFalcon:
+		{
+			uint8_t planes = DMG_GetNativePlaneCount(d, mode);
+			return ((width + 15u) >> 4) * height * planes * 2u;
+		}
+		case ImageMode_Indexed:
+		case ImageMode_Raw:
+		default:
+			return pixels;
+	}
+}
+
+uint32_t DMG_GetMinimumImageCacheAllocationSize(DMG* d, DMG_ImageMode mode)
+{
+	uint32_t itemOverhead = ((sizeof(DMG_Cache) + 31u) & ~31u) + 32u;
+	uint32_t minimum = DMG_GetMinimumImageBufferSize(d, mode) + itemOverhead;
+	return (minimum + 0x0FFFu) & ~0x0FFFu;
+}
+
 static bool DMG_AllocatePaletteBlock(DMG* dmg, uint32_t colorCount, const char* name)
 {
 	if (dmg == 0 || colorCount == 0)
@@ -45,6 +139,7 @@ static bool DMG_AllocatePaletteBlock(DMG* dmg, uint32_t colorCount, const char* 
 	return true;
 }
 
+#if DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES
 static bool DMG_AllocateConversionPaletteBlock(DMG* dmg, uint32_t entryCount, const char* name)
 {
 	if (dmg == 0 || entryCount == 0)
@@ -59,6 +154,7 @@ static bool DMG_AllocateConversionPaletteBlock(DMG* dmg, uint32_t entryCount, co
 	MemClear(dmg->conversionPaletteBlock, sizeof(DMG_CVPal) * entryCount);
 	return true;
 }
+#endif
 
 bool DMG_EnsureEditableEntryData(DMG* dmg)
 {
@@ -135,7 +231,9 @@ bool DMG_ReserveTemporaryBuffer(uint32_t size)
 
 	if (dmgTemporaryBufferRaw != 0)
 	{
+		#if DEBUG_IMAGE_CACHE
 		DebugPrintf("DMG Temporary buffer reallocated (was too small: %u)\n", dmgTemporaryBufferSize);
+		#endif
 		Free(dmgTemporaryBufferRaw);
 		dmgTemporaryBufferRaw = 0;
 		dmgTemporaryBuffer = 0;
@@ -147,10 +245,12 @@ bool DMG_ReserveTemporaryBuffer(uint32_t size)
 	if (dmgTemporaryBufferRaw == 0)
 		return false;
 
+	#if DEBUG_IMAGE_CACHE
 	DebugPrintf("DMG Temporary buffer allocated (%u bytes)\n", size);
+	#endif
 
 	dmgTemporaryBuffer = dmgTemporaryBufferRaw;
-	while ((((unsigned long)dmgTemporaryBuffer) & 255u) != 0)
+	while ((((size_t)dmgTemporaryBuffer) & 255u) != 0)
 		dmgTemporaryBuffer++;
 
 	dmgTemporaryBufferSize = size;
@@ -291,16 +391,18 @@ const char* DMG_GetErrorString()
 			return "No error";
 		case DMG_ERROR_FILE_NOT_FOUND:
 			return "File not found";
+		case DMG_ERROR_CREATING_FILE:
+			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error creating file";
 		case DMG_ERROR_OUT_OF_MEMORY:
 			return "Out of memory";
 		case DMG_ERROR_UNKNOWN_SIGNATURE:
 			return "Unknown signature";
 		case DMG_ERROR_READING_FILE:
-			return "I/O Error reading file";
+			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error reading file";
 		case DMG_ERROR_SEEKING_FILE:
 			return "I/O Error accessing file";
 		case DMG_ERROR_WRITING_FILE:
-			return "I/O Error writing file";
+			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error writing file";
 		case DMG_ERROR_INVALID_ENTRY_COUNT:
 			return "Invalid entry count";
 		case DMG_ERROR_FILE_TOO_SMALL:
@@ -688,24 +790,24 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
 			(dmg->colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
 			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8) ? ScreenMode_VGA :
 			ScreenMode_VGA16;
-    else if (dmg->targetWidth == 640 && dmg->targetHeight == 200)
-        dmg->screenMode = ScreenMode_HiRes;
-    else if (dmg->targetWidth == 640 && dmg->targetHeight == 400)
-        dmg->screenMode = ScreenMode_SHiRes;
+	else if (dmg->targetWidth == 640 && dmg->targetHeight == 200)
+		dmg->screenMode = ScreenMode_HiRes;
+	else if (dmg->targetWidth == 640 && dmg->targetHeight == 400)
+		dmg->screenMode = ScreenMode_SHiRes;
 
 	const uint32_t entryCount = dmg->lastEntry - dmg->firstEntry + 1;
-    uint8_t* buffer = Allocate<uint8_t>("DAT5 entry headers", entryCount * 32);
-    if (buffer == 0)
-    {
-        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
-        return false;
-    }
-    if (DMG_ReadFromFile(dmg, 0x10, buffer, entryCount * 32) != entryCount * 32)
-    {
-        Free(buffer);
-        DMG_SetError(DMG_ERROR_READING_FILE);
-        return false;
-    }
+	uint8_t* buffer = Allocate<uint8_t>("DAT5 entry headers", entryCount * 32);
+	if (buffer == 0)
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+	if (DMG_ReadFromFile(dmg, 0x10, buffer, entryCount * 32) != entryCount * 32)
+	{
+		Free(buffer);
+		DMG_SetError(DMG_ERROR_READING_FILE);
+		return false;
+	}
 
     for (uint32_t i = 0; i < entryCount; i++)
     {
@@ -834,14 +936,14 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
 
 static bool DMG_DecodeDAT5PaletteBytes(DMG_Entry* entry, const uint8_t* palData)
 {
-    if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0)
-        return true;
+	if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0)
+		return true;
 
 	if (entry->RGB32Palette == 0)
-    {
+	{
 		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
 		return false;
-    }
+ 	}
 
     for (uint16_t p = 0; p < entry->paletteColors; p++)
     {
@@ -1030,7 +1132,9 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 
 	uint32_t nextEntry = 0;
 	uint32_t* paletteCursor = dmg->paletteBlock;
+	#if DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES
 	DMG_CVPal* conversionCursor = dmg->conversionPaletteBlock;
+	#endif
 
 	for (n = 0; n < entryCount; n++)
 	{
@@ -1499,6 +1603,17 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		DMG_InitializeOldRLETables();
 	#endif
 
+	uint32_t minimumBuffer = DMG_GetMinimumImageBufferSize(d, DMG_NATIVE_IMAGE_MODE);
+	if (minimumBuffer != 0 && DMG_GetTemporaryBufferSize() < minimumBuffer)
+	{
+		if (!DMG_ReserveTemporaryBuffer(minimumBuffer))
+		{
+			DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+			DMG_Close(d);
+			return 0;
+		}
+	}
+
 	if (!DMG_PreallocateZX0Scratch(d))
 	{
 		DMG_Close(d);
@@ -1601,9 +1716,8 @@ void DMG_Close(DMG* d)
 	}
 	#endif
 
-	#ifndef NO_CACHE
 	DMG_FreeImageCache(d);
-	#endif
+	
 	if (d->paletteBlock != 0)
 		Free(d->paletteBlock);
 	if (d->conversionPaletteBlock != 0)

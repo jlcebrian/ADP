@@ -1,0 +1,199 @@
+VERSION    ?= BETA0.3
+
+DEBUGPRINT ?= 0
+DEBUGCACHE ?= 0
+DEBUGALLOC ?= 0
+DEBUGLTIME ?= 0
+DEBUG      ?= 0
+TRACE      ?= 0
+OPTIM      ?= -O2
+
+PREFIX      ?= x86_64-w64-mingw32-
+CC          := $(PREFIX)gcc
+CXX         := $(PREFIX)g++
+WINDRES     := $(PREFIX)windres
+STRIP       := $(PREFIX)strip
+AR          := $(PREFIX)ar
+WINARCH     ?= win64mingw
+SDL_LINKAGE ?= static
+UPX         ?= 1
+UPXFLAGS    ?= -q -5
+
+OBJDIR := obj/win64
+OUTDIR := out/win64
+
+PLAYER_TARGET := $(OUTDIR)/player.exe
+DDB_TARGET := $(OUTDIR)/ddb.exe
+DMG_TARGET := $(OUTDIR)/dmg.exe
+CHR_TARGET := $(OUTDIR)/chr.exe
+DSK_TARGET := $(OUTDIR)/dsk.exe
+DC_TARGET := $(OUTDIR)/dc.exe
+TARGETS := $(DDB_TARGET) $(PLAYER_TARGET) $(DMG_TARGET) $(CHR_TARGET) $(DSK_TARGET) 
+# TARGETS += $(DC_TARGET)
+
+CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -Ilib/sdl2/include -Ilib/libpng
+CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
+CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
+CPPFLAGS += -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE
+CPPFLAGS += -MMD -MP
+CPPFLAGS += -ffunction-sections -fdata-sections
+
+ifeq ($(DEBUGPRINT),1)
+CPPFLAGS += -D_DEBUGPRINT
+CPPFLAGS += -DDEBUG_IMAGE_CACHE=$(DEBUGCACHE)
+endif
+ifeq ($(DEBUGALLOC),1)
+CPPFLAGS += -DDEBUG_ALLOCS=1
+endif
+ifeq ($(DEBUGLTIME),1)
+CPPFLAGS += -DDEBUG_RLE -DDEBUG_ZX0
+endif
+ifeq ($(DEBUG),1)
+CPPFLAGS += -g
+endif
+ifeq ($(TRACE),1)
+CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
+endif
+
+CPPFLAGS += $(OPTIM)
+
+SYSTEM_LIBS := -luser32 -lgdi32 -lcomdlg32 -lshell32 -lsetupapi
+SYSTEM_LIBS += -lwinmm -limm32 -lversion -ladvapi32 -loleaut32 -lole32 -luuid
+
+ifeq ($(WINARCH),win64mingw)
+PNG_LIBS := lib/libpng/$(WINARCH)/libpng.a lib/zlib/$(WINARCH)/libz.a
+else
+PNG_LIBS := lib/libpng/$(WINARCH)/libpng16.lib lib/zlib/$(WINARCH)/zlib.lib
+endif
+
+ifeq ($(SDL_LINKAGE),static)
+ifeq ($(WINARCH),win64mingw)
+SDL_LIBS := lib/sdl2/$(WINARCH)/libSDL2.a lib/sdl2/$(WINARCH)/libSDL2main.a
+else
+SDL_LIBS := lib/sdl2/$(WINARCH)/SDL2-static.lib lib/sdl2/$(WINARCH)/SDL2main.lib
+endif
+SDL_LIBS += -lsensorsapi -ldxguid -ldinput8 -lhid -lbcrypt
+RUNTIME_FILES :=
+else
+ifeq ($(WINARCH),win64mingw)
+SDL_LIBS := lib/sdl2/$(WINARCH)/libSDL2.a lib/sdl2/$(WINARCH)/libSDL2main.a
+else
+SDL_LIBS := lib/sdl2/$(WINARCH)/SDL2.lib lib/sdl2/$(WINARCH)/SDL2main.lib
+endif
+RUNTIME_FILES := $(OUTDIR)/SDL2.dll
+endif
+
+ifeq ($(UPX),1)
+PACK_CMD = upx $(UPXFLAGS) $@ >/dev/null 
+else
+PACK_CMD = true
+endif
+
+ifeq ($(DEBUG),1)
+POSTPROCESS_CMD = true
+else
+POSTPROCESS_CMD = $(STRIP) $@ && $(PACK_CMD)
+endif
+
+LDFLAGS += -Wl,--gc-sections $(SDL_LIBS) $(PNG_LIBS) $(SYSTEM_LIBS)
+PLAYER_LDFLAGS := -lmingw32 $(LDFLAGS) -mwindows
+CONSOLE_LDFLAGS := $(LDFLAGS)
+
+DIRS := src-common/ lib-src/salvador/
+VPATH := $(DIRS) src-tools/ src-sdl/ src-windows/
+SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
+TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
+TOOL_MAIN_SRCS := tool_chr tool_ddb tool_dmg tool_dsk
+DC_SRCS := dc_main dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb tool_dc
+DC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_file os_lib os_mem files
+
+COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
+COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
+PLAYER_OBJ := $(OBJDIR)/player.o
+TOOL_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
+TOOL_MAIN_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_MAIN_SRCS)))
+COMMON_LIB := $(OBJDIR)/libcommon.a
+TOOL_LIB := $(OBJDIR)/libtools.a
+DC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _dc.o,$(DC_SRCS)))
+DC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _dc.o,$(DC_COMMON_SRCS)))
+PLAYER_RES := $(OBJDIR)/player.res.o
+DDB_RES := $(OBJDIR)/ddb.res.o
+
+TOOL_CPPFLAGS = $(CPPFLAGS) -DTRACE_ON
+DC_CPPFLAGS = $(filter-out -DDEBUG_ALLOCS=1,$(TOOL_CPPFLAGS)) -DDEBUG_ALLOCS=0
+
+$(COMMON_OBJS) $(PLAYER_OBJ): COMPILE_FLAGS := $(CPPFLAGS)
+$(TOOL_OBJS) $(TOOL_MAIN_OBJS): COMPILE_FLAGS := $(TOOL_CPPFLAGS)
+$(DC_OBJS) $(DC_COMMON_OBJS): COMPILE_FLAGS := $(DC_CPPFLAGS)
+
+.PHONY: all clean
+
+.DEFAULT_GOAL := all
+
+-include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(DC_OBJS:_dc.o=_dc.d) $(DC_COMMON_OBJS:_dc.o=_dc.d)
+
+all: $(TARGETS) $(RUNTIME_FILES)
+
+$(OUTDIR):
+	@mkdir -p $@
+
+$(OUTDIR)/SDL2.dll: lib/sdl2/$(WINARCH)/SDL2.dll | $(OUTDIR)
+	@cp $< $@
+
+$(OBJDIR)/%.res.o: lib/%.rc | $(OUTDIR)
+	$(info Compiling resource $<)
+	@mkdir -p $(dir $@)
+	@$(WINDRES) -Ilib -Iinclude -O coff -o $@ $<
+
+$(COMMON_LIB): $(COMMON_OBJS)
+	$(info Archiving $@)
+	@$(AR) rcs $@ $^
+
+$(TOOL_LIB): $(TOOL_OBJS)
+	$(info Archiving $@)
+	@$(AR) rcs $@ $^
+
+$(DDB_TARGET): $(OBJDIR)/tool_ddb.o $(TOOL_LIB) $(COMMON_LIB) $(DDB_RES) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+$(PLAYER_TARGET): $(PLAYER_OBJ) $(COMMON_LIB) $(PLAYER_RES) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(PLAYER_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+$(DMG_TARGET): $(OBJDIR)/tool_dmg.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+$(CHR_TARGET): $(OBJDIR)/tool_chr.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+$(DSK_TARGET): $(OBJDIR)/tool_dsk.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+$(DC_TARGET): $(DC_OBJS) $(DC_COMMON_OBJS) | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
+	@$(POSTPROCESS_CMD)
+
+clean:
+	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d $(OBJDIR)/*.res.o $(TARGETS) $(RUNTIME_FILES)
+
+$(OBJDIR)/%.o: %.cpp
+	$(info Compiling $<)
+	@mkdir -p $(dir $@)
+	@$(CC) $(COMPILE_FLAGS) -c -o $@ $(CURDIR)/$<
+
+$(OBJDIR)/%_dc.o: %.cpp
+	$(info Compiling $<)
+	@mkdir -p $(dir $@)
+	@$(CC) $(DC_CPPFLAGS) -c -o $@ $(CURDIR)/$<

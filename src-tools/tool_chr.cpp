@@ -119,23 +119,31 @@ static uint8_t MeasureGlyphWidth(const uint8_t* glyph, int height)
 		for (int x = 0; x < 8; x++)
 		{
 			if ((bits & (0x80 >> x)) != 0)
-				maxWidth = x + 1;
+			{
+				if (x + 1 > maxWidth)
+					maxWidth = x + 1;
+			}
 		}
 	}
 
-	int width = maxWidth + 1;
-	if (width > 8)
-		width = 8;
-	if (width < 1)
-		width = 1;
-	return (uint8_t)width;
+	if (maxWidth < 1)
+		maxWidth = 1;
+	return (uint8_t)maxWidth;
 }
 
 static void UpdateWidths(uint8_t* widths, const uint8_t* bitmap, int glyphHeight)
 {
+	int maxW = 0;
 	for (int i = 0; i < 256; i++)
-		widths[i] = MeasureGlyphWidth(bitmap + i * glyphHeight, glyphHeight);
-	widths[32] = 8;
+	{
+		int w = MeasureGlyphWidth(bitmap + i * glyphHeight, glyphHeight);
+		if (w > maxW)
+			maxW = w;
+	}
+	if (maxW < 6)
+		maxW = 6;
+	for (int i = 0; i < 256; i++)
+		widths[i] = (uint8_t)maxW;
 }
 
 static bool HasTransparentPaletteEntries()

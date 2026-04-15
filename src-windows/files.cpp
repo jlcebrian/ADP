@@ -67,6 +67,8 @@ bool OS_FindNextFile(FindFileResults *results)
 	FindFileInternal* i = (FindFileInternal*)results->internalData;
 	if (!FindNextFile(i->handle, i->data))
 	{
+		FindClose(i->handle);
+		i->handle = INVALID_HANDLE_VALUE;
 		free(i->data);
 		i->data = 0;
 		return false;

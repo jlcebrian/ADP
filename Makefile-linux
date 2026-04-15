@@ -1,59 +1,99 @@
-VERSION ?= BETA0.3
+VERSION    ?= BETA0.3
 
-CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -D_STDCLIB -D_UNIX
+DEBUGPRINT ?= 1
+DEBUGCACHE ?= 0
+DEBUGALLOC ?= 1
+DEBUGLTIME ?= 0
+DEBUG      ?= 1
+TRACE      ?= 0
+OPTIM      ?= -O2
+
+# Platform and feature configuration.
+CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador
+CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB -D_UNIX
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
-CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG -DDEBUG_ALLOCS
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG -D_DEBUGPRINT
-CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION=$(VERSION)
-CPPFLAGS += -O2
+CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
+CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
 
+ifeq ($(DEBUGPRINT),1)
+CPPFLAGS += -D_DEBUGPRINT
+CPPFLAGS += -DDEBUG_IMAGE_CACHE=$(DEBUGCACHE)
+endif
+ifeq ($(DEBUGALLOC),1)
+CPPFLAGS += -DDEBUG_ALLOCS=1
+endif
+ifeq ($(DEBUGLTIME),1)
+CPPFLAGS += -DDEBUG_RLE -DDEBUG_ZX0
+endif
+ifeq ($(DEBUG),1)
+CPPFLAGS += -g
+endif
+ifeq ($(TRACE),1)
+CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
+endif
+
+CPPFLAGS += $(OPTIM)
 CPPFLAGS += `libpng-config --cflags`
 CPPFLAGS += `sdl2-config --cflags`
 LDFLAGS += `libpng-config --ldflags`
 LDFLAGS += `sdl2-config --libs`
 
-DIRS = src-common/ lib-src/salvador/
-VPATH = $(DIRS) src-tools/ src-sdl/ src-unix/
-SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
-TOOL_SRCS = bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
-TOOL_MAIN_SRCS = $(wildcard src-tools/tool_*.cpp)
+DIRS := src-common/ lib-src/salvador/
+VPATH := $(DIRS) src-tools/ src-sdl/ src-unix/
+SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
+TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
+TOOL_MAIN_SRCS := $(wildcard src-tools/tool_*.cpp)
+
+OBJDIR := obj/unix
+OUTDIR := out
+PLAYER_TARGET := $(OUTDIR)/player
+TOOL_TARGETS := $(OUTDIR)/dmg $(OUTDIR)/chr $(OUTDIR)/ddb $(OUTDIR)/dsk
+
 TOOL_CPPFLAGS = $(CPPFLAGS) -DTRACE_ON
-OBJDIR = obj/unix
+
 COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
-PLAYER_OBJ = $(OBJDIR)/player.o
-TOOL_OBJS = $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
-TOOL_MAIN_OBJS = $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
+PLAYER_OBJ := $(OBJDIR)/player.o
+TOOL_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
+TOOL_MAIN_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
+
+.PHONY: all clean
 
 -include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d)
 
-all: out/dmg out/chr out/ddb out/dsk out/player
+all: $(TOOL_TARGETS) $(PLAYER_TARGET)
 
-out/dmg: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dmg.o
+$(OUTDIR):
+	@mkdir -p $@
+
+$(OUTDIR)/dmg: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dmg.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/chr: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_chr.o
+
+$(OUTDIR)/chr: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_chr.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/ddb: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_ddb.o
+
+$(OUTDIR)/ddb: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_ddb.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/dsk: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dsk.o
+
+$(OUTDIR)/dsk: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dsk.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/player: $(COMMON_OBJS) $(PLAYER_OBJ)
+
+$(PLAYER_TARGET): $(COMMON_OBJS) $(PLAYER_OBJ) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f obj/unix/*.o
+	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d $(TOOL_TARGETS) $(PLAYER_TARGET)
 
 $(COMMON_OBJS) $(PLAYER_OBJ) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
-
 
 $(TOOL_OBJS) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)

@@ -421,6 +421,8 @@ void		DMG_Close			   (DMG* dmg);
 bool        DMG_SetupImageCache    (DMG* dmg, uint32_t bytes);
 DMG_Cache*  DMG_GetImageCache      (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_t size);
 void        DMG_FreeImageCache     (DMG* dmg);
+uint32_t    DMG_GetMinimumImageBufferSize(DMG* dmg, DMG_ImageMode mode);
+uint32_t    DMG_GetMinimumImageCacheAllocationSize(DMG* dmg, DMG_ImageMode mode);
 
 void        DMG_SetupFileCache     (DMG* dmg, uint32_t blockSize = 0, void(*progressFunction)(uint16_t) = 0);
 uint32_t    DMG_ReadFromFile       (DMG* dmg, uint32_t offset, void* buffer, uint32_t size);

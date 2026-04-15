@@ -13,11 +13,20 @@
 #include <string.h>
 #include <stdlib.h>
 
+#if defined(_STDCLIB)
+#if defined(_WIN32)
+#include <sys/stat.h>
+#else
+#include <sys/stat.h>
+#endif
+#endif
+
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
 static bool debug = false;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
+static const char* DMG_CACHE_EXTENSION = ".dmgcache";
 
 typedef enum
 {
@@ -101,6 +110,42 @@ static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
 static bool compressionEnabled = true;
+
+typedef struct
+{
+    uint32_t fileSize;
+    uint32_t modifyTime;
+}
+DMGSourceFileInfo;
+
+static bool GetSourceFileInfo(const char* fileName, DMGSourceFileInfo* info)
+{
+    if (fileName == 0 || info == 0)
+        return false;
+
+#if defined(_STDCLIB) && defined(_WIN32)
+    struct _stat64 st;
+    if (_stat64(fileName, &st) != 0)
+        return false;
+    info->fileSize = st.st_size > 0xFFFFFFFFll ? 0xFFFFFFFFu : (uint32_t)st.st_size;
+    info->modifyTime = (uint32_t)st.st_mtime;
+    return true;
+#elif defined(_STDCLIB)
+    struct stat st;
+    if (stat(fileName, &st) != 0)
+        return false;
+    info->fileSize = st.st_size > 0xFFFFFFFFll ? 0xFFFFFFFFu : (uint32_t)st.st_size;
+    info->modifyTime = (uint32_t)st.st_mtime;
+    return true;
+#else
+    FindFileResults results;
+    if (!File_FindFirst(fileName, &results))
+        return false;
+    info->fileSize = results.fileSize;
+    info->modifyTime = results.modifyTime;
+    return true;
+#endif
+}
 static void ResetCreateSettings()
 {
     createDAT5 = false;
@@ -471,8 +516,6 @@ static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions
 
 typedef struct
 {
-    uint32_t magic;
-    uint32_t version;
     uint32_t sourceSize;
     uint32_t sourceTime;
     uint32_t width;
@@ -488,73 +531,197 @@ typedef struct
 DMGCacheHeader;
 
 #define DMG_CACHE_MAGIC 0x444D4743u
-#define DMG_CACHE_VERSION 1u
+#define DMG_CACHE_VERSION_MULTI 2u
+
+typedef struct
+{
+    uint32_t magic;
+    uint32_t version;
+    uint32_t sourceSize;
+    uint32_t sourceTime;
+}
+DMGCacheFileHeader;
+
+typedef struct
+{
+    uint32_t width;
+    uint32_t height;
+    uint32_t payloadSize;
+    uint16_t format;
+    uint16_t colorMode;
+    uint8_t  compressed;
+    uint8_t  remap;
+    uint8_t  firstColor;
+    uint8_t  lastColor;
+}
+DMGCacheEntryHeader;
+
+static bool DMGCacheMatches(const DMGCacheHeader* header, uint32_t sourceSize, uint32_t sourceTime, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed)
+{
+    return header->sourceSize == sourceSize &&
+        header->sourceTime == sourceTime &&
+        header->format == format &&
+        header->colorMode == colorMode &&
+        header->remap == remap &&
+        header->firstColor == firstColor &&
+        header->lastColor == lastColor &&
+        header->width == width &&
+        header->height == height &&
+        header->compressed == compressed;
+}
+
+static bool DMGCacheEntryMatches(const DMGCacheEntryHeader* entry, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed)
+{
+    return entry->format == format &&
+        entry->colorMode == colorMode &&
+        entry->remap == remap &&
+        entry->firstColor == firstColor &&
+        entry->lastColor == lastColor &&
+        entry->width == width &&
+        entry->height == height &&
+        entry->compressed == compressed;
+}
+
+static bool DMGCacheReadPayload(File* file, uint32_t payloadSize, uint8_t** payload, uint32_t* payloadSizeOut)
+{
+    uint8_t* data = Allocate<uint8_t>("DMG cache payload", payloadSize);
+    if (data == 0)
+        return false;
+    if (File_Read(file, data, payloadSize) != payloadSize)
+    {
+        Free(data);
+        return false;
+    }
+    *payload = data;
+    *payloadSizeOut = payloadSize;
+    return true;
+}
 
 static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, uint8_t** payload, uint32_t* payloadSize)
 {
-    FindFileResults sourceInfo;
-    if (!File_FindFirst(sourceFile, &sourceInfo))
+    *payload = 0;
+    *payloadSize = 0;
+
+    DMGSourceFileInfo sourceInfo;
+    if (!GetSourceFileInfo(sourceFile, &sourceInfo))
         return false;
 
     File* file = File_Open(cacheFile, ReadOnly);
     if (file == 0)
         return false;
 
-    DMGCacheHeader header;
-    bool ok = File_Read(file, &header, sizeof(header)) == sizeof(header) &&
-        header.magic == DMG_CACHE_MAGIC &&
-        header.version == DMG_CACHE_VERSION &&
-        header.sourceSize == sourceInfo.fileSize &&
-        header.sourceTime == sourceInfo.modifyTime &&
-        header.format == format &&
-        header.colorMode == colorMode &&
-        header.remap == remap &&
-        header.firstColor == firstColor &&
-        header.lastColor == lastColor &&
-        header.width == width &&
-        header.height == height &&
-        header.compressed == compressed;
-    if (!ok)
+    DMGCacheFileHeader fileHeader;
+    if (File_Read(file, &fileHeader, sizeof(fileHeader)) != sizeof(fileHeader))
     {
         File_Close(file);
         return false;
     }
 
-    uint8_t* data = Allocate<uint8_t>("DMG cache payload", header.payloadSize);
-    if (data == 0)
+    if (fileHeader.magic != DMG_CACHE_MAGIC)
     {
         File_Close(file);
         return false;
     }
 
-    ok = File_Read(file, data, header.payloadSize) == header.payloadSize;
+    if (fileHeader.version != DMG_CACHE_VERSION_MULTI ||
+        fileHeader.sourceSize != sourceInfo.fileSize ||
+        fileHeader.sourceTime != sourceInfo.modifyTime)
+    {
+        File_Close(file);
+        return false;
+    }
+
+    bool found = false;
+    uint8_t* matchedPayload = 0;
+    uint32_t matchedPayloadSize = 0;
+    uint64_t fileSize = File_GetSize(file);
+    while (File_GetPosition(file) + sizeof(DMGCacheEntryHeader) <= fileSize)
+    {
+        DMGCacheEntryHeader entry;
+        if (File_Read(file, &entry, sizeof(entry)) != sizeof(entry))
+            break;
+
+        if (entry.payloadSize > fileSize || File_GetPosition(file) + entry.payloadSize > fileSize)
+            break;
+
+        if (DMGCacheEntryMatches(&entry, format, colorMode, remap, firstColor, lastColor, width, height, compressed))
+        {
+            uint8_t* data = 0;
+            uint32_t dataSize = 0;
+            if (!DMGCacheReadPayload(file, entry.payloadSize, &data, &dataSize))
+                break;
+            if (matchedPayload != 0)
+                Free(matchedPayload);
+            matchedPayload = data;
+            matchedPayloadSize = dataSize;
+            found = true;
+        }
+        else if (!File_Seek(file, File_GetPosition(file) + entry.payloadSize))
+        {
+            break;
+        }
+    }
+
     File_Close(file);
-    if (!ok)
+    if (!found)
+        return false;
+
+    *payload = matchedPayload;
+    *payloadSize = matchedPayloadSize;
+    return true;
+}
+
+static bool OpenCacheForAppend(const char* cacheFile, uint32_t sourceSize, uint32_t sourceTime, File** cacheHandle)
+{
+    *cacheHandle = 0;
+
+    File* file = File_Open(cacheFile, ReadWrite);
+    if (file != 0)
     {
-        Free(data);
+        DMGCacheFileHeader header;
+        bool valid = File_Read(file, &header, sizeof(header)) == sizeof(header) &&
+            header.magic == DMG_CACHE_MAGIC &&
+            header.version == DMG_CACHE_VERSION_MULTI &&
+            header.sourceSize == sourceSize &&
+            header.sourceTime == sourceTime;
+        if (valid && File_Seek(file, File_GetSize(file)))
+        {
+            *cacheHandle = file;
+            return true;
+        }
+        File_Close(file);
+    }
+
+    file = File_Create(cacheFile);
+    if (file == 0)
+        return false;
+
+    DMGCacheFileHeader header;
+    header.magic = DMG_CACHE_MAGIC;
+    header.version = DMG_CACHE_VERSION_MULTI;
+    header.sourceSize = sourceSize;
+    header.sourceTime = sourceTime;
+    if (File_Write(file, &header, sizeof(header)) != sizeof(header))
+    {
+        File_Close(file);
         return false;
     }
 
-    *payload = data;
-    *payloadSize = header.payloadSize;
+    *cacheHandle = file;
     return true;
 }
 
 static void SaveCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, const uint8_t* payload, uint32_t payloadSize)
 {
-    FindFileResults sourceInfo;
-    if (!File_FindFirst(sourceFile, &sourceInfo))
+    DMGSourceFileInfo sourceInfo;
+    if (!GetSourceFileInfo(sourceFile, &sourceInfo))
         return;
 
-    File* file = File_Create(cacheFile);
-    if (file == 0)
+    File* file = 0;
+    if (!OpenCacheForAppend(cacheFile, sourceInfo.fileSize, sourceInfo.modifyTime, &file) || file == 0)
         return;
 
-    DMGCacheHeader header;
-    header.magic = DMG_CACHE_MAGIC;
-    header.version = DMG_CACHE_VERSION;
-    header.sourceSize = sourceInfo.fileSize;
-    header.sourceTime = sourceInfo.modifyTime;
+    DMGCacheEntryHeader header;
     header.width = width;
     header.height = height;
     header.payloadSize = payloadSize;
@@ -2445,6 +2612,34 @@ static bool ExpandWildcardToken(const char* token, const char** outTokens, int* 
     return true;
 }
 
+static int ExpandArgumentTokens(int argc, const char* argv[], const char** expandedArgs, bool* expandedArgOwned)
+{
+    int expandedArgCount = 0;
+    for (int i = 0; i < argc; i++)
+    {
+        int before = expandedArgCount;
+        if (ExpandWildcardToken(argv[i], expandedArgs, &expandedArgCount))
+        {
+            for (int n = before; n < expandedArgCount; n++)
+                expandedArgOwned[n] = true;
+            continue;
+        }
+        expandedArgs[expandedArgCount] = argv[i];
+        expandedArgOwned[expandedArgCount] = false;
+        expandedArgCount++;
+    }
+    return expandedArgCount;
+}
+
+static void FreeExpandedArgumentTokens(int expandedArgCount, const char** expandedArgs, const bool* expandedArgOwned)
+{
+    for (int i = 0; i < expandedArgCount; i++)
+    {
+        if (expandedArgOwned[i])
+            free((void*)expandedArgs[i]);
+    }
+}
+
 static int GetPriorityRank(uint8_t index)
 {
     for (int i = 0; i < priorityEntryCount; i++)
@@ -3159,7 +3354,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         char cacheFile[FILE_MAX_PATH];
         uint8_t* cachedPayload = 0;
         uint32_t cachedPayloadSize = 0;
-        BuildSidecarPath(path, ".zx0", cacheFile, sizeof(cacheFile));
+        BuildSidecarPath(path, DMG_CACHE_EXTENSION, cacheFile, sizeof(cacheFile));
         if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize))
         {
             if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
@@ -3988,20 +4183,7 @@ static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
 
     const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
     bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
-    int expandedArgCount = 0;
-    for (int i = 1; i < argc; i++)
-    {
-        int before = expandedArgCount;
-        if (ExpandWildcardToken(argv[i], expandedArgs, &expandedArgCount))
-        {
-            for (int n = before; n < expandedArgCount; n++)
-                expandedArgOwned[n] = true;
-            continue;
-        }
-        expandedArgs[expandedArgCount] = argv[i];
-        expandedArgOwned[expandedArgCount] = false;
-        expandedArgCount++;
-    }
+    int expandedArgCount = ExpandArgumentTokens(argc - 1, (const char**)argv + 1, expandedArgs, expandedArgOwned);
 
     const char* translatedArgs[CLI_MAX_ARGUMENTS * 4];
     int translatedArgCount = 0;
@@ -4021,11 +4203,7 @@ static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
         ok = ExecuteDMGAction(session->dmg, commandAction, translatedArgCount, translatedArgs);
     }
 
-    for (int i = 0; i < expandedArgCount; i++)
-    {
-        if (expandedArgOwned[i])
-            free((void*)expandedArgs[i]);
-    }
+    FreeExpandedArgumentTokens(expandedArgCount, expandedArgs, expandedArgOwned);
     return ok;
 }
 
@@ -4354,10 +4532,18 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     const char* workingFileName = 0;
     const char* explicitOutputFile = 0;
     const char* translatedArgs[CLI_MAX_ARGUMENTS * 4];
+    const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
+    bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
+    const char* finalOutputFile = 0;
     int translatedCount = 0;
+    int expandedCount = 0;
     int argIndex = 1;
     bool actionSet = false;
     bool filenameSet = false;
+    bool ok = true;
+    bool changed = false;
+    bool replaceTarget = false;
+    bool result = false;
 
     if (argc < 2)
     {
@@ -4446,16 +4632,19 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         return false;
     }
 
-    if (!TranslateModernArguments(action, argc - argIndex, (const char**)argv + argIndex, translatedArgs, &translatedCount, &explicitOutputFile))
+    expandedCount = ExpandArgumentTokens(argc - argIndex, (const char**)argv + argIndex, expandedArgs, expandedArgOwned);
+
+    if (!TranslateModernArguments(action, expandedCount, expandedArgs, translatedArgs, &translatedCount, &explicitOutputFile))
     {
         fprintf(stderr, "Error: Invalid arguments\n");
-        return false;
+        goto cleanup;
     }
 
     if (action == ACTION_HELP)
     {
         PrintHelp();
-        return true;
+        result = true;
+        goto cleanup;
     }
 
     if (action == ACTION_LIST || action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST)
@@ -4464,7 +4653,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         if (dmg == 0)
         {
             fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
-            return false;
+            goto cleanup;
         }
         bool ok = ParseEntrySelectionList(translatedCount, translatedArgs);
         if (ok)
@@ -4473,7 +4662,9 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             else ExtractSelectedEntries(dmg, action != ACTION_TEST, action == ACTION_EXTRACT_PALETTES);
         }
         DMG_Close(dmg);
-        return ok;
+        dmg = 0;
+        result = ok;
+        goto cleanup;
     }
 
     if (action == ACTION_SHELL)
@@ -4482,20 +4673,22 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         if (dmg == 0)
         {
             fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
-            return false;
+            goto cleanup;
         }
         bool ok = RunInteractiveSession(dmg);
         if (ok && dmg->dirty)
             ok = DMG_Save(dmg);
         DMG_Close(dmg);
-        return ok;
+        dmg = 0;
+        result = ok;
+        goto cleanup;
     }
 
     if (action == ACTION_NEW)
     {
         workingFileName = BuildWorkingFileName(filename);
         if (!ParseCreateArguments(translatedCount, translatedArgs))
-            return false;
+            goto cleanup;
         if (createDAT5)
         {
             uint8_t firstEntry = 0;
@@ -4503,7 +4696,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             if (createDAT5Mode == DMG_DAT5_COLORMODE_NONE)
             {
                 fprintf(stderr, "Error: DAT5 creation requires --mode\n");
-                return false;
+                goto cleanup;
             }
             InferDAT5CreateRange(translatedCount, translatedArgs, &firstEntry, &lastEntry);
             dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
@@ -4514,22 +4707,24 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         }
         if (dmg == 0)
         {
-            fprintf(stderr, "Error: Failed to create \"%s\": %s\n", workingFileName, DMG_GetErrorString());
-            return false;
+            fprintf(stderr, "Error: Failed to create \"%s\" (working file \"%s\"): %s\n", filename, workingFileName, DMG_GetErrorString());
+            goto cleanup;
         }
         bool ok = ParseEntryChanges(dmg, translatedCount, translatedArgs);
         if (ok && dmg->dirty)
             ok = DMG_Save(dmg);
         if (!ok)
-            fprintf(stderr, "Error: Failed to write \"%s\": %s\n", workingFileName, DMG_GetErrorString());
+            fprintf(stderr, "Error: Failed to write \"%s\" (working file \"%s\"): %s\n", filename, workingFileName, DMG_GetErrorString());
         DMG_Close(dmg);
+        dmg = 0;
         if (!ok)
         {
             remove(workingFileName);
-            return false;
+            goto cleanup;
         }
         remove(filename);
-        return rename(workingFileName, filename) == 0;
+        result = rename(workingFileName, filename) == 0;
+        goto cleanup;
     }
 
     if (action == ACTION_UPDATE)
@@ -4545,7 +4740,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         if (dmg == 0)
         {
             fprintf(stderr, "Error: Failed to open \"%s\": %s\n", filename, DMG_GetErrorString());
-            return false;
+            goto cleanup;
         }
 
         bool ok = ParseCreateArguments(translatedCount, translatedArgs);
@@ -4554,7 +4749,8 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         if (!ok)
         {
             DMG_Close(dmg);
-            return false;
+            dmg = 0;
+            goto cleanup;
         }
 
         if (!UpdateRequiresRebuild(dmg, explicitOutputFile, editTokenCount, editTokens))
@@ -4563,26 +4759,29 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             if (modifiedInPlace)
                 ok = DMG_Save(dmg);
             DMG_Close(dmg);
+            dmg = 0;
             if (!ok)
             {
                 fprintf(stderr, "Error: Failed to update \"%s\": %s\n", filename, DMG_GetErrorString());
-                return false;
+                goto cleanup;
             }
             if (modifiedInPlace)
                 printf("%s updated in place.\n", filename);
             else
                 printf("%s already up to date.\n", filename);
-            return true;
+            result = true;
+            goto cleanup;
         }
 
         workingFileName = replaceTarget ? BuildWorkingFileName(finalOutputFile) : finalOutputFile;
         ok = RebuildDAT(dmg, workingFileName);
         DMG_Close(dmg);
+        dmg = 0;
         if (!ok)
         {
             if (replaceTarget)
                 remove(workingFileName);
-            return false;
+            goto cleanup;
         }
 
         if (replaceTarget)
@@ -4591,7 +4790,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             if (rename(workingFileName, finalOutputFile) != 0)
             {
                 fprintf(stderr, "Error: Failed to replace \"%s\"\n", finalOutputFile);
-                return false;
+                goto cleanup;
             }
             printf("%s updated.\n", finalOutputFile);
         }
@@ -4599,27 +4798,28 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         {
             printf("%s written.\n", finalOutputFile);
         }
-        return true;
+        result = true;
+        goto cleanup;
     }
 
-    const char* finalOutputFile = explicitOutputFile != 0 ? explicitOutputFile : filename;
-    bool replaceTarget = explicitOutputFile == 0 || strcmp(explicitOutputFile, filename) == 0;
+    finalOutputFile = explicitOutputFile != 0 ? explicitOutputFile : filename;
+    replaceTarget = explicitOutputFile == 0 || strcmp(explicitOutputFile, filename) == 0;
     workingFileName = replaceTarget ? BuildWorkingFileName(finalOutputFile) : finalOutputFile;
     if (!CopyFileExact(filename, workingFileName))
     {
         fprintf(stderr, "Error: Failed to create working copy \"%s\"\n", workingFileName);
-        return false;
+        goto cleanup;
     }
 
     dmg = DMG_Open(workingFileName, false);
     if (dmg == 0)
     {
         fprintf(stderr, "Error: Failed to open \"%s\": %s\n", workingFileName, DMG_GetErrorString());
-        return false;
+        goto cleanup;
     }
 
-    bool ok = true;
-    bool changed = false;
+    ok = true;
+    changed = false;
     if (action == ACTION_DELETE)
     {
         ok = ParseEntrySelectionList(translatedCount, translatedArgs);
@@ -4638,18 +4838,20 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     if (!ok)
         fprintf(stderr, "Error: Failed to write \"%s\": %s\n", workingFileName, DMG_GetErrorString());
     DMG_Close(dmg);
+    dmg = 0;
 
     if (!ok)
     {
         if (replaceTarget)
             remove(workingFileName);
-        return false;
+        goto cleanup;
     }
 
     if (replaceTarget && !changed)
     {
         remove(workingFileName);
-        return true;
+        result = true;
+        goto cleanup;
     }
 
     if (replaceTarget)
@@ -4658,10 +4860,16 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         if (rename(workingFileName, finalOutputFile) != 0)
         {
             fprintf(stderr, "Error: Failed to replace \"%s\"\n", finalOutputFile);
-            return false;
+            goto cleanup;
         }
     }
-    return true;
+    result = true;
+
+cleanup:
+    if (dmg != 0)
+        DMG_Close(dmg);
+    FreeExpandedArgumentTokens(expandedCount, expandedArgs, expandedArgOwned);
+    return result;
 }
 
 static bool RunCommandLine(int argc, char* argv[])

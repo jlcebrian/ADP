@@ -830,7 +830,9 @@ void DDB_Warning(const char* format, ...)
 	if (warningHandler != 0)
 		warningHandler(buffer);
 	else
+	{
 		DebugPrintf("%s\n", buffer);
+	}
 }
 
 /* ─────────────────────────────────── ────────────────────────────────────── */

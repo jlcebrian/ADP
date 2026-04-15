@@ -207,12 +207,14 @@ int main (int argc, char *argv[])
 	#endif
 	if (freeRam > 16384)
 	{
-		size_t reservedArena = OSReserveArena(freeRam - 2048);
 		#if _DEBUGPRINT
+		size_t reservedArena = OSReserveArena(freeRam - 2048);
 		if (reservedArena != 0)
 			DebugPrintf("Reserved OS arena: %lu bytes\n", (unsigned long)reservedArena);
 		else
 			DebugPrintf("Reserved OS arena: failed\n");
+		#else
+		OSReserveArena(freeRam - 2048);
 		#endif
 	}
 

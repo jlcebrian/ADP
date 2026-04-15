@@ -8,10 +8,6 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
-#ifdef _WIN32
-#include <SDL.h>
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>

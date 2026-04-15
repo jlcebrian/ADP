@@ -4,9 +4,10 @@
 
 VERSION      ?= BETA0.3
 DEBUG_MEMORY ?= 0
-DEBUG_ALLOCS ?= 1
-DEBUGPRINT   ?= 1
+DEBUG_ALLOCS ?= 0
+DEBUGPRINT   ?= 0
 OPTIM        ?= -Os
+
 STACK_WARNING ?= 1024
 STACK_DIAGNOSTICS ?= 0
 STACK_PROBES ?= 0
@@ -88,7 +89,7 @@ endif
 CPPFLAGS= $(CCFLAGS) -fno-rtti -fcoroutines -fno-use-cxa-atexit
 ASFLAGS = -Wa,-g,--register-prefix-optional,-I$(SDKDIR),-D
 LDFLAGS = -Wl,--emit-relocs,-Ttext=0,-Map=$(OUT).map 
-VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -dwarf=3 -quiet -x -I. -I$(SDKDIR)
+VASMFLAGS = -m68000 -Felf -opt-fconst -nowarn=62 -quiet -x -I. -I$(SDKDIR)
 
 .PHONY: all clean adf
 

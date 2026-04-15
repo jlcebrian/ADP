@@ -425,7 +425,6 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 
 	unsigned requiredSize = DMG_CalculateRequiredSize(entry, ImageMode_PlanarST);
 
-#ifndef NO_CACHE
 	cache = DMG_GetImageCache (dmg, index, entry, requiredSize);
 	if (cache)
 	{
@@ -435,7 +434,6 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		bufferSize = cache->size;
 		destinationIsImageCache = true;
 	}
-#endif
 
 	if (buffer == 0 || bufferSize < requiredSize)
 	{
@@ -466,10 +464,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		return result;
 	}
 
-#ifndef NO_CACHE
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);
 	if (fileData == 0)
-#endif
 	{
 		if (entry->length > bufferSize)
 		{

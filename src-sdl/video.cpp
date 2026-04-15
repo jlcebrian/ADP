@@ -1909,7 +1909,9 @@ void VID_InitAudio ()
 
 bool VID_LoadDataFile(const char* fileName)
 {
+	#if HAS_XMSG
 	DDB_InitializeXMessageCache(65536);
+	#endif
 
 	#if HAS_PCX
 	FreeBufferedPCXPicture();

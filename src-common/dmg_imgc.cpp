@@ -137,7 +137,6 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 
 	unsigned requiredSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 
-#ifndef NO_CACHE
 	DMG_Cache* cache = DMG_GetImageCache(dmg, index, entry, requiredSize);
 	if (cache)
 	{
@@ -146,7 +145,6 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 			return buffer;
 		bufferSize = cache->size;
 	}
-#endif
 
 	if (buffer == 0 || bufferSize < requiredSize)
 	{
@@ -166,11 +164,9 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		return 0;
 	}
 
-#ifndef NO_CACHE
 	uint32_t dataOffset = entry->fileOffset + 6;
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
 	if (fileData == 0)
-#endif
 	{
 		if (entry->length > bufferSize)
 		{

@@ -66,7 +66,9 @@ static int RunWithExpandedStackIfNeeded()
 {
 	uint32_t stackBytes = GetTaskStackSize();
 	if (stackBytes != 0)
+	{
 		DebugPrintf("Task stack size: %u bytes\n", stackBytes);
+	}
 
 	if (stackBytes >= kPrivateStackBytes)
 		return RunApplication();

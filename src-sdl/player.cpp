@@ -10,6 +10,8 @@
 
 #include <SDL.h>
 
+static bool traceOn = false;
+
 #if _WEB
 
 #include <emscripten.h>
@@ -17,10 +19,13 @@
 
 void TracePrintf(const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
+	if (traceOn)
+	{
+		va_list args;
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
+	}
 }
 
 extern bool quit;
@@ -183,10 +188,13 @@ int main (int argc, char *argv[])
 
 void TracePrintf(const char* format, ...)
 {
-	va_list args;
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
+	if (traceOn)
+	{
+		va_list args;
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
+	}
 }
 
 int main (int argc, char *argv[])
