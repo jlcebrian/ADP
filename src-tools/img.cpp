@@ -878,6 +878,12 @@ bool LoadPNGIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
         png_set_strip_16(png);
     }
 
+    if (colorType == PNG_COLOR_TYPE_PALETTE && bitDepth < 8) {
+        png_set_packing(png);
+        png_read_update_info(png, info);
+        bitDepth = png_get_bit_depth(png, info);
+    }
+
     *width = (uint16_t)pngWidth;
     *height = (uint16_t)pngHeight;
 
@@ -987,8 +993,11 @@ bool LoadPNGIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
     Free(rowPointers);
 
     int entryCount = numPaletteEntries;
-    if (!ReduceIndexedPalette(buffer, (uint32_t)pngWidth * pngHeight, palette, paletteAlpha, &entryCount, maxColors))
-        return false;
+    if (numPaletteEntries > maxColors)
+    {
+        if (!ReduceIndexedPalette(buffer, (uint32_t)pngWidth * pngHeight, palette, paletteAlpha, &entryCount, maxColors))
+            return false;
+    }
     if (reduced)
         *reduced = entryCount != numPaletteEntries;
     if (paletteSize)

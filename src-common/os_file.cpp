@@ -46,11 +46,19 @@ static void File_SetErrnoState(FileError defaultError)
 	{
 		case 0:
 			break;
+		#ifdef ENOENT
 		case ENOENT:
 			mapped = FileError_FileNotFound;
 			break;
+		#endif
+		#if defined(EACCES) && defined(EPERM)
 		case EACCES:
 		case EPERM:
+		#elif defined(EACCES)
+		case EACCES:
+		#elif defined(EPERM)
+		case EPERM:
+		#endif
 			mapped = defaultError == FileError_NotReadable ? FileError_NotReadable : FileError_NotWritable;
 			break;
 		default:
@@ -399,11 +407,19 @@ static void File_SetErrnoState(FileError defaultError)
 	{
 		case 0:
 			break;
+		#ifdef ENOENT
 		case ENOENT:
 			mapped = FileError_FileNotFound;
 			break;
+		#endif
+		#if defined(EACCES) && defined(EPERM)
 		case EACCES:
 		case EPERM:
+		#elif defined(EACCES)
+		case EACCES:
+		#elif defined(EPERM)
+		case EPERM:
+		#endif
 			mapped = defaultError == FileError_NotReadable ? FileError_NotReadable : FileError_NotWritable;
 			break;
 		default:

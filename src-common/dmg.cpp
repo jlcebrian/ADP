@@ -170,6 +170,8 @@ bool DMG_EnsureEditableEntryData(DMG* dmg)
 		return false;
 	}
 	MemClear(dmg->editableEntries, sizeof(DMG_EditableEntryData) * 256);
+	for (int i = 0; i < 256; i++)
+		dmg->editableEntries[i].reusedFrom = 0xFF;
 	return true;
 }
 
@@ -383,6 +385,15 @@ DMG_Error DMG_GetError()
 	return dmgError;
 }
 
+static const char* DMG_GetFileErrorDetail(const char* fallback)
+{
+#if defined(HAS_VIRTUALFILESYSTEM) || defined(_STDCLIB)
+	return File_GetError() != FileError_None ? File_GetErrorString() : fallback;
+#else
+	return fallback;
+#endif
+}
+
 const char* DMG_GetErrorString()
 {
 	switch (dmgError)
@@ -392,17 +403,17 @@ const char* DMG_GetErrorString()
 		case DMG_ERROR_FILE_NOT_FOUND:
 			return "File not found";
 		case DMG_ERROR_CREATING_FILE:
-			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error creating file";
+			return DMG_GetFileErrorDetail("I/O Error creating file");
 		case DMG_ERROR_OUT_OF_MEMORY:
 			return "Out of memory";
 		case DMG_ERROR_UNKNOWN_SIGNATURE:
 			return "Unknown signature";
 		case DMG_ERROR_READING_FILE:
-			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error reading file";
+			return DMG_GetFileErrorDetail("I/O Error reading file");
 		case DMG_ERROR_SEEKING_FILE:
 			return "I/O Error accessing file";
 		case DMG_ERROR_WRITING_FILE:
-			return File_GetError() != FileError_None ? File_GetErrorString() : "I/O Error writing file";
+			return DMG_GetFileErrorDetail("I/O Error writing file");
 		case DMG_ERROR_INVALID_ENTRY_COUNT:
 			return "Invalid entry count";
 		case DMG_ERROR_FILE_TOO_SMALL:

@@ -52,11 +52,12 @@
 
 DMG
 
-[ ] Write/add sound to dat
+[x] Write/add sound to dat
 [ ] Support creation of EGA/CGA files and little endian .DATs
 [ ] Debug CGA red/blue flag
 [ ] Debug other potential flags in file
-[ ] Link entry to another one from command line
+[x] Link entry to another one from command line
+[ ] Allow EGA/CGA palettes to be imported from JSON
 
 DSK
 

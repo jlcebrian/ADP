@@ -29,6 +29,36 @@ bool DMG_PackChunkyPixels(const uint8_t* input, uint16_t width, uint16_t height,
 	return true;
 }
 
+bool DMG_PackPlanar8Pixels(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output)
+{
+	const uint32_t blocksPerRow = ((uint32_t)width + 7) >> 3;
+
+	for (uint16_t y = 0; y < height; y++)
+	{
+		const uint8_t* row = input + (uint32_t)y * width;
+		for (uint32_t block = 0; block < blocksPerRow; block++)
+		{
+			uint8_t planes[4] = { 0, 0, 0, 0 };
+			for (uint32_t bit = 0; bit < 8; bit++)
+			{
+				uint32_t x = (block << 3) + bit;
+				uint8_t color = x < width ? row[x] : 0;
+				uint8_t mask = (uint8_t)(0x80u >> bit);
+				if (color & 0x01) planes[0] |= mask;
+				if (color & 0x02) planes[1] |= mask;
+				if (color & 0x04) planes[2] |= mask;
+				if (color & 0x08) planes[3] |= mask;
+			}
+			*output++ = planes[0];
+			*output++ = planes[1];
+			*output++ = planes[2];
+			*output++ = planes[3];
+		}
+	}
+
+	return true;
+}
+
 bool DMG_PackBitplaneBytes(const uint8_t* input, uint16_t width, uint16_t height, uint8_t bitsPerPixel, uint8_t* output)
 {
 	if (bitsPerPixel == 0 || bitsPerPixel > 8)

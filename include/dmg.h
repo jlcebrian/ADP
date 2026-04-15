@@ -283,6 +283,7 @@ typedef enum
 	DMG_EDITDATA_OWNS_STORED_DATA = 0x01,
 	DMG_EDITDATA_OWNS_PALETTE = 0x02,
 	DMG_EDITDATA_OWNS_CONVERSION_PALETTE = 0x04,
+	DMG_EDITDATA_REUSES_STORED_DATA = 0x08,
 }
 DMG_EditableEntryFlags;
 
@@ -291,6 +292,7 @@ struct DMG_EditableEntryData
 	uint8_t*		storedData;
 	uint32_t		storedDataSize;
 	uint8_t			flags;
+	uint8_t			reusedFrom;
 };
 
 struct DMG_Entry
@@ -361,6 +363,8 @@ struct DMG
 	uint32_t*   paletteBlock;
 	DMG_CVPal* conversionPaletteBlock;
 	DMG_EditableEntryData* editableEntries;
+	uint8_t     savePriority[256];
+	uint16_t    savePriorityCount;
 
 	uint8_t*    fileCacheData;
 	uint32_t    fileCacheSize;
@@ -414,6 +418,8 @@ bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t
 bool        DMG_SetImageDataEx     (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth);
 bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
 bool        DMG_ReuseEntryData     (DMG* dmg, uint8_t index, uint8_t originalIndex);
+void        DMG_ClearSavePriority  (DMG* dmg);
+bool        DMG_AddSavePriority    (DMG* dmg, uint8_t index);
 int         DMG_GetEntryCount      (DMG* dmg);
 uint8_t     DMG_FindFreeEntry      (DMG* dmg);
 void		DMG_Close			   (DMG* dmg);
@@ -506,25 +512,55 @@ static inline const DMG_EditableEntryData* DMG_GetEditableEntryData(const DMG* d
 static inline uint8_t* DMG_GetEntryStoredData(DMG* dmg, uint8_t index)
 {
 	DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
-	return edit != 0 ? edit->storedData : 0;
+	for (int depth = 0; edit != 0 && depth < 256; depth++)
+	{
+		if ((edit->flags & DMG_EDITDATA_REUSES_STORED_DATA) == 0)
+			return edit->storedData;
+		edit = DMG_GetEditableEntryData(dmg, edit->reusedFrom);
+	}
+	return 0;
 }
 
 static inline const uint8_t* DMG_GetEntryStoredData(const DMG* dmg, uint8_t index)
 {
 	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
-	return edit != 0 ? edit->storedData : 0;
+	for (int depth = 0; edit != 0 && depth < 256; depth++)
+	{
+		if ((edit->flags & DMG_EDITDATA_REUSES_STORED_DATA) == 0)
+			return edit->storedData;
+		edit = DMG_GetEditableEntryData(dmg, edit->reusedFrom);
+	}
+	return 0;
 }
 
 static inline uint32_t DMG_GetEntryStoredDataSize(const DMG* dmg, uint8_t index)
 {
 	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
-	return edit != 0 ? edit->storedDataSize : 0;
+	for (int depth = 0; edit != 0 && depth < 256; depth++)
+	{
+		if ((edit->flags & DMG_EDITDATA_REUSES_STORED_DATA) == 0)
+			return edit->storedDataSize;
+		edit = DMG_GetEditableEntryData(dmg, edit->reusedFrom);
+	}
+	return 0;
 }
 
 static inline bool DMG_EditableEntryOwnsStoredData(const DMG* dmg, uint8_t index)
 {
 	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
 	return edit != 0 && (edit->flags & DMG_EDITDATA_OWNS_STORED_DATA) != 0;
+}
+
+static inline bool DMG_EditableEntryReusesStoredData(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 && (edit->flags & DMG_EDITDATA_REUSES_STORED_DATA) != 0;
+}
+
+static inline uint8_t DMG_GetEntryStoredDataSource(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 ? edit->reusedFrom : 0xFF;
 }
 
 static inline bool DMG_EditableEntryOwnsPalette(const DMG* dmg, uint8_t index)
