@@ -13,9 +13,72 @@
 
 static bool DMG_UpdateEntryV5(DMG* dmg, uint8_t index);
 static bool DMG_InsertBlock(DMG* dmg, uint32_t offset, uint32_t size);
-static bool DMG_LoadEntryStoredData(DMG* dmg, DMG_Entry* entry);
-static bool DMG_WriteClassicPayload(File* file, DMG* dmg, DMG_Entry* entry);
+static bool DMG_LoadEntryStoredData(DMG* dmg, uint8_t index, DMG_Entry* entry);
+static bool DMG_WriteClassicPayload(File* file, DMG* dmg, uint8_t index, DMG_Entry* entry);
 static bool DMG_WriteDAT5Payload(File* file, DMG* dmg, uint8_t index, DMG_Entry* entry);
+
+static void DMG_FreeEntryPaletteStorage(DMG* dmg, uint8_t index, DMG_Entry* entry)
+{
+    if (entry == 0)
+        return;
+    if (entry->RGB32Palette != 0 && DMG_EditableEntryOwnsPalette(dmg, index))
+        Free(entry->RGB32Palette);
+    if (entry->conversionPalette != 0 && DMG_EditableEntryOwnsConversionPalette(dmg, index))
+        Free(entry->conversionPalette);
+    entry->RGB32Palette = 0;
+    entry->conversionPalette = 0;
+    DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+    if (edit != 0)
+        edit->flags &= (uint8_t)~(DMG_EDITDATA_OWNS_PALETTE | DMG_EDITDATA_OWNS_CONVERSION_PALETTE);
+}
+
+static bool DMG_EnsureOwnedPalette(DMG* dmg, uint8_t index, DMG_Entry* entry, uint16_t colorCount)
+{
+    if (entry == 0)
+        return false;
+    if (colorCount == 0)
+    {
+        if (entry->RGB32Palette != 0 && DMG_EditableEntryOwnsPalette(dmg, index))
+            Free(entry->RGB32Palette);
+        entry->RGB32Palette = 0;
+        DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+        if (edit != 0)
+            edit->flags &= (uint8_t)~DMG_EDITDATA_OWNS_PALETTE;
+        return true;
+    }
+    if (!DMG_EnsureEditableEntryData(dmg))
+        return false;
+    uint32_t* palette = Allocate<uint32_t>("DMG palette", colorCount);
+    if (palette == 0)
+    {
+        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+        return false;
+    }
+    if (entry->RGB32Palette != 0 && DMG_EditableEntryOwnsPalette(dmg, index))
+        Free(entry->RGB32Palette);
+    entry->RGB32Palette = palette;
+    DMG_GetEditableEntryData(dmg, index)->flags |= DMG_EDITDATA_OWNS_PALETTE;
+    return true;
+}
+
+static bool DMG_EnsureOwnedConversionPalette(DMG* dmg, uint8_t index, DMG_Entry* entry)
+{
+    if (entry == 0)
+        return false;
+    if (!DMG_EnsureEditableEntryData(dmg))
+        return false;
+    DMG_CVPal* palette = Allocate<DMG_CVPal>("DMG conversion palette");
+    if (palette == 0)
+    {
+        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+        return false;
+    }
+    if (entry->conversionPalette != 0 && DMG_EditableEntryOwnsConversionPalette(dmg, index))
+        Free(entry->conversionPalette);
+    entry->conversionPalette = palette;
+    DMG_GetEditableEntryData(dmg, index)->flags |= DMG_EDITDATA_OWNS_CONVERSION_PALETTE;
+    return true;
+}
 
 static void DMG_MarkDirty(DMG* dmg)
 {
@@ -23,41 +86,44 @@ static void DMG_MarkDirty(DMG* dmg)
         dmg->dirty = true;
 }
 
-static void DMG_FreeStoredData(DMG_Entry* entry)
+static void DMG_FreeStoredData(DMG* dmg, uint8_t index)
 {
-    if (entry != 0 && entry->storedData != 0 && entry->ownsStoredData)
-        Free(entry->storedData);
-    if (entry != 0)
-    {
-        entry->storedData = 0;
-        entry->storedDataSize = 0;
-        entry->ownsStoredData = false;
-    }
+    DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+    if (edit == 0)
+        return;
+    if (edit->storedData != 0 && (edit->flags & DMG_EDITDATA_OWNS_STORED_DATA) != 0)
+        Free(edit->storedData);
+    edit->storedData = 0;
+    edit->storedDataSize = 0;
+    edit->flags &= (uint8_t)~DMG_EDITDATA_OWNS_STORED_DATA;
 }
 
-static bool DMG_StoreEntryData(DMG_Entry* entry, const uint8_t* buffer, uint32_t size)
+static bool DMG_StoreEntryData(DMG* dmg, uint8_t index, const uint8_t* buffer, uint32_t size)
 {
-    DMG_FreeStoredData(entry);
+    DMG_FreeStoredData(dmg, index);
     if (size == 0)
         return true;
+    if (!DMG_EnsureEditableEntryData(dmg))
+        return false;
 
-    entry->storedData = Allocate<uint8_t>("DMG entry data", size);
-    if (entry->storedData == 0)
+    DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+    edit->storedData = Allocate<uint8_t>("DMG entry data", size);
+    if (edit->storedData == 0)
     {
         DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
         return false;
     }
-    MemCopy(entry->storedData, buffer, size);
-    entry->storedDataSize = size;
-    entry->ownsStoredData = true;
+    MemCopy(edit->storedData, buffer, size);
+    edit->storedDataSize = size;
+    edit->flags |= DMG_EDITDATA_OWNS_STORED_DATA;
     return true;
 }
 
-static bool DMG_LoadEntryStoredData(DMG* dmg, DMG_Entry* entry)
+static bool DMG_LoadEntryStoredData(DMG* dmg, uint8_t index, DMG_Entry* entry)
 {
     if (dmg == 0 || entry == 0 || entry->type == DMGEntry_Empty)
         return true;
-    if (entry->storedData != 0)
+    if (DMG_GetEntryStoredData(dmg, index) != 0)
         return true;
 
     uint32_t offset = entry->fileOffset;
@@ -96,9 +162,15 @@ static bool DMG_LoadEntryStoredData(DMG* dmg, DMG_Entry* entry)
         DMG_SetError(DMG_ERROR_READING_FILE);
         return false;
     }
-    entry->storedData = data;
-    entry->storedDataSize = size;
-    entry->ownsStoredData = true;
+    if (!DMG_EnsureEditableEntryData(dmg))
+    {
+        Free(data);
+        return false;
+    }
+    DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+    edit->storedData = data;
+    edit->storedDataSize = size;
+    edit->flags |= DMG_EDITDATA_OWNS_STORED_DATA;
     return true;
 }
 
@@ -399,10 +471,11 @@ static bool DMG_InsertBlock (DMG* dmg, uint32_t offset, uint32_t size)
 static void WritePalette(uint8_t* ptr, DMG_Entry* entry)
 {
 	int n;
+    const uint8_t* egaPalette = DMG_GetEntryEGAPalette(entry);
 	for (n = 0; n < 16; n++)
 	{
 		uint32_t color = entry->RGB32Palette[n];
-		uint8_t e = entry->EGAPalette[n] & 0x0F;
+        uint8_t e = egaPalette != 0 ? (egaPalette[n] & 0x0F) : (n & 0x0F);
 		uint8_t r = (color >> 20) & 0x0F;
 		uint8_t g = (color >> 12) & 0x0F;
 		uint8_t b = (color >>  4) & 0x0F;
@@ -532,17 +605,13 @@ bool DMG_RemoveEntry(DMG* dmg, uint8_t index)
 
 	if (entry->type != DMGEntry_Empty)
 	{
-        DMG_FreeStoredData(entry);
+        DMG_FreeStoredData(dmg, index);
+        DMG_FreeEntryPaletteStorage(dmg, index, entry);
         entry->fileOffset = 0;
         entry->length = 0;
         entry->paletteOffset = 0;
         entry->paletteColors = 0;
         entry->paletteSize = 0;
-        if (entry->RGB32PaletteV5 != 0)
-        {
-            Free(entry->RGB32PaletteV5);
-            entry->RGB32PaletteV5 = 0;
-        }
         entry->type = DMGEntry_Empty;
         return DMG_UpdateEntry(dmg, index);
 	}
@@ -594,6 +663,7 @@ bool DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16
 				return false;
 			}
 			entry = dmg->entries[index];
+            MemClear(entry, sizeof(DMG_Entry));
 			entry->type = DMGEntry_Empty;
 		}
 		else
@@ -611,9 +681,8 @@ bool DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16
             DMG_SetError(DMG_ERROR_INVALID_ENTRY_COUNT);
             return false;
         }
-        if (entry->RGB32PaletteV5 != 0)
-            Free(entry->RGB32PaletteV5);
-        entry->RGB32PaletteV5 = 0;
+        if (!DMG_EnsureOwnedPalette(dmg, index, entry, paletteSize))
+            return false;
         entry->paletteColors = paletteSize;
         entry->firstColor = paletteSize == 0 ? 0 : firstColor;
         entry->lastColor = paletteSize == 0 ? 0 : lastColor;
@@ -621,22 +690,42 @@ bool DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16
         entry->paletteOffset = 0;
 
         if (paletteSize != 0)
-        {
-            entry->RGB32PaletteV5 = Allocate<uint32_t>("DAT5 palette", paletteSize);
-            if (entry->RGB32PaletteV5 == 0)
-            {
-                DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
-                return false;
-            }
             for (n = 0; n < paletteSize; n++)
-                entry->RGB32PaletteV5[n] = palette[n];
-        }
+                entry->RGB32Palette[n] = palette[n];
+		DMG_SetPaletteDecoded(entry, paletteSize != 0);
         DMG_MarkDirty(dmg);
         return true;
     }
 
+    if (!DMG_EnsureOwnedPalette(dmg, index, entry, 16))
+		return false;
 	for (n = 0; n < 16; n++)
 		entry->RGB32Palette[n] = palette[n];
+	DMG_MarkDirty(dmg);
+	return true;
+}
+
+bool DMG_SetEntryConversionPalette(DMG* dmg, uint8_t index, const DMG_CVPal* palette)
+{
+	DMG_Entry* entry = DMG_GetEntry(dmg, index);
+	if (entry == 0)
+		return false;
+	if (dmg->version == DMG_Version5)
+		return true;
+	if (palette == 0)
+	{
+        if (entry->conversionPalette != 0 && DMG_EditableEntryOwnsConversionPalette(dmg, index))
+			Free(entry->conversionPalette);
+		entry->conversionPalette = 0;
+        DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+        if (edit != 0)
+            edit->flags &= (uint8_t)~DMG_EDITDATA_OWNS_CONVERSION_PALETTE;
+		DMG_MarkDirty(dmg);
+		return true;
+	}
+    if (!DMG_EnsureOwnedConversionPalette(dmg, index, entry))
+		return false;
+	MemCopy(entry->conversionPalette, palette, sizeof(DMG_CVPal));
 	DMG_MarkDirty(dmg);
 	return true;
 }
@@ -678,8 +767,8 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 		}
 
         if (entry->type != DMGEntry_Empty)
-            DMG_FreeStoredData(entry);
-        if (!DMG_StoreEntryData(entry, buffer, size))
+            DMG_FreeStoredData(dmg, index);
+        if (!DMG_StoreEntryData(dmg, index, buffer, size))
             return false;
         entry->type = DMGEntry_Audio;
         entry->fileOffset = 0;
@@ -709,9 +798,9 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
 
 	if (entry->type != DMGEntry_Empty)
 	{
-        DMG_FreeStoredData(entry);
+        DMG_FreeStoredData(dmg, index);
     }
-    if (!DMG_StoreEntryData(entry, buffer, size))
+    if (!DMG_StoreEntryData(dmg, index, buffer, size))
         return false;
 
 	entry->type = DMGEntry_Audio;
@@ -772,8 +861,8 @@ bool DMG_SetImageDataEx (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t widt
 		}
 
         if (entry->type != DMGEntry_Empty)
-            DMG_FreeStoredData(entry);
-        if (!DMG_StoreEntryData(entry, buffer, size))
+            DMG_FreeStoredData(dmg, index);
+        if (!DMG_StoreEntryData(dmg, index, buffer, size))
             return false;
 
         entry->type = DMGEntry_Image;
@@ -811,9 +900,9 @@ bool DMG_SetImageDataEx (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t widt
 
 	if (entry->type != DMGEntry_Empty)
 	{
-        DMG_FreeStoredData(entry);
+        DMG_FreeStoredData(dmg, index);
 	}
-    if (!DMG_StoreEntryData(entry, buffer, size))
+    if (!DMG_StoreEntryData(dmg, index, buffer, size))
         return false;
 
 	entry->type = DMGEntry_Image;
@@ -1098,49 +1187,61 @@ bool DMG_ReuseEntryData(DMG* dmg, uint8_t index, uint8_t originalIndex)
     if (target->type != DMGEntry_Empty && !DMG_RemoveEntry(dmg, index))
         return false;
 
-    if (!DMG_LoadEntryStoredData(dmg, source))
+    if (!DMG_LoadEntryStoredData(dmg, originalIndex, source))
         return false;
 
-    uint8_t* sourceData = source->storedData;
-    uint32_t sourceDataSize = source->storedDataSize;
+    uint8_t* sourceData = DMG_GetEntryStoredData(dmg, originalIndex);
+    uint32_t sourceDataSize = DMG_GetEntryStoredDataSize(dmg, originalIndex);
+    uint16_t sourcePaletteSize = dmg->version == DMG_Version5 ? source->paletteColors : (source->RGB32Palette != 0 ? 16 : 0);
+    const DMG_CVPal* sourceConversionPalette = source->conversionPalette;
+    uint32_t* sourcePalette = source->RGB32Palette;
     MemCopy(target, source, sizeof(DMG_Entry));
-    target->storedData = 0;
-    target->storedDataSize = 0;
-    target->ownsStoredData = false;
-    if (dmg->version == DMG_Version5 && source->RGB32PaletteV5 != 0 && source->paletteColors != 0)
+    target->RGB32Palette = 0;
+    target->conversionPalette = 0;
+    DMG_FreeStoredData(dmg, index);
+    DMG_EditableEntryData* targetEdit = DMG_GetEditableEntryData(dmg, index);
+    if (targetEdit != 0)
+        targetEdit->flags &= (uint8_t)~(DMG_EDITDATA_OWNS_PALETTE | DMG_EDITDATA_OWNS_CONVERSION_PALETTE);
+    if (sourcePaletteSize != 0)
     {
-        target->RGB32PaletteV5 = Allocate<uint32_t>("DAT5 palette", source->paletteColors);
-        if (target->RGB32PaletteV5 == 0)
+        if (!DMG_EnsureOwnedPalette(dmg, index, target, sourcePaletteSize))
         {
-            DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
             return false;
         }
-        MemCopy(target->RGB32PaletteV5, source->RGB32PaletteV5, source->paletteColors * sizeof(uint32_t));
+        MemCopy(target->RGB32Palette, sourcePalette, sourcePaletteSize * sizeof(uint32_t));
     }
-    if (sourceDataSize != 0 && !DMG_StoreEntryData(target, sourceData, sourceDataSize))
+    if (sourceConversionPalette != 0)
+    {
+        if (!DMG_EnsureOwnedConversionPalette(dmg, index, target))
+            return false;
+        MemCopy(target->conversionPalette, sourceConversionPalette, sizeof(DMG_CVPal));
+    }
+    if (sourceDataSize != 0 && !DMG_StoreEntryData(dmg, index, sourceData, sourceDataSize))
         return false;
     target->fileOffset = 0;
     target->flags |= DMG_FLAG_PROCESSED;
     return DMG_UpdateEntry(dmg, index);
 }
 
-static bool DMG_WriteClassicPayload(File* file, DMG* dmg, DMG_Entry* entry)
+static bool DMG_WriteClassicPayload(File* file, DMG* dmg, uint8_t index, DMG_Entry* entry)
 {
     uint8_t header[6];
-    if (!DMG_LoadEntryStoredData(dmg, entry))
+    if (!DMG_LoadEntryStoredData(dmg, index, entry))
         return false;
+    uint32_t storedDataSize = DMG_GetEntryStoredDataSize(dmg, index);
+    const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
 
     if (entry->type == DMGEntry_Image)
     {
         write16(header + 0x00, entry->width | ((entry->flags & DMG_FLAG_COMPRESSED) ? 0x8000 : 0), dmg->littleEndian);
         write16(header + 0x02, entry->height, dmg->littleEndian);
-        write16(header + 0x04, (uint16_t)entry->storedDataSize, dmg->littleEndian);
+        write16(header + 0x04, (uint16_t)storedDataSize, dmg->littleEndian);
     }
     else
     {
         write16(header + 0x00, 0, dmg->littleEndian);
         write16(header + 0x02, 0x8000, dmg->littleEndian);
-        write16(header + 0x04, (uint16_t)entry->storedDataSize, dmg->littleEndian);
+        write16(header + 0x04, (uint16_t)storedDataSize, dmg->littleEndian);
     }
 
     if (File_Write(file, header, sizeof(header)) != sizeof(header))
@@ -1148,7 +1249,7 @@ static bool DMG_WriteClassicPayload(File* file, DMG* dmg, DMG_Entry* entry)
         DMG_SetError(DMG_ERROR_WRITING_FILE);
         return false;
     }
-    if (entry->storedDataSize != 0 && File_Write(file, entry->storedData, entry->storedDataSize) != entry->storedDataSize)
+    if (storedDataSize != 0 && File_Write(file, storedData, storedDataSize) != storedDataSize)
     {
         DMG_SetError(DMG_ERROR_WRITING_FILE);
         return false;
@@ -1160,9 +1261,11 @@ static bool DMG_WriteDAT5Payload(File* file, DMG* dmg, uint8_t index, DMG_Entry*
 {
     if (entry->type == DMGEntry_Audio)
     {
-        if (!DMG_LoadEntryStoredData(dmg, entry))
+        if (!DMG_LoadEntryStoredData(dmg, index, entry))
             return false;
-        if (entry->storedDataSize != 0 && File_Write(file, entry->storedData, entry->storedDataSize) != entry->storedDataSize)
+        uint32_t storedDataSize = DMG_GetEntryStoredDataSize(dmg, index);
+        const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
+        if (storedDataSize != 0 && File_Write(file, storedData, storedDataSize) != storedDataSize)
         {
             DMG_SetError(DMG_ERROR_WRITING_FILE);
             return false;
@@ -1170,8 +1273,10 @@ static bool DMG_WriteDAT5Payload(File* file, DMG* dmg, uint8_t index, DMG_Entry*
         return true;
     }
 
-    if (!DMG_LoadEntryStoredData(dmg, entry))
+    if (!DMG_LoadEntryStoredData(dmg, index, entry))
         return false;
+    uint32_t storedDataSize = DMG_GetEntryStoredDataSize(dmg, index);
+    const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
 
     uint32_t paletteBytes = entry->paletteColors * 3;
     entry->paletteSize = paletteBytes;
@@ -1199,7 +1304,7 @@ static bool DMG_WriteDAT5Payload(File* file, DMG* dmg, uint8_t index, DMG_Entry*
         }
     }
 
-    if (entry->storedDataSize != 0 && File_Write(file, entry->storedData, entry->storedDataSize) != entry->storedDataSize)
+    if (storedDataSize != 0 && File_Write(file, storedData, storedDataSize) != storedDataSize)
     {
         DMG_SetError(DMG_ERROR_WRITING_FILE);
         return false;
@@ -1221,7 +1326,7 @@ bool DMG_Save(DMG* dmg)
             DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)i);
             if (entry == 0 || entry->type == DMGEntry_Empty)
                 continue;
-            if (!DMG_LoadEntryStoredData(dmg, entry))
+            if (!DMG_LoadEntryStoredData(dmg, (uint8_t)i, entry))
                 return false;
             if (entry->type == DMGEntry_Image && entry->paletteColors != 0 && DMG_GetEntryStoredPalette(dmg, (uint8_t)i) == 0)
                 return false;
@@ -1234,7 +1339,7 @@ bool DMG_Save(DMG* dmg)
             DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)i);
             if (entry == 0 || entry->type == DMGEntry_Empty)
                 continue;
-            if (!DMG_LoadEntryStoredData(dmg, entry))
+            if (!DMG_LoadEntryStoredData(dmg, (uint8_t)i, entry))
                 return false;
         }
     }
@@ -1257,16 +1362,16 @@ bool DMG_Save(DMG* dmg)
                 continue;
             if (entry->type == DMGEntry_Image)
             {
-                if (!DMG_LoadEntryStoredData(dmg, entry))
+                if (!DMG_LoadEntryStoredData(dmg, (uint8_t)i, entry))
                     return false;
                 entry->paletteSize = entry->paletteColors * 3;
-                entry->length = entry->paletteSize + entry->storedDataSize;
+                entry->length = entry->paletteSize + DMG_GetEntryStoredDataSize(dmg, (uint8_t)i);
             }
             else
             {
-                if (!DMG_LoadEntryStoredData(dmg, entry))
+                if (!DMG_LoadEntryStoredData(dmg, (uint8_t)i, entry))
                     return false;
-                entry->length = entry->storedDataSize;
+                entry->length = DMG_GetEntryStoredDataSize(dmg, (uint8_t)i);
             }
             entry->fileOffset = offset;
             offset += entry->length;
@@ -1353,11 +1458,11 @@ bool DMG_Save(DMG* dmg)
         DMG_Entry* entry = dmg->entries[i];
         if (entry == 0 || entry->type == DMGEntry_Empty)
             continue;
-        if (!DMG_LoadEntryStoredData(dmg, entry))
+        if (!DMG_LoadEntryStoredData(dmg, (uint8_t)i, entry))
             return false;
         entry->fileOffset = dataOffset;
-        entry->length = entry->storedDataSize;
-        dataOffset += 6 + entry->storedDataSize;
+        entry->length = DMG_GetEntryStoredDataSize(dmg, (uint8_t)i);
+        dataOffset += 6 + DMG_GetEntryStoredDataSize(dmg, (uint8_t)i);
     }
 
     uint8_t header[10];
@@ -1441,8 +1546,9 @@ bool DMG_Save(DMG* dmg)
                 else
                 {
                     uint32_t cgaPalette = 0;
+                    const uint8_t* entryCGAPalette = DMG_GetEntryCGAPalette(entry);
                     for (int n = 0; n < 16; n++)
-                        cgaPalette |= (entry->CGAPalette[n] & 0x03) << (n * 2);
+                        cgaPalette |= ((entryCGAPalette != 0 ? entryCGAPalette[n] : (n & 0x03)) & 0x03) << (n * 2);
                     write32(buffer + 0x2C, cgaPalette, dmg->littleEndian);
                 }
             }
@@ -1459,7 +1565,7 @@ bool DMG_Save(DMG* dmg)
         DMG_Entry* entry = dmg->entries[i];
         if (entry == 0 || entry->type == DMGEntry_Empty)
             continue;
-        if (!DMG_WriteClassicPayload(dmg->file, dmg, entry))
+        if (!DMG_WriteClassicPayload(dmg->file, dmg, (uint8_t)i, entry))
             return false;
     }
 

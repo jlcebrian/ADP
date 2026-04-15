@@ -35,6 +35,7 @@ static void IgnoreDDBWarning(const char* message)
 #endif
 
 static void CloseEnum();
+static int CountFiles(const char* extension);
 static int CountDDBFiles();
 static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version);
 
@@ -252,9 +253,16 @@ static void DetectDDBFiles()
 		return;
 
 	ddbFileCount = 0;
+	int namedDDBCount = CountFiles(".ddb");
 	DDB_SetWarningHandler(IgnoreDDBWarning);
 	for (int n = 0; n < fileCount && ddbFileCount < MAX_FILES; n++)
 	{
+		if (namedDDBCount > 0)
+		{
+			const char* dot = StrRChr(files[n], '.');
+			if (dot == 0 || StrIComp(dot, ".ddb") != 0)
+				continue;
+		}
 		if (DDB_Check(files[n], 0, 0, 0))
 		{
 			ddbFiles[ddbFileCount++] = n;

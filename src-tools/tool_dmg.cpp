@@ -92,9 +92,10 @@ static char filename[1024];
 static char newfilename[1024];
 static bool selected[256];
 static bool verbose = false;
-static bool listSortById = false;
+static bool listSortById = true;
 static bool readOnly = true;
 static bool createDAT5 = false;
+static bool createFormatExplicit = false;
 static DMG_Version createLegacyVersion = DMG_Version2;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
@@ -103,6 +104,7 @@ static bool compressionEnabled = true;
 static void ResetCreateSettings()
 {
     createDAT5 = false;
+    createFormatExplicit = false;
     createLegacyVersion = DMG_Version2;
     createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
     createDAT5Width = 320;
@@ -179,6 +181,7 @@ typedef enum
 {
     DMG_OPTION_VERBOSE = 1,
     DMG_OPTION_SORT_BY_ID,
+    DMG_OPTION_FILE_ORDER,
     DMG_OPTION_HELP,
 }
 DmgOption;
@@ -213,6 +216,7 @@ static const CLI_OptionSpec optionSpecs[] =
 {
     { 'v', "verbose", DMG_OPTION_VERBOSE, CLI_OPTION_NONE },
     { 'n', "sort-by-id", DMG_OPTION_SORT_BY_ID, CLI_OPTION_NONE },
+    { 0, "file-order", DMG_OPTION_FILE_ORDER, CLI_OPTION_NONE },
     { 'h', "help", DMG_OPTION_HELP, CLI_OPTION_NONE },
     { 0, 0, 0, CLI_OPTION_NONE }
 };
@@ -260,7 +264,8 @@ static void PrintHelp()
     printf("\n");
     printf("Global options:\n\n");
     printf("   -v, --verbose      Enable verbose/debug output\n");
-    printf("   -n, --sort-by-id   List entries by id instead of file offset\n");
+    printf("   -n, --sort-by-id   List entries by id (default)\n");
+    printf("       --file-order   List entries by file offset\n");
 	printf("   -h, --help         Show this help\n");
     printf("\n");
     printf("Modern options accept both '-name value' and '-name=value'.\n");
@@ -1695,15 +1700,13 @@ static uint32_t GetCompressedImageBaseline(DMG_Entry* entry)
         switch ((DMG_DAT5ColorMode)dmg->colorMode)
         {
             case DMG_DAT5_COLORMODE_CGA:
-                return ((uint32_t)entry->width * entry->height + 3) / 4;
             case DMG_DAT5_COLORMODE_EGA:
-                return ((uint32_t)entry->width * entry->height + 1) / 2;
             case DMG_DAT5_COLORMODE_PLANAR4:
             case DMG_DAT5_COLORMODE_PLANAR5:
             case DMG_DAT5_COLORMODE_PLANAR8:
             case DMG_DAT5_COLORMODE_PLANAR4ST:
             case DMG_DAT5_COLORMODE_PLANAR8ST:
-                return ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+                return DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
             default:
                 break;
         }
@@ -1809,13 +1812,15 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
                     printf("\n");
                     if (dmg->version != DMG_Version5)
                     {
+                        const uint8_t* egaPalette = DMG_GetEntryEGAPalette(entry);
+                        const uint8_t* cgaPalette = DMG_GetEntryCGAPalette(entry);
                         printf("     EGA Palette:  ");
                         for (i = 0; i < 16; i++)
-                            printf(" %02d ", entry->EGAPalette[i]);
+                            printf(" %02d ", egaPalette != 0 ? egaPalette[i] : i);
                         printf("\n");
                         printf("     CGA Palette:  ");
                         for (i = 0; i < 4; i++)
-                            printf(" %02d ", entry->CGAPalette[i]);
+                            printf(" %02d ", cgaPalette != 0 ? cgaPalette[i] : (i & 0x03));
                         printf (" (%s)", DMG_GetCGAMode(entry) == CGA_Blue ? "blue" : "red");
                         printf("\n");
                     }
@@ -3386,8 +3391,18 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         {
             if (action == ACTION_UPDATE)
             {
-                if (!ApplyDAT5HeaderToken(dmg, token))
-                    return false;
+                if (IsDAT5ModeToken(token))
+                    continue;
+
+                if (IsDAT5ScreenToken(token))
+                {
+                    if (dmg->version == DMG_Version5 && !createFormatExplicit)
+                    {
+                        if (!ApplyDAT5HeaderToken(dmg, token))
+                            return false;
+                    }
+                    continue;
+                }
             }
             continue;
         }
@@ -3502,9 +3517,23 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			continue;
 		}
 
-		memcpy (outEntry->RGB32Palette, entry->RGB32Palette, sizeof(entry->RGB32Palette));
-		memcpy (outEntry->CGAPalette, entry->CGAPalette, sizeof(entry->CGAPalette));
-		memcpy (outEntry->EGAPalette, entry->EGAPalette, sizeof(entry->EGAPalette));
+        if (entry->RGB32Palette != 0)
+        {
+            uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, n);
+            if (!DMG_SetEntryPaletteRange(out, n, entry->RGB32Palette, paletteSize, entry->firstColor, entry->lastColor))
+            {
+                fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
+                continue;
+            }
+        }
+        if (entry->type == DMGEntry_Image && dmg->version != DMG_Version5 && entry->conversionPalette != 0)
+        {
+            if (!DMG_SetEntryConversionPalette(out, n, entry->conversionPalette))
+            {
+                fprintf(stderr, "%03d: Error: Unable to copy conversion palette: %s\n", n, DMG_GetErrorString());
+                continue;
+            }
+        }
         outEntry->bitDepth = entry->bitDepth;
         outEntry->flags = entry->flags;
 		outEntry->x = entry->x;
@@ -4086,7 +4115,7 @@ static bool PrepareSessionTarget(int argc, char* argv[], DMG** outDmg)
     }
 
     debug = CLI_HasOption(&commandLine, DMG_OPTION_VERBOSE);
-    listSortById = CLI_HasOption(&commandLine, DMG_OPTION_SORT_BY_ID);
+    listSortById = !CLI_HasOption(&commandLine, DMG_OPTION_FILE_ORDER);
 
     if (strlen(commandLine.arguments[0]) > 1000)
     {
@@ -4166,6 +4195,7 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
             DMG_Version legacyVersion = DMG_Version2;
             if (value == 0 || !ParseContainerFormat(value, &isDAT5, &legacyVersion))
                 return false;
+            createFormatExplicit = true;
             createDAT5 = isDAT5;
             createLegacyVersion = legacyVersion;
             continue;
@@ -4342,7 +4372,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     remapRangeLast = 0;
     compressionEnabled = true;
     debug = false;
-    listSortById = false;
+    listSortById = true;
     verbose = false;
 
     action = ACTION_LIST;
@@ -4359,6 +4389,12 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         {
             argIndex++;
             listSortById = true;
+            continue;
+        }
+        if (strcmp(token, "--file-order") == 0)
+        {
+            argIndex++;
+            listSortById = false;
             continue;
         }
         if (strcmp(token, "-h") == 0 || strcmp(token, "--help") == 0)

@@ -114,6 +114,12 @@ extern DMG_ImageMode screenMode;
 #endif
 #endif
 
+#if DMG_SUPPORT_CGA_SOURCES || DMG_SUPPORT_EGA_SOURCES
+#define DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES 1
+#else
+#define DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES 0
+#endif
+
 #ifndef DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 #if defined(_AMIGA) || defined(_ATARIST)
 #define DMG_SUPPORT_CROSS_ENDIAN_SOURCES 0
@@ -221,6 +227,25 @@ static inline uint8_t DMG_DAT5ModePlaneCount(uint8_t mode)
 	}
 }
 
+static inline uint32_t DMG_DAT5StoredImageSize(uint8_t mode, uint16_t width, uint16_t height)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_CGA:
+			return ((uint32_t)width * height + 3) / 4;
+		case DMG_DAT5_COLORMODE_EGA:
+			return ((uint32_t)width * height + 1) / 2;
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR5:
+		case DMG_DAT5_COLORMODE_PLANAR8:
+		case DMG_DAT5_COLORMODE_PLANAR4ST:
+		case DMG_DAT5_COLORMODE_PLANAR8ST:
+			return (((uint32_t)width + 15) >> 4) * height * DMG_DAT5ModePlaneCount(mode) * 2u;
+		default:
+			return 0;
+	}
+}
+
 typedef enum
 {
 	DMG_5KHZ 			= 0,
@@ -243,17 +268,37 @@ typedef enum
     DMG_FLAG_PROCESSED     = 0x0010,
     DMG_FLAG_AMIPALHACK    = 0x0020,
     DMG_FLAG_CGAMODE       = 0x0040,
+    DMG_FLAG_PALETTE_DECODED = 0x0080,
 }
 DMG_FLAGS;
+
+struct DMG_CVPal
+{
+	uint8_t			cga[16];
+	uint8_t			ega[16];
+};
+
+typedef enum
+{
+	DMG_EDITDATA_OWNS_STORED_DATA = 0x01,
+	DMG_EDITDATA_OWNS_PALETTE = 0x02,
+	DMG_EDITDATA_OWNS_CONVERSION_PALETTE = 0x04,
+}
+DMG_EditableEntryFlags;
+
+struct DMG_EditableEntryData
+{
+	uint8_t*		storedData;
+	uint32_t		storedDataSize;
+	uint8_t			flags;
+};
 
 struct DMG_Entry
 {
 	DMG_EntryType	type;
 
-	uint32_t		RGB32Palette[16];
-    uint32_t*       RGB32PaletteV5;
-	uint8_t			CGAPalette[16];
-	uint8_t			EGAPalette[16];
+	uint32_t*		RGB32Palette;
+	DMG_CVPal*      conversionPalette;
 
 	uint8_t		    flags;
     uint8_t         bitDepth;       // Number of planes, only used if ImageMode_Planar
@@ -269,12 +314,9 @@ struct DMG_Entry
     uint32_t        paletteOffset;
     uint32_t        paletteSize;
     uint16_t        paletteColors;
-	bool            paletteDecoded;
+
 	uint8_t*        cachedFileData;
 	uint32_t        cachedFileSize;
-    uint8_t*        storedData;
-    uint32_t        storedDataSize;
-    bool            ownsStoredData;
 };
 
 struct DMG_Slot
@@ -316,6 +358,9 @@ struct DMG
 	uint32_t    cacheSize;
 	uint32_t    cacheFree;
 	uint8_t     cacheBitmap[32];
+	uint32_t*   paletteBlock;
+	DMG_CVPal* conversionPaletteBlock;
+	DMG_EditableEntryData* editableEntries;
 
 	uint8_t*    fileCacheData;
 	uint32_t    fileCacheSize;
@@ -363,6 +408,8 @@ bool        DMG_RemoveEntry	 	   (DMG* dmg, uint8_t index);
 bool        DMG_SetEntryPalette    (DMG* dmg, uint8_t index, uint32_t* palette);
 bool        DMG_SetEntryPaletteEx  (DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize);
 bool        DMG_SetEntryPaletteRange(DMG* dmg, uint8_t index, uint32_t* palette, uint16_t paletteSize, uint8_t firstColor, uint8_t lastColor);
+bool        DMG_SetEntryConversionPalette(DMG* dmg, uint8_t index, const DMG_CVPal* palette);
+bool        DMG_EnsureEditableEntryData(DMG* dmg);
 bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed);
 bool        DMG_SetImageDataEx     (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth);
 bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
@@ -430,6 +477,85 @@ void        DMG_ConvertPackedToPlanarFalcon(uint8_t *buffer, uint32_t bufferSize
 bool        DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t dataSize, uint8_t* scratch, uint32_t scratchSize);
 
 uint32_t    DMG_CalculateRequiredSize  (DMG_Entry* entry, DMG_ImageMode mode);
+
+static inline bool DMG_IsPaletteDecoded(const DMG_Entry* entry)
+{
+	return entry != 0 && (entry->flags & DMG_FLAG_PALETTE_DECODED) != 0;
+}
+
+static inline void DMG_SetPaletteDecoded(DMG_Entry* entry, bool decoded)
+{
+	if (decoded)
+		entry->flags |= DMG_FLAG_PALETTE_DECODED;
+	else
+		entry->flags &= ~DMG_FLAG_PALETTE_DECODED;
+}
+
+static inline DMG_EditableEntryData* DMG_GetEditableEntryData(DMG* dmg, uint8_t index)
+{
+	return dmg != 0 && dmg->editableEntries != 0 ? dmg->editableEntries + index : 0;
+}
+
+static inline const DMG_EditableEntryData* DMG_GetEditableEntryData(const DMG* dmg, uint8_t index)
+{
+	return dmg != 0 && dmg->editableEntries != 0 ? dmg->editableEntries + index : 0;
+}
+
+static inline uint8_t* DMG_GetEntryStoredData(DMG* dmg, uint8_t index)
+{
+	DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 ? edit->storedData : 0;
+}
+
+static inline const uint8_t* DMG_GetEntryStoredData(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 ? edit->storedData : 0;
+}
+
+static inline uint32_t DMG_GetEntryStoredDataSize(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 ? edit->storedDataSize : 0;
+}
+
+static inline bool DMG_EditableEntryOwnsStoredData(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 && (edit->flags & DMG_EDITDATA_OWNS_STORED_DATA) != 0;
+}
+
+static inline bool DMG_EditableEntryOwnsPalette(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 && (edit->flags & DMG_EDITDATA_OWNS_PALETTE) != 0;
+}
+
+static inline bool DMG_EditableEntryOwnsConversionPalette(const DMG* dmg, uint8_t index)
+{
+	const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+	return edit != 0 && (edit->flags & DMG_EDITDATA_OWNS_CONVERSION_PALETTE) != 0;
+}
+
+static inline uint8_t* DMG_GetEntryCGAPalette(DMG_Entry* entry)
+{
+	return entry != 0 && entry->conversionPalette != 0 ? entry->conversionPalette->cga : 0;
+}
+
+static inline const uint8_t* DMG_GetEntryCGAPalette(const DMG_Entry* entry)
+{
+	return entry != 0 && entry->conversionPalette != 0 ? entry->conversionPalette->cga : 0;
+}
+
+static inline uint8_t* DMG_GetEntryEGAPalette(DMG_Entry* entry)
+{
+	return entry != 0 && entry->conversionPalette != 0 ? entry->conversionPalette->ega : 0;
+}
+
+static inline const uint8_t* DMG_GetEntryEGAPalette(const DMG_Entry* entry)
+{
+	return entry != 0 && entry->conversionPalette != 0 ? entry->conversionPalette->ega : 0;
+}
 
 static inline DMG_CGAMode DMG_GetCGAMode(DMG_Entry* entry)
 {

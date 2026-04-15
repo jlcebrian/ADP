@@ -21,14 +21,16 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 
 	if (mode == ImageMode_Audio)
 	{
-		if (entry->storedData != 0)
+		const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
+		uint32_t storedDataSize = DMG_GetEntryStoredDataSize(dmg, index);
+		if (storedData != 0)
 		{
-			if (entry->storedDataSize > bufferSize)
+			if (storedDataSize > bufferSize)
 			{
 				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 				return 0;
 			}
-			MemCopy(fileData, entry->storedData, entry->storedDataSize);
+			MemCopy(fileData, storedData, storedDataSize);
 			return fileData;
 		}
 		if (DMG_ReadFromFile(dmg, entry->fileOffset, fileData, entry->length) != entry->length)
@@ -51,17 +53,13 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		switch (dmg->colorMode)
 		{
 			case DMG_DAT5_COLORMODE_CGA:
-				decompressedSize = ((uint32_t)entry->width * entry->height + 3) / 4;
-				break;
 			case DMG_DAT5_COLORMODE_EGA:
-				decompressedSize = ((uint32_t)entry->width * entry->height + 1) / 2;
-				break;
 			case DMG_DAT5_COLORMODE_PLANAR4:
 			case DMG_DAT5_COLORMODE_PLANAR5:
 			case DMG_DAT5_COLORMODE_PLANAR8:
 			case DMG_DAT5_COLORMODE_PLANAR4ST:
 			case DMG_DAT5_COLORMODE_PLANAR8ST:
-				decompressedSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+				decompressedSize = DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
 				break;
 			default:
 				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
@@ -158,16 +156,18 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 	}
 	else
 	{
-		if (entry->storedData != 0)
+		const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
+		if (storedData != 0)
 		{
-			if (entry->storedDataSize != imageDataLength)
+			if (DMG_GetEntryStoredDataSize(dmg, index) != imageDataLength)
 			{
 				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 				return 0;
 			}
-			MemCopy(fileData, entry->storedData, imageDataLength);
+			MemCopy(fileData, storedData, imageDataLength);
 		}
-		else if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, fileData, imageDataLength) != imageDataLength)
+		else
+		if (DMG_ReadFromFile(dmg, entry->fileOffset + paletteBytes, fileData, imageDataLength) != imageDataLength)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
@@ -289,7 +289,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 	if (mode == ImageMode_RGBA32)
 	{
 		uint32_t* dst = (uint32_t*)buffer;
-		uint32_t* colors = entry->RGB32PaletteV5;
+		uint32_t* colors = entry->RGB32Palette;
 		uint8_t firstColor = entry->firstColor;
 		if (paletteMode == ColorPaletteMode_CGA)
 			colors = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
@@ -395,7 +395,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	uint32_t dataOffset = entry->fileOffset + 6;
 
 #ifndef NO_CACHE
-	fileData = entry->storedData != 0 ? 0 : (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
+	fileData = DMG_GetEntryStoredData(dmg, index) != 0 ? 0 : (uint8_t*)DMG_GetFromFileCache(dmg, dataOffset, entry->length);
 	if (fileData == 0)
 #endif
 	{
@@ -407,9 +407,10 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		}
 
 		fileData = buffer + bufferSize - entry->length;
-		if (entry->storedData != 0)
-			MemCopy(fileData, entry->storedData, entry->length);
-		else if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
+		if (DMG_GetEntryStoredData(dmg, index) != 0)
+			MemCopy(fileData, DMG_GetEntryStoredData(dmg, index), entry->length);
+		else
+		if (DMG_ReadFromFile(dmg, dataOffset, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
@@ -549,10 +550,18 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				}
 				else if (paletteMode == ColorPaletteMode_EGA)
 				{
+					const uint8_t* egaPalette = DMG_GetEntryEGAPalette(entry);
+					if (egaPalette == 0)
+					{
+						if (cache != 0)
+							cache->populated = false;
+						DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+						return 0;
+					}
 					for (n = requiredSize - 1; n > 0; n--)
 					{
-						*--ptr = entry->EGAPalette[buffer[n] & 0x0F];
-						*--ptr = entry->EGAPalette[buffer[n] >> 4];
+						*--ptr = egaPalette[buffer[n] & 0x0F];
+						*--ptr = egaPalette[buffer[n] >> 4];
 					}
 				}
 				else
@@ -569,19 +578,29 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 			case ImageMode_Indexed:
 			{
 				uint8_t* ptr = buffer + (requiredSize/2) - 1;
+				const uint8_t* cgaPalette = DMG_GetEntryCGAPalette(entry);
+				const uint8_t* egaPalette = DMG_GetEntryEGAPalette(entry);
+				if ((paletteMode == ColorPaletteMode_CGA && cgaPalette == 0) ||
+					(paletteMode == ColorPaletteMode_EGA && egaPalette == 0))
+				{
+					if (cache != 0)
+						cache->populated = false;
+					DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+					return 0;
+				}
 				for (n = requiredSize; n > 1; )
 				{
 					if (paletteMode == ColorPaletteMode_CGA)
-						buffer[--n] = entry->CGAPalette[*ptr & 0x0F];
+						buffer[--n] = cgaPalette[*ptr & 0x0F];
 					else if (paletteMode == ColorPaletteMode_EGA)
-						buffer[--n] = entry->EGAPalette[*ptr & 0x0F];
+						buffer[--n] = egaPalette[*ptr & 0x0F];
 					else
 						buffer[--n] = *ptr & 0x0F;
 
 					if (paletteMode == ColorPaletteMode_CGA)
-						buffer[--n] = entry->CGAPalette[*ptr-- >> 4];
+						buffer[--n] = cgaPalette[*ptr-- >> 4];
 					else if (paletteMode == ColorPaletteMode_EGA)
-						buffer[--n] = entry->EGAPalette[*ptr-- >> 4];
+						buffer[--n] = egaPalette[*ptr-- >> 4];
 					else
 						buffer[--n] = *ptr-- >> 4;
 				}

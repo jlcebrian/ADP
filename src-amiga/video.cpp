@@ -1471,7 +1471,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 				shouldUpdatePalette = true;
 				clearOutside = paletteFirst == 0;
 				// TODO: This is a hack to fix the palette for V1
-				if (dmg->version == DMG_Version1)
+				if (dmg->version == DMG_Version1 && pictureEntry->RGB32Palette != 0)
 					pictureEntry->RGB32Palette[15] = 0xFFFFFFFF;
 			}
 			break;

@@ -103,10 +103,10 @@ bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
 
 static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* payload)
 {
-	if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0 || entry->paletteDecoded)
+	if (entry == 0 || entry->paletteColors == 0 || entry->paletteSize == 0 || DMG_IsPaletteDecoded(entry))
         return true;
 
-    if (entry->RGB32PaletteV5 == 0)
+	if (entry->RGB32Palette == 0)
     {
         DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
         return false;
@@ -114,13 +114,13 @@ static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* pa
 
     for (uint16_t p = 0; p < entry->paletteColors; p++)
     {
-        entry->RGB32PaletteV5[p] =
+		entry->RGB32Palette[p] =
             0xFF000000UL |
             ((uint32_t)payload[p * 3 + 0] << 16) |
             ((uint32_t)payload[p * 3 + 1] << 8) |
             (uint32_t)payload[p * 3 + 2];
     }
-	entry->paletteDecoded = true;
+	DMG_SetPaletteDecoded(entry, true);
     return true;
 }
 
@@ -135,9 +135,14 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 		return 0;
 	}
 
-	uint32_t requiredSize = ((uint32_t)(entry->width + 7) >> 3) * entry->height * entry->bitDepth;
+	uint32_t requiredSize = DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
     uint32_t paletteBytes = entry->paletteColors * 3;
     uint32_t imageDataLength = entry->length >= paletteBytes ? entry->length - paletteBytes : 0;
+	if (requiredSize == 0)
+	{
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return 0;
+	}
 	if (requiredSize > bufferSize)
 	{
 		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);

@@ -7,7 +7,7 @@ CPPFLAGS += -Ilib/sdl2/include
 LDFLAGS  += lib/osx/libSDL2.a lib/osx/libSDL2main.a
 LDFLAGS  += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
 
-CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -D_STDCLIB -D_UNIX -DTRACE_ON -D_DEBUGPRINT
+CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -D_STDCLIB -D_UNIX -D_DEBUGPRINT
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_DRAWSTRING
 CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
@@ -23,15 +23,15 @@ VPATH = $(DIRS) src-sdl/ src-unix/ src-tools/
 SRCS = $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS = bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS = $(wildcard src-tools/tool_*.cpp)
-TOOL_MAIN_OBJS = $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
-OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
-TOOL_OBJS := $(addprefix obj/unix/,$(patsubst %.cpp,%.o,$(addsuffix .cpp,$(TOOL_SRCS))))
+TOOL_CPPFLAGS = $(CPPFLAGS) -DTRACE_ON
+OBJDIR = obj/unix
+COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
+COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
+PLAYER_OBJ = $(OBJDIR)/player.o
+TOOL_OBJS = $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
+TOOL_MAIN_OBJS = $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
 
-OBJS += obj/unix/files.o
-OBJS += obj/unix/error.o
-UNIX_OBJS = obj/unix/player.o
-
--include $(OBJS:.o=.d)
+-include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d)
 
 all: out/ADP.app out/ddb out/dsk
 
@@ -42,23 +42,31 @@ out/ADP.app: out/player
 	@cp -r lib/logo.icns out/ADP.app/Contents/Resources/ADP.icns
 	@cp -r lib/Info.plist out/ADP.app/Contents/Info.plist
 
-out/player: $(OBJS) obj/unix/player.o
+out/player: $(COMMON_OBJS) $(PLAYER_OBJ)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/ddb: $(OBJS) $(TOOL_OBJS) obj/unix/tool_ddb.o
+out/ddb: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_ddb.o
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
-out/dsk: $(OBJS) $(TOOL_OBJS) obj/unix/tool_dsk.o
+out/dsk: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dsk.o
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f obj/unix/*.o
 
-$(OBJS) $(UNIX_OBJS) : obj/unix/%.o : %.cpp
+$(COMMON_OBJS) $(PLAYER_OBJ) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
+	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) -c -o "$@" "$(CURDIR)/$<"
 
-$(TOOL_OBJS) $(TOOL_MAIN_OBJS) : obj/unix/%.o : %.cpp
+
+$(TOOL_OBJS) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
-	@$(CC) $(CPPFLAGS) -Iinclude-tools -c -o $@ "$(CURDIR)/$<"
+	@mkdir -p $(dir $@)
+	@$(CC) $(TOOL_CPPFLAGS) -c -o "$@" "$(CURDIR)/$<"
+
+$(TOOL_MAIN_OBJS) : $(OBJDIR)/%.o : %.cpp
+	$(info Compiling $<)
+	@mkdir -p $(dir $@)
+	@$(CC) $(TOOL_CPPFLAGS) -Iinclude-tools -c -o $@ "$(CURDIR)/$<"

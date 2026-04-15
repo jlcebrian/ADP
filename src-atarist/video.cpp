@@ -1116,7 +1116,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			if (entry->flags & DMG_FLAG_FIXED)
 			{
 				// TODO: This is a hack to fix the palette for the old version of the game
-				if (dmg->version == DMG_Version1)
+				if (dmg->version == DMG_Version1 && entry->RGB32Palette != 0)
 					entry->RGB32Palette[15] = 0xFFFFFFFF;
 				paletteUpdated = !VID_PaletteMatches(palette, paletteSize, firstColor);
 			}

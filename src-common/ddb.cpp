@@ -827,9 +827,10 @@ void DDB_Warning(const char* format, ...)
 	#else
 		const char* buffer = format;
 	#endif
-	DebugPrintf("%s\n", buffer);
 	if (warningHandler != 0)
 		warningHandler(buffer);
+	else
+		DebugPrintf("%s\n", buffer);
 }
 
 /* ─────────────────────────────────── ────────────────────────────────────── */
@@ -1225,7 +1226,7 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 	uint64_t fileSize = File_GetSize(file);
 	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
 	{
-		DebugPrintf("Rejecting DDB %s due to size %lu (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
+		DDB_Warning("Rejecting DDB %s due to size %lu (max %u)", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
 		File_Close(file);
 		Free(check);
 		Free(buffer);

@@ -8,6 +8,7 @@
 [x]	Add C64 snapshot support
 [x]	Add MSX snapshot support
 [ ] Amiga/DMG/DAT5: add support for half-brite mode (6 bitplanes)
+[ ] Amiga/DMG/DAT5: add support for HAM mode w/ split screen
 
 ## PAWS
 
