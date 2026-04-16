@@ -1065,7 +1065,7 @@ bool DMG_AddSavePriority(DMG* dmg, uint8_t index)
     return true;
 }
 
-DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry, uint8_t lastEntry)
+DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry, uint8_t lastEntry, uint8_t dat5Flags)
 {
     File* file = File_Create(filename);
     if (file == NULL)
@@ -1086,6 +1086,7 @@ DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t 
     write16(header + 0x0A, firstEntry, false);
     write16(header + 0x0C, lastEntry, false);
     header[0x0E] = colorMode;
+    header[0x0F] = dat5Flags;
 
     if (File_Write(file, header, sizeof(header)) != sizeof(header))
     {
@@ -1126,6 +1127,7 @@ DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t 
     dmg->version = DMG_Version5;
     dmg->littleEndian = false;
     dmg->colorMode = colorMode;
+    dmg->dat5Flags = dat5Flags;
     dmg->targetWidth = width;
     dmg->targetHeight = height;
     dmg->firstEntry = firstEntry;
@@ -1572,6 +1574,7 @@ bool DMG_Save(DMG* dmg)
         write16(header + 0x0A, dmg->firstEntry, false);
         write16(header + 0x0C, dmg->lastEntry, false);
         header[0x0E] = dmg->colorMode;
+        header[0x0F] = dmg->dat5Flags;
         if (File_Write(dmg->file, header, sizeof(header)) != sizeof(header))
         {
             DMG_SetError(DMG_ERROR_WRITING_FILE);

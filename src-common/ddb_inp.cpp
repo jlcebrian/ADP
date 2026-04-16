@@ -593,7 +593,7 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	if (w != &i->win)
 		DDB_CalculateCells(i, w, &cellX, &cellW);
 
-	width = cellX*8 + cellW*8 - x;
+	width = (cellX + cellW) * screenCellWidth - x;
 	maxX = x + width;
 
 	if (withCursor)

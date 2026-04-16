@@ -5,7 +5,7 @@
 struct DMG_Font
 {
 	uint8_t width16[256];
-	uint8_t bitmap16[256 * 16];
+	uint8_t bitmap16[256 * 32];
 	uint8_t width8[256];
 	uint8_t bitmap8[256 * 8];
 };

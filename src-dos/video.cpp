@@ -24,7 +24,7 @@
 static uint8_t*   pictureData = 0;
 #if HAS_PCX
 static uint8_t*   pcxPictureData = 0;
-static uint16_t   pcxPictureSize = 0;
+static uint32_t   pcxPictureSize = 0;
 static int        pcxPictureWidth = 0;
 static int        pcxPictureHeight = 0;
 static uint32_t   pcxPalette[256];
@@ -112,6 +112,14 @@ static bool FindNamedPCXFile(const char* fileName, char* output, size_t outputSi
 		return true;
 
 	BuildFileNameWithExtension(fileName, ".vga", output, outputSize);
+	if (FileExists(output))
+		return true;
+
+	BuildFileNameWithExtension(fileName, ".PCX", output, outputSize);
+	if (FileExists(output))
+		return true;
+
+	BuildFileNameWithExtension(fileName, ".pcx", output, outputSize);
 	return FileExists(output);
 }
 
@@ -1116,7 +1124,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	#if HAS_PCX
 	if (IsPCXScreenFile(fileName))
 	{
-		uint16_t bufferSize = 65535;
+		uint32_t bufferSize = 65535;
 		uint8_t* output = Allocate<uint8_t>("Temporary PCX buffer", bufferSize);
 		if (output == NULL)
 		{
@@ -1448,11 +1456,11 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		if (!VID_GetExternalPictureFileName(picno, pictureFileName, sizeof(pictureFileName)))
 			return;
 
-		pcxPictureData = Allocate<uint8_t>("PCX picture", 65535);
+		pcxPictureSize = (uint32_t)DMG_MAX_IMAGE_WIDTH * (uint32_t)DMG_MAX_IMAGE_HEIGHT;
+		pcxPictureData = Allocate<uint8_t>("PCX picture", pcxPictureSize);
 		if (pcxPictureData == NULL)
 			return;
 
-		pcxPictureSize = 65535;
 		if (!DMG_DecompressPCX(pictureFileName, pcxPictureData, &pcxPictureSize, &pcxPictureWidth, &pcxPictureHeight, pcxPalette))
 			FreeBufferedPCXPicture();
 		return;

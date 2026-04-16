@@ -372,13 +372,13 @@ static int CalculateCarriedWeight(DDB_Interpreter* i)
 
 void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint8_t* cellW)
 {
-	if (columnWidth == 8)
+	if (columnWidth == screenCellWidth)
 	{
-		int cellsX = w->x / 8;
-		int cellsW = w->width / 8;
+		int cellsX = w->x / screenCellWidth;
+		int cellsW = w->width / screenCellWidth;
 
 		if (w->x + w->width >= screenWidth)
-			cellsW = (screenWidth - cellsX * 8) / 8;
+			cellsW = (screenWidth - cellsX * screenCellWidth) / screenCellWidth;
 		if (cellsW == 0)
 			cellsW = 1;
 
@@ -388,8 +388,8 @@ void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint
 	}
 
 	static int inc[] = { 0,1,2,3,1,2,3,3,1,2,2,3,1,1,2,3 };
-	int charsX = w->x / 6;
-	int charsW = w->width / 6;
+	int charsX = w->x / columnWidth;
+	int charsW = w->width / columnWidth;
 	int cellsX = 3*(charsX >> 2) + ((charsX & 3) != 0 ? (charsX & 3)-1 : 0);
 	int cellsW = inc[((charsX & 3) << 2) | (charsW & 3)] + 3*(charsW >> 2);
 
@@ -398,7 +398,7 @@ void DDB_CalculateCells (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint
 	// This adjustment is necessary because the original interpreter
 	// calculates this using the unclipped window width
 	if (w->x + w->width >= screenWidth)
-		cellsW = (screenWidth - cellsX*8) / 8;
+		cellsW = (screenWidth - cellsX * screenCellWidth) / screenCellWidth;
 	if (cellsW == 0)
 		cellsW = 1;
 
@@ -422,7 +422,7 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 
 	DDB_Window* w = &i->win;
 	int x = w->x;
-	int maxX = i->cellX*8 + i->cellW*8;
+	int maxX = (i->cellX + i->cellW) * screenCellWidth;
 	int ink = w->ink;
 	int paper = w->paper;
 
@@ -458,7 +458,7 @@ bool DDB_NextLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 		int scroll = w->posY - maxY;
 		if (w != &i->win)
 			DDB_CalculateCells(i, w, &cellX, &cellW);
-		SCR_Scroll(cellX*8, w->y, cellW*8, w->height, scroll, paper, (w->flags & Win_NoMorePrompt) ? false : w->smooth);
+		SCR_Scroll(cellX * screenCellWidth, w->y, cellW * screenCellWidth, w->height, scroll, paper, (w->flags & Win_NoMorePrompt) ? false : w->smooth);
 		w->posY -= scroll;
 	}
 	w->scrollCount++;
@@ -494,7 +494,7 @@ bool DDB_NewLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 	{
 		DDB_CalculateCells(i, w, &cellX, &cellW);
 	}
-	maxX = cellX * 8 + cellW * 8;
+	maxX = cellX * screenCellWidth + cellW * screenCellWidth;
 	if (w->posX < maxX)
 	{
 		// fprintf(stderr, "NewLine clearing up to %d (posX:%d cellX:%d cellW:%d)\n", maxX, w->posX, cellX, cellW);
@@ -516,13 +516,13 @@ void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 	{
 		uint8_t cellX, cellW;
 		DDB_CalculateCells(i, w, &cellX, &cellW);
-		x = cellX * 8;
-		width = cellW * 8;
+		x = cellX * screenCellWidth;
+		width = cellW * screenCellWidth;
 	}
 	else
 	{
-		x = i->cellX * 8;
-		width = i->cellW * 8;
+		x = i->cellX * screenCellWidth;
+		width = i->cellW * screenCellWidth;
 	}
 
 	SCR_Clear(x, w->y, width, w->height, w->paper == 255 ? 0 : w->paper, Clear_All);
@@ -559,13 +559,14 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 
 	if (fixed)
 	{
-		x             = picx & ~7;
-		width         = (picw + 7) & ~7;
-		i->cellX	  = picx / 8;
-		i->cellW	  = (width + 7) / 8;
+		x             = (picx / screenCellWidth) * screenCellWidth;
+		width         = ((picw + screenCellWidth - 1) / screenCellWidth) * screenCellWidth;
+		i->cellX	  = picx / screenCellWidth;
+		i->cellW	  = width / screenCellWidth;
 		i->win.width  = AdjustX(picw, columnWidth);
 		i->win.height = pich;
-		i->win.x      = AdjustX(x + 3, columnWidth);
+		int alignBias = columnWidth == 8 ? 3 : columnWidth / 2;
+		i->win.x      = AdjustX(x + alignBias, columnWidth);
 		i->win.y      = picy;
 		i->win.posX   = x;
 		i->win.posY   = picy;
@@ -574,8 +575,8 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 	}
 	else
 	{
-		x  	          = i->cellX * 8;
-		width 		  = i->cellW * 8;
+		x  	          = i->cellX * screenCellWidth;
+		width 		  = i->cellW * screenCellWidth;
 		i->win.posX   = i->win.x;
 		i->win.posY   = i->win.y;
 
@@ -625,7 +626,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	// window (!!!). We should either change DDB_FlushWindow, DDB_OutputCharToWindow
 	// etc. to write to the current window only, or save cellX/cellW for each window
 
-	int maxX = i->cellX*8 + i->cellW*8;
+	int maxX = (i->cellX + i->cellW) * screenCellWidth;
 	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
 
 #if HAS_PAWS
@@ -637,7 +638,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	{
 		uint8_t cellX, cellW;
 		DDB_CalculateCells(i, w, &cellX, &cellW);
-		maxX = cellX*8 + cellW*8;
+		maxX = (cellX + cellW) * screenCellWidth;
 	}
 
 	uint8_t spanChars[sizeof(i->pending)];
@@ -860,8 +861,9 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case 6:
 				{
 					DDB_FlushWindow(i, w);
-					int maxX = i->cellX*8 + i->cellW*8;
-					int nextTab = (w->posX + 128) & ~127;
+					int maxX = (i->cellX + i->cellW) * screenCellWidth;
+					int tabWidth = screenCellWidth * 16;
+					int nextTab = ((w->posX + tabWidth) / tabWidth) * tabWidth;
 					if (nextTab > maxX)
 						nextTab = maxX;
 					if (nextTab > w->posX)
@@ -1602,7 +1604,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 							VID_SetAttributes(attributes);
 							int line = i->flags[Flag_TopLine];
 							if (line < 4 || line > 23) line = 12;
-							SCR_Clear(0, 8*line, screenWidth, screenHeight - 8*line, VID_GetPaper());
+							SCR_Clear(0, lineHeight * line, screenWidth, screenHeight - lineHeight * line, VID_GetPaper());
 							PrintAt(i, &i->win, line, 0);
 							if (i->flags[Flag_SplitLine] >= 4 && i->flags[Flag_SplitLine] <= 23)
 								line = i->flags[Flag_SplitLine];

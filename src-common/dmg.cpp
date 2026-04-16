@@ -788,6 +788,7 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
     dmg->firstEntry = (uint8_t)read16BE(header + 0x0A);
     dmg->lastEntry = (uint8_t)read16BE(header + 0x0C);
     dmg->colorMode = header[0x0E];
+	dmg->dat5Flags = header[0x0F];
 
     if (dmg->lastEntry < dmg->firstEntry)
     {

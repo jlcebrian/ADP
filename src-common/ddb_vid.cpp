@@ -13,6 +13,7 @@ bool		waitingForKey = false;
 bool 		buffering = false;
 uint8_t 	lineHeight;
 uint8_t 	columnWidth;
+uint8_t 	screenCellWidth = 8;
 uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
@@ -155,6 +156,14 @@ bool VID_GetExternalPictureFileName(uint8_t picno, char* fileName, size_t fileNa
 		return true;
 
 	BuildExternalPictureFileName(externalPictureBase, picno, ".vga", fileName, fileNameSize);
+	if (FileExists(fileName))
+		return true;
+
+	BuildExternalPictureFileName(externalPictureBase, picno, ".PCX", fileName, fileNameSize);
+	if (FileExists(fileName))
+		return true;
+
+	BuildExternalPictureFileName(externalPictureBase, picno, ".pcx", fileName, fileNameSize);
 	if (FileExists(fileName))
 		return true;
 

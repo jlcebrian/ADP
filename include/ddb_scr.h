@@ -17,6 +17,7 @@ extern bool       buffering;
 
 extern uint8_t    lineHeight;
 extern uint8_t    columnWidth;
+extern uint8_t    screenCellWidth;
 extern uint16_t   screenWidth;
 extern uint16_t   screenHeight;
 extern uint8_t    charset[2048];

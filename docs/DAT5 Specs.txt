@@ -36,7 +36,9 @@
                             6                   Planar4ST:  ST interleaved words with palette
                             7                   Planar8ST:  Falcon interleaved words with palette
 
-    0x000F      0           Flags (reserved for future usage)
+    0x000F      1           File Flags
+
+                            Bit 0               2X UI Mode: 1 for 2X UI metrics (SVGA PC-DAAD mode)
 
     0x0010		N * 32	    Entry headers (amount defined by indexes: last-first+1)
         		...			Data area

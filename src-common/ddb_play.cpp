@@ -134,6 +134,11 @@ static bool FileExists(const char* fileName)
 	return true;
 }
 
+static uint16_t Read16LE(const uint8_t* ptr)
+{
+	return (uint16_t)(((uint16_t)ptr[1] << 8) | ptr[0]);
+}
+
 static void BuildFileNameWithExtension(const char* fileName, const char* extension, char* output, size_t outputSize)
 {
 	StrCopy(output, outputSize, fileName);
@@ -164,6 +169,25 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 			}
 		}
 	}
+
+	uint8_t header[128];
+	File* file = File_Open(introScreen, ReadOnly);
+	if (file != 0 && File_Read(file, header, sizeof(header)) == sizeof(header) &&
+		header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1)
+	{
+		int width = (int)(Read16LE(header + 8) - Read16LE(header + 4) + 1);
+		int height = (int)(Read16LE(header + 10) - Read16LE(header + 6) + 1);
+		if (width == 640 && height == 400)
+			*screenMode = ScreenMode_SHiRes;
+		else if (width == 640 && height == 200)
+			*screenMode = ScreenMode_HiRes;
+		else
+			*screenMode = ScreenMode_VGA;
+		File_Close(file);
+		return introScreen;
+	}
+	if (file != 0)
+		File_Close(file);
 
 	*screenMode = ScreenMode_VGA;
 	return introScreen;

@@ -100,6 +100,8 @@ uint8_t*   textBuffer;
 uint8_t*   frontBuffer = NULL;
 uint8_t*   backBuffer = NULL;
 uint8_t*   pictureData;
+static uint8_t charset16[256 * 32];
+static bool charset16Available = false;
 #if HAS_PCX
 uint8_t*   pcxPictureData = NULL;
 #if HAS_SPECTRUM
@@ -121,7 +123,7 @@ uint8_t    defaultCharWidth = 6;
 #if HAS_PCX
 uint32_t   pcxPalette[256];
 
-uint16_t   pcxPictureSize = 0;
+uint32_t   pcxPictureSize = 0;
 int        pcxPictureWidth = 0;
 int        pcxPictureHeight = 0;
 #if HAS_SPECTRUM
@@ -132,6 +134,8 @@ int        zxsPictureHeight = 0;
 
 int        xCoordMultiplier = 1;
 int        yCoordMultiplier = 1;
+static bool screen2XMode = false;
+static DDB_Version screenVersion = DDB_VERSION_1;
 
 static bool PaletteMatches(const uint32_t* candidate, int paletteCount, int firstColor, bool clearOutside)
 {
@@ -289,8 +293,23 @@ void VID_SetCharset (const uint8_t* newCharset)
 
 void VID_SetCharsetWidth(uint8_t w)
 {
+	if (screen2XMode)
+		w = (uint8_t)(w * 2);
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = w;
+}
+
+static void ApplyIBMPCTextMetrics(bool enable2X)
+{
+	uint8_t baseColumnWidth = (screenVersion == DDB_VERSION_PAWS || screenMachine == DDB_MACHINE_PCW) ? 8 : 6;
+	lineHeight = enable2X ? 16 : 8;
+	screenCellWidth = enable2X ? 16 : 8;
+	columnWidth = enable2X ? (uint8_t)(baseColumnWidth * 2) : baseColumnWidth;
+	defaultCharWidth = columnWidth;
+	screen2XMode = enable2X;
+	charset16Available = false;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = defaultCharWidth;
 }
 
 static bool LoadCharset (uint8_t* ptr, const char* filename)
@@ -324,8 +343,17 @@ static bool LoadSINTACFont(const char* filename)
 	if (!DMG_ReadSINTACFont(filename, &font))
 		return false;
 
-	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
-	MemCopy(charWidth, font.width8, sizeof(font.width8));
+	if (screen2XMode)
+	{
+		MemCopy(charset16, font.bitmap16, sizeof(font.bitmap16));
+		MemCopy(charWidth, font.width16, sizeof(font.width16));
+		charset16Available = true;
+	}
+	else
+	{
+		MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
+		MemCopy(charWidth, font.width8, sizeof(font.width8));
+	}
 	charsetInitialized = true;
 	return true;
 }
@@ -639,7 +667,7 @@ static bool HasExternalPCXGraphics(const char* fileName)
 static bool IsPCXScreenFile(const char* fileName)
 {
 	const char* dot = StrRChr(fileName, '.');
-	return dot != 0 && StrIComp(dot, ".vga") == 0;
+	return dot != 0 && (StrIComp(dot, ".vga") == 0 || StrIComp(dot, ".pcx") == 0);
 }
 #endif
 
@@ -925,6 +953,73 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 	uint8_t* ptr = charset + (ch << 3);
 	uint8_t* pixels = textBuffer + y * screenWidth + x;
+	if (screen2XMode)
+	{
+		if (charset16Available)
+		{
+			const uint8_t* ptr16 = charset16 + ch * 32;
+			if (paper == 255)
+			{
+				for (int line = 0; line < 16; line++)
+				{
+					uint16_t bits = (uint16_t)(ptr16[line * 2] << 8) | ptr16[line * 2 + 1];
+					uint8_t* row = pixels + line * screenWidth;
+					for (int col = 0; col < width; col++)
+						if ((bits & (0x8000 >> col)) != 0)
+							row[col] = ink;
+				}
+			}
+			else
+			{
+				for (int line = 0; line < 16; line++)
+				{
+					uint16_t bits = (uint16_t)(ptr16[line * 2] << 8) | ptr16[line * 2 + 1];
+					uint8_t* row = pixels + line * screenWidth;
+					for (int col = 0; col < width; col++)
+						row[col] = (bits & (0x8000 >> col)) ? ink : paper;
+				}
+			}
+			return;
+		}
+
+		uint8_t sourceWidth = (uint8_t)((width + 1) >> 1);
+		if (paper == 255)
+		{
+			for (int line = 0; line < 8; line++)
+			{
+				uint8_t* row0 = pixels + (line * 2) * screenWidth;
+				uint8_t* row1 = row0 + screenWidth;
+				for (int col = 0; col < sourceWidth; col++)
+				{
+					if ((ptr[line] & (0x80 >> col)) == 0)
+						continue;
+					int dx = col * 2;
+					row0[dx] = ink;
+					row0[dx + 1] = ink;
+					row1[dx] = ink;
+					row1[dx + 1] = ink;
+				}
+			}
+		}
+		else
+		{
+			for (int line = 0; line < 8; line++)
+			{
+				uint8_t* row0 = pixels + (line * 2) * screenWidth;
+				uint8_t* row1 = row0 + screenWidth;
+				for (int col = 0; col < sourceWidth; col++)
+				{
+					uint8_t color = (ptr[line] & (0x80 >> col)) ? ink : paper;
+					int dx = col * 2;
+					row0[dx] = color;
+					row0[dx + 1] = color;
+					row1[dx] = color;
+					row1[dx + 1] = color;
+				}
+			}
+		}
+		return;
+	}
 
 	if (paper == 255)
 	{
@@ -968,7 +1063,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	#if HAS_PCX
 	if (target == DDB_MACHINE_IBMPC && IsPCXScreenFile(fileName))
 	{
-		uint16_t bufferSize = (uint16_t)(screenWidth * screenHeight);
+		uint32_t bufferSize = (uint32_t)screenWidth * (uint32_t)screenHeight;
 		uint8_t* output = Allocate<uint8_t>("PCX screen", bufferSize);
 		if (output == 0)
 		{
@@ -1092,11 +1187,11 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		}
 		#endif
 
-		pcxPictureData = Allocate<uint8_t>("PCX picture", 65535);
+		pcxPictureSize = (uint32_t)DMG_MAX_IMAGE_WIDTH * (uint32_t)DMG_MAX_IMAGE_HEIGHT;
+		pcxPictureData = Allocate<uint8_t>("PCX picture", pcxPictureSize);
 		if (pcxPictureData == NULL)
 			return;
 
-		pcxPictureSize = 65535;
 		if (!DMG_DecompressPCX(pictureFileName, pcxPictureData, &pcxPictureSize, &pcxPictureWidth, &pcxPictureHeight, pcxPalette))
 			FreeBufferedPCXPicture();
 		return;
@@ -1917,6 +2012,7 @@ bool VID_LoadDataFile(const char* fileName)
 	FreeBufferedPCXPicture();
 	VID_SetExternalPictureBase(0);
 	#endif
+	charset16Available = false;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
 	memcpy(charset, DefaultCharset, 1024);
@@ -1948,13 +2044,26 @@ bool VID_LoadDataFile(const char* fileName)
 			return false;
 		}
 
-		screenMode = ScreenMode_VGA;
-		columnWidth = 8;
+		if (!screen2XMode)
+		{
+			screenMode = ScreenMode_VGA;
+			lineHeight = 8;
+			columnWidth = 8;
+			screenCellWidth = 8;
+		}
 		#else
 		DebugPrintf("Data file for %s not found!\n", fileName);
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
 		#endif
+	}
+	else if (screenMachine == DDB_MACHINE_IBMPC)
+	{
+		ApplyIBMPCTextMetrics(
+			dmg->version == DMG_Version5 &&
+			dmg->targetWidth == 640 &&
+			dmg->targetHeight == 400 &&
+			(dmg->dat5Flags & DMG_DAT5_FLAG_2X) != 0);
 	}
 
 	bool fontLoaded = false;
@@ -2021,9 +2130,13 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 	lineHeight  = 8;
 	columnWidth = (version == DDB_VERSION_PAWS || machine == DDB_MACHINE_PCW) ? 8 : 6;
 	defaultCharWidth = columnWidth;
+	screenCellWidth = 8;
 	screenMode = mode;
+	screenVersion = version;
 	xCoordMultiplier = 1;
 	yCoordMultiplier = 1;
+	screen2XMode = false;
+	charset16Available = false;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = columnWidth;
 
@@ -2104,6 +2217,9 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
             }
 			break;
 	}
+
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = defaultCharWidth;
 
 	memcpy (palette, DefaultPalette, sizeof(DefaultPalette));
 

@@ -170,6 +170,12 @@ typedef enum
 }
 DMG_DAT5ColorMode;
 
+typedef enum
+{
+	DMG_DAT5_FLAG_2X = 0x01,
+}
+DMG_DAT5Flags;
+
 static inline bool DMG_DAT5ModeUsesPalette(uint8_t mode)
 {
 	switch ((DMG_DAT5ColorMode)mode)
@@ -349,6 +355,7 @@ struct DMG
     uint8_t     firstEntry;
     uint8_t     lastEntry;
     uint8_t     colorMode;
+	uint8_t     dat5Flags;
     uint16_t    targetWidth;
     uint16_t    targetHeight;
 
@@ -391,7 +398,7 @@ DMG*		DMG_Open			   (const char* filename, bool readOnly);
 DMG*		DMG_OpenFromFile	   (File* file);
 DMG*        DMG_Create             (const char* filename);
 DMG*        DMG_CreateFormat       (const char* filename, DMG_Version version);
-DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry = 0, uint8_t lastEntry = 255);
+DMG*        DMG_CreateDAT5         (const char* filename, DMG_DAT5ColorMode colorMode, uint16_t width, uint16_t height, uint8_t firstEntry = 0, uint8_t lastEntry = 255, uint8_t dat5Flags = 0);
 DMG_Entry*	DMG_GetEntry		   (DMG* dmg, uint8_t index);
 bool        DMG_UpdateEntry        (DMG* dmg, uint8_t index);
 bool        DMG_UpdateFileHeader   (DMG* dmg);
@@ -470,7 +477,7 @@ bool        DMG_DecodePCWCompressedToPacked(const uint8_t* input, uint32_t input
 
 #if HAS_PCX
 bool        DMG_ReadPCXPalette         (const char* fileName, uint32_t* palette);
-bool        DMG_DecompressPCX          (const char* fileName, uint8_t* buffer, uint16_t* bufferSize, int* width, int* height, uint32_t* palette);
+bool        DMG_DecompressPCX          (const char* fileName, uint8_t* buffer, uint32_t* bufferSize, int* width, int* height, uint32_t* palette);
 #endif
 
 bool        DMG_DecompressOldRLE       (const uint8_t* data, uint16_t rleMask, uint16_t dataLength, uint8_t* buffer, int pixels, bool littleEndian);

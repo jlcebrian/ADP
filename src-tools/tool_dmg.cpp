@@ -110,6 +110,8 @@ static bool createDAT5 = false;
 static bool createFormatExplicit = false;
 static DMG_Version createLegacyVersion = DMG_Version2;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
+static uint8_t createDAT5Flags = 0;
+static bool createDAT5FlagsExplicit = false;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
 static bool createImportWidthExplicit = false;
@@ -180,6 +182,8 @@ static void ResetCreateSettings()
     createFormatExplicit = false;
     createLegacyVersion = DMG_Version2;
     createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
+    createDAT5Flags = 0;
+    createDAT5FlagsExplicit = false;
     createDAT5Width = 320;
     createDAT5Height = 200;
     createImportWidthExplicit = false;
@@ -376,6 +380,7 @@ static void PrintHelp()
     printf("                      planar4st, planar8st\n");
     printf("   -type <id>         Alias for -mode\n");
     printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
+    printf("   -2x <0|1>          Set DAT5 2X UI flag when creating or updating DAT5\n");
     printf("   -id <n>            Target entry id for the following file. Repeats increment automatically.\n");
     printf("   -fixed|-float      Set or clear fixed flag on the adjacent file, or on selected entries during update\n");
     printf("   -buffer|-nobuffer  Set or clear buffered flag on the adjacent file, or on selected entries during update\n");
@@ -464,6 +469,21 @@ static bool ParseDAT5Size(const char* value, uint16_t* width, uint16_t* height)
     *width = (uint16_t)w;
     *height = (uint16_t)h;
     return true;
+}
+
+static bool ParseDAT52X(const char* value, uint8_t* flags)
+{
+    if (stricmp(value, "1") == 0 || stricmp(value, "on") == 0 || stricmp(value, "true") == 0 || stricmp(value, "yes") == 0)
+    {
+        *flags |= DMG_DAT5_FLAG_2X;
+        return true;
+    }
+    if (stricmp(value, "0") == 0 || stricmp(value, "off") == 0 || stricmp(value, "false") == 0 || stricmp(value, "no") == 0)
+    {
+        *flags &= (uint8_t)~DMG_DAT5_FLAG_2X;
+        return true;
+    }
+    return false;
 }
 
 static bool ParseContainerFormat(const char* value, bool* isDAT5, DMG_Version* legacyVersion)
@@ -2276,7 +2296,13 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
 	printf ("%s, %s, %s\n", DescribeScreenMode((DDB_ScreenMode)dmg->screenMode), DescribeVersion(dmg->version),
 		dmg->littleEndian ? "little endian" : "big endian");
     if (dmg->version == DMG_Version5)
-        printf ("     DAT5 %s, target %dx%d, entries %u-%u\n", DescribeDAT5ColorMode(dmg->colorMode), dmg->targetWidth, dmg->targetHeight, dmg->firstEntry, dmg->lastEntry);
+                printf ("     DAT5 %s, %dx%d%s, entries %u-%u\n",
+                        DescribeDAT5ColorMode(dmg->colorMode),
+                        dmg->targetWidth,
+                        dmg->targetHeight,
+                        (dmg->dat5Flags & DMG_DAT5_FLAG_2X) != 0 ? " (2X)" : "",
+                        dmg->firstEntry,
+                        dmg->lastEntry);
 
 	for (n = 0; n < 256; n++)
 	{
@@ -2456,7 +2482,7 @@ static bool LoadIndexedImageFile(const char* fileName, uint8_t* pixels, uint32_t
 #if HAS_PCX
     if (stricmp(dot + 1, "pcx") == 0 || stricmp(dot + 1, "vga") == 0)
     {
-        uint16_t required = pixelsBufferSize > 0xFFFF ? 0xFFFF : (uint16_t)pixelsBufferSize;
+        uint32_t required = pixelsBufferSize > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t)pixelsBufferSize;
         int w = 0;
         int h = 0;
         if (!DMG_DecompressPCX(fileName, pixels, &required, &w, &h, palette))
@@ -2875,7 +2901,7 @@ static bool IsRemapToken(const char* token)
 
 static bool IsCreateToken(const char* token)
 {
-    return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0;
+    return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0 || strnicmp(token, "2x:", 3) == 0;
 }
 
 static bool IsDAT5ScreenToken(const char* token)
@@ -2886,6 +2912,11 @@ static bool IsDAT5ScreenToken(const char* token)
 static bool IsDAT5ModeToken(const char* token)
 {
     return strnicmp(token, "mode:", 5) == 0;
+}
+
+static bool IsDAT52XToken(const char* token)
+{
+    return strnicmp(token, "2x:", 3) == 0;
 }
 
 static bool IsCompressionToken(const char* token)
@@ -3684,6 +3715,25 @@ static bool ApplyDAT5HeaderToken(DMG* dmg, const char* token)
         createDAT5 = true;
         createDAT5Mode = mode;
         printf("DAT5 mode set to %s\n", DescribeDAT5ColorMode(mode));
+        return true;
+    }
+
+    if (IsDAT52XToken(token))
+    {
+        uint8_t flags = dmg->dat5Flags;
+        if (!ParseDAT52X(token + 3, &flags))
+        {
+            fprintf(stderr, "Error: Invalid DAT5 2X setting: \"%s\"\n", token + 3);
+            return false;
+        }
+
+        dmg->dat5Flags = flags;
+        if (!DMG_UpdateFileHeader(dmg))
+        {
+            fprintf(stderr, "Error: Unable to update DAT5 header: %s\n", DMG_GetErrorString());
+            return false;
+        }
+        printf("DAT5 2X flag %s\n", (dmg->dat5Flags & DMG_DAT5_FLAG_2X) != 0 ? "enabled" : "disabled");
         return true;
     }
 
@@ -4620,6 +4670,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
     uint8_t lastEntry = dmg->version == DMG_Version5 ? dmg->lastEntry : 255;
     bool outputIsDAT5 = dmg->version == DMG_Version5 || createDAT5;
     DMG_DAT5ColorMode outputColorMode = dmg->version == DMG_Version5 ? (DMG_DAT5ColorMode)dmg->colorMode : DMG_DAT5_COLORMODE_NONE;
+    uint8_t outputDAT5Flags = dmg->version == DMG_Version5 ? dmg->dat5Flags : 0;
     uint16_t outputWidth = dmg->version == DMG_Version5 ? dmg->targetWidth : 320;
     uint16_t outputHeight = dmg->version == DMG_Version5 ? dmg->targetHeight : 200;
 
@@ -4629,6 +4680,8 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
         outputHeight = createDAT5Height;
         if (createDAT5Mode != DMG_DAT5_COLORMODE_NONE)
             outputColorMode = createDAT5Mode;
+        if (createDAT5FlagsExplicit)
+            outputDAT5Flags = createDAT5Flags;
     }
 
     if (outputIsDAT5 && outputColorMode == DMG_DAT5_COLORMODE_NONE)
@@ -4646,7 +4699,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
         }
     }
 	DMG* out = outputIsDAT5 ?
-        DMG_CreateDAT5(outputFileName, outputColorMode, outputWidth, outputHeight, firstEntry, lastEntry) :
+    DMG_CreateDAT5(outputFileName, outputColorMode, outputWidth, outputHeight, firstEntry, lastEntry, outputDAT5Flags) :
         DMG_Create(outputFileName);
 	if (out == NULL)
 	{
@@ -4922,6 +4975,16 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
                 return false;
             }
         }
+        else if (strnicmp(tokens[i], "2x:", 3) == 0)
+        {
+            createDAT5 = true;
+            createDAT5FlagsExplicit = true;
+            if (!ParseDAT52X(tokens[i] + 3, &createDAT5Flags))
+            {
+                fprintf(stderr, "Error: Invalid DAT5 2X setting: \"%s\"\n", tokens[i] + 3);
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -4969,6 +5032,8 @@ static int FilterUpdateEditTokens(DMG* dmg, int tokenCount, const char* tokens[]
             continue;
         if (dmg->version != DMG_Version5 && IsDAT5ScreenToken(token))
             continue;
+        if (dmg->version != DMG_Version5 && IsDAT52XToken(token))
+            continue;
         filteredTokens[filteredCount++] = token;
     }
     return filteredCount;
@@ -4987,6 +5052,8 @@ static bool UpdateTokenRequiresRebuild(const char* token)
     if (IsDAT5ModeToken(token))
         return true;
     if (IsDAT5ScreenToken(token))
+        return false;
+    if (IsDAT52XToken(token))
         return false;
     if (IsCreateToken(token))
         return true;
@@ -5407,6 +5474,16 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
                 return false;
             continue;
         }
+        inlineValue = MatchOptionValueToken(token, "--2x");
+        if (inlineValue != 0)
+        {
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
+            if (value == 0)
+                return false;
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "2x:", value, token))
+                return false;
+            continue;
+        }
         inlineValue = MatchOptionValueToken(token, "--id");
         if (inlineValue != 0)
         {
@@ -5767,7 +5844,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
                 goto cleanup;
             }
             InferDAT5CreateRange(translatedCount, translatedArgs, &firstEntry, &lastEntry);
-            dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry);
+            dmg = DMG_CreateDAT5(workingFileName, createDAT5Mode, createDAT5Width, createDAT5Height, firstEntry, lastEntry, createDAT5Flags);
         }
         else
         {

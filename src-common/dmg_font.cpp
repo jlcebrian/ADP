@@ -2,9 +2,16 @@
 #include <os_file.h>
 #include <os_lib.h>
 
-static const uint8_t SintacFontHeader[16] = {
+static const uint8_t SintacFontHeaderV3[16] = {
 	'J', 'S', 'J', ' ', 'S', 'I', 'N', 'T', 'A', 'C', ' ', 'F', 'N', 'T', '3', 0
 };
+
+static const uint8_t SintacFontHeaderV4[16] = {
+	'J', 'S', 'J', ' ', 'S', 'I', 'N', 'T', 'A', 'C', ' ', 'F', 'N', 'T', '4', 0
+};
+
+static const uint32_t SintacFontV3Size = 6672;
+static const uint32_t SintacFontV4Size = 10768;
 
 static bool ReadExact(File* file, void* buffer, uint64_t size)
 {
@@ -16,6 +23,31 @@ static bool WriteExact(File* file, const void* buffer, uint64_t size)
 	return File_Write(file, buffer, size) == size;
 }
 
+static uint16_t Pack8To16Bits(uint8_t bits)
+{
+	return (uint16_t)bits << 8;
+}
+
+static void PromoteVersion3ToVersion4(DMG_Font* font, const uint8_t* width8x16, const uint8_t* bitmap8x16)
+{
+	for (int glyph = 0; glyph < 256; glyph++)
+	{
+		uint8_t width = width8x16[glyph];
+		if (width > 8)
+			width = 8;
+		font->width16[glyph] = width;
+
+		const uint8_t* src = bitmap8x16 + glyph * 16;
+		uint8_t* dst = font->bitmap16 + glyph * 32;
+		for (int row = 0; row < 16; row++)
+		{
+			uint16_t packed = Pack8To16Bits(src[row]);
+			dst[row * 2 + 0] = (uint8_t)(packed >> 8);
+			dst[row * 2 + 1] = (uint8_t)(packed & 0xFF);
+		}
+	}
+}
+
 bool DMG_ReadSINTACFont(const char* fileName, DMG_Font* font)
 {
 	if (font == 0)
@@ -25,20 +57,41 @@ bool DMG_ReadSINTACFont(const char* fileName, DMG_Font* font)
 	if (file == 0)
 		return false;
 
-	if (File_GetSize(file) != 6672)
+	uint64_t fileSize = File_GetSize(file);
+	if (fileSize != SintacFontV3Size && fileSize != SintacFontV4Size)
 	{
 		File_Close(file);
 		return false;
 	}
 
 	uint8_t header[16];
-	bool ok =
-		ReadExact(file, header, sizeof(header)) &&
-		MemComp(header, (void*)SintacFontHeader, sizeof(header)) == 0 &&
-		ReadExact(file, font->width16, sizeof(font->width16)) &&
-		ReadExact(file, font->bitmap16, sizeof(font->bitmap16)) &&
-		ReadExact(file, font->width8, sizeof(font->width8)) &&
-		ReadExact(file, font->bitmap8, sizeof(font->bitmap8));
+	if (!ReadExact(file, header, sizeof(header)))
+	{
+		File_Close(file);
+		return false;
+	}
+
+	bool ok = false;
+	if (MemComp(header, (void*)SintacFontHeaderV4, sizeof(header)) == 0 && fileSize == SintacFontV4Size)
+	{
+		ok =
+			ReadExact(file, font->width16, sizeof(font->width16)) &&
+			ReadExact(file, font->bitmap16, sizeof(font->bitmap16)) &&
+			ReadExact(file, font->width8, sizeof(font->width8)) &&
+			ReadExact(file, font->bitmap8, sizeof(font->bitmap8));
+	}
+	else if (MemComp(header, (void*)SintacFontHeaderV3, sizeof(header)) == 0 && fileSize == SintacFontV3Size)
+	{
+		uint8_t width8x16[256];
+		uint8_t bitmap8x16[256 * 16];
+		ok =
+			ReadExact(file, width8x16, sizeof(width8x16)) &&
+			ReadExact(file, bitmap8x16, sizeof(bitmap8x16)) &&
+			ReadExact(file, font->width8, sizeof(font->width8)) &&
+			ReadExact(file, font->bitmap8, sizeof(font->bitmap8));
+		if (ok)
+			PromoteVersion3ToVersion4(font, width8x16, bitmap8x16);
+	}
 
 	File_Close(file);
 	return ok;
@@ -54,7 +107,7 @@ bool DMG_WriteSINTACFont(const char* fileName, const DMG_Font* font)
 		return false;
 
 	bool ok =
-		WriteExact(file, SintacFontHeader, sizeof(SintacFontHeader)) &&
+		WriteExact(file, SintacFontHeaderV4, sizeof(SintacFontHeaderV4)) &&
 		WriteExact(file, font->width16, sizeof(font->width16)) &&
 		WriteExact(file, font->bitmap16, sizeof(font->bitmap16)) &&
 		WriteExact(file, font->width8, sizeof(font->width8)) &&

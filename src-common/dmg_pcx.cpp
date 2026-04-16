@@ -123,7 +123,7 @@ bool DMG_ReadPCXPalette (const char* fileName, uint32_t* palette)
     return ok;
 }
 
-bool DMG_DecompressPCX (const char* fileName, uint8_t* buffer, uint16_t* bufferSize, int* width, int* height, uint32_t* palette)
+bool DMG_DecompressPCX (const char* fileName, uint8_t* buffer, uint32_t* bufferSize, int* width, int* height, uint32_t* palette)
 {
     uint8_t header[128];
     uint8_t* compressed = 0;
@@ -195,21 +195,14 @@ bool DMG_DecompressPCX (const char* fileName, uint8_t* buffer, uint16_t* bufferS
     }
 
     uint32_t requiredSize = (uint32_t)imageWidth * (uint32_t)imageHeight;
-    if (requiredSize > 0xFFFF)
-    {
-        DMG_SetError(DMG_ERROR_IMAGE_TOO_BIG);
-        File_Close(file);
-        return false;
-    }
-
-    uint16_t availableSize = bufferSize ? *bufferSize : 0;
+    uint32_t availableSize = bufferSize ? *bufferSize : 0;
 
     if (width)
         *width = imageWidth;
     if (height)
         *height = imageHeight;
     if (bufferSize)
-        *bufferSize = (uint16_t)requiredSize;
+        *bufferSize = requiredSize;
 
     if (buffer == NULL || bufferSize == NULL || availableSize < requiredSize)
     {
