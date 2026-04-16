@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -23,6 +24,7 @@
 
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
+static int ignoredWildcardExpansionCount = 0;
 static bool debug = false;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
@@ -110,7 +112,32 @@ static DMG_Version createLegacyVersion = DMG_Version2;
 static DMG_DAT5ColorMode createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
+static bool createImportWidthExplicit = false;
+static bool createImportHeightExplicit = false;
+static uint16_t createImportWidth = 0;
+static uint16_t createImportHeight = 0;
 static bool compressionEnabled = true;
+static bool ignoreMissingWildcards = false;
+static char commandError[512];
+
+static void ClearCommandError()
+{
+    commandError[0] = 0;
+}
+
+static bool SetCommandError(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(commandError, sizeof(commandError), format, args);
+    va_end(args);
+    return false;
+}
+
+static const char* GetCommandError()
+{
+    return commandError[0] != 0 ? commandError : "Invalid arguments";
+}
 
 typedef struct
 {
@@ -155,6 +182,10 @@ static void ResetCreateSettings()
     createDAT5Mode = DMG_DAT5_COLORMODE_NONE;
     createDAT5Width = 320;
     createDAT5Height = 200;
+    createImportWidthExplicit = false;
+    createImportHeightExplicit = false;
+    createImportWidth = 0;
+    createImportHeight = 0;
 }
 
 typedef enum
@@ -343,6 +374,7 @@ static void PrintHelp()
     printf("   -format <id>       Container format: dat5, dat2, dat1, ega, cga, pcw\n");
     printf("   -mode <id>         DAT5 mode: cga, ega, planar4, planar5, planar8,\n");
     printf("                      planar4st, planar8st\n");
+    printf("   -type <id>         Alias for -mode\n");
     printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
     printf("   -id <n>            Target entry id for the following file. Repeats increment automatically.\n");
     printf("   -fixed|-float      Set or clear fixed flag on the adjacent file, or on selected entries during update\n");
@@ -357,6 +389,7 @@ static void PrintHelp()
     printf("   -amiga-hack|-noamiga-hack Toggle the classic DAT Amiga 4-bit palette marker on the adjacent file\n");
     printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: min, reserve, std, dark, A-B\n");
     printf("   -priority <list>   Rebuild order preference for update/create\n");
+    printf("   -ignore-missing    Ignore unmatched wildcard file arguments\n");
     printf("\n");
     printf("Extract options:\n\n");
     printf("   -output <dir>      Destination directory\n");
@@ -2506,18 +2539,6 @@ static bool ParseInputOptionToken(const char* token)
         pendingInputOptions.y = value;
         return true;
     }
-    if (strnicmp(token, "set-width:", 10) == 0 && ParseOptionValue(token + 10, &value))
-    {
-        pendingInputOptions.hasWidth = true;
-        pendingInputOptions.width = value;
-        return true;
-    }
-    if (strnicmp(token, "set-height:", 11) == 0 && ParseOptionValue(token + 11, &value))
-    {
-        pendingInputOptions.hasHeight = true;
-        pendingInputOptions.height = value;
-        return true;
-    }
     if (strnicmp(token, "set-pcs:", 8) == 0 && ParseOptionValue(token + 8, &value))
     {
         pendingInputOptions.hasFirstColor = true;
@@ -2877,6 +2898,29 @@ static bool IsPriorityToken(const char* token)
     return strnicmp(token, "priority:", 9) == 0;
 }
 
+static bool ParseGlobalImportSizeToken(const char* token)
+{
+    int value = 0;
+    if (strnicmp(token, "set-width:", 10) == 0 && ParseOptionValue(token + 10, &value))
+    {
+        createImportWidthExplicit = true;
+        createImportWidth = (uint16_t)value;
+        return true;
+    }
+    if (strnicmp(token, "set-height:", 11) == 0 && ParseOptionValue(token + 11, &value))
+    {
+        createImportHeightExplicit = true;
+        createImportHeight = (uint16_t)value;
+        return true;
+    }
+    return false;
+}
+
+static bool IsGlobalImportSizeToken(const char* token)
+{
+    return strnicmp(token, "set-width:", 10) == 0 || strnicmp(token, "set-height:", 11) == 0;
+}
+
 static bool HasWildcardChars(const char* token)
 {
     return token != 0 && (strchr(token, '*') != 0 || strchr(token, '?') != 0);
@@ -2936,6 +2980,53 @@ static char* DuplicatePrefixedString(const char* prefix, const char* suffix)
     return DuplicateString(temp);
 }
 
+static bool AppendTranslatedArgument(const char** translatedArgs, int* translatedCount, int maxTranslatedCount, const char* value, const char* sourceToken)
+{
+    if (*translatedCount >= maxTranslatedCount)
+        return SetCommandError("Too many processed arguments (limit %d) while handling \"%s\"", maxTranslatedCount, sourceToken != 0 ? sourceToken : "");
+    translatedArgs[(*translatedCount)++] = value;
+    return true;
+}
+
+static bool AppendTranslatedDuplicate(const char** translatedArgs, int* translatedCount, int maxTranslatedCount, const char* value, const char* sourceToken)
+{
+    char* copy = DuplicateString(value);
+    if (copy == 0)
+        return SetCommandError("Out of memory while handling \"%s\"", sourceToken != 0 ? sourceToken : value);
+    return AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedCount, copy, sourceToken);
+}
+
+static bool AppendTranslatedPrefixed(const char** translatedArgs, int* translatedCount, int maxTranslatedCount, const char* prefix, const char* value, const char* sourceToken)
+{
+    char* copy = DuplicatePrefixedString(prefix, value);
+    if (copy == 0)
+        return SetCommandError("Out of memory while handling \"%s\"", sourceToken != 0 ? sourceToken : value);
+    return AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedCount, copy, sourceToken);
+}
+
+static const char* ConsumeOptionValue(const char* token, const char* inlineValue, int inputCount, const char* inputArgs[], int* index)
+{
+    if (*inlineValue != 0)
+        return inlineValue;
+    if (*index + 1 >= inputCount)
+    {
+        SetCommandError("Missing value for option \"%s\"", token);
+        return 0;
+    }
+    (*index)++;
+    return inputArgs[*index];
+}
+
+static void ScanIgnoreMissingArguments(int argc, const char* argv[])
+{
+    for (int i = 0; i < argc; i++)
+    {
+        const char* token = argv[i];
+        if (token != 0 && (strcmp(token, "--ignore-missing") == 0 || strcmp(token, "-ignore-missing") == 0))
+            ignoreMissingWildcards = true;
+    }
+}
+
 static bool MatchFlagToken(const char* token, const char* name)
 {
     if (token == 0 || name == 0)
@@ -2980,19 +3071,249 @@ static int CompareStringsIgnoreCase(const void* a, const void* b)
     return stricmp(sa, sb);
 }
 
-static bool ExpandWildcardToken(const char* token, const char** outTokens, int* outCount)
+struct DirectoryImportEntry
+{
+    bool hasPNG;
+    bool hasPI1;
+    bool hasWAV;
+    char pngPath[FILE_MAX_PATH];
+    char pi1Path[FILE_MAX_PATH];
+    char wavPath[FILE_MAX_PATH];
+};
+
+static bool IsRecognizedDirectoryImportExtension(const char* extension)
+{
+    return stricmp(extension, "png") == 0 ||
+        stricmp(extension, "pi1") == 0 ||
+        stricmp(extension, "wav") == 0 ||
+        stricmp(extension, "json") == 0;
+}
+
+static bool IsNumericLocationName(const char* text)
+{
+    if (text == 0 || *text == 0)
+        return false;
+    while (*text != 0)
+    {
+        if (!isdigit((unsigned char)*text))
+            return false;
+        text++;
+    }
+    return true;
+}
+
+static bool AppendExpandedOwnedArgument(const char** outTokens, int* outCount, int maxOutCount, const char* value, const char* sourceToken)
+{
+    if (*outCount >= maxOutCount)
+    {
+        SetCommandError("Too many arguments after expanding \"%s\" (limit %d)", sourceToken, maxOutCount);
+        return false;
+    }
+    char* copy = DuplicateString(value);
+    if (copy == 0)
+    {
+        SetCommandError("Out of memory expanding \"%s\"", sourceToken);
+        return false;
+    }
+    outTokens[(*outCount)++] = copy;
+    return true;
+}
+
+static bool CollectDirectoryImportEntries(const char* directory, DirectoryImportEntry* entries, bool* foundAnySupportedFiles)
+{
+    char pattern[FILE_MAX_PATH];
+    FindFileResults results;
+    const char* separator = GetLastPathSeparator(directory);
+    char joinSeparator = (separator != 0 && *separator == '\\') ? '\\' : '/';
+
+    if (directory == 0 || *directory == 0)
+        return true;
+
+    if (separator != 0 && separator[1] == 0)
+    {
+        if (strlen(directory) + 1 >= sizeof(pattern))
+        {
+            SetCommandError("Folder path too long: %s", directory);
+            return false;
+        }
+        snprintf(pattern, sizeof(pattern), "%s*", directory);
+    }
+    else
+    {
+        if (strlen(directory) + 2 >= sizeof(pattern))
+        {
+            SetCommandError("Folder path too long: %s", directory);
+            return false;
+        }
+        snprintf(pattern, sizeof(pattern), "%s%c*", directory, joinSeparator);
+    }
+
+    if (!File_FindFirst(pattern, &results))
+    {
+        if (ignoreMissingWildcards)
+            return true;
+        SetCommandError("Invalid folder: %s", directory);
+        return false;
+    }
+
+    do
+    {
+        if ((results.attributes & FileAttribute_Directory) != 0)
+            continue;
+
+        char fullPath[FILE_MAX_PATH];
+        if (strchr(results.fileName, '/') != 0 || strchr(results.fileName, '\\') != 0)
+        {
+            StrCopy(fullPath, sizeof(fullPath), results.fileName);
+        }
+        else if (separator != 0 && separator[1] == 0)
+        {
+            StrCopy(fullPath, sizeof(fullPath), directory);
+            StrCat(fullPath, sizeof(fullPath), results.fileName);
+        }
+        else
+        {
+            StrCopy(fullPath, sizeof(fullPath), directory);
+            char separatorText[2] = { joinSeparator, 0 };
+            StrCat(fullPath, sizeof(fullPath), separatorText);
+            StrCat(fullPath, sizeof(fullPath), results.fileName);
+        }
+
+        const char* filePart = GetLastPathSeparator(fullPath);
+        filePart = filePart != 0 ? filePart + 1 : fullPath;
+        const char* dot = strrchr(filePart, '.');
+        if (dot == 0)
+            continue;
+        if (!IsRecognizedDirectoryImportExtension(dot + 1))
+            continue;
+
+        *foundAnySupportedFiles = true;
+
+        char baseName[FILE_MAX_PATH];
+        size_t baseLength = (size_t)(dot - filePart);
+        if (baseLength >= sizeof(baseName))
+            baseLength = sizeof(baseName) - 1;
+        memcpy(baseName, filePart, baseLength);
+        baseName[baseLength] = 0;
+
+        if (stricmp(baseName, "DAAD") == 0)
+            continue;
+        if (!IsNumericLocationName(baseName))
+        {
+            SetCommandError("Invalid location number in %s", fullPath);
+            return false;
+        }
+
+        int location = atoi(baseName);
+        if (location < 0 || location > 255)
+        {
+            SetCommandError("Invalid location number in %s", fullPath);
+            return false;
+        }
+
+        DirectoryImportEntry* entry = &entries[location];
+        if (stricmp(dot + 1, "png") == 0)
+        {
+            entry->hasPNG = true;
+            StrCopy(entry->pngPath, sizeof(entry->pngPath), fullPath);
+        }
+        else if (stricmp(dot + 1, "pi1") == 0)
+        {
+            entry->hasPI1 = true;
+            StrCopy(entry->pi1Path, sizeof(entry->pi1Path), fullPath);
+        }
+        else if (stricmp(dot + 1, "wav") == 0)
+        {
+            entry->hasWAV = true;
+            StrCopy(entry->wavPath, sizeof(entry->wavPath), fullPath);
+        }
+    } while (File_FindNext(&results));
+
+    return true;
+}
+
+static int ExpandDirectoryToken(const char* token, const char** outTokens, int* outCount, int maxOutCount)
+{
+    if (token == 0 || *token == 0)
+        return 0;
+    if (token[0] == '-')
+        return 0;
+    if (strchr(token, ';') == 0 && GetLastPathSeparator(token) == 0)
+        return 0;
+    if (HasWildcardChars(token) || IsSelectionToken(token) || IsPropertyToken(token) || IsRemapToken(token) || IsCompressionToken(token) || IsPriorityToken(token) || IsCreateToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
+        return 0;
+
+    DirectoryImportEntry entries[256];
+    MemClear(entries, sizeof(entries));
+    bool foundAnySupportedFiles = false;
+    bool processedDirectory = false;
+
+    const char* part = token;
+    while (*part != 0)
+    {
+        const char* next = strchr(part, ';');
+        char directory[FILE_MAX_PATH];
+        size_t length = next != 0 ? (size_t)(next - part) : strlen(part);
+        if (length >= sizeof(directory))
+            length = sizeof(directory) - 1;
+        memcpy(directory, part, length);
+        directory[length] = 0;
+
+        if (directory[0] != 0)
+        {
+            processedDirectory = true;
+            if (!CollectDirectoryImportEntries(directory, entries, &foundAnySupportedFiles))
+                return -1;
+        }
+
+        if (next == 0)
+            break;
+        part = next + 1;
+    }
+
+    if (!processedDirectory)
+        return 0;
+
+    int before = *outCount;
+    for (int location = 0; location < 256; location++)
+    {
+        if (entries[location].hasPNG)
+        {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].pngPath, token))
+                return -1;
+        }
+        else if (entries[location].hasPI1)
+        {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].pi1Path, token))
+                return -1;
+        }
+        else if (entries[location].hasWAV)
+        {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].wavPath, token))
+                return -1;
+        }
+    }
+
+    if (*outCount != before)
+        return 1;
+    if (foundAnySupportedFiles)
+        return 1;
+    return processedDirectory ? 1 : 0;
+}
+
+static int ExpandWildcardToken(const char* token, const char** outTokens, int* outCount, int maxOutCount)
 {
     if (!HasWildcardChars(token))
-        return false;
+        return 0;
     if (IsSelectionToken(token) || IsPropertyToken(token) || IsRemapToken(token) || IsCompressionToken(token) || IsPriorityToken(token) || IsCreateToken(token))
-        return false;
+        return 0;
 
     const char* pattern = token;
     if (IsTargetedFileToken(token))
-        return false;
+        return 0;
     const char* colon = strchr(token, ':');
     if (colon != 0 && colon != token && isdigit((unsigned char)*token))
-        return false;
+        return 0;
 
     FindFileResults results;
     char* matches[CLI_MAX_ARGUMENTS];
@@ -3028,35 +3349,67 @@ static bool ExpandWildcardToken(const char* token, const char** outTokens, int* 
             {
                 for (int i = 0; i < matchCount; i++)
                     free(matches[i]);
-                fprintf(stderr, "Error: Out of memory expanding wildcard \"%s\"\n", token);
-                exit(1);
+                SetCommandError("Out of memory expanding wildcard \"%s\"", token);
+                return -1;
             }
             matchCount++;
-            if (matchCount >= CLI_MAX_ARGUMENTS)
-                break;
+            if (*outCount + matchCount > maxOutCount)
+            {
+                for (int i = 0; i < matchCount; i++)
+                    free(matches[i]);
+                SetCommandError("Too many arguments after expanding wildcard \"%s\" (limit %d)", token, maxOutCount);
+                return -1;
+            }
         } while (File_FindNext(&results));
     }
 
     if (matchCount == 0)
-        return false;
+    {
+        if (ignoreMissingWildcards)
+        {
+            ignoredWildcardExpansionCount++;
+            return 1;
+        }
+        SetCommandError("No files matched wildcard \"%s\"", token);
+        return -1;
+    }
 
     qsort(matches, matchCount, sizeof(matches[0]), CompareStringsIgnoreCase);
     for (int i = 0; i < matchCount; i++)
         outTokens[(*outCount)++] = matches[i];
-    return true;
+    return 1;
 }
 
-static int ExpandArgumentTokens(int argc, const char* argv[], const char** expandedArgs, bool* expandedArgOwned)
+static int ExpandArgumentTokens(int argc, const char* argv[], const char** expandedArgs, bool* expandedArgOwned, int maxExpandedArgs)
 {
     int expandedArgCount = 0;
     for (int i = 0; i < argc; i++)
     {
         int before = expandedArgCount;
-        if (ExpandWildcardToken(argv[i], expandedArgs, &expandedArgCount))
+        int dirResult = ExpandDirectoryToken(argv[i], expandedArgs, &expandedArgCount, maxExpandedArgs);
+        if (dirResult < 0)
+            return -1;
+        if (dirResult > 0)
         {
             for (int n = before; n < expandedArgCount; n++)
                 expandedArgOwned[n] = true;
             continue;
+        }
+
+        before = expandedArgCount;
+        int result = ExpandWildcardToken(argv[i], expandedArgs, &expandedArgCount, maxExpandedArgs);
+        if (result < 0)
+            return -1;
+        if (result > 0)
+        {
+            for (int n = before; n < expandedArgCount; n++)
+                expandedArgOwned[n] = true;
+            continue;
+        }
+        if (expandedArgCount >= maxExpandedArgs)
+        {
+            SetCommandError("Too many arguments (limit %d), offending token \"%s\"", maxExpandedArgs, argv[i]);
+            return -1;
         }
         expandedArgs[expandedArgCount] = argv[i];
         expandedArgOwned[expandedArgCount] = false;
@@ -3667,8 +4020,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
 
     if (pendingInputOptions.hasX) { effectiveOptions.hasX = true; effectiveOptions.x = pendingInputOptions.x; }
     if (pendingInputOptions.hasY) { effectiveOptions.hasY = true; effectiveOptions.y = pendingInputOptions.y; }
-    if (pendingInputOptions.hasWidth) { effectiveOptions.hasWidth = true; effectiveOptions.width = pendingInputOptions.width; }
-    if (pendingInputOptions.hasHeight) { effectiveOptions.hasHeight = true; effectiveOptions.height = pendingInputOptions.height; }
+    if (createImportWidthExplicit && !effectiveOptions.hasWidth) { effectiveOptions.hasWidth = true; effectiveOptions.width = createImportWidth; }
+    if (createImportHeightExplicit && !effectiveOptions.hasHeight) { effectiveOptions.hasHeight = true; effectiveOptions.height = createImportHeight; }
     if (pendingInputOptions.hasFirstColor) { effectiveOptions.hasFirstColor = true; effectiveOptions.firstColor = pendingInputOptions.firstColor; }
     if (pendingInputOptions.hasLastColor) { effectiveOptions.hasLastColor = true; effectiveOptions.lastColor = pendingInputOptions.lastColor; }
     if (pendingInputOptions.hasBuffer) { effectiveOptions.hasBuffer = true; effectiveOptions.buffer = pendingInputOptions.buffer; }
@@ -4106,6 +4459,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 {
     int currentIndex = -1;
     bool currentFileSaved = false;
+    bool pendingInputRequiresFile = false;
     bool currentSelection[256];
     bool explicitSelection = false;
     ClearSelection(currentSelection);
@@ -4147,6 +4501,9 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             continue;
         }
 
+        if (IsGlobalImportSizeToken(token))
+            continue;
+
         if (IsInputOptionToken(token))
         {
             if (!ParseInputOptionToken(token))
@@ -4154,6 +4511,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
                 fprintf(stderr, "Error: Invalid input option: \"%s\"\n", token);
                 return false;
             }
+            pendingInputRequiresFile = true;
 
             if (action == ACTION_UPDATE && !currentFileSaved && CountSelectedEntries(currentSelection) > 0 && IsTrailingEntryOptionToken(token))
             {
@@ -4166,6 +4524,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
                 if (!ApplyPropertyToSelection(dmg, currentSelection, propertyToken))
                     return false;
                 ClearPendingTrailingEntryOptions();
+                pendingInputRequiresFile = HasPendingTrailingEntryOptions() || HasPendingImageOnlyInputOptions();
                 continue;
             }
 
@@ -4174,6 +4533,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
                 if (!ApplyPendingEntryOptions(dmg, currentIndex))
                     return false;
                 ResetPendingInputOptions();
+                pendingInputRequiresFile = false;
             }
             continue;
         }
@@ -4227,6 +4587,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         {
             if (!ApplyFileToken(dmg, token, currentSelection, &explicitSelection, &currentIndex, &currentFileSaved))
                 return false;
+            pendingInputRequiresFile = false;
             continue;
         }
 
@@ -4236,6 +4597,11 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 
     if (HasPendingTrailingEntryOptions() || HasPendingImageOnlyInputOptions())
     {
+        if (ignoreMissingWildcards && ignoredWildcardExpansionCount > 0 && pendingInputRequiresFile)
+        {
+            ResetPendingInputOptions();
+            return true;
+        }
         if (action == ACTION_UPDATE)
             fprintf(stderr, "Error: Option requires a following compatible input file, or an entry selection before it during update\n");
         else
@@ -4530,6 +4896,14 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
                 return false;
             }
         }
+        else if (IsGlobalImportSizeToken(tokens[i]))
+        {
+            if (!ParseGlobalImportSizeToken(tokens[i]))
+            {
+                fprintf(stderr, "Error: Invalid import size setting: \"%s\"\n", tokens[i]);
+                return false;
+            }
+        }
         else if (strnicmp(tokens[i], "mode:", 5) == 0)
         {
             createDAT5 = true;
@@ -4647,6 +5021,7 @@ static void ResetCommandExecutionState(Action commandAction)
     remapRangeFirst = 0;
     remapRangeLast = 0;
     compressionEnabled = true;
+    ignoreMissingWildcards = false;
     ResetPriorityEntries();
     ClearSelection(selected);
 }
@@ -4684,6 +5059,8 @@ static bool ExecuteDMGAction(DMG* dmg, Action commandAction, int argumentCount, 
             return false;
 
         case ACTION_ADD:
+            if (!ParseCreateArguments(argumentCount, arguments))
+                return false;
             return ParseEntryChanges(dmg, argumentCount, arguments);
 
         case ACTION_UPDATE:
@@ -4694,6 +5071,8 @@ static bool ExecuteDMGAction(DMG* dmg, Action commandAction, int argumentCount, 
             bool hasExplicitOutputFile = false;
             bool replaceOriginal = false;
             ParseUpdateArguments(argumentCount, arguments, &outputFileName, &hasExplicitOutputFile, &editTokenCount, editTokens);
+            if (!ParseCreateArguments(argumentCount, arguments))
+                return false;
             if (editTokenCount > 0 && !ParseEntryChanges(dmg, editTokenCount, editTokens))
                 return false;
             if (!UpdateRequiresRebuild(dmg, outputFileName, editTokenCount, editTokens))
@@ -4791,9 +5170,17 @@ static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
 
     verbose = actionSpec->canonicalName != 0 && stricmp(actionSpec->canonicalName, "list-palettes") == 0;
 
+    ignoreMissingWildcards = false;
+    ScanIgnoreMissingArguments(argc - 1, (const char**)argv + 1);
+
     const char* expandedArgs[CLI_MAX_ARGUMENTS * 4];
     bool expandedArgOwned[CLI_MAX_ARGUMENTS * 4];
-    int expandedArgCount = ExpandArgumentTokens(argc - 1, (const char**)argv + 1, expandedArgs, expandedArgOwned);
+    int expandedArgCount = ExpandArgumentTokens(argc - 1, (const char**)argv + 1, expandedArgs, expandedArgOwned, CLI_MAX_ARGUMENTS * 4);
+    if (expandedArgCount < 0)
+    {
+        fprintf(stderr, "Error: %s\n", GetCommandError());
+        return false;
+    }
 
     const char* translatedArgs[CLI_MAX_ARGUMENTS * 4];
     int translatedArgCount = 0;
@@ -4801,7 +5188,7 @@ static bool ExecuteSessionCommand(int argc, char* argv[], void* context)
     bool ok = TranslateModernArguments(commandAction, expandedArgCount, expandedArgs, translatedArgs, &translatedArgCount, &explicitOutputFile);
     if (!ok)
     {
-        fprintf(stderr, "Error: Invalid arguments for command \"%s\"\n", argv[0]);
+        fprintf(stderr, "Error: %s\n", GetCommandError());
     }
     else if (explicitOutputFile != 0)
     {
@@ -4963,10 +5350,12 @@ static bool CopyFileExact(const char* sourceFileName, const char* destFileName)
 
 static bool TranslateModernArguments(Action action, int inputCount, const char* inputArgs[], const char** translatedArgs, int* translatedCount, const char** explicitOutputFile)
 {
+    const int maxTranslatedArgs = CLI_MAX_ARGUMENTS * 4;
     int nextId = -1;
     bool haveExplicitId = false;
     *translatedCount = 0;
     *explicitOutputFile = 0;
+    ClearCommandError();
 
     for (int i = 0; i < inputCount; i++)
     {
@@ -4975,165 +5364,201 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
         if (token == 0 || *token == 0)
             continue;
 
+        if (MatchFlagToken(token, "--ignore-missing"))
+        {
+            ignoreMissingWildcards = true;
+            continue;
+        }
+
         inlineValue = MatchOptionValueToken(token, "--format");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             bool isDAT5 = false;
             DMG_Version legacyVersion = DMG_Version2;
-            if (value == 0 || !ParseContainerFormat(value, &isDAT5, &legacyVersion))
+            if (value == 0)
                 return false;
+            if (!ParseContainerFormat(value, &isDAT5, &legacyVersion))
+                return SetCommandError("Invalid container format \"%s\" for option \"%s\"", value, token);
             createFormatExplicit = true;
             createDAT5 = isDAT5;
             createLegacyVersion = legacyVersion;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--mode");
+        if (inlineValue == 0)
+            inlineValue = MatchOptionValueToken(token, "--type");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("mode:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "mode:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--screen");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("screen:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "screen:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--id");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
             nextId = atoi(value);
             haveExplicitId = true;
             continue;
         }
-        if (MatchFlagToken(token, "--fixed")) { translatedArgs[(*translatedCount)++] = "set-fixed:1"; continue; }
-        if (MatchFlagToken(token, "--float")) { translatedArgs[(*translatedCount)++] = "set-fixed:0"; continue; }
-        if (MatchFlagToken(token, "--buffer")) { translatedArgs[(*translatedCount)++] = "set-buffer:1"; continue; }
-        if (MatchFlagToken(token, "--nobuffer")) { translatedArgs[(*translatedCount)++] = "set-buffer:0"; continue; }
-        if (MatchFlagToken(token, "--compress")) { translatedArgs[(*translatedCount)++] = "compression:1"; continue; }
-        if (MatchFlagToken(token, "--nocompress")) { translatedArgs[(*translatedCount)++] = "compression:0"; continue; }
-        if (MatchFlagToken(token, "--amiga-hack")) { translatedArgs[(*translatedCount)++] = "set-amiga-hack:1"; continue; }
-        if (MatchFlagToken(token, "--noamiga-hack")) { translatedArgs[(*translatedCount)++] = "set-amiga-hack:0"; continue; }
-        if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && MatchFlagToken(token, "--nojson")) { translatedArgs[(*translatedCount)++] = "set-json:off"; continue; }
+        if (MatchFlagToken(token, "--fixed")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-fixed:1", token)) return false; continue; }
+        if (MatchFlagToken(token, "--float")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-fixed:0", token)) return false; continue; }
+        if (MatchFlagToken(token, "--buffer")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-buffer:1", token)) return false; continue; }
+        if (MatchFlagToken(token, "--nobuffer")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-buffer:0", token)) return false; continue; }
+        if (MatchFlagToken(token, "--compress")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "compression:1", token)) return false; continue; }
+        if (MatchFlagToken(token, "--nocompress")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "compression:0", token)) return false; continue; }
+        if (MatchFlagToken(token, "--amiga-hack")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-amiga-hack:1", token)) return false; continue; }
+        if (MatchFlagToken(token, "--noamiga-hack")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-amiga-hack:0", token)) return false; continue; }
+        if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && MatchFlagToken(token, "--nojson")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-json:off", token)) return false; continue; }
         inlineValue = MatchOptionValueToken(token, "--x");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-x:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-x:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--y");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-y:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-y:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--pcs");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-pcs:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-pcs:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--pce");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-pce:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-pce:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--width");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-width:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-width:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--height");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-height:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-height:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--clone");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-clone:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-clone:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--json");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            if (stricmp(value, "off") == 0) translatedArgs[(*translatedCount)++] = "set-json:off";
-            else if (stricmp(value, "auto") == 0) translatedArgs[(*translatedCount)++] = "set-json:auto";
-            else translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("set-json-file:", value);
+            if (stricmp(value, "off") == 0)
+            {
+                if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-json:off", token))
+                    return false;
+            }
+            else if (stricmp(value, "auto") == 0)
+            {
+                if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-json:auto", token))
+                    return false;
+            }
+            else if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-json-file:", value, token))
+            {
+                return false;
+            }
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--remap");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("remap:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "remap:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--priority");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("priority:", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "priority:", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--as");
         if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("--as=", value);
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "--as=", value, token))
+                return false;
             continue;
         }
         inlineValue = MatchOptionValueToken(token, "--output");
         if (inlineValue != 0)
         {
-            const char* value = *inlineValue != 0 ? inlineValue : (i + 1 < inputCount ? inputArgs[++i] : 0);
+            const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
             if (action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES || action == ACTION_TEST)
-                translatedArgs[(*translatedCount)++] = DuplicatePrefixedString("out:", value);
+            {
+                if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "out:", value, token))
+                    return false;
+            }
             else
                 *explicitOutputFile = value;
             continue;
@@ -5143,10 +5568,12 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
         {
             char idToken[16];
             snprintf(idToken, sizeof(idToken), "%d", nextId);
-            translatedArgs[(*translatedCount)++] = DuplicateString(idToken);
+            if (!AppendTranslatedDuplicate(translatedArgs, translatedCount, maxTranslatedArgs, idToken, token))
+                return false;
             nextId++;
         }
-        translatedArgs[(*translatedCount)++] = token;
+        if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, token, token))
+            return false;
     }
     return true;
 }
@@ -5169,6 +5596,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     bool changed = false;
     bool replaceTarget = false;
     bool result = false;
+    bool saveAttempted = false;
 
     if (argc < 2)
     {
@@ -5182,6 +5610,8 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     remapRangeFirst = 0;
     remapRangeLast = 0;
     compressionEnabled = true;
+    ignoreMissingWildcards = false;
+    ignoredWildcardExpansionCount = 0;
     debug = false;
     listSortById = true;
     verbose = false;
@@ -5212,6 +5642,12 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         {
             PrintHelp();
             return true;
+        }
+        if (MatchFlagToken(token, "--ignore-missing"))
+        {
+            ignoreMissingWildcards = true;
+            argIndex++;
+            continue;
         }
 
         if (!actionSet)
@@ -5257,11 +5693,18 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
         return false;
     }
 
-    expandedCount = ExpandArgumentTokens(argc - argIndex, (const char**)argv + argIndex, expandedArgs, expandedArgOwned);
+    ScanIgnoreMissingArguments(argc - argIndex, (const char**)argv + argIndex);
+
+    expandedCount = ExpandArgumentTokens(argc - argIndex, (const char**)argv + argIndex, expandedArgs, expandedArgOwned, CLI_MAX_ARGUMENTS * 4);
+    if (expandedCount < 0)
+    {
+        fprintf(stderr, "Error: %s\n", GetCommandError());
+        goto cleanup;
+    }
 
     if (!TranslateModernArguments(action, expandedCount, expandedArgs, translatedArgs, &translatedCount, &explicitOutputFile))
     {
-        fprintf(stderr, "Error: Invalid arguments\n");
+        fprintf(stderr, "Error: %s\n", GetCommandError());
         goto cleanup;
     }
 
@@ -5336,12 +5779,16 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             goto cleanup;
         }
         bool ok = ParseEntryChanges(dmg, translatedCount, translatedArgs);
-        if (ok && dmg->dirty)
+        saveAttempted = false;
+        if (ok)
         {
             ApplySavePriorityHints(dmg);
+            if (!dmg->dirty)
+                dmg->dirty = true;
+            saveAttempted = true;
             ok = DMG_Save(dmg);
         }
-        if (!ok)
+        if (!ok && saveAttempted)
             fprintf(stderr, "Error: Failed to write \"%s\" (working file \"%s\"): %s\n", filename, workingFileName, DMG_GetErrorString());
         DMG_Close(dmg);
         dmg = 0;
@@ -5464,12 +5911,14 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
             ok = ParseEntryChanges(dmg, translatedCount, translatedArgs);
     }
     changed = ok && dmg->dirty;
+    saveAttempted = false;
     if (changed)
     {
         ApplySavePriorityHints(dmg);
+        saveAttempted = true;
         ok = DMG_Save(dmg);
     }
-    if (!ok)
+    if (!ok && saveAttempted)
         fprintf(stderr, "Error: Failed to write \"%s\": %s\n", workingFileName, DMG_GetErrorString());
     DMG_Close(dmg);
     dmg = 0;

@@ -47,7 +47,6 @@ bool OS_FindFirstFile(const char *pattern, FindFileResults *results)
 		StrCopy(i->path, folder-pattern, pattern);
 		i->dirp = opendir(i->path);
 		if (i->dirp == 0) {
-			DebugPrintf("Failed to open folder %s\n", i->path);
 			return false;
 		}
 		StrCat(i->path, FILE_MAX_PATH, "/");
@@ -71,7 +70,6 @@ bool OS_FindNextFile(FindFileResults *results)
 	{
 		i->direntp = readdir(i->dirp);
 		if (i->direntp == 0) {
-			DebugPrintf("End of folder\n");
 			break;
 		}
 
