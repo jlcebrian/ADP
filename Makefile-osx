@@ -108,14 +108,14 @@ clean:
 $(COMMON_OBJS) $(PLAYER_OBJ) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(CPPFLAGS) -c -o $@ "$(CURDIR)/$<"
 
 $(TOOL_OBJS) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(TOOL_CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(TOOL_CPPFLAGS) -c -o $@ "$(CURDIR)/$<"
 
 $(TOOL_MAIN_OBJS) : $(OBJDIR)/%.o : %.cpp
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(TOOL_CPPFLAGS) -Iinclude-tools -c -o $@ $(CURDIR)/$<
+	@$(CC) $(TOOL_CPPFLAGS) -Iinclude-tools -c -o $@ "$(CURDIR)/$<"

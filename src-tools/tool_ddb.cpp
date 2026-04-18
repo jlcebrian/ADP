@@ -844,8 +844,8 @@ int main (int argc, char *argv[])
 	}
 
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
-	if (ddb->target == DDB_MACHINE_IBMPC)
-		DDB_CheckVideoMode(inputFileName, &screenMode);
+	uint8_t displayPlanes = 4;
+	DDB_CheckDataFileConfig(loadedDDBFileName, ddb->target, &screenMode, &displayPlanes);
 
 	if (screenOption != 0)
 	{
@@ -864,15 +864,15 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 	}
-
+	VID_SetDisplayPlanesHint(displayPlanes);
 	VID_Initialize(ddb->target, ddb->version, screenMode);
 	if (DDB_SupportsDataFile(ddb->version, ddb->target))
-		VID_LoadDataFile(inputFileName);
+		VID_LoadDataFile(loadedDDBFileName);
 	#if HAS_PCX
 	if (VID_HasExternalPictures())
 	{
 		screenMode = ScreenMode_VGA;
-		LoadPCXStartupPalette(inputFileName);
+		LoadPCXStartupPalette(loadedDDBFileName);
 	}
 	#endif
 
