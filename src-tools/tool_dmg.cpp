@@ -4705,7 +4705,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
                 if (IsDAT5ModeToken(token))
                     continue;
 
-                if (IsDAT5ScreenToken(token))
+                if (IsDAT5ScreenToken(token) || IsDAT52XToken(token))
                 {
                     if (dmg->version == DMG_Version5 && !createFormatExplicit)
                     {

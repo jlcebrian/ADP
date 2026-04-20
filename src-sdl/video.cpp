@@ -667,7 +667,16 @@ static bool HasExternalPCXGraphics(const char* fileName)
 static bool IsPCXScreenFile(const char* fileName)
 {
 	const char* dot = StrRChr(fileName, '.');
-	return dot != 0 && (StrIComp(dot, ".vga") == 0 || StrIComp(dot, ".pcx") == 0);
+	if (dot != 0 && (StrIComp(dot, ".vga") == 0 || StrIComp(dot, ".pcx") == 0))
+		return true;
+
+	uint8_t header[128];
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	return ok && header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1;
 }
 #endif
 
@@ -1061,7 +1070,7 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	#if HAS_PCX
-	if (target == DDB_MACHINE_IBMPC && IsPCXScreenFile(fileName))
+	if (IsPCXScreenFile(fileName))
 	{
 		uint32_t bufferSize = (uint32_t)screenWidth * (uint32_t)screenHeight;
 		uint8_t* output = Allocate<uint8_t>("PCX screen", bufferSize);
@@ -2215,6 +2224,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 	    	    	screenHeight = 200;
                     break;
             }
+			ApplyIBMPCTextMetrics(mode == ScreenMode_SHiRes);
 			break;
 	}
 

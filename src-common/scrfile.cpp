@@ -2,6 +2,43 @@
 #include <ddb_pal.h>
 #include <os_file.h>
 
+static bool SCR_HasPI1Header(const uint8_t* data, uint64_t size)
+{
+	return size == 32034 && data[0] == 0x00 && data[1] == 0x00;
+}
+
+static void SCR_DecodePlanarST(const uint8_t* data, uint8_t* output, int width, int height, uint32_t* palette)
+{
+	uint8_t* filePalette = (uint8_t*)data;
+	for (int n = 0; n < 16; n++)
+		palette[n] = Pal2RGB((filePalette[n * 2] << 8) + filePalette[n * 2 + 1], false);
+
+	for (int y = 0; y < 200 && y < height; y++)
+	{
+		uint8_t* row = (uint8_t*)data + 32 + y * 160;
+		uint8_t* ptr = output + y * width;
+		for (int x = 0; x < 160; x += 8)
+		{
+			uint16_t bits0 = (row[x+0] << 8) | row[x+1];
+			uint16_t bits1 = (row[x+2] << 8) | row[x+3];
+			uint16_t bits2 = (row[x+4] << 8) | row[x+5];
+			uint16_t bits3 = (row[x+6] << 8) | row[x+7];
+
+			int mask = 0x8000;
+			do
+			{
+				int color = ((bits0 & mask) ? 0x01 : 0x00);
+				if (bits1 & mask) color |= 0x02;
+				if (bits2 & mask) color |= 0x04;
+				if (bits3 & mask) color |= 0x08;
+				*ptr++ = color;
+				mask >>= 1;
+			}
+			while (mask);
+		}
+	}
+}
+
 bool SCR_GetScreen (const char* fileName, DDB_Machine target, 
                     uint8_t* buffer, size_t bufferSize, 
                     uint8_t* output, int width, int height, uint32_t* palette)
@@ -77,37 +114,15 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		return true;
 	}
 
+	if (SCR_HasPI1Header(buffer, size))
+	{
+		SCR_DecodePlanarST(buffer + 2, output, width, height, palette);
+		return true;
+	}
+
 	if (target == DDB_MACHINE_ATARIST)
 	{
-		// PI1 file
-		uint8_t* filePalette = buffer + 2;
-		for (int n = 0; n < 16; n++) {			
-			palette[n] = Pal2RGB((filePalette[n * 2] << 8) + filePalette[n * 2 + 1], false);
-		}
-		for (int y = 0 ; y < 200 && y < height; y++)
-		{
-			uint8_t* row = buffer + 34 + y * 160;
-			uint8_t* ptr = output + y * width;
-			for (int x = 0; x < 160; x += 8)
-			{
-				uint16_t bits0 = (row[x+0] << 8) | row[x+1];
-				uint16_t bits1 = (row[x+2] << 8) | row[x+3];
-				uint16_t bits2 = (row[x+4] << 8) | row[x+5];
-				uint16_t bits3 = (row[x+6] << 8) | row[x+7];
-				
-				int mask = 0x8000;
-				do
-				{
-					int color = ((bits0 & mask) ? 0x01 : 0x00);
-					if (bits1 & mask) color |= 0x02;
-					if (bits2 & mask) color |= 0x04;
-					if (bits3 & mask) color |= 0x08;
-					*ptr++ = color;
-					mask >>= 1;
-				}
-				while (mask);
-			}
-		}
+		SCR_DecodePlanarST(buffer, output, width, height, palette);
 	}
 	else if (target == DDB_MACHINE_AMIGA)
 	{

@@ -1,8 +1,10 @@
 
 #include <ddb.h>
+#include <ddb_scr.h>
 #include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <dmg.h>
+#include <os_char.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -26,6 +28,34 @@ static int         fileCount = 0;
 static char*       nameBuffer = 0;
 static char        ddbFileName[FILE_MAX_PATH];
 static char        introScreenName[FILE_MAX_PATH];
+static char        startupPattern[FILE_MAX_PATH];
+
+struct StartupConfig
+{
+	int  parts;
+	int  disks;
+	int  boxX;
+	int  boxY;
+	int  ink;
+	bool hasBoxX;
+	bool hasBoxY;
+	bool hasInk;
+};
+
+enum LoaderPromptMode
+{
+	LoaderPrompt_None,
+	LoaderPrompt_Part,
+	LoaderPrompt_Disk,
+};
+
+static StartupConfig    startupConfig;
+static LoaderPromptMode loaderPromptMode = LoaderPrompt_None;
+static int              diskPromptNumber = 0;
+static bool             diskPromptConfirmed = false;
+static char             diskImages[MAX_FILES][FILE_MAX_PATH];
+static int              diskImageCount = 0;
+static int              currentDiskNumber = 0;
 
 #ifdef HAS_VIRTUALFILESYSTEM
 static void IgnoreDDBWarning(const char* message)
@@ -35,15 +65,387 @@ static void IgnoreDDBWarning(const char* message)
 #endif
 
 static void CloseEnum();
+static void EnumFiles(const char* pattern = "*");
 static int CountFiles(const char* extension);
 static int CountDDBFiles();
+static const char* GetDDBFile(int index);
 static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version);
+static void LoaderScreenUpdate(int elapsed);
+static void WaitForKeyUpdate(int elapsed);
+
+static void ResetStartupConfig();
+static void LoadStartupConfig();
+static void CollectDiskImages();
+static int GetConfiguredPartCount();
+static void ShowLoaderPrompt(int parts, DDB_Language language);
+static void ShowDiskPrompt(int diskNumber, DDB_Language language);
+static const char* ResolveSelectedDDBFile(int partIndex);
+static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language);
+static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language);
 
 #ifdef _AMIGA
 extern bool VID_IsAGAAvailable();
 extern void OpenKeyboard();
 extern bool OpenAudio();
 #endif
+
+static bool FileExistsByName(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+	File_Close(file);
+	return true;
+}
+
+static void SetStartupPattern(const char* pattern)
+{
+	StrCopy(startupPattern, sizeof(startupPattern), pattern);
+}
+
+static void RescanCurrentFiles()
+{
+	if (File_IsDiskMounted())
+		EnumFiles();
+	else
+		EnumFiles(startupPattern[0] == 0 ? "*" : startupPattern);
+}
+
+static bool ParseConfigInt(const char* text, int* value)
+{
+	int parsed = 0;
+	bool hasDigits = false;
+	while (IsSpace(*text))
+		text++;
+	if (*text == 0)
+		return false;
+	while (*text >= '0' && *text <= '9')
+	{
+		hasDigits = true;
+		parsed = parsed * 10 + (*text - '0');
+		text++;
+	}
+	while (IsSpace(*text))
+		text++;
+	if (!hasDigits || *text != 0)
+		return false;
+	*value = parsed;
+	return true;
+}
+
+static void ResetStartupConfig()
+{
+	MemClear(&startupConfig, sizeof(startupConfig));
+	startupConfig.parts = 0;
+	startupConfig.disks = 0;
+	startupConfig.ink = 0x0F;
+	loaderPromptMode = LoaderPrompt_None;
+	diskPromptNumber = 0;
+	diskPromptConfirmed = false;
+	diskImageCount = 0;
+	currentDiskNumber = 0;
+	startupPattern[0] = 0;
+	for (int i = 0; i < MAX_FILES; i++)
+		diskImages[i][0] = 0;
+}
+
+static void ApplyConfigEntry(const char* key, const char* value)
+{
+	int parsed = 0;
+	if (!ParseConfigInt(value, &parsed))
+		return;
+
+	if (StrIComp(key, "PARTS") == 0 && parsed > 0)
+		startupConfig.parts = parsed;
+	else if (StrIComp(key, "DISKS") == 0 && parsed > 0)
+		startupConfig.disks = parsed;
+	else if (StrIComp(key, "SCRBOXX") == 0)
+	{
+		startupConfig.boxX = parsed;
+		startupConfig.hasBoxX = true;
+	}
+	else if (StrIComp(key, "SCRBOXY") == 0)
+	{
+		startupConfig.boxY = parsed;
+		startupConfig.hasBoxY = true;
+	}
+	else if (StrIComp(key, "SCRINK") == 0)
+	{
+		startupConfig.ink = parsed & 0xFF;
+		startupConfig.hasInk = true;
+	}
+}
+
+static void LoadStartupConfig()
+{
+	const char* cfgFile = 0;
+	for (int i = 0; i < fileCount; i++)
+	{
+		const char* dot = StrRChr(files[i], '.');
+		if (dot != 0 && StrIComp(dot, ".cfg") == 0)
+		{
+			cfgFile = files[i];
+			break;
+		}
+	}
+	if (cfgFile == 0)
+		return;
+
+	File* file = File_Open(cfgFile, ReadOnly);
+	if (file == 0)
+		return;
+
+	uint64_t size = File_GetSize(file);
+	if (size == 0 || size > 8192)
+	{
+		File_Close(file);
+		return;
+	}
+
+	char* buffer = Allocate<char>("startup cfg", (uint32_t)size + 1);
+	if (buffer == 0)
+	{
+		File_Close(file);
+		return;
+	}
+
+	if (File_Read(file, buffer, size) != size)
+	{
+		Free(buffer);
+		File_Close(file);
+		return;
+	}
+	File_Close(file);
+	buffer[size] = 0;
+
+	char* line = buffer;
+	while (*line != 0)
+	{
+		char* next = line;
+		while (*next != 0 && *next != '\n' && *next != '\r')
+			next++;
+		char saved = *next;
+		*next = 0;
+
+		char* start = line;
+		while (IsSpace(*start))
+			start++;
+		if (*start != 0 && *start != ';' && *start != '#' && *start != '[')
+		{
+			char* end = start + StrLen(start);
+			while (end > start && IsSpace((uint8_t)end[-1]))
+				*--end = 0;
+			char* equals = (char*)StrRChr(start, '=');
+			if (equals != 0)
+			{
+				char* value = equals + 1;
+				*equals = 0;
+				char* keyEnd = equals;
+				while (keyEnd > start && IsSpace((uint8_t)keyEnd[-1]))
+					*--keyEnd = 0;
+				while (IsSpace(*value))
+					value++;
+				ApplyConfigEntry(start, value);
+			}
+		}
+
+		*next = saved;
+		line = next;
+		while (*line == '\n' || *line == '\r')
+			line++;
+	}
+
+	DebugPrintf("Loaded startup CFG %s (parts=%d disks=%d boxX=%d%s boxY=%d%s ink=%d%s)\n",
+		cfgFile,
+		startupConfig.parts,
+		startupConfig.disks,
+		startupConfig.boxX,
+		startupConfig.hasBoxX ? "" : " default",
+		startupConfig.boxY,
+		startupConfig.hasBoxY ? "" : " default",
+		startupConfig.ink,
+		startupConfig.hasInk ? "" : " default");
+
+	Free(buffer);
+}
+
+static void CollectDiskImages()
+{
+	diskImageCount = 0;
+	for (int i = 0; i < fileCount && diskImageCount < MAX_FILES; i++)
+	{
+		const char* dot = StrRChr(files[i], '.');
+		if (dot == 0)
+			continue;
+		if (StrIComp(dot, ".adf") != 0 && StrIComp(dot, ".dsk") != 0 && StrIComp(dot, ".st") != 0)
+			continue;
+		StrCopy(diskImages[diskImageCount], FILE_MAX_PATH, files[i]);
+		diskImageCount++;
+	}
+	DebugPrintf("Collected %d disk image candidate(s)\n", diskImageCount);
+}
+
+static int GetConfiguredPartCount()
+{
+	return startupConfig.parts > 0 ? startupConfig.parts : ddbCount;
+}
+
+static int GetTargetDiskForPart(int partIndex)
+{
+	if (startupConfig.disks <= 0)
+		return 0;
+	int disk = partIndex + 1;
+	return disk > 0 && disk <= startupConfig.disks ? disk : 0;
+}
+
+static int GetDiskNumberForImage(const char* path)
+{
+	for (int i = 0; i < diskImageCount; i++)
+	{
+		if (StrIComp(diskImages[i], path) == 0)
+			return i + 1;
+	}
+	return 0;
+}
+
+static bool MountDiskByNumber(int diskNumber)
+{
+	if (diskNumber <= 0 || diskNumber > diskImageCount)
+		return false;
+	if (File_IsDiskMounted() && currentDiskNumber == diskNumber)
+		return true;
+
+	if (File_IsDiskMounted())
+		File_UnmountDisk();
+
+	if (!File_MountDisk(diskImages[diskNumber - 1]))
+	{
+		currentDiskNumber = 0;
+		RescanCurrentFiles();
+		return false;
+	}
+
+	currentDiskNumber = diskNumber;
+	EnumFiles();
+	return true;
+}
+
+static bool HasLocalDataForDDB(const char* ddbFile, DDB_Machine machine, DDB_Version version)
+{
+	if (ddbFile == 0 || ddbFile[0] == 0)
+		return false;
+	if (!DDB_SupportsDataFile(version, machine))
+		return true;
+	return FileExistsByName(ChangeExtension(ddbFile, ".dat")) ||
+		FileExistsByName(ChangeExtension(ddbFile, ".DAT")) ||
+		FileExistsByName(ChangeExtension(ddbFile, ".ega")) ||
+		FileExistsByName(ChangeExtension(ddbFile, ".cga"));
+}
+
+static const char* ResolveSelectedDDBFile(int partIndex)
+{
+	if (partIndex < 0)
+		return "";
+	if (startupConfig.disks > 0 && File_IsDiskMounted())
+	{
+		int targetDisk = GetTargetDiskForPart(partIndex);
+		if (targetDisk == 0 || currentDiskNumber != targetDisk || CountDDBFiles() == 0)
+			return "";
+		return GetDDBFile(0);
+	}
+	if (partIndex >= CountDDBFiles())
+		return "";
+	return GetDDBFile(partIndex);
+}
+
+static bool SelectedPartNeedsDisk(int partIndex, DDB_Machine machine, DDB_Version version)
+{
+	if (startupConfig.disks <= 0)
+		return false;
+	const char* ddbFile = ResolveSelectedDDBFile(partIndex);
+	if (ddbFile[0] == 0)
+		return true;
+	return !HasLocalDataForDDB(ddbFile, machine, version);
+}
+
+static bool ShowAndProcessDiskPrompt(int diskNumber, DDB_Language language)
+{
+	ShowDiskPrompt(diskNumber, language);
+	VID_MainLoop(0, WaitForKeyUpdate);
+	if (diskImageCount > 0 && diskNumber <= diskImageCount)
+		return MountDiskByNumber(diskNumber);
+	RescanCurrentFiles();
+	return true;
+}
+
+static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language)
+{
+	DDB_Machine machine = DDB_MACHINE_AMIGA;
+	DDB_Language unusedLanguage = language;
+	DDB_Version version = DDB_VERSION_2;
+	const char* ddbFile = ResolveSelectedDDBFile(partIndex);
+	if (ddbFile[0] != 0)
+		GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+	if (!SelectedPartNeedsDisk(partIndex, machine, version))
+		return true;
+
+	int targetDisk = GetTargetDiskForPart(partIndex);
+	if (targetDisk == 0)
+		return false;
+	if (!ShowAndProcessDiskPrompt(targetDisk, language))
+		return false;
+
+	ddbCount = CountDDBFiles();
+	ddbFile = ResolveSelectedDDBFile(partIndex);
+	if (ddbFile[0] == 0)
+		return false;
+	GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+	return HasLocalDataForDDB(ddbFile, machine, version);
+}
+
+static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language)
+{
+	DDB_Machine machine = DDB_MACHINE_AMIGA;
+	DDB_Language unusedLanguage = language;
+	DDB_Version version = DDB_VERSION_2;
+	const char* ddbFile = ResolveSelectedDDBFile(partIndex);
+	if (ddbFile[0] != 0)
+		GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+	if (!SelectedPartNeedsDisk(partIndex, machine, version))
+		return true;
+
+	int targetDisk = GetTargetDiskForPart(partIndex);
+	if (targetDisk == 0)
+		return false;
+	if (!diskPromptConfirmed)
+	{
+		loaderPromptMode = LoaderPrompt_Disk;
+		diskPromptNumber = targetDisk;
+		ShowDiskPrompt(targetDisk, language);
+		VID_SetTextInputMode(true);
+		VID_MainLoopAsync(0, LoaderScreenUpdate);
+		return false;
+	}
+
+	diskPromptConfirmed = false;
+	loaderPromptMode = LoaderPrompt_None;
+	if (diskImageCount > 0 && targetDisk <= diskImageCount)
+	{
+		if (!MountDiskByNumber(targetDisk))
+			return false;
+	}
+	else
+	{
+		RescanCurrentFiles();
+	}
+
+	ddbCount = CountDDBFiles();
+	ddbFile = ResolveSelectedDDBFile(partIndex);
+	if (ddbFile[0] == 0)
+		return false;
+	GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+	return HasLocalDataForDDB(ddbFile, machine, version);
+}
 
 static uint16_t Read16BE(const uint8_t* ptr)
 {
@@ -125,15 +527,6 @@ static bool ValidateResolvedVideoConfig(const char* fileName, DDB_Machine machin
 }
 
 #if HAS_PCX
-static bool FileExists(const char* fileName)
-{
-	File* file = File_Open(fileName, ReadOnly);
-	if (file == 0)
-		return false;
-	File_Close(file);
-	return true;
-}
-
 static uint16_t Read16LE(const uint8_t* ptr)
 {
 	return (uint16_t)(((uint16_t)ptr[1] << 8) | ptr[0]);
@@ -148,32 +541,20 @@ static void BuildFileNameWithExtension(const char* fileName, const char* extensi
 	StrCopy(dot, output + outputSize - dot, extension);
 }
 
-static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine, DDB_Version version, DDB_ScreenMode* screenMode)
+static bool HasPCXHeader(const char* fileName, DDB_ScreenMode* screenMode)
 {
-	static char introScreen[FILE_MAX_PATH];
-	if (machine != DDB_MACHINE_IBMPC || version < DDB_VERSION_2)
-		return 0;
-
-	BuildFileNameWithExtension(fileName, ".VGA", introScreen, sizeof(introScreen));
-	if (!FileExists(introScreen))
-	{
-		BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
-		if (!FileExists(introScreen))
-		{
-			BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
-			if (!FileExists(introScreen))
-			{
-				BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
-				if (!FileExists(introScreen))
-					return 0;
-			}
-		}
-	}
-
 	uint8_t header[128];
-	File* file = File_Open(introScreen, ReadOnly);
-	if (file != 0 && File_Read(file, header, sizeof(header)) == sizeof(header) &&
-		header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1)
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+
+	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header) &&
+		header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1;
+	File_Close(file);
+	if (!ok)
+		return false;
+
+	if (screenMode != 0)
 	{
 		int width = (int)(Read16LE(header + 8) - Read16LE(header + 4) + 1);
 		int height = (int)(Read16LE(header + 10) - Read16LE(header + 6) + 1);
@@ -183,16 +564,70 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 			*screenMode = ScreenMode_HiRes;
 		else
 			*screenMode = ScreenMode_VGA;
-		File_Close(file);
-		return introScreen;
 	}
-	if (file != 0)
-		File_Close(file);
+
+	return true;
+}
+
+static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine, DDB_Version version, DDB_ScreenMode* screenMode)
+{
+	static char introScreen[FILE_MAX_PATH];
+	if (machine != DDB_MACHINE_IBMPC || version < DDB_VERSION_2)
+		return 0;
+
+	BuildFileNameWithExtension(fileName, ".VGA", introScreen, sizeof(introScreen));
+	if (!FileExistsByName(introScreen))
+	{
+		BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
+		if (!FileExistsByName(introScreen))
+		{
+			BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
+			if (!FileExistsByName(introScreen))
+			{
+				BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+				if (!FileExistsByName(introScreen))
+					return 0;
+			}
+		}
+	}
+
+	if (HasPCXHeader(introScreen, screenMode))
+		return introScreen;
 
 	*screenMode = ScreenMode_VGA;
 	return introScreen;
 }
 #endif
+
+static bool HasPI1Header(const char* fileName)
+{
+	uint8_t header[2];
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+
+	uint64_t size = File_GetSize(file);
+	bool ok = size == 32034 && File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	return ok && header[0] == 0x00 && header[1] == 0x00;
+}
+
+static bool ShouldPreferAmigaSCR(const char* fileName, DDB_Machine machine, DDB_ScreenMode* screenMode)
+{
+	if (fileName == 0 || fileName[0] == 0)
+		return false;
+	if (machine != DDB_MACHINE_ATARIST)
+		return false;
+	if (CountFiles(".ch0") > 0 || CountFiles(".chr") > 0)
+		return false;
+	if (HasPI1Header(fileName))
+		return false;
+	#if HAS_PCX
+	if (HasPCXHeader(fileName, screenMode))
+		return false;
+	#endif
+	return true;
+}
 
 static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version, DDB_ScreenMode* screenMode, uint8_t* displayPlanes)
 {
@@ -224,7 +659,7 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 	return true;
 }
 
-static void EnumFiles(const char* pattern = "*")
+static void EnumFiles(const char* pattern)
 {
 	FindFileResults r;
 
@@ -341,6 +776,8 @@ static bool TryMountDiskImageWithDDBs()
 		if (!File_MountDisk(candidates + n * FILE_MAX_PATH))
 			continue;
 
+		currentDiskNumber = GetDiskNumberForImage(candidates + n * FILE_MAX_PATH);
+
 		EnumFiles();
 		if (CountDDBFiles() > 0)
 		{
@@ -350,6 +787,7 @@ static bool TryMountDiskImageWithDDBs()
 
 		CloseEnum();
 		File_UnmountDisk();
+		currentDiskNumber = 0;
 	}
 	Free(candidates);
 #endif
@@ -401,29 +839,87 @@ static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Langu
 	return DDB_Check(fileName, machine, language, version);
 }
 
-static void ShowLoaderPrompt(int parts, DDB_Language language)
+static void DrawPromptBox(const char* const* lines, int lineCount, uint8_t ink)
 {
-	VID_Clear(92, 80, 136, 32, 0);
-
-	static const char* messageSP[2] = {
-	                                  "\x12Qu\x16 parte quieres",
-									  "   cargar (1-*)?  ",
-	};
-	static const char* messageEN[2] = {
-	                                  " Which part do you ",
-									  "want to load (1-*)?",
-	};
-
-	const char** message = (language == DDB_SPANISH ? messageSP : messageEN);
-	for (int y = 0; y < 2; y++)
+	int maxChars = 0;
+	for (int y = 0; y < lineCount; y++)
 	{
-		for (int x = 0; message[y][x] != 0; x++)
+		int chars = (int)StrLen(lines[y]);
+		if (chars > maxChars)
+			maxChars = chars;
+	}
+
+	int promptWidth = maxChars * columnWidth;
+	int promptHeight = lineCount * lineHeight;
+	int promptX = startupConfig.hasBoxX ? startupConfig.boxX : (screenWidth - promptWidth) / 2;
+	int promptY = startupConfig.hasBoxY ? startupConfig.boxY : (screenHeight - promptHeight) / 2;
+	VID_Clear(promptX - columnWidth, promptY - lineHeight,
+		promptWidth + columnWidth * 2, promptHeight + lineHeight * 2, 0);
+
+	for (int y = 0; y < lineCount; y++)
+	{
+		for (int x = 0; lines[y][x] != 0; x++)
 		{
-			char c = message[y][x];
-			if (c == '*') c = '0' + parts;
-			VID_DrawCharacter(106 + x * 6, 88 + y * 8, c, 0x0F, 0);
+			VID_DrawCharacter(promptX + x * columnWidth, promptY + y * lineHeight, lines[y][x], ink, 0);
 		}
 	}
+}
+
+static void BuildPromptLine(char* output, size_t outputSize, const char* templateText, int value)
+{
+	char digits[16];
+	LongToChar(value, digits, 10);
+	output[0] = 0;
+	for (int i = 0; templateText[i] != 0; i++)
+	{
+		if (templateText[i] == '*')
+			StrCat(output, outputSize, digits);
+		else
+		{
+			char text[2] = { templateText[i], 0 };
+			StrCat(output, outputSize, text);
+		}
+	}
+}
+
+static void ShowLoaderPrompt(int parts, DDB_Language language)
+{
+	char line0[64];
+	char line1[64];
+	const char* lines[2];
+	if (language == DDB_SPANISH)
+	{
+		StrCopy(line0, sizeof(line0), "\x12Qu\x16 parte quieres");
+		BuildPromptLine(line1, sizeof(line1), "   cargar (1-*)?  ", parts);
+	}
+	else
+	{
+		StrCopy(line0, sizeof(line0), " Which part do you ");
+		BuildPromptLine(line1, sizeof(line1), "want to load (1-*)?", parts);
+	}
+	lines[0] = line0;
+	lines[1] = line1;
+	DrawPromptBox(lines, 2, (uint8_t)startupConfig.ink);
+}
+
+static void ShowDiskPrompt(int diskNumber, DDB_Language language)
+{
+	char line0[64];
+	char line1[64];
+	const char* lines[2];
+	if (language == DDB_SPANISH)
+	{
+		BuildPromptLine(line0, sizeof(line0), " Inserta el disco * ", diskNumber);
+		StrCopy(line1, sizeof(line1), " y pulsa una tecla  ");
+	}
+	else
+	{
+		BuildPromptLine(line0, sizeof(line0), "   Insert disk *   ", diskNumber);
+		StrCopy(line1, sizeof(line1), " and press any key ");
+	}
+	lines[0] = line0;
+	lines[1] = line1;
+	DrawPromptBox(lines, 2, (uint8_t)startupConfig.ink);
 }
 
 static void LoaderScreenUpdate(int elapsed)
@@ -435,7 +931,12 @@ static void LoaderScreenUpdate(int elapsed)
 		VID_GetKey(&key, &ext, 0);
 		if (key == 27)
 			VID_Quit();
-		else if (key >= '1' && key <= '0' + ddbCount)
+		else if (loaderPromptMode == LoaderPrompt_Disk)
+		{
+			diskPromptConfirmed = true;
+			VID_Quit();
+		}
+		else if (key >= '1' && key <= '0' + GetConfiguredPartCount())
 		{
 			ddbSelected = key - '1';
 			VID_Quit();
@@ -606,6 +1107,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 	if (state == Player_Starting)
 	{
+		if (startupPattern[0] == 0)
+			ResetStartupConfig();
 		DDB_Machine machine = DDB_MACHINE_AMIGA;
 		DDB_Language language = DDB_SPANISH;
 		DDB_Version version = DDB_VERSION_2;
@@ -614,8 +1117,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		char path[FILE_MAX_PATH];
 		StrCopy(path, FILE_MAX_PATH, location);
 		StrCat(path, FILE_MAX_PATH, "*");
+		SetStartupPattern(path);
 		
 		EnumFiles(path);
+		LoadStartupConfig();
+		CollectDiskImages();
 		snapshotCount = CountSnapshots();
 		ddbCount = CountDDBFiles();
 		scrCount = CountFiles(".scr");
@@ -680,9 +1186,20 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 					DDB_SetError(DDB_ERROR_INVALID_FILE);
 				return state = Player_Error;
 			}
+			if (scrCount > 0 && StrIComp(scrExtension, ".scr") == 0)
+			{
+				const char* screenFile = GetFile(".scr", 0);
+				if (ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
+					machine = DDB_MACHINE_AMIGA;
+				#if HAS_PCX
+				else if (HasPCXHeader(screenFile, &screenMode))
+					introScreen = screenFile;
+				#endif
+			}
 			VID_SetDisplayPlanesHint(displayPlanes);
 			#if HAS_PCX
-			introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
+			if (introScreen == 0)
+				introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
 			if (introScreen != 0)
 				scrCount = 1;
 			#endif
@@ -702,13 +1219,13 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		
 		if (scrCount > 0)
 		{
-			if (machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
-				machine = DDB_MACHINE_AMIGA;
 			#if HAS_PCX
 			const char* screenFile = introScreen != 0 ? introScreen : GetFile(scrExtension, 0);
 			#else
 			const char* screenFile = GetFile(scrExtension, 0);
 			#endif
+			if (ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
+				machine = DDB_MACHINE_AMIGA;
 			if (!VID_DisplaySCRFile(screenFile, machine, true))
 			{
 				VID_ShowError(DDB_GetErrorString());
@@ -721,10 +1238,12 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			}
 		}
 		if (ddbCount > 1)
+		if (GetConfiguredPartCount() > 1)
 		{
 			DebugPrintf("Showing part selector\n");
 			ddbSelected = -1;
-			ShowLoaderPrompt(ddbCount, language);
+			loaderPromptMode = LoaderPrompt_Part;
+			ShowLoaderPrompt(GetConfiguredPartCount(), language);
 			VID_SetTextInputMode(true);
 			VID_MainLoopAsync(0, LoaderScreenUpdate);
 			return state = Player_SelectingPart;
@@ -743,8 +1262,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	}
 
 	DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
-	if (ddbSelected != 0)
-		StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
+	if (!EnsureSelectedPartMediaAsync(ddbSelected, selectedLanguage))
+	{
+		if (loaderPromptMode == LoaderPrompt_Disk)
+			return state = Player_SelectingPart;
+		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+		return state = Player_Error;
+	}
+	StrCopy(ddbFileName, FILE_MAX_PATH, ResolveSelectedDDBFile(ddbSelected));
 
 	DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
 	DDB_Language selectedLanguage = DDB_SPANISH;
@@ -840,7 +1365,7 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
 	{
-		if (*machine == DDB_MACHINE_ATARIST && CountFiles(".ch0") == 0)
+		if (ShouldPreferAmigaSCR(GetFile(".scr", 0), *machine, screenMode))
 			*machine = DDB_MACHINE_AMIGA;
         *introScreen = GetFile(".scr", 0);
 	}
@@ -869,14 +1394,18 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 
 bool DDB_RunPlayer()
 {
+	ResetStartupConfig();
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(machine);
 	DDB_Version version = DDB_VERSION_2;
 	const char* introScreen = 0;
 	introScreenName[0] = 0;
+	SetStartupPattern("*");
 
 	EnumFiles();
+	LoadStartupConfig();
+	CollectDiskImages();
 	
 	ddbCount = CountDDBFiles();
 	if (ddbCount == 0)
@@ -932,11 +1461,12 @@ bool DDB_RunPlayer()
 			VID_ShowError(DDB_GetErrorString());
 	}
 
-	if (ddbCount > 1)
+	if (GetConfiguredPartCount() > 1)
 	{
 		DebugPrintf("Showing part selector\n");
 		ddbSelected = -1;
-		ShowLoaderPrompt(ddbCount, language);
+		loaderPromptMode = LoaderPrompt_Part;
+		ShowLoaderPrompt(GetConfiguredPartCount(), language);
 		VID_MainLoop(0, LoaderScreenUpdate);
 		if (exitGame)
 			return true;
@@ -946,11 +1476,14 @@ bool DDB_RunPlayer()
 			VID_Finish();
 			return true;
 		}
-		if (introScreen != 0)
-			VID_DisplaySCRFile(introScreen, machine, false);
 		DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
-		if (ddbSelected != 0)
-			StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(ddbSelected));
+		if (!EnsureSelectedPartMediaSync(ddbSelected, language))
+		{
+			CloseEnum();
+			DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+			return false;
+		}
+		StrCopy(ddbFileName, FILE_MAX_PATH, ResolveSelectedDDBFile(ddbSelected));
 
 		DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
 		DDB_Language selectedLanguage = DDB_SPANISH;
@@ -987,6 +1520,10 @@ bool DDB_RunPlayer()
 			displayPlanes = selectedDisplayPlanes;
 			if (introScreen != 0)
 				VID_DisplaySCRFile(introScreen, machine, false);
+		}
+		else if (introScreen != 0)
+		{
+			VID_DisplaySCRFile(introScreen, machine, false);
 		}
 	}
 

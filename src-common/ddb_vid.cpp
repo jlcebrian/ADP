@@ -235,6 +235,10 @@ static bool progressBarVisible = false;
 
 void VID_ShowProgressBar(uint16_t amount)
 {
+	#if !HAS_PROGRESS_BAR
+	(void)amount;
+	return;
+	#else
 	uint16_t x = screenWidth/2 - 32;
 	uint16_t y = screenHeight - 32;
 	
@@ -248,6 +252,7 @@ void VID_ShowProgressBar(uint16_t amount)
 		progressBarVisible = true;
 	}
 	VID_Clear(x+2, y+2, amount*60/255, 8, 15);
+	#endif
 }
 
 #if !defined(HAS_DRAWTEXT) && !defined(_AMIGA)

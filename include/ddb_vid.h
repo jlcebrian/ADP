@@ -2,6 +2,14 @@
 
 #include <ddb.h>
 
+#ifndef HAS_PROGRESS_BAR
+#if defined(_STDCLIB)
+#define HAS_PROGRESS_BAR 0
+#else
+#define HAS_PROGRESS_BAR 1
+#endif
+#endif
+
 extern bool         exitGame;
 extern DDB_Machine  screenMachine;
 

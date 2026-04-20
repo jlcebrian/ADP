@@ -154,7 +154,16 @@ static bool HasExternalPCXGraphics(const char* fileName)
 static bool IsPCXScreenFile(const char* fileName)
 {
 	const char* dot = StrRChr(fileName, '.');
-	return dot != NULL && StrIComp(dot, ".vga") == 0;
+	if (dot != NULL && (StrIComp(dot, ".vga") == 0 || StrIComp(dot, ".pcx") == 0))
+		return true;
+
+	uint8_t header[128];
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == NULL)
+		return false;
+	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	return ok && header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1;
 }
 #endif
 
