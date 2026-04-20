@@ -1733,6 +1733,16 @@ void VID_PlaySample (uint8_t no, int* duration)
 	PlaySample(buffer, entry->length, inputHz, 64);
 }
 
+void VID_SetWindowTitle(const char* title)
+{
+	(void)title;
+}
+
+void VID_SetWindowIcon(const char* fileName)
+{
+	(void)fileName;
+}
+
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 {
 	PlaySample((uint8_t*)buffer, samples, hz, volume);

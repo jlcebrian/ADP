@@ -37,9 +37,13 @@ struct StartupConfig
 	int  boxX;
 	int  boxY;
 	int  ink;
+	char windowTitle[128];
+	char windowIcon[FILE_MAX_PATH];
 	bool hasBoxX;
 	bool hasBoxY;
 	bool hasInk;
+	bool hasWindowTitle;
+	bool hasWindowIcon;
 };
 
 enum LoaderPromptMode
@@ -81,7 +85,10 @@ static void ShowLoaderPrompt(int parts, DDB_Language language);
 static void ShowDiskPrompt(int diskNumber, DDB_Language language);
 static const char* ResolveSelectedDDBFile(int partIndex);
 static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language);
+
+#ifdef _WEB
 static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language);
+#endif
 
 #ifdef _AMIGA
 extern bool VID_IsAGAAvailable();
@@ -103,9 +110,95 @@ static void SetStartupPattern(const char* pattern)
 	StrCopy(startupPattern, sizeof(startupPattern), pattern);
 }
 
+static bool StartupIsDiskMounted()
+{
+#ifdef HAS_VIRTUALFILESYSTEM
+	return File_IsDiskMounted();
+#else
+	return false;
+#endif
+}
+
+static bool StartupMountDisk(const char* fileName)
+{
+#ifdef HAS_VIRTUALFILESYSTEM
+	return File_MountDisk(fileName);
+#else
+	(void)fileName;
+	return false;
+#endif
+}
+
+static void StartupUnmountDisk()
+{
+#ifdef HAS_VIRTUALFILESYSTEM
+	File_UnmountDisk();
+#endif
+}
+
+static const char* GetLastPathSeparator(const char* path)
+{
+	const char* slash = StrRChr(path, '/');
+	const char* backslash = StrRChr(path, '\\');
+	if (slash == 0)
+		return backslash;
+	if (backslash == 0)
+		return slash;
+	return slash > backslash ? slash : backslash;
+}
+
+static void CopyConfigString(char* output, size_t outputSize, const char* value)
+{
+	while (IsSpace(*value))
+		value++;
+
+	const char* end = value + StrLen(value);
+	while (end > value && IsSpace((uint8_t)end[-1]))
+		end--;
+
+	if (end > value + 1 && ((value[0] == '"' && end[-1] == '"') || (value[0] == '\'' && end[-1] == '\'')))
+	{
+		value++;
+		end--;
+	}
+
+	size_t length = (size_t)(end - value);
+	if (length >= outputSize)
+		length = outputSize - 1;
+	if (length > 0)
+		MemCopy(output, value, length);
+	output[length] = 0;
+}
+
+static void ResolveConfigAdjacentPath(const char* cfgFile, const char* value, char* output, size_t outputSize)
+{
+	if (outputSize == 0)
+		return;
+
+	CopyConfigString(output, outputSize, value);
+	if (output[0] == 0)
+		return;
+
+	if (GetLastPathSeparator(output) != 0)
+		return;
+
+	const char* separator = GetLastPathSeparator(cfgFile);
+	if (separator == 0)
+		return;
+
+	char resolved[FILE_MAX_PATH];
+	size_t prefixLength = (size_t)(separator - cfgFile + 1);
+	if (prefixLength >= sizeof(resolved))
+		prefixLength = sizeof(resolved) - 1;
+	MemCopy(resolved, cfgFile, prefixLength);
+	resolved[prefixLength] = 0;
+	StrCat(resolved, sizeof(resolved), output);
+	StrCopy(output, outputSize, resolved);
+}
+
 static void RescanCurrentFiles()
 {
-	if (File_IsDiskMounted())
+	if (StartupIsDiskMounted())
 		EnumFiles();
 	else
 		EnumFiles(startupPattern[0] == 0 ? "*" : startupPattern);
@@ -139,6 +232,8 @@ static void ResetStartupConfig()
 	startupConfig.parts = 0;
 	startupConfig.disks = 0;
 	startupConfig.ink = 0x0F;
+	VID_SetWindowTitle(0);
+	VID_SetWindowIcon(0);
 	loaderPromptMode = LoaderPrompt_None;
 	diskPromptNumber = 0;
 	diskPromptConfirmed = false;
@@ -149,9 +244,22 @@ static void ResetStartupConfig()
 		diskImages[i][0] = 0;
 }
 
-static void ApplyConfigEntry(const char* key, const char* value)
+static void ApplyConfigEntry(const char* cfgFile, const char* key, const char* value)
 {
 	int parsed = 0;
+	if (StrIComp(key, "TITLE") == 0 || StrIComp(key, "WINDOWTITLE") == 0)
+	{
+		CopyConfigString(startupConfig.windowTitle, sizeof(startupConfig.windowTitle), value);
+		startupConfig.hasWindowTitle = startupConfig.windowTitle[0] != 0;
+		return;
+	}
+	if (StrIComp(key, "ICON") == 0 || StrIComp(key, "WINDOWICON") == 0)
+	{
+		ResolveConfigAdjacentPath(cfgFile, value, startupConfig.windowIcon, sizeof(startupConfig.windowIcon));
+		startupConfig.hasWindowIcon = startupConfig.windowIcon[0] != 0;
+		return;
+	}
+
 	if (!ParseConfigInt(value, &parsed))
 		return;
 
@@ -245,7 +353,7 @@ static void LoadStartupConfig()
 					*--keyEnd = 0;
 				while (IsSpace(*value))
 					value++;
-				ApplyConfigEntry(start, value);
+				ApplyConfigEntry(cfgFile, start, value);
 			}
 		}
 
@@ -255,7 +363,10 @@ static void LoadStartupConfig()
 			line++;
 	}
 
-	DebugPrintf("Loaded startup CFG %s (parts=%d disks=%d boxX=%d%s boxY=%d%s ink=%d%s)\n",
+	VID_SetWindowTitle(startupConfig.hasWindowTitle ? startupConfig.windowTitle : 0);
+	VID_SetWindowIcon(startupConfig.hasWindowIcon ? startupConfig.windowIcon : 0);
+
+	DebugPrintf("Loaded startup CFG %s (parts=%d disks=%d boxX=%d%s boxY=%d%s ink=%d%s title=%s icon=%s)\n",
 		cfgFile,
 		startupConfig.parts,
 		startupConfig.disks,
@@ -264,7 +375,9 @@ static void LoadStartupConfig()
 		startupConfig.boxY,
 		startupConfig.hasBoxY ? "" : " default",
 		startupConfig.ink,
-		startupConfig.hasInk ? "" : " default");
+		startupConfig.hasInk ? "" : " default",
+		startupConfig.hasWindowTitle ? startupConfig.windowTitle : "default",
+		startupConfig.hasWindowIcon ? startupConfig.windowIcon : "default");
 
 	Free(buffer);
 }
@@ -298,6 +411,7 @@ static int GetTargetDiskForPart(int partIndex)
 	return disk > 0 && disk <= startupConfig.disks ? disk : 0;
 }
 
+#ifdef HAS_VIRTUALFILESYSTEM
 static int GetDiskNumberForImage(const char* path)
 {
 	for (int i = 0; i < diskImageCount; i++)
@@ -307,18 +421,19 @@ static int GetDiskNumberForImage(const char* path)
 	}
 	return 0;
 }
+#endif
 
 static bool MountDiskByNumber(int diskNumber)
 {
 	if (diskNumber <= 0 || diskNumber > diskImageCount)
 		return false;
-	if (File_IsDiskMounted() && currentDiskNumber == diskNumber)
+	if (StartupIsDiskMounted() && currentDiskNumber == diskNumber)
 		return true;
 
-	if (File_IsDiskMounted())
-		File_UnmountDisk();
+	if (StartupIsDiskMounted())
+		StartupUnmountDisk();
 
-	if (!File_MountDisk(diskImages[diskNumber - 1]))
+	if (!StartupMountDisk(diskImages[diskNumber - 1]))
 	{
 		currentDiskNumber = 0;
 		RescanCurrentFiles();
@@ -346,7 +461,7 @@ static const char* ResolveSelectedDDBFile(int partIndex)
 {
 	if (partIndex < 0)
 		return "";
-	if (startupConfig.disks > 0 && File_IsDiskMounted())
+	if (startupConfig.disks > 0 && StartupIsDiskMounted())
 	{
 		int targetDisk = GetTargetDiskForPart(partIndex);
 		if (targetDisk == 0 || currentDiskNumber != targetDisk || CountDDBFiles() == 0)
@@ -403,6 +518,7 @@ static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language)
 	return HasLocalDataForDDB(ddbFile, machine, version);
 }
 
+#ifdef _WEB
 static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language)
 {
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
@@ -446,6 +562,7 @@ static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language)
 	GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
 	return HasLocalDataForDDB(ddbFile, machine, version);
 }
+#endif
 
 static uint16_t Read16BE(const uint8_t* ptr)
 {

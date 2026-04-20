@@ -129,6 +129,16 @@ void VID_SetDisplayPlanesHint(uint8_t planes)
 }
 
 bool exitGame = false;
+
+void VID_SetWindowTitle(const char* title)
+{
+	(void)title;
+}
+
+void VID_SetWindowIcon(const char* fileName)
+{
+	(void)fileName;
+}
 bool supportsOpenFileDialog = false;
 
 DDB_Machine screenMachine = DDB_MACHINE_ATARIST;

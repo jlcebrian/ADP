@@ -60,6 +60,8 @@ extern void   VID_ShowProgressBar     (uint16_t amount);
 extern void   VID_InnerLoop           ();
 extern void   VID_SetCharset          (const uint8_t* charset);
 extern void   VID_SetCharsetWidth     (uint8_t width);
+extern void   VID_SetWindowTitle      (const char* title);
+extern void   VID_SetWindowIcon       (const char* fileName);
 
 // Backbuffer support
 extern void   VID_EnableBackBuffer    ();

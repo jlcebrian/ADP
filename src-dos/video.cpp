@@ -42,6 +42,16 @@ DDB_ScreenMode screenMode = ScreenMode_VGA16;
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
 
+void VID_SetWindowTitle(const char* title)
+{
+	(void)title;
+}
+
+void VID_SetWindowIcon(const char* fileName)
+{
+	(void)fileName;
+}
+
 #if DEBUG_ALLOCS
 extern void DOS_GetStackWatermark(uint32_t* usedBytes, uint32_t* totalBytes);
 #endif

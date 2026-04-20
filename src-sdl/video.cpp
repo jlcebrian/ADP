@@ -44,6 +44,33 @@ static void GetDisplayAspect(int* width, int* height)
 
 static const int InitialWindowBorderWidth = 160;
 static const int InitialWindowBorderHeight = 100;
+SDL_Window*  window;
+SDL_Surface* surface;
+static const char* DefaultWindowTitle = "ADP " VERSION_STR;
+static char configuredWindowTitle[128];
+static char configuredWindowIcon[FILE_MAX_PATH];
+
+static void ApplyWindowTitle()
+{
+	if (window != 0)
+		SDL_SetWindowTitle(window, configuredWindowTitle[0] != 0 ? configuredWindowTitle : DefaultWindowTitle);
+}
+
+static void ApplyWindowIcon()
+{
+	if (window == 0 || configuredWindowIcon[0] == 0)
+		return;
+
+	SDL_Surface* icon = SDL_LoadBMP(configuredWindowIcon);
+	if (icon == 0)
+	{
+		DebugPrintf("Unable to load window icon %s: %s\n", configuredWindowIcon, SDL_GetError());
+		return;
+	}
+
+	SDL_SetWindowIcon(window, icon);
+	SDL_FreeSurface(icon);
+}
 
 static int GetMinimumBorderSize()
 {
@@ -91,8 +118,23 @@ void VID_SetDisplayPlanesHint(uint8_t planes)
 	(void)planes;
 }
 
-SDL_Window*  window;
-SDL_Surface* surface;
+void VID_SetWindowTitle(const char* title)
+{
+	if (title == 0 || title[0] == 0)
+		configuredWindowTitle[0] = 0;
+	else
+		StrCopy(configuredWindowTitle, sizeof(configuredWindowTitle), title);
+	ApplyWindowTitle();
+}
+
+void VID_SetWindowIcon(const char* fileName)
+{
+	if (fileName == 0 || fileName[0] == 0)
+		configuredWindowIcon[0] = 0;
+	else
+		StrCopy(configuredWindowIcon, sizeof(configuredWindowIcon), fileName);
+	ApplyWindowIcon();
+}
 
 uint8_t*   graphicsBuffer;
 uint8_t*   textBuffer;
@@ -2260,7 +2302,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 #else
 	int options = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
-	window = SDL_CreateWindow("ADP " VERSION_STR,
+	window = SDL_CreateWindow(configuredWindowTitle[0] != 0 ? configuredWindowTitle : DefaultWindowTitle,
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
 		displayWidth * scale + InitialWindowBorderWidth,
@@ -2271,6 +2313,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 		DDB_SetError(DDB_ERROR_SDL);
 		return false;
 	}
+	ApplyWindowIcon();
 
 	surface = SDL_GetWindowSurface(window);
 	if (surface == NULL)
