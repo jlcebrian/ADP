@@ -33,8 +33,8 @@ static void PromoteVersion3ToVersion4(DMG_Font* font, const uint8_t* width8x16, 
 	for (int glyph = 0; glyph < 256; glyph++)
 	{
 		uint8_t width = width8x16[glyph];
-		if (width > 8)
-			width = 8;
+		if (width > 15)
+			width = 15;
 		font->width16[glyph] = width;
 
 		const uint8_t* src = bitmap8x16 + glyph * 16;

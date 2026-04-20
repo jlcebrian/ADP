@@ -17,6 +17,7 @@ static bool DMG_StoreEntryData(DMG* dmg, uint8_t index, const uint8_t* buffer, u
 static bool DMG_LoadEntryStoredData(DMG* dmg, uint8_t index, DMG_Entry* entry);
 static bool DMG_WriteClassicPayload(File* file, DMG* dmg, uint8_t index, DMG_Entry* entry);
 static bool DMG_WriteDAT5Payload(File* file, DMG* dmg, uint8_t index, DMG_Entry* entry);
+static bool DMG_DetachStoredDataDependents(DMG* dmg, uint8_t sourceIndex);
 
 static uint8_t DMG_ResolveStoredDataSourceIndex(const DMG* dmg, uint8_t index)
 {
@@ -207,8 +208,35 @@ static void DMG_FreeStoredData(DMG* dmg, uint8_t index)
     edit->reusedFrom = 0xFF;
 }
 
+static bool DMG_DetachStoredDataDependents(DMG* dmg, uint8_t sourceIndex)
+{
+    DMG_Entry* sourceEntry = DMG_GetEntry(dmg, sourceIndex);
+    if (sourceEntry == 0 || sourceEntry->type == DMGEntry_Empty)
+        return true;
+
+    if (!DMG_LoadEntryStoredData(dmg, sourceIndex, sourceEntry))
+        return false;
+
+    const uint8_t* sourceData = DMG_GetEntryStoredData(dmg, sourceIndex);
+    uint32_t sourceDataSize = DMG_GetEntryStoredDataSize(dmg, sourceIndex);
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (i == sourceIndex || !DMG_EditableEntryReusesStoredData(dmg, (uint8_t)i))
+            continue;
+        if (DMG_ResolveStoredDataSourceIndex(dmg, (uint8_t)i) != sourceIndex)
+            continue;
+        if (!DMG_StoreEntryData(dmg, (uint8_t)i, sourceData, sourceDataSize))
+            return false;
+    }
+
+    return true;
+}
+
 static bool DMG_StoreEntryData(DMG* dmg, uint8_t index, const uint8_t* buffer, uint32_t size)
 {
+    if (!DMG_DetachStoredDataDependents(dmg, index))
+        return false;
     DMG_FreeStoredData(dmg, index);
     if (size == 0)
         return true;
@@ -727,6 +755,8 @@ bool DMG_RemoveEntry(DMG* dmg, uint8_t index)
 
 	if (entry->type != DMGEntry_Empty)
 	{
+    if (!DMG_DetachStoredDataDependents(dmg, index))
+        return false;
         DMG_FreeStoredData(dmg, index);
         DMG_FreeEntryPaletteStorage(dmg, index, entry);
         entry->fileOffset = 0;

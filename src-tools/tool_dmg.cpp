@@ -390,7 +390,7 @@ static void PrintHelp()
     printf("   -height <n>        Crop or pad the adjacent image to this height before import\n");
     printf("   -pcs <n> -pce <n>  Set first and last palette color on the adjacent file, or on selected entries during update\n");
     printf("   -json auto|off|<file> Use adjacent JSON metadata, disable it, or force a file\n");
-    printf("   -clone <n>         Clone entry data from another slot instead of reading a file\n");
+    printf("   -clone <n>         Clone entry data from another slot as an input source\n");
     printf("   -amiga-hack|-noamiga-hack Toggle the classic DAT Amiga 4-bit palette marker on the adjacent file\n");
     printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: min, reserve, std, dark, A-B\n");
     printf("   -priority <list>   Rebuild order preference for update/create\n");
@@ -855,6 +855,7 @@ static bool ApplyPropertyToSelection(DMG* dmg, const bool* currentSelection, con
 static void PrepareIndexedExportPalette(DMG* dmg, const DMG_Entry* entry, uint32_t* palette, int paletteSize, uint32_t* expandedPalette, uint32_t** exportPalette, int* exportPaletteSize);
 static bool IsImageToken(const char* token);
 static bool IsAudioToken(const char* token);
+static bool IsCloneToken(const char* token);
 static bool IsTargetedFileToken(const char* token);
 static bool ParseOptionValue(const char* ptr, int* value);
 static bool ExecuteCLICommandLine(int argc, char* argv[]);
@@ -2534,6 +2535,16 @@ static bool IsAudioToken(const char* token)
     return dot != 0 && IsAudioFileExtension(dot + 1);
 }
 
+static bool IsCloneToken(const char* token)
+{
+    int value = 0;
+    if (strnicmp(token, "clone:", 6) == 0 && ParseOptionValue(token + 6, &value))
+        return true;
+    if (strnicmp(token, "set-clone:", 10) == 0 && ParseOptionValue(token + 10, &value))
+        return true;
+    return false;
+}
+
 static bool IsTargetedFileToken(const char* token)
 {
     const char* colon = strchr(token, ':');
@@ -2593,12 +2604,6 @@ static bool ParseInputOptionToken(const char* token)
     {
         pendingInputOptions.hasAmigaHack = true;
         pendingInputOptions.amigaHack = value != 0;
-        return true;
-    }
-    if (strnicmp(token, "set-clone:", 10) == 0 && ParseOptionValue(token + 10, &value))
-    {
-        pendingInputOptions.hasClone = true;
-        pendingInputOptions.cloneSource = value;
         return true;
     }
     if (stricmp(token, "set-json:off") == 0)
@@ -3522,7 +3527,7 @@ static bool BuildDirectCreatePriorityArguments(int tokenCount, const char* token
         if (IsPropertyToken(token))
             return false;
 
-        if (IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
+        if (IsCloneToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
         {
             int targetIndex = -1;
             if (!TryGetDirectTargetIndexForCreate(token, &targetIndex))
@@ -3570,6 +3575,7 @@ static bool BuildDirectCreatePriorityArguments(int tokenCount, const char* token
 static bool IsEntryChangeToken(const char* token)
 {
     return IsSelectionToken(token) ||
+        IsCloneToken(token) ||
         IsTargetedFileToken(token) ||
         IsImageToken(token) ||
         IsAudioToken(token) ||
@@ -3792,6 +3798,25 @@ static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
     return count;
 }
 
+static int FindRebuildCloneSource(const DMG* dmg, const uint8_t* order, int orderIndex, uint8_t index)
+{
+    DMG_Entry* entry = DMG_GetEntry((DMG*)dmg, index);
+    if (entry == 0 || entry->type == DMGEntry_Empty || entry->fileOffset == 0)
+        return -1;
+
+    for (int i = 0; i < orderIndex; i++)
+    {
+        uint8_t candidateIndex = order[i];
+        DMG_Entry* candidate = DMG_GetEntry((DMG*)dmg, candidateIndex);
+        if (candidate == 0 || candidate->type != entry->type)
+            continue;
+        if (candidate->fileOffset == entry->fileOffset && candidate->length == entry->length)
+            return candidateIndex;
+    }
+
+    return -1;
+}
+
 static bool ParseOptionValue(const char* ptr, int* value)
 {
     if (isdigit(*ptr))
@@ -4003,6 +4028,114 @@ static bool ApplyPropertyToSelection(DMG* dmg, const bool* currentSelection, con
     return true;
 }
 
+static bool ApplyCloneToEntry(DMG* dmg, int targetIndex, int cloneSource, const PendingInputOptions* options)
+{
+    if (!DMG_ReuseEntryData(dmg, (uint8_t)targetIndex, (uint8_t)cloneSource))
+    {
+        fprintf(stderr, "Error: Unable to clone entry %d into %d: %s\n", cloneSource, targetIndex, DMG_GetErrorString());
+        return false;
+    }
+
+    DMG_Entry* cloned = DMG_GetEntry(dmg, (uint8_t)targetIndex);
+    if (cloned != 0)
+    {
+        if (options->hasX) cloned->x = options->x;
+        if (options->hasY) cloned->y = options->y;
+        if (options->hasBuffer)
+        {
+            if (options->buffer) cloned->flags |= DMG_FLAG_BUFFERED;
+            else cloned->flags &= ~DMG_FLAG_BUFFERED;
+        }
+        if (options->hasFixed)
+        {
+            if (options->fixed) cloned->flags |= DMG_FLAG_FIXED;
+            else cloned->flags &= ~DMG_FLAG_FIXED;
+        }
+        if (options->hasAmigaHack)
+        {
+            if (options->amigaHack) cloned->flags |= DMG_FLAG_AMIPALHACK;
+            else cloned->flags &= ~DMG_FLAG_AMIPALHACK;
+        }
+        DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
+    }
+
+    printf("%03d: Cloned entry %03d\n", targetIndex, cloneSource);
+    return true;
+}
+
+static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+{
+    int cloneSource = 0;
+    int selectionCount = CountSelectedEntries(currentSelection);
+    PendingInputOptions effectiveOptions = pendingInputOptions;
+
+    if (strnicmp(token, "clone:", 6) == 0)
+    {
+        if (!ParseOptionValue(token + 6, &cloneSource))
+        {
+            fprintf(stderr, "Error: Invalid clone source: \"%s\"\n", token + 6);
+            return false;
+        }
+    }
+    else if (strnicmp(token, "set-clone:", 10) == 0)
+    {
+        if (!ParseOptionValue(token + 10, &cloneSource))
+        {
+            fprintf(stderr, "Error: Invalid clone source: \"%s\"\n", token + 10);
+            return false;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid clone token: \"%s\"\n", token);
+        return false;
+    }
+
+    if (*explicitSelection && selectionCount > 0)
+    {
+        int lastTarget = -1;
+        for (int i = 0; i < 256; i++)
+        {
+            if (!currentSelection[i])
+                continue;
+            if (!ApplyCloneToEntry(dmg, i, cloneSource, &effectiveOptions))
+                return false;
+            lastTarget = i;
+        }
+
+        *currentIndex = lastTarget;
+        *currentFileSaved = false;
+        ResetPendingInputOptions();
+        return true;
+    }
+
+    int targetIndex = -1;
+    if (!*currentFileSaved)
+    {
+        targetIndex = DMG_FindFreeEntry(dmg);
+    }
+    else if (*currentIndex >= 0 && *currentIndex < 255)
+    {
+        targetIndex = *currentIndex + 1;
+    }
+
+    if (targetIndex < 0 || targetIndex > 255)
+    {
+        fprintf(stderr, "Error: Unable to determine target entry for \"%s\"\n", token);
+        return false;
+    }
+
+    if (!ApplyCloneToEntry(dmg, targetIndex, cloneSource, &effectiveOptions))
+        return false;
+
+    SelectSingleEntry(currentSelection, targetIndex);
+    *explicitSelection = false;
+    *currentIndex = targetIndex;
+    *currentFileSaved = true;
+    ResetPendingInputOptions();
+    return true;
+}
+
 static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
 {
     const char* path = token;
@@ -4084,39 +4217,13 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
 
     if (effectiveOptions.hasClone)
     {
-        if (!DMG_ReuseEntryData(dmg, (uint8_t)targetIndex, (uint8_t)effectiveOptions.cloneSource))
-        {
-            fprintf(stderr, "Error: Unable to clone entry %d into %d: %s\n", effectiveOptions.cloneSource, targetIndex, DMG_GetErrorString());
+        if (!ApplyCloneToEntry(dmg, targetIndex, effectiveOptions.cloneSource, &effectiveOptions))
             return false;
-        }
-        DMG_Entry* cloned = DMG_GetEntry(dmg, (uint8_t)targetIndex);
-        if (cloned != 0)
-        {
-            if (effectiveOptions.hasX) cloned->x = effectiveOptions.x;
-            if (effectiveOptions.hasY) cloned->y = effectiveOptions.y;
-            if (effectiveOptions.hasBuffer)
-            {
-                if (effectiveOptions.buffer) cloned->flags |= DMG_FLAG_BUFFERED;
-                else cloned->flags &= ~DMG_FLAG_BUFFERED;
-            }
-            if (effectiveOptions.hasFixed)
-            {
-                if (effectiveOptions.fixed) cloned->flags |= DMG_FLAG_FIXED;
-                else cloned->flags &= ~DMG_FLAG_FIXED;
-            }
-            if (effectiveOptions.hasAmigaHack)
-            {
-                if (effectiveOptions.amigaHack) cloned->flags |= DMG_FLAG_AMIPALHACK;
-                else cloned->flags &= ~DMG_FLAG_AMIPALHACK;
-            }
-            DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
-        }
         SelectSingleEntry(currentSelection, targetIndex);
         *explicitSelection = false;
         *currentIndex = targetIndex;
         *currentFileSaved = true;
         ResetPendingInputOptions();
-        printf("%03d: Cloned entry %03d\n", targetIndex, effectiveOptions.cloneSource);
         return true;
     }
 
@@ -4495,6 +4602,9 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
 
 static bool ApplyFileToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
 {
+    if (IsCloneToken(token))
+        return ApplyCloneToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved);
+
     const char* path = token;
     const char* colon = strchr(token, ':');
     if (colon != 0 && colon != token && isdigit(*token))
@@ -4633,7 +4743,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             continue;
         }
 
-        if (IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
+        if (IsCloneToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
         {
             if (!ApplyFileToken(dmg, token, currentSelection, &explicitSelection, &currentIndex, &currentFileSaved))
                 return false;
@@ -4727,6 +4837,24 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 			continue;
 		}
 
+        int rebuildCloneSource = FindRebuildCloneSource(dmg, rebuildOrder, i, (uint8_t)n);
+        if (rebuildCloneSource >= 0)
+        {
+            if (!DMG_ReuseEntryData(out, (uint8_t)n, (uint8_t)rebuildCloneSource))
+            {
+                fprintf(stderr, "%03d: Error: Unable to clone rebuilt entry %03d: %s\n", n, rebuildCloneSource, DMG_GetErrorString());
+                DMG_Close(out);
+                return false;
+            }
+            outEntry = DMG_GetEntry(out, n);
+            if (outEntry == NULL)
+            {
+                fprintf(stderr, "%03d: Error: Unable to read rebuilt entry: %s\n", n, DMG_GetErrorString());
+                DMG_Close(out);
+                return false;
+            }
+        }
+
         if (entry->RGB32Palette != 0)
         {
             uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, n);
@@ -4750,6 +4878,18 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 		outEntry->y = entry->y;
 		outEntry->firstColor = entry->firstColor;
 		outEntry->lastColor = entry->lastColor;
+
+        if (rebuildCloneSource >= 0)
+        {
+            if (!DMG_UpdateEntry(out, (uint8_t)n))
+            {
+                fprintf(stderr, "%03d: Error: Unable to update cloned entry: %s\n", n, DMG_GetErrorString());
+                DMG_Close(out);
+                return false;
+            }
+            printf("%03d: Cloned entry %03d\n", n, rebuildCloneSource);
+            continue;
+        }
 
 		if (entry->type == DMGEntry_Audio)
 		{
@@ -5057,7 +5197,7 @@ static bool UpdateTokenRequiresRebuild(const char* token)
         return false;
     if (IsCreateToken(token))
         return true;
-    if (IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
+    if (IsCloneToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
         return true;
     return false;
 }
@@ -5569,7 +5709,15 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
             const char* value = ConsumeOptionValue(token, inlineValue, inputCount, inputArgs, &i);
             if (value == 0)
                 return false;
-            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "set-clone:", value, token))
+            if (haveExplicitId)
+            {
+                char idToken[16];
+                snprintf(idToken, sizeof(idToken), "%d", nextId);
+                if (!AppendTranslatedDuplicate(translatedArgs, translatedCount, maxTranslatedArgs, idToken, token))
+                    return false;
+                nextId++;
+            }
+            if (!AppendTranslatedPrefixed(translatedArgs, translatedCount, maxTranslatedArgs, "clone:", value, token))
                 return false;
             continue;
         }

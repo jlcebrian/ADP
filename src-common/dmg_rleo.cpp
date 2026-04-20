@@ -20,7 +20,11 @@ bool DMG_DecompressOldRLE (const uint8_t* data, uint16_t rleMask, uint16_t dataL
 	bool outcm = false;
 
 	DMG_SetError(DMG_ERROR_NONE);
+	
+	#ifdef DEBUG_RLE
 	DebugPrintf("Decompressing old RLE image (%u bytes)\n", (unsigned)dataLength);
+	#endif
+
 	#ifdef DEBUG
 	uint32_t t0, t1;
 	VID_GetMilliseconds(&t0);
