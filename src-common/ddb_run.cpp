@@ -545,10 +545,9 @@ static inline int AdjustX (int x, int columnWidth)
 	return cells * columnWidth;
 }
 
-static void DrawBufferedPicture (DDB_Interpreter* i)
+static void PrepareBufferedPictureWindow(DDB_Interpreter* i, int16_t* x, int16_t* width)
 {
 	DDB_Window* w = &i->win;
-	int16_t x, width;
 
 	bool fixed = false;
 	int16_t picx = 0;
@@ -559,29 +558,33 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 
 	if (fixed)
 	{
-		x             = (picx / screenCellWidth) * screenCellWidth;
-		width         = ((picw + screenCellWidth - 1) / screenCellWidth) * screenCellWidth;
+		*x            = (picx / screenCellWidth) * screenCellWidth;
+		*width        = ((picw + screenCellWidth - 1) / screenCellWidth) * screenCellWidth;
 		i->cellX	  = picx / screenCellWidth;
-		i->cellW	  = width / screenCellWidth;
+		i->cellW	  = *width / screenCellWidth;
 		i->win.width  = AdjustX(picw, columnWidth);
 		i->win.height = pich;
 		int alignBias = columnWidth == 8 ? 3 : columnWidth / 2;
-		i->win.x      = AdjustX(x + alignBias, columnWidth);
+		i->win.x      = AdjustX(*x + alignBias, columnWidth);
 		i->win.y      = picy;
-		i->win.posX   = x;
+		i->win.posX   = *x;
 		i->win.posY   = picy;
-
-		//fprintf(stderr, "Drawing fixed picture %d: %d,%d %dx%d (window set to %d,%d %dx%d)\n", i->currentPicture, picx, picy, picw, pich, i->win.x, i->win.y, i->win.width, i->win.height);
 	}
 	else
 	{
-		x  	          = i->cellX * screenCellWidth;
-		width 		  = i->cellW * screenCellWidth;
+		*x  	          = i->cellX * screenCellWidth;
+		*width 		  = i->cellW * screenCellWidth;
 		i->win.posX   = i->win.x;
 		i->win.posY   = i->win.y;
-
-		//fprintf(stderr, "Drawing floating picture %d: %d,%d %dx%d\n", i->currentPicture, i->cellX*8, i->win.y, i->cellW*8, i->win.height);
 	}
+}
+
+static void DrawBufferedPicture (DDB_Interpreter* i)
+{
+	DDB_Window* w = &i->win;
+	int16_t x, width;
+
+	PrepareBufferedPictureWindow(i, &x, &width);
 
 	SCR_DisplayPicture(x, w->y, width, w->height, i->screenMode);
 }
@@ -1524,6 +1527,15 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 	{
 		if (i->ddb->version < 2 && i->flags[4] > 0)
 			i->flags[4]--;
+
+		if (i->ddb->version == DDB_VERSION_1 && !i->ddb->drawString && SCR_PictureExists(i->flags[Flag_Locno]))
+		{
+			int16_t x, width;
+			DDB_SetWindow(i, 0);
+			BufferPicture(i, i->flags[Flag_Locno]);
+			PrepareBufferedPictureWindow(i, &x, &width);
+			DDB_ClearWindow(i, &i->win);
+		}
 
 		DDB_SetWindow(i, 1);
 		if (i->ddb->version < 2)

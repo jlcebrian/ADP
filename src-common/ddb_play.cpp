@@ -735,7 +735,7 @@ static bool ShouldPreferAmigaSCR(const char* fileName, DDB_Machine machine, DDB_
 		return false;
 	if (machine != DDB_MACHINE_ATARIST)
 		return false;
-	if (CountFiles(".ch0") > 0 || CountFiles(".chr") > 0)
+	if (CountFiles(".ch0") > 0)
 		return false;
 	if (HasPI1Header(fileName))
 		return false;
