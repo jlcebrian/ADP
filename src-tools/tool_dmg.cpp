@@ -222,6 +222,7 @@ typedef struct
     bool hasAmigaHack;
     bool hasClone;
     bool hasCompression;
+    bool fromDirectoryImport;
     bool useSidecarJson;
     bool hasJsonFile;
     int x;
@@ -2689,6 +2690,11 @@ static bool ParseInputOptionToken(const char* token)
         pendingInputOptions.amigaHack = value != 0;
         return true;
     }
+    if (stricmp(token, "set-folder-import:1") == 0)
+    {
+        pendingInputOptions.fromDirectoryImport = true;
+        return true;
+    }
     if (stricmp(token, "set-json:off") == 0)
     {
         pendingInputOptions.useSidecarJson = false;
@@ -3190,22 +3196,79 @@ static int CompareStringsIgnoreCase(const void* a, const void* b)
     return stricmp(sa, sb);
 }
 
+static bool OptionConsumesFollowingValueToken(const char* token)
+{
+    static const char* const optionNames[] = {
+        "--format",
+        "--mode",
+        "--type",
+        "--screen",
+        "--2x",
+        "--id",
+        "--x",
+        "--y",
+        "--pcs",
+        "--pce",
+        "--width",
+        "--height",
+        "--clone",
+        "--json",
+        "--remap",
+        "--priority",
+        "--as",
+        "--output",
+    };
+
+    if (token == 0)
+        return false;
+
+    for (int i = 0; i < (int)(sizeof(optionNames) / sizeof(optionNames[0])); i++)
+    {
+        const char* inlineValue = MatchOptionValueToken(token, optionNames[i]);
+        if (inlineValue != 0 && inlineValue[0] == 0)
+            return true;
+    }
+
+    return false;
+}
+
 struct DirectoryImportEntry
 {
     bool hasPNG;
     bool hasPI1;
+    bool hasIFF;
     bool hasWAV;
+    bool hasJSON;
     char pngPath[FILE_MAX_PATH];
     char pi1Path[FILE_MAX_PATH];
+    char iffPath[FILE_MAX_PATH];
     char wavPath[FILE_MAX_PATH];
+    char jsonPath[FILE_MAX_PATH];
 };
 
 static bool IsRecognizedDirectoryImportExtension(const char* extension)
 {
     return stricmp(extension, "png") == 0 ||
         stricmp(extension, "pi1") == 0 ||
+        stricmp(extension, "iff") == 0 ||
+        stricmp(extension, "ilbm") == 0 ||
         stricmp(extension, "wav") == 0 ||
         stricmp(extension, "json") == 0;
+}
+
+static bool IsDirectoryTokenCandidate(const char* token)
+{
+    if (token == 0 || *token == 0)
+        return false;
+    if (strchr(token, ';') != 0 || GetLastPathSeparator(token) != 0)
+        return true;
+    if (strcmp(token, ".") == 0 || strcmp(token, "..") == 0)
+        return true;
+
+    FindFileResults results;
+    if (!File_FindFirst(token, &results))
+        return false;
+    return (results.attributes & FileAttribute_Directory) != 0;
 }
 
 static bool IsNumericLocationName(const char* text)
@@ -3341,10 +3404,20 @@ static bool CollectDirectoryImportEntries(const char* directory, DirectoryImport
             entry->hasPI1 = true;
             StrCopy(entry->pi1Path, sizeof(entry->pi1Path), fullPath);
         }
+        else if (stricmp(dot + 1, "iff") == 0 || stricmp(dot + 1, "ilbm") == 0)
+        {
+            entry->hasIFF = true;
+            StrCopy(entry->iffPath, sizeof(entry->iffPath), fullPath);
+        }
         else if (stricmp(dot + 1, "wav") == 0)
         {
             entry->hasWAV = true;
             StrCopy(entry->wavPath, sizeof(entry->wavPath), fullPath);
+        }
+        else if (stricmp(dot + 1, "json") == 0)
+        {
+            entry->hasJSON = true;
+            StrCopy(entry->jsonPath, sizeof(entry->jsonPath), fullPath);
         }
     } while (File_FindNext(&results));
 
@@ -3357,7 +3430,7 @@ static int ExpandDirectoryToken(const char* token, const char** outTokens, int* 
         return 0;
     if (token[0] == '-')
         return 0;
-    if (strchr(token, ';') == 0 && GetLastPathSeparator(token) == 0)
+    if (!IsDirectoryTokenCandidate(token))
         return 0;
     if (HasWildcardChars(token) || IsSelectionToken(token) || IsPropertyToken(token) || IsRemapToken(token) || IsCompressionToken(token) || IsPriorityToken(token) || IsCreateToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
         return 0;
@@ -3396,19 +3469,71 @@ static int ExpandDirectoryToken(const char* token, const char** outTokens, int* 
     int before = *outCount;
     for (int location = 0; location < 256; location++)
     {
+        char locationToken[8];
+        snprintf(locationToken, sizeof(locationToken), "%d", location);
+
         if (entries[location].hasPNG)
         {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].pngPath, token))
                 return -1;
         }
         else if (entries[location].hasPI1)
         {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].pi1Path, token))
+                return -1;
+        }
+        else if (entries[location].hasIFF)
+        {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].iffPath, token))
                 return -1;
         }
         else if (entries[location].hasWAV)
         {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].wavPath, token))
+                return -1;
+        }
+        else if (entries[location].hasJSON)
+        {
+            PendingInputOptions options;
+            MemClear(&options, sizeof(options));
+            options.useSidecarJson = true;
+            if (!LoadPendingOptionsFromJson(entries[location].jsonPath, &options))
+            {
+                fprintf(stderr, "%03d: Warning: Unable to read JSON sidecar %s\n", location, entries[location].jsonPath);
+                continue;
+            }
+
+            if (!options.hasClone)
+            {
+                fprintf(stderr, "%03d: Warning: JSON sidecar without image or clone ignored: %s\n", location, entries[location].jsonPath);
+                continue;
+            }
+            char cloneToken[24];
+            char jsonToken[FILE_MAX_PATH + 16];
+            snprintf(cloneToken, sizeof(cloneToken), "clone:%d", options.cloneSource);
+            snprintf(jsonToken, sizeof(jsonToken), "set-json-file:%s", entries[location].jsonPath);
+
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, jsonToken, token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, cloneToken, token))
                 return -1;
         }
     }
@@ -3502,8 +3627,23 @@ static int ExpandWildcardToken(const char* token, const char** outTokens, int* o
 static int ExpandArgumentTokens(int argc, const char* argv[], const char** expandedArgs, bool* expandedArgOwned, int maxExpandedArgs)
 {
     int expandedArgCount = 0;
+    bool skipExpansionForValueToken = false;
     for (int i = 0; i < argc; i++)
     {
+        if (skipExpansionForValueToken)
+        {
+            if (expandedArgCount >= maxExpandedArgs)
+            {
+                SetCommandError("Too many arguments (limit %d), offending token \"%s\"", maxExpandedArgs, argv[i]);
+                return -1;
+            }
+            expandedArgs[expandedArgCount] = argv[i];
+            expandedArgOwned[expandedArgCount] = false;
+            expandedArgCount++;
+            skipExpansionForValueToken = false;
+            continue;
+        }
+
         int before = expandedArgCount;
         int dirResult = ExpandDirectoryToken(argv[i], expandedArgs, &expandedArgCount, maxExpandedArgs);
         if (dirResult < 0)
@@ -3533,6 +3673,7 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
         expandedArgs[expandedArgCount] = argv[i];
         expandedArgOwned[expandedArgCount] = false;
         expandedArgCount++;
+        skipExpansionForValueToken = OptionConsumesFollowingValueToken(argv[i]);
     }
     return expandedArgCount;
 }
@@ -4237,6 +4378,9 @@ static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection,
     int selectionCount = CountSelectedEntries(currentSelection);
     PendingInputOptions effectiveOptions = pendingInputOptions;
 
+    if (pendingInputOptions.hasJsonFile)
+        LoadPendingOptionsFromJson(pendingInputOptions.jsonFile, &effectiveOptions);
+
     if (strnicmp(token, "clone:", 6) == 0)
     {
         if (!ParseOptionValue(token + 6, &cloneSource))
@@ -4451,6 +4595,12 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         LoadDAT5SpecialIFFImage(path, (DMG_DAT5ColorMode)dmg->colorMode, buffer, bufferSize, &width, &height, &palette[0], &paletteSize) :
         LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount)))
     {
+        if (pendingInputOptions.fromDirectoryImport)
+        {
+            fprintf(stderr, "%03d: Warning: Unable to load image \"%s\": %s\n", targetIndex, path, DMG_GetErrorString());
+            ResetPendingInputOptions();
+            return true;
+        }
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
     }
@@ -4763,6 +4913,12 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
     uint32_t sampleSize = 0;
     if (!LoadWAVFile(path, &buffer, &bufferSize, &sampleSize, &sampleRate))
     {
+        if (pendingInputOptions.fromDirectoryImport)
+        {
+            fprintf(stderr, "%03d: Warning: Unable to load audio \"%s\": %s\n", targetIndex, path, DMG_GetErrorString());
+            ResetPendingInputOptions();
+            return true;
+        }
         fprintf(stderr, "Error: Unable to load audio \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
     }
