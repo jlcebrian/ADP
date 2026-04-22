@@ -2287,6 +2287,44 @@ static void PrintCompressionGain(DMG_Entry* entry)
     printf(" (%u.%u%% size)", keptTimes10 / 10, keptTimes10 % 10);
 }
 
+static int GetCloneSourceIndex(DMG* dmg, uint8_t index, const DMG_Entry* entry)
+{
+    if (dmg == 0 || entry == 0 || entry->type == DMGEntry_Empty || entry->length == 0)
+        return -1;
+
+    if (DMG_EditableEntryReusesStoredData(dmg, index))
+    {
+        uint8_t current = index;
+        for (int depth = 0; depth < 256; depth++)
+        {
+            uint8_t source = DMG_GetEntryStoredDataSource(dmg, current);
+            if (source == 0xFF || source == current)
+                break;
+            current = source;
+            if (!DMG_EditableEntryReusesStoredData(dmg, current))
+                return current;
+        }
+    }
+
+    for (int candidate = 0; candidate < index; candidate++)
+    {
+        const DMG_Entry* other = DMG_GetEntry(dmg, (uint8_t)candidate);
+        if (other == 0 || other->type != entry->type || other->length != entry->length)
+            continue;
+        if (other->fileOffset == entry->fileOffset)
+            return candidate;
+    }
+
+    return -1;
+}
+
+static void PrintCloneSourceSuffix(DMG* dmg, uint8_t index, const DMG_Entry* entry)
+{
+    int cloneSource = GetCloneSourceIndex(dmg, index, entry);
+    if (cloneSource >= 0)
+        printf(" (=%d)", cloneSource);
+}
+
 static void ListSelectedEntries(DMG* dmg, bool verbose)
 {
 	int n, i;
@@ -2359,6 +2397,7 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
                     (entry->flags & DMG_FLAG_FIXED)      ? "fix":"flt",
                     entry->x, entry->y, entry->firstColor, entry->lastColor, entry->length);
                 PrintCompressionGain(entry);
+                PrintCloneSourceSuffix(dmg, (uint8_t)n, entry);
                 printf("\n");
                 if (verbose)
                 {
@@ -2393,8 +2432,10 @@ static void ListSelectedEntries(DMG* dmg, bool verbose)
                 break;
 
             case DMGEntry_Audio:
-                printf("%03d: Audio sample   %-16s               %5d bytes\n",
+                printf("%03d: Audio sample   %-16s               %5d bytes",
                     n, DMG_DescribeFreq((DMG_KHZ)entry->x), entry->length);
+                PrintCloneSourceSuffix(dmg, (uint8_t)n, entry);
+                printf("\n");
                 break;
 
             case DMGEntry_Empty:
@@ -3801,7 +3842,31 @@ static int BuildRebuildOrder(DMG* dmg, uint8_t* order)
 static int FindRebuildCloneSource(const DMG* dmg, const uint8_t* order, int orderIndex, uint8_t index)
 {
     DMG_Entry* entry = DMG_GetEntry((DMG*)dmg, index);
-    if (entry == 0 || entry->type == DMGEntry_Empty || entry->fileOffset == 0)
+    if (entry == 0 || entry->type == DMGEntry_Empty)
+        return -1;
+
+    if (DMG_EditableEntryReusesStoredData(dmg, index))
+    {
+        uint8_t current = index;
+        for (int depth = 0; depth < 256; depth++)
+        {
+            uint8_t source = DMG_GetEntryStoredDataSource(dmg, current);
+            if (source == 0xFF || source == current)
+                break;
+            current = source;
+            if (!DMG_EditableEntryReusesStoredData(dmg, current))
+            {
+                for (int i = 0; i < orderIndex; i++)
+                {
+                    if (order[i] == current)
+                        return current;
+                }
+                break;
+            }
+        }
+    }
+
+    if (entry->fileOffset == 0)
         return -1;
 
     for (int i = 0; i < orderIndex; i++)
@@ -3815,6 +3880,67 @@ static int FindRebuildCloneSource(const DMG* dmg, const uint8_t* order, int orde
     }
 
     return -1;
+}
+
+static bool HasEditableStoredPayloadChanges(const DMG* dmg, uint8_t index)
+{
+    const DMG_EditableEntryData* edit = DMG_GetEditableEntryData(dmg, index);
+    return edit != 0 && (edit->flags & (DMG_EDITDATA_OWNS_STORED_DATA | DMG_EDITDATA_OWNS_PALETTE | DMG_EDITDATA_OWNS_CONVERSION_PALETTE | DMG_EDITDATA_REUSES_STORED_DATA)) != 0;
+}
+
+static bool CanReuseStoredPayloadInRebuild(const DMG* source, const DMG* out, uint8_t index, const DMG_Entry* entry, int rebuildCloneSource)
+{
+    if (rebuildCloneSource >= 0 || source == 0 || out == 0 || entry == 0)
+        return false;
+    if (source->version != DMG_Version5 || out->version != DMG_Version5)
+        return false;
+    if (source->colorMode != out->colorMode)
+        return false;
+    if (entry->type != DMGEntry_Image || entry->fileOffset == 0)
+        return false;
+    return !HasEditableStoredPayloadChanges(source, index);
+}
+
+static bool CopyStoredDAT5EntryToRebuild(DMG* source, DMG* out, uint8_t index, const DMG_Entry* entry)
+{
+    uint32_t paletteBytes = entry->paletteColors * 3u;
+    uint32_t storedSize = entry->length >= paletteBytes ? entry->length - paletteBytes : 0;
+    const uint8_t* storedData = 0;
+
+    if (entry->paletteColors != 0)
+    {
+        uint32_t* palette = DMG_GetEntryStoredPalette(source, index);
+        if (palette == 0)
+            return false;
+        if (!DMG_SetEntryPaletteRange(out, index, palette, entry->paletteColors, entry->firstColor, entry->lastColor))
+            return false;
+    }
+
+    if (storedSize != 0)
+    {
+        storedData = (const uint8_t*)DMG_GetFromFileCache(source, entry->fileOffset + paletteBytes, storedSize);
+        if (storedData == 0)
+        {
+            if (bufferSize < storedSize)
+            {
+                bufferSize = storedSize;
+                buffer = (uint8_t*)realloc(buffer, bufferSize);
+                if (buffer == 0)
+                {
+                    fprintf(stderr, "Error: Out of memory: unable to allocate %u bytes\n", storedSize);
+                    return false;
+                }
+            }
+            if (DMG_ReadFromFile(source, entry->fileOffset + paletteBytes, buffer, storedSize) != storedSize)
+            {
+                DMG_SetError(DMG_ERROR_READING_FILE);
+                return false;
+            }
+            storedData = buffer;
+        }
+    }
+
+    return DMG_SetImageDataEx(out, index, (uint8_t*)storedData, entry->width, entry->height, storedSize, (entry->flags & DMG_FLAG_COMPRESSED) != 0, entry->bitDepth);
 }
 
 static bool ParseOptionValue(const char* ptr, int* value)
@@ -4855,7 +4981,11 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
             }
         }
 
-        if (entry->RGB32Palette != 0)
+        bool copySourcePalette = entry->RGB32Palette != 0;
+        if (copySourcePalette && dmg->version == DMG_Version5 && rebuildCloneSource >= 0)
+            copySourcePalette = false;
+
+        if (copySourcePalette)
         {
             uint16_t paletteSize = DMG_GetEntryPaletteSize(dmg, n);
             if (!DMG_SetEntryPaletteRange(out, n, entry->RGB32Palette, paletteSize, entry->firstColor, entry->lastColor))
@@ -4911,6 +5041,18 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 
 		if (entry->type == DMGEntry_Image)
 		{
+            if (CanReuseStoredPayloadInRebuild(dmg, out, (uint8_t)n, entry, rebuildCloneSource))
+            {
+                if (!CopyStoredDAT5EntryToRebuild(dmg, out, (uint8_t)n, entry))
+                {
+                    fprintf(stderr, "%03d: Error: Unable to reuse image entry: %s\n", n, DMG_GetErrorString());
+                    DMG_Close(out);
+                    return false;
+                }
+                printf("%03d: Reused image (%5u bytes%s)\n", n, entry->length, (entry->flags & DMG_FLAG_COMPRESSED) != 0 ? ", ZX0" : "");
+                continue;
+            }
+
 			uint16_t width = entry->width;
 			uint16_t height = entry->height;
 			uint32_t size = width * height;
