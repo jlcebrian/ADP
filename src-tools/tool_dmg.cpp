@@ -377,7 +377,7 @@ static void PrintHelp()
 	printf("Common add/create/update options:\n\n");
     printf("   -format <id>       Container format: dat5, dat2, dat1, ega, cga, pcw\n");
     printf("   -mode <id>         DAT5 mode: cga, ega, planar4, planar5, planar8,\n");
-    printf("                      planar4st, planar8st\n");
+    printf("                      planar4st, planar8st, ehb6, ham6\n");
     printf("   -type <id>         Alias for -mode\n");
     printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
     printf("   -2x <0|1>          Set DAT5 2X UI flag when creating or updating DAT5\n");
@@ -425,7 +425,9 @@ static int GetPaletteLimit(DMG_DAT5ColorMode mode)
         case DMG_DAT5_COLORMODE_EGA:
         case DMG_DAT5_COLORMODE_PLANAR4:
         case DMG_DAT5_COLORMODE_PLANAR4ST: return 16;
-        case DMG_DAT5_COLORMODE_PLANAR5: return 32;
+        case DMG_DAT5_COLORMODE_PLANAR5:
+        case DMG_DAT5_COLORMODE_EHB6: return 32;
+        case DMG_DAT5_COLORMODE_HAM6: return 16;
         case DMG_DAT5_COLORMODE_PLANAR8:
         case DMG_DAT5_COLORMODE_PLANAR8ST: return 256;
         default: return 16;
@@ -451,6 +453,8 @@ static bool ParseDAT5Mode(const char* value, DMG_DAT5ColorMode* mode)
     else if (stricmp(value, "planar8") == 0 || stricmp(value, "i256") == 0 || stricmp(value, "vga") == 0 || stricmp(value, "aga") == 0) *mode = DMG_DAT5_COLORMODE_PLANAR8;
     else if (stricmp(value, "planar4st") == 0 || stricmp(value, "st") == 0) *mode = DMG_DAT5_COLORMODE_PLANAR4ST;
     else if (stricmp(value, "planar8st") == 0 || stricmp(value, "falcon") == 0) *mode = DMG_DAT5_COLORMODE_PLANAR8ST;
+    else if (stricmp(value, "ehb6") == 0 || stricmp(value, "ehb") == 0) *mode = DMG_DAT5_COLORMODE_EHB6;
+    else if (stricmp(value, "ham6") == 0 || stricmp(value, "ham") == 0) *mode = DMG_DAT5_COLORMODE_HAM6;
     else return false;
     return true;
 }
@@ -1079,6 +1083,10 @@ static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint
         case DMG_DAT5_COLORMODE_PLANAR5:
             *outputSize = ((uint32_t)(width + 15) >> 4) * height * 5 * 2;
             return DMG_PackBitplaneBytes(indexed, width, height, 5, output);
+        case DMG_DAT5_COLORMODE_EHB6:
+        case DMG_DAT5_COLORMODE_HAM6:
+            *outputSize = ((uint32_t)(width + 15) >> 4) * height * 6 * 2;
+            return DMG_PackBitplaneBytes(indexed, width, height, 6, output);
         case DMG_DAT5_COLORMODE_PLANAR8:
             *outputSize = ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
             return DMG_PackBitplaneBytes(indexed, width, height, 8, output);
@@ -1106,6 +1114,9 @@ static uint32_t GetDAT5EncodedSize(DMG_DAT5ColorMode mode, uint16_t width, uint1
             return ((uint32_t)(width + 15) >> 4) * height * 4 * 2;
         case DMG_DAT5_COLORMODE_PLANAR5:
             return ((uint32_t)(width + 15) >> 4) * height * 5 * 2;
+        case DMG_DAT5_COLORMODE_EHB6:
+        case DMG_DAT5_COLORMODE_HAM6:
+            return ((uint32_t)(width + 15) >> 4) * height * 6 * 2;
         case DMG_DAT5_COLORMODE_PLANAR8:
         case DMG_DAT5_COLORMODE_PLANAR8ST:
             return ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
@@ -2245,6 +2256,8 @@ static const char* DescribeDAT5ColorMode(uint8_t mode)
         case DMG_DAT5_COLORMODE_PLANAR8:   return "Planar8";
         case DMG_DAT5_COLORMODE_PLANAR4ST: return "Planar4ST";
         case DMG_DAT5_COLORMODE_PLANAR8ST: return "Planar8ST";
+        case DMG_DAT5_COLORMODE_EHB6:      return "EHB6";
+        case DMG_DAT5_COLORMODE_HAM6:      return "HAM6";
         default:                           return "Unknown";
     }
 }
@@ -2265,6 +2278,8 @@ static uint32_t GetCompressedImageBaseline(DMG_Entry* entry)
             case DMG_DAT5_COLORMODE_PLANAR8:
             case DMG_DAT5_COLORMODE_PLANAR4ST:
             case DMG_DAT5_COLORMODE_PLANAR8ST:
+            case DMG_DAT5_COLORMODE_EHB6:
+            case DMG_DAT5_COLORMODE_HAM6:
                 return DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
             default:
                 break;
@@ -2562,6 +2577,33 @@ static int GetRequestedImportPaletteLimit(const DMG* dmg)
             limit = available;
     }
     return limit;
+}
+
+static bool IsIFFFileName(const char* fileName)
+{
+    const char* dot = strrchr(fileName, '.');
+    if (dot == 0)
+        return false;
+    return stricmp(dot + 1, "iff") == 0 || stricmp(dot + 1, "ilbm") == 0;
+}
+
+static bool LoadDAT5SpecialIFFImage(const char* fileName, DMG_DAT5ColorMode colorMode, uint8_t* pixels, uint32_t pixelsBufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize)
+{
+    if (!IsIFFFileName(fileName))
+    {
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+        return false;
+    }
+
+    uint32_t requiredViewMode =
+        colorMode == DMG_DAT5_COLORMODE_HAM6 ? IFF_AMIGA_VIEWMODE_HAM :
+        colorMode == DMG_DAT5_COLORMODE_EHB6 ? IFF_AMIGA_VIEWMODE_EHB :
+        IFF_AMIGA_VIEWMODE_ANY;
+    int requiredPaletteSize =
+        colorMode == DMG_DAT5_COLORMODE_HAM6 ? 16 :
+        colorMode == DMG_DAT5_COLORMODE_EHB6 ? 32 :
+        0;
+    return LoadIFFIndexedSpecial(fileName, pixels, pixelsBufferSize, width, height, palette, paletteSize, 6, requiredViewMode, requiredPaletteSize);
 }
 
 static bool IsImageToken(const char* token)
@@ -4383,12 +4425,36 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     int firstColor = 0;
     int lastColor = 0;
     bool quantized = false;
-    if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount))
+    bool specialAmigaDAT5 = dmg->version == DMG_Version5 && DMG_DAT5ModeIsAmigaSpecial(dmg->colorMode);
+    if (specialAmigaDAT5)
+    {
+        if (effectiveOptions.hasWidth || effectiveOptions.hasHeight)
+        {
+            fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF dimensions; crop/pad is not supported\n",
+                DescribeDAT5ColorMode(dmg->colorMode));
+            return false;
+        }
+        if (effectiveOptions.hasFirstColor || effectiveOptions.hasLastColor)
+        {
+            fprintf(stderr, "Error: DAT5 %s import uses a fixed 32-entry palette range; PCS/PCE overrides are not supported\n",
+                DescribeDAT5ColorMode(dmg->colorMode));
+            return false;
+        }
+        if (remapMode != REMAP_NONE)
+        {
+            fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF data; palette remap is not supported\n",
+                DescribeDAT5ColorMode(dmg->colorMode));
+            return false;
+        }
+    }
+    if (!(specialAmigaDAT5 ?
+        LoadDAT5SpecialIFFImage(path, (DMG_DAT5ColorMode)dmg->colorMode, buffer, bufferSize, &width, &height, &palette[0], &paletteSize) :
+        LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount)))
     {
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
     }
-    if (effectiveOptions.hasWidth || effectiveOptions.hasHeight)
+    if (!specialAmigaDAT5 && (effectiveOptions.hasWidth || effectiveOptions.hasHeight))
     {
         uint16_t targetWidth = effectiveOptions.hasWidth ? (uint16_t)effectiveOptions.width : width;
         uint16_t targetHeight = effectiveOptions.hasHeight ? (uint16_t)effectiveOptions.height : height;
@@ -4397,6 +4463,11 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     }
     if (paletteSize > 0)
         lastColor = paletteSize - 1;
+    if (specialAmigaDAT5)
+    {
+        firstColor = 0;
+        lastColor = paletteSize > 0 ? paletteSize - 1 : 0;
+    }
 
     uint32_t size = width * height;
     if (dmg->version == DMG_Version5)
@@ -4412,7 +4483,9 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 fprintf(stderr, "Error: Out of memory: unable to allocate %d bytes\n", bufferSize);
                 return false;
             }
-            if (!LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount))
+            if (!(specialAmigaDAT5 ?
+                LoadDAT5SpecialIFFImage(path, (DMG_DAT5ColorMode)dmg->colorMode, buffer, bufferSize, &width, &height, &palette[0], &paletteSize) :
+                LoadIndexedImageFile(path, buffer, bufferSize, &width, &height, &palette[0], &paletteSize, importPaletteLimit, &quantized, &sourceColorCount)))
             {
                 fprintf(stderr, "Error: Unable to reload image \"%s\": %s\n", path, DMG_GetErrorString());
                 return false;
@@ -4426,12 +4499,12 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         snprintf(warning, sizeof(warning), "Image \"%s\" reduced from %d to %d colors", path, sourceColorCount, paletteSize);
         ShowWarning(warning);
     }
-    if (remapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
+    if (!specialAmigaDAT5 && remapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
         ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
 
-    if (effectiveOptions.hasFirstColor)
+    if (!specialAmigaDAT5 && effectiveOptions.hasFirstColor)
         firstColor = effectiveOptions.firstColor;
-    if (effectiveOptions.hasLastColor)
+    if (!specialAmigaDAT5 && effectiveOptions.hasLastColor)
         lastColor = effectiveOptions.lastColor;
 
     if (dmg->version == DMG_Version5)

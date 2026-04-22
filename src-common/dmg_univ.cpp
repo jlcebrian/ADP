@@ -59,6 +59,8 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			case DMG_DAT5_COLORMODE_PLANAR8:
 			case DMG_DAT5_COLORMODE_PLANAR4ST:
 			case DMG_DAT5_COLORMODE_PLANAR8ST:
+			case DMG_DAT5_COLORMODE_EHB6:
+			case DMG_DAT5_COLORMODE_HAM6:
 				decompressedSize = DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
 				break;
 			default:
@@ -220,6 +222,8 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			case DMG_DAT5_COLORMODE_PLANAR4:
 			case DMG_DAT5_COLORMODE_PLANAR5:
 			case DMG_DAT5_COLORMODE_PLANAR8:
+			case DMG_DAT5_COLORMODE_EHB6:
+			case DMG_DAT5_COLORMODE_HAM6:
 			if (!DMG_UnpackBitplaneBytes(fileData, entry->width, entry->height, entry->bitDepth, buffer))
 			{
 				if (tempFileData)

@@ -539,7 +539,7 @@ bool SavePI1Indexed(const char* filename, uint8_t* pixels, uint16_t width, uint1
     return ok;
 }
 
-bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize)
+static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, uint8_t requiredPlanes, uint32_t requiredViewMode, int requiredPaletteSize)
 {
     File* file = File_Open(filename, ReadOnly);
     if (file == 0)
@@ -582,6 +582,8 @@ bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
     uint8_t ilbmPlanes = 0;
     uint8_t ilbmCompression = 0;
     int colors = 0;
+    uint32_t camg = 0;
+    bool hasCAMG = false;
 
     while (ptr + 8 <= end)
     {
@@ -627,6 +629,16 @@ bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
                     (uint32_t)chunkData[i * 3 + 2];
             }
         }
+        else if (memcmp(ptr, "CAMG", 4) == 0)
+        {
+            if (chunkSize < 4)
+            {
+                ok = false;
+                break;
+            }
+            camg = ReadBE32(chunkData);
+            hasCAMG = true;
+        }
         else if (memcmp(ptr, "BODY", 4) == 0)
         {
             body = chunkData;
@@ -638,6 +650,21 @@ bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
 
     if (ok && (body == 0 || ilbmWidth == 0 || ilbmHeight == 0 || colors == 0))
         ok = false;
+    if (ok && requiredPlanes != 0 && ilbmPlanes != requiredPlanes)
+        ok = false;
+    if (ok && requiredPaletteSize > 0 && colors != requiredPaletteSize)
+        ok = false;
+    if (ok && requiredViewMode != IFF_AMIGA_VIEWMODE_ANY)
+    {
+        if (!hasCAMG)
+            ok = false;
+        else if (requiredViewMode == IFF_AMIGA_VIEWMODE_EHB)
+            ok = (camg & IFF_AMIGA_VIEWMODE_EHB) != 0 && (camg & IFF_AMIGA_VIEWMODE_HAM) == 0;
+        else if (requiredViewMode == IFF_AMIGA_VIEWMODE_HAM)
+            ok = (camg & IFF_AMIGA_VIEWMODE_HAM) != 0 && (camg & IFF_AMIGA_VIEWMODE_EHB) == 0;
+        else
+            ok = (camg & requiredViewMode) == requiredViewMode;
+    }
     if (ok && !DecodeILBMBodyToIndexed(body, bodySize, ilbmCompression, ilbmWidth, ilbmHeight, ilbmPlanes, buffer, bufferSize))
         ok = false;
 
@@ -650,7 +677,19 @@ bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, ui
     }
 
     Free(data);
+    if (!ok)
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
     return ok;
+}
+
+bool LoadIFFIndexed(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize)
+{
+    return LoadIFFIndexedInternal(filename, buffer, bufferSize, width, height, palette, paletteSize, 0, IFF_AMIGA_VIEWMODE_ANY, 0);
+}
+
+bool LoadIFFIndexedSpecial(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, uint8_t requiredPlanes, uint32_t requiredViewMode, int requiredPaletteSize)
+{
+    return LoadIFFIndexedInternal(filename, buffer, bufferSize, width, height, palette, paletteSize, requiredPlanes, requiredViewMode, requiredPaletteSize);
 }
 
 static uint32_t EncodeByteRun1(const uint8_t* input, uint32_t size, uint8_t* output, uint32_t outputCapacity)

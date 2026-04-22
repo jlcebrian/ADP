@@ -5,11 +5,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define IFF_AMIGA_VIEWMODE_ANY 0u
+#define IFF_AMIGA_VIEWMODE_EHB 0x00000080u
+#define IFF_AMIGA_VIEWMODE_HAM 0x00000800u
+
 extern bool LoadPNGIndexed16 (const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette);
 extern bool LoadPNGIndexed16 (const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, uint8_t* paletteAlpha);
 extern bool LoadPNGIndexed   (const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, uint8_t* paletteAlpha, int maxColors = 256, bool* reduced = 0, int* sourceColorCount = 0);
 extern bool LoadPI1Indexed   (const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize);
 extern bool LoadIFFIndexed   (const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize);
+extern bool LoadIFFIndexedSpecial(const char* filename, uint8_t* buffer, size_t bufferSize, uint16_t* width, uint16_t* height, uint32_t* palette, int* paletteSize, uint8_t requiredPlanes, uint32_t requiredViewMode, int requiredPaletteSize);
 extern bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette);
 extern bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha);
 extern bool SavePNGIndexed   (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha);

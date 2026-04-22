@@ -423,7 +423,11 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	bool destinationIsImageCache = false;
 	bool fileDataSharesOutputBuffer = false;
 
-	unsigned requiredSize = DMG_CalculateRequiredSize(entry, ImageMode_PlanarST);
+	DMG_ImageMode nativePlanarMode =
+		(dmg != 0 && dmg->version == DMG_Version5 && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ?
+		ImageMode_Planar :
+		ImageMode_PlanarST;
+	unsigned requiredSize = DMG_CalculateRequiredSize(entry, nativePlanarMode);
 
 	cache = DMG_GetImageCache (dmg, index, entry, requiredSize);
 	if (cache)
@@ -437,7 +441,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 
 	if (buffer == 0 || bufferSize < requiredSize)
 	{
-		buffer = DMG_GetTemporaryBuffer(ImageMode_PlanarST);
+		buffer = DMG_GetTemporaryBuffer(nativePlanarMode);
 		bufferSize = DMG_GetTemporaryBufferSize();
 		if (bufferSize < requiredSize)
 		{

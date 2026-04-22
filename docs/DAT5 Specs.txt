@@ -35,6 +35,8 @@
                             5                   Planar8:    Plane-major bitplanes with palette
                             6                   Planar4ST:  ST interleaved words with palette
                             7                   Planar8ST:  Falcon interleaved words with palette
+                            8                   EHB6:       Amiga 6-plane EHB bitplanes with palette
+                            9                   HAM6:       Amiga 6-plane HAM bitplanes with palette
 
     0x000F      1           File Flags
 
@@ -58,7 +60,7 @@
     0x0000		4			Offset of data in file, 0 if empty
     0x0004		4			Size of data in file
     0x0008		1			Entry Type: must be 0 for graphics and empty entries
-    0x0009		1			Bit depth (number of planes stored in data). Can be 4, 5 or 8.
+    0x0009		1			Bit depth (number of planes stored in data). Can be 4, 5, 6 or 8.
     0x000A		2			Flags
 
                 Bit 3       Compression         0: None, 1: ZX0 
@@ -77,7 +79,7 @@
     0x001E      2           CRC value (naive XOR of data & palette info)
 
     For palette-based planar modes (Planar4, Planar5, Planar8,
-    Planar4ST and Planar8ST), the entry payload
+    Planar4ST, Planar8ST, EHB6 and HAM6), the entry payload
     begins with palette data stored as a sequence of RGB byte triplets.
     The number of palette entries is equal to last-first+1 according
     to the entry header, so the palette prefix size is:
@@ -95,7 +97,7 @@
     If the file is CGA or EGA specific, palette data is not present,
     bit depth is 0, and the graphic data is a single ZX0 or binary
     stream containing chunky pixels (either 2bpp or 4bpp). If the
-    file uses a plane-major palette mode, bit depth can be 4, 5 or 8,
+    file uses a plane-major palette mode, bit depth can be 4, 5, 6 or 8,
     the palette prefix is stored first, and the graphic data that
     follows it is stored as complete plane-separated bitmaps:
 
@@ -114,10 +116,16 @@
     that follows it is stored row by row as one 16-bit word per
     bitplane, matching Atari ST/Falcon screen memory layout.
 
+    EHB6 and HAM6 use the same plane-major payload layout as the other
+    Amiga-oriented planar modes. The difference between them is only in
+    how the Amiga interpreter programs the display hardware.
+
     The image encoding mode describes how image data is stored, not how
     many palette entries are present. The palette range still comes from
-    the image header (first/last color), which leaves room for future
-    modes such as Amiga EHB where plane count and palette size differ.
+    the image header (first/last color). For EHB6 the expected palette
+    range is 32 entries (usually colors 0-31). For HAM6 the expected
+    palette range is 16 direct colors (usually colors 0-15), while the
+    stored image bit depth is still 6 planes.
 
     ─────────────────────
      Entry Header: Audio
@@ -177,15 +185,15 @@
     It's no secret that DAAD v2 targetted the Atari ST as main platform, 
     to the detriment of the more capable Amiga/PC. Graphics were designed
     for a 320x200 resolution and 16 colors, while the Amiga supported
-    32 at the same resolution (a significant upgrade for digitalized
-    graphics). Even the PC VGA interpreter, which came late to the
+    at least 32 at the same resolution (or much more with specialized
+    modes like HAM). Even the PC VGA interpreter, which came late to the
     party, was limited to a 320x200x16 colors mode.
 
     Amiga text adventures commonly targetted its 640x200 mode (640x256
     in PAL, but most games ignored the extra lines) which supported
-    16 color graphics and 80 columns text. In recent times, the DAAD
-    community is pivoting towards 640x400 as a target resolution, as
-    it's good enough to preserve details of high resolution images and
+    16 color graphics and 80 columns text. In recent times, the PCDAAD
+    interpreter offers 640x400 as a target resolution, a great option that
+    is good enough to preserve details of high resolution images and
     provides an easy conversion path for DAAD's windowing system.
 
     This file format has been designed to support this path while
@@ -212,9 +220,13 @@
      4) Amiga OCS-specific files, with Planar5 graphics and up to
          32 colors.
 
-     5) VGA or Amiga AGA-specific files, with Planar8 graphics and
+     5) Amiga special-mode files, with EHB6 or HAM6 graphics.
+         EHB6 stores 32 palette entries, while HAM6 stores 16 direct
+         colors interpreted by the Amiga display mode.
+
+     6) VGA or Amiga AGA-specific files, with Planar8 graphics and
          up to 256 colors.
 
-     6) Atari Falcon-specific files, with Planar8ST graphics and
+     7) Atari Falcon-specific files, with Planar8ST graphics and
          up to 256 colors.
        

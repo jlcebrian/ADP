@@ -70,6 +70,7 @@ static uint8_t* 	scratchDisplayBuffer = 0;
 static uint8_t* 	scratchDisplayPlane[MAX_PLANES];
 static uint8_t  	displayPlanes = TEXT_PLANES;
 static uint8_t  	requestedDisplayPlanes = TEXT_PLANES;
+static uint8_t       displayColorMode = DMG_DAT5_COLORMODE_PLANAR4;
 static uint32_t 	screenBytesPerPlane = SCR_BPNEXTB;
 static uint32_t 	screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
 static uint32_t 	activePalette[256];
@@ -118,6 +119,11 @@ static void InitializePaletteEncodeTables();
 static void VID_CommitPalette(bool waitForVBlank);
 static void VID_StagePaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor = 0, bool clearOutside = true, bool immediate = true);
 static uint16_t* AppendCopperPalette(uint16_t* copListEnd);
+
+static bool IsHAMDisplayMode()
+{
+	return displayColorMode == DMG_DAT5_COLORMODE_HAM6;
+}
 
 static uint16_t GetDisplayPaletteCapacity()
 {
@@ -797,6 +803,9 @@ static uint8_t GetRequiredDisplayPlanes(DMG* file)
 			return TEXT_PLANES;
 		case DMG_DAT5_COLORMODE_PLANAR5:
 			return 5;
+		case DMG_DAT5_COLORMODE_EHB6:
+		case DMG_DAT5_COLORMODE_HAM6:
+			return 6;
 		case DMG_DAT5_COLORMODE_PLANAR8:
 			return 8;
 		default:
@@ -811,6 +820,8 @@ static bool IsSupportedDAT5ColorMode(uint8_t colorMode)
 		case DMG_DAT5_COLORMODE_PLANAR4:
 		case DMG_DAT5_COLORMODE_PLANAR5:
 		case DMG_DAT5_COLORMODE_PLANAR8:
+		case DMG_DAT5_COLORMODE_EHB6:
+		case DMG_DAT5_COLORMODE_HAM6:
 			return true;
 		default:
 			return false;
@@ -1112,6 +1123,8 @@ void VID_WaitForKey ()
 
 bool VID_LoadDataFile (const char* fileName)
 {
+	uint8_t newDisplayColorMode = DMG_DAT5_COLORMODE_PLANAR4;
+
 	pictureOrigin = 0;
 	pictureEntry = 0;
 	pictureIndex = 0;
@@ -1219,6 +1232,12 @@ bool VID_LoadDataFile (const char* fileName)
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
 		return false;
 	}
+
+	if (dmg->version == DMG_Version5)
+		newDisplayColorMode = dmg->colorMode;
+
+	bool displayModeChanged = displayColorMode != newDisplayColorMode;
+	displayColorMode = newDisplayColorMode;
 	if (requiredPlanes != displayPlanes)
 	{
 		DebugPrintf("Reconfiguring display planes for data file (required=%u active=%u)\n",
@@ -1229,6 +1248,11 @@ bool VID_LoadDataFile (const char* fileName)
 			dmg = 0;
 			return false;
 		}
+	}
+	else if (displayModeChanged)
+	{
+		DebugPrintf("Reprogramming display mode for DAT5 mode %u\n", (unsigned)displayColorMode);
+		ProgramDisplay();
 	}
 
 	if (scratchDisplayBuffer != 0)
@@ -1374,6 +1398,11 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 
 	for (uint8_t p = 0; p < planesToClear; p++)
 		BlitterRect(plane[p], x, y, w, h, (color & (1 << p)) != 0);
+	if (mode != Clear_All && !fullScreenClear && IsHAMDisplayMode() && displayPlanes > TEXT_PLANES)
+	{
+		for (uint8_t p = TEXT_PLANES; p < displayPlanes; p++)
+			BlitterRect(plane[p], x, y, w, h, false);
+	}
 }
 
 void VID_ClearBuffer (bool front)
@@ -1416,8 +1445,13 @@ void VID_PresentDefaultScreen()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {
+	DebugPrintf("VID_DisplayPicture(x=%d, y=%d, w=%d, h=%d, mode=%u)\n",
+		x, y, w, h, (unsigned)screenMode);
 	if (pictureEntry == 0)
+	{
+		DebugPrintf("VID_DisplayPicture: skipped because no picture is loaded\n");
 		return;
+	}
 
 	if (x < 0)
 	{
@@ -1647,14 +1681,31 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	if (dmg == 0) 
+	{
+		DebugPrintf("VID_LoadPicture(%u): no data file loaded\n", (unsigned)picno);
 		return;
+	}
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == 0 || entry->type != DMGEntry_Image)
+	{
+		DebugPrintf("VID_LoadPicture(%u): entry missing or not an image\n", (unsigned)picno);
 		return;
+	}
 
 	if (pictureOrigin == dmg && pictureEntry == entry && pictureIndex == picno && pictureData != 0)
+	{
+		DebugPrintf("VID_LoadPicture(%u): reusing cached decoded picture\n", (unsigned)picno);
 		return;
+	}
+
+	DebugPrintf("VID_LoadPicture(%u): loading %ux%u image, mode=%u bitDepth=%u screenMode=%u\n",
+		(unsigned)picno,
+		(unsigned)entry->width,
+		(unsigned)entry->height,
+		(unsigned)(dmg != 0 ? dmg->colorMode : 0),
+		(unsigned)(entry->bitDepth ? entry->bitDepth : TEXT_PLANES),
+		(unsigned)screenMode);
 
 	pictureOrigin = dmg;
 	pictureEntry  = entry;
@@ -1668,6 +1719,24 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		pictureStride = widthWords;
 		picturePlaneStride = pictureStride * entry->height;
 	}
+	if (pictureData == 0)
+	{
+		DebugPrintf("VID_LoadPicture(%u): native decode failed for %ux%u image, mode=%u bitDepth=%u error=%d (%s)\n",
+			(unsigned)picno,
+			(unsigned)entry->width,
+			(unsigned)entry->height,
+			(unsigned)(dmg != 0 ? dmg->colorMode : 0),
+			(unsigned)picturePlanes,
+			(int)DMG_GetError(),
+			DMG_GetErrorString());
+	}
+	else if (picturePlanes > displayPlanes)
+	{
+		DebugPrintf("VID_LoadPicture(%u): decoded picture requires %u planes but display has %u planes\n",
+			(unsigned)picno,
+			(unsigned)picturePlanes,
+			(unsigned)displayPlanes);
+	}
 	if (pictureData == 0 || picturePlanes > displayPlanes)
 	{
 		pictureEntry = 0;
@@ -1675,6 +1744,14 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		pictureIndex = 0;
 		picturePlanes = TEXT_PLANES;
 		picturePlaneMajor = false;
+	}
+	else
+	{
+		DebugPrintf("VID_LoadPicture(%u): decode ok, strideWords=%lu planeStrideWords=%lu planes=%u\n",
+			(unsigned)picno,
+			(unsigned long)pictureStride,
+			(unsigned long)picturePlaneStride,
+			(unsigned)picturePlanes);
 	}
 }
 
@@ -1793,6 +1870,8 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 			else
 			{
 				BlitterCopy(visiblePlanes[p], 0, 0, scratchDisplayPlane[p], 0, 0, screenWidth, screenHeight, true);
+				if (IsHAMDisplayMode())
+					BlitterRect(scratchDisplayPlane[p], x, y, w, h + lines, false);
 			}
 		}
 
@@ -1806,6 +1885,11 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 		BlitterCopy(plane[p], x, y + lines, plane[p], x, y, w, h, true);
 		BlitterRect(plane[p], x, y + h, w, lines, paper & 1);
 		paper >>= 1;
+	}
+	if (IsHAMDisplayMode())
+	{
+		for (uint8_t p = TEXT_PLANES; p < displayPlanes; p++)
+			BlitterRect(plane[p], x, y, w, h + lines, false);
 	}
 }
 
@@ -1984,9 +2068,13 @@ INLINE uint16_t* SetScreenLayout(uint16_t* copListEnd)
 
 INLINE uint16_t* SetBitPlanes(uint16_t* copPtr)
 {
+	uint16_t bplcon0 = (1<<9) | EncodePlaneCount(displayPlanes);
+	if (displayPlanes == 6 && DMG_DAT5ModeIsHAM(displayColorMode))
+		bplcon0 |= (1 << 11);
+
 	// Enable bitplanes	
 	*copPtr++ = offsetof(Custom, bplcon0);
-	*copPtr++ = (1<<9) | EncodePlaneCount(displayPlanes);
+	*copPtr++ = bplcon0;
 	*copPtr++ = offsetof(Custom, bplcon1);	// Scrolling
 	*copPtr++ = 0;
 	*copPtr++ = offsetof(Custom, bplcon2);	// playfied priority
@@ -2139,6 +2227,7 @@ void VID_Finish ()
 
 	displayPlanes = TEXT_PLANES;
 	requestedDisplayPlanes = TEXT_PLANES;
+	displayColorMode = DMG_DAT5_COLORMODE_PLANAR4;
 	screenBytesPerPlane = SCR_BPNEXTB;
 	screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
 }

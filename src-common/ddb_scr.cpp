@@ -129,6 +129,7 @@ bool SCR_SampleExists(uint8_t sample)
 
 bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 {
+	DebugPrintf("SCR_LoadPicture(%u, mode=%u)\n", (unsigned)picno, (unsigned)screenMode);
 	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
@@ -146,6 +147,8 @@ bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 
 void SCR_DisplayPicture(int x, int y, int w, int h, DDB_ScreenMode mode)
 {
+	DebugPrintf("SCR_DisplayPicture(x=%d, y=%d, w=%d, h=%d, mode=%u, buffering=%u)\n",
+		x, y, w, h, (unsigned)mode, buffering ? 1u : 0u);
 	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
