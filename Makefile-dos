@@ -2,6 +2,10 @@
 MODE = 32
 !endif
 
+!ifndef VERSION
+!include version.mk
+!endif
+
 EXE = adp$(MODE).exe
 
 !ifndef OBJBUILD
@@ -11,11 +15,11 @@ OUTDIR = out
 
 Debug : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) OBJBUILD=1 DEBUG=1 all
+	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 DEBUG=1 all
 
 Release : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) OBJBUILD=1 all
+	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 all
 
 all : Release .SYMBOLIC
 

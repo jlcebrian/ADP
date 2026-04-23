@@ -31,6 +31,7 @@ extern DC_String ConvertFromUTF8    (DC_CodePage* charset, DC_Buffer buffer, DC_
 extern DC_String ConvertToUTF8      (DC_CodePage* charset, DC_Buffer buffer, DC_String s);
 extern uint8_t   ConvertFromUnicode (DC_CodePage* charset, int character);
 extern int       ConvertToUnicode   (DC_CodePage* charset, int character);
+extern bool      DC_ConvertUnicodeToDAAD(int unicode, uint8_t* code);
 
 extern DC_CodePage CP437;
 extern DC_CodePage CP850;

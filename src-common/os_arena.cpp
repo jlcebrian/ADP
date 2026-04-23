@@ -1,18 +1,39 @@
 #include <os_mem.h>
 
 #define BLOCK_SIZE 65536
+static inline size_t AlignSize(size_t bytes)
+{
+	size_t align = sizeof(void*);
+	return (bytes + (align - 1)) & ~(align - 1);
+}
+
+static Arena* AllocateArenaBlock(const char* reason, size_t bytes)
+{
+	Arena* block = Allocate<Arena>(reason);
+	if (block == 0)
+		return 0;
+
+	size_t size = bytes > BLOCK_SIZE ? AlignSize(bytes) : BLOCK_SIZE;
+	block->block = Allocate<uint8_t>(reason, (unsigned)size, false);
+	if (block->block == 0)
+	{
+		Free(block);
+		return 0;
+	}
+
+	block->name = reason;
+	block->size = size;
+	block->used = 0;
+	block->current = block;
+	block->next = 0;
+	return block;
+}
 
 Arena* AllocateArena (const char* reason)
 {
-	Arena* arena = Allocate<Arena>(reason);
-	if (arena == 0)
-		return 0;
-
-	arena->block = Allocate<uint8_t>(reason, BLOCK_SIZE);
-	arena->size  = BLOCK_SIZE;
-	arena->used  = 0;
-	arena->next  = 0;
-	arena->name  = reason;
+	Arena* arena = AllocateArenaBlock(reason, BLOCK_SIZE);
+	if (arena != 0)
+		arena->current = arena;
 	return arena;
 }
 
@@ -29,35 +50,24 @@ void FreeArena(Arena* arena)
 
 void* AllocateBlock (Arena* arena, size_t bytes, bool zero)
 {
-	while (arena != 0)
-	{
-		if (arena->size - arena->used > bytes)
-		{
-			void* ptr = arena->block + arena->used;
-			arena->used += bytes;
-			return ptr;
-		}
-		if (arena->next == 0)
-		{
-			Arena* next = Allocate<Arena>(arena->name);
-			if (next == 0)
-				return 0;
+	if (arena == 0)
+		return 0;
 
-			size_t size = bytes > BLOCK_SIZE ? ((bytes + 15)&~15) : BLOCK_SIZE;
-			next->block = Allocate<uint8_t>(arena->name, size);
-			if (next->block == 0)
-			{
-				Free(next);
-				return 0;
-			}
-			next->size = size;
-			next->used = bytes;
-			next->name = arena->name;
-			next->next = 0;
-			arena->next = next;
-			return next->block;
-		}
+	bytes = AlignSize(bytes);
+	Arena* current = arena->current != 0 ? arena->current : arena;
+	if (current->size - current->used < bytes)
+	{
+		Arena* next = AllocateArenaBlock(arena->name, bytes);
+		if (next == 0)
+			return 0;
+		current->next = next;
+		arena->current = next;
+		current = next;
 	}
 
-	return 0;
+	void* ptr = current->block + current->used;
+	current->used += bytes;
+	if (zero)
+		MemClear(ptr, bytes);
+	return ptr;
 }

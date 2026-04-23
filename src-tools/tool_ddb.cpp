@@ -741,8 +741,7 @@ int main (int argc, char *argv[])
 
 	if (action == ACTION_DUMP)
 	{
-		printf("%c%c%c", 0xEF, 0xBB, 0xBF);		// UTF-8 BOM
-		DDB_Dump(ddb, printf_iso88591);
+		DDB_Dump(ddb, printf);
 		DDB_Close(ddb);
 		if (mountedDiskImage)
 			File_UnmountDisk();

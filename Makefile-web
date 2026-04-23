@@ -1,4 +1,6 @@
-VERSION ?= BETA0.3
+ifndef VERSION
+include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
+endif
 SHELL := cmd.exe
 
 CC = emcc

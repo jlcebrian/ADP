@@ -1,6 +1,7 @@
 @echo off
 SETLOCAL
-SET VERSION=BETA0.3
+FOR /F "tokens=1,* delims==" %%A IN (version.mk) DO IF /I "%%A"=="VERSION" SET VERSION=%%B
+SET VERSION=%VERSION: =%
 
 SET DDB_ONLY=0
 
@@ -199,18 +200,21 @@ cl %VERSION% %OPTS% %TOOLOPTS% %OPTIM% /Fe:out\dc.exe ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\os_arena.cpp ^
+	src-common\os_char.cpp ^
 	src-windows\files.cpp ^
 	src-common\dim.cpp ^
 	src-common\dim_adf.cpp ^
 	src-common\dim_cpc.cpp ^
 	src-common\dim_fat.cpp ^
 	src-tools\dc_main.cpp ^
+	src-tools\dc_condacts.cpp ^
 	src-tools\dc_cp437.cpp ^
 	src-tools\dc_cp850.cpp ^
 	src-tools\dc_cp1252.cpp ^
 	src-tools\dc_char.cpp ^
 	src-tools\dc_symb.cpp ^
-	src-tools\tool_dc.cpp ^
+	src-tools\chr_conv.cpp ^
+	src-tools\tool_adpc.cpp ^
 	%TOOLLIBS% /link %LINK% /SUBSYSTEM:CONSOLE
 IF %ERRORLEVEL% NEQ 0 GOTO :EOF
 

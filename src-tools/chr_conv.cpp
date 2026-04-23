@@ -1,4 +1,5 @@
-#include <os_types.h>
+#include <dc_char.h>
+#include <os_char.h>
 
 struct 
 {
@@ -81,3 +82,29 @@ CharTransslations[] =
 
     { 0, 0, 0 }
 };
+
+bool DC_ConvertUnicodeToDAAD(int unicode, uint8_t* code)
+{
+    if (unicode >= 0 && unicode < 256)
+    {
+        uint8_t mapped = DDB_ISO2Char[unicode];
+        if (mapped != 0 || unicode == 0 || unicode == ' ')
+        {
+            if (code != 0)
+                *code = mapped;
+            return true;
+        }
+    }
+
+    for (int i = 0; CharTransslations[i].utf8 != 0; ++i)
+    {
+        if ((int)CharTransslations[i].unicode == unicode)
+        {
+            if (code != 0)
+                *code = CharTransslations[i].code;
+            return true;
+        }
+    }
+
+    return false;
+}

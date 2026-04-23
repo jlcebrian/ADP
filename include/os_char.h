@@ -43,3 +43,4 @@ static inline uint8_t ToLower(uint8_t ch)
 
 extern uint8_t DDB_Char2ISO[128];
 extern uint8_t DDB_ISO2Char[256];
+extern const char* DDB_CharToUTF8(uint8_t ch);

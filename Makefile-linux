@@ -1,4 +1,6 @@
-VERSION    ?= BETA0.3
+ifndef VERSION
+include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
+endif
 
 DEBUGPRINT ?= 1
 DEBUGCACHE ?= 0
@@ -7,13 +9,14 @@ DEBUGLTIME ?= 0
 DEBUG      ?= 1
 TRACE      ?= 0
 OPTIM      ?= -O2
+DEPFLAGS   := -MMD -MP
 
 # Platform and feature configuration.
 CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador
 CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB -D_UNIX
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG -DNO_SAMPLES
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
 
 ifeq ($(DEBUGPRINT),1)
@@ -44,42 +47,54 @@ VPATH := $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS := $(wildcard src-tools/tool_*.cpp)
+ADPC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
+ADPC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files error
 
 OBJDIR := obj/unix
 OUTDIR := out
 PLAYER_TARGET := $(OUTDIR)/player
 TOOL_TARGETS := $(OUTDIR)/dmg $(OUTDIR)/chr $(OUTDIR)/ddb $(OUTDIR)/dsk
+ADPC_TARGET := $(OUTDIR)/adpc
 
 TOOL_CPPFLAGS = $(CPPFLAGS) -DTRACE_ON
+ADPC_CPPFLAGS = $(filter-out -DDEBUG_ALLOCS=1,$(TOOL_CPPFLAGS)) -DDEBUG_ALLOCS=0
 
 COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
+TRACED_COMMON_OBJS := $(addprefix $(OBJDIR)/trace/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
+TRACED_COMMON_OBJS += $(OBJDIR)/trace/files.o $(OBJDIR)/trace/error.o
 PLAYER_OBJ := $(OBJDIR)/player.o
 TOOL_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
 TOOL_MAIN_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(TOOL_MAIN_SRCS))))
+ADPC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_SRCS)))
+ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRCS)))
 
 .PHONY: all clean
 
--include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d)
+-include $(COMMON_OBJS:.o=.d) $(TRACED_COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(ADPC_OBJS:_adpc.o=_adpc.d) $(ADPC_COMMON_OBJS:_adpc.o=_adpc.d)
 
-all: $(TOOL_TARGETS) $(PLAYER_TARGET)
+all: $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)
 
 $(OUTDIR):
 	@mkdir -p $@
 
-$(OUTDIR)/dmg: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dmg.o | $(OUTDIR)
+$(OUTDIR)/dmg: $(TRACED_COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dmg.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
-$(OUTDIR)/chr: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_chr.o | $(OUTDIR)
+$(OUTDIR)/chr: $(TRACED_COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_chr.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
-$(OUTDIR)/ddb: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_ddb.o | $(OUTDIR)
+$(OUTDIR)/ddb: $(TRACED_COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_ddb.o | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
-$(OUTDIR)/dsk: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dsk.o | $(OUTDIR)
+$(OUTDIR)/dsk: $(TRACED_COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dsk.o | $(OUTDIR)
+	$(info Linking $@)
+	@$(CXX) -o $@ $^ $(LDFLAGS)
+
+$(ADPC_TARGET): $(ADPC_OBJS) $(ADPC_COMMON_OBJS) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
@@ -88,19 +103,30 @@ $(PLAYER_TARGET): $(COMMON_OBJS) $(PLAYER_OBJ) | $(OUTDIR)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d $(TOOL_TARGETS) $(PLAYER_TARGET)
+	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)
+	rm -rf $(OBJDIR)/trace
 
-$(COMMON_OBJS) $(PLAYER_OBJ) : $(OBJDIR)/%.o : %.cpp
+$(COMMON_OBJS) $(PLAYER_OBJ) : $(OBJDIR)/%.o : %.cpp Makefile-linux
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(CPPFLAGS) $(DEPFLAGS) -c -o $@ $(CURDIR)/$<
 
-$(TOOL_OBJS) : $(OBJDIR)/%.o : %.cpp
+$(TOOL_OBJS) : $(OBJDIR)/%.o : %.cpp Makefile-linux
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(TOOL_CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(TOOL_CPPFLAGS) $(DEPFLAGS) -c -o $@ $(CURDIR)/$<
 
-$(TOOL_MAIN_OBJS) : $(OBJDIR)/%.o : %.cpp
+$(TOOL_MAIN_OBJS) : $(OBJDIR)/%.o : %.cpp Makefile-linux
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(TOOL_CPPFLAGS) -Iinclude-tools -c -o $@ $(CURDIR)/$<
+	@$(CC) $(TOOL_CPPFLAGS) $(DEPFLAGS) -Iinclude-tools -c -o $@ $(CURDIR)/$<
+
+$(TRACED_COMMON_OBJS) : $(OBJDIR)/trace/%.o : %.cpp Makefile-linux
+	$(info Compiling $< for traced tool runtime)
+	@mkdir -p $(dir $@)
+	@$(CC) $(TOOL_CPPFLAGS) $(DEPFLAGS) -c -o $@ $(CURDIR)/$<
+
+$(ADPC_OBJS) $(ADPC_COMMON_OBJS) : $(OBJDIR)/%_adpc.o : %.cpp Makefile-linux
+	$(info Compiling $<)
+	@mkdir -p $(dir $@)
+	@$(CC) $(ADPC_CPPFLAGS) $(DEPFLAGS) -Iinclude-tools -c -o $@ $(CURDIR)/$<

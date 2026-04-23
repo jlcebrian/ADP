@@ -464,6 +464,7 @@ struct DDB
 	uint8_t			numSystemMessages;
 	uint8_t			numProcesses;
 	uint8_t         numCharsets;
+	uint8_t         nullWordChar;
 
 	bool			hasTokens;
 	uint8_t         firstToken;

@@ -1,5 +1,6 @@
-
-VERSION    ?= BETA0.3
+ifndef VERSION
+include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
+endif
 LIBCMINI   ?= $(HOME)/libcmini
 
 DEBUGPRINT ?= 0

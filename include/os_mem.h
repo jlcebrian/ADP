@@ -64,11 +64,11 @@ T* AllocateInPool(const char* reason, OSMemoryPool pool, unsigned count = 1, boo
 struct Arena
 {
 	const char* name;
-	uint8_t *block;
-	size_t size;
-	size_t used;
-	size_t free;
-	Arena* next;
+	uint8_t*    block;
+	size_t      size;
+	size_t      used;
+	Arena*      current;
+	Arena*      next;
 };
 
 extern Arena* AllocateArena (const char* reason);

@@ -5,6 +5,11 @@
 
 static uint8_t buffer[2048];
 
+static uint8_t DDB_GetNullWordChar(DDB* ddb)
+{
+	return ddb->nullWordChar == 0 ? '_' : ddb->nullWordChar;
+}
+
 const char* DDB_GetCondactName(DDB_Condact condact)
 {
 	static char error[32];
@@ -171,7 +176,11 @@ void DDB_DumpVocabularyWord (DDB* ddb, uint8_t type, uint8_t index, DDB_PrintFun
 		if (ptr[5] == index && ptr[6] == type)
 		{
 			for (int n = 0; n < 5; n++)
-				print("%c", DDB_Char2ISO[(ptr[n] ^ 0xFF) & 0x7F]);
+			{
+				const char* utf8 = DDB_CharToUTF8((ptr[n] ^ 0xFF) & 0x7F);
+				if (utf8 != 0)
+					print("%s", utf8);
+			}
 			return;
 		}
 		ptr += 7;
@@ -204,19 +213,46 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 		}
 		if (*ptr == 7 && maxLength == 0)
 			print("\n");
+		else if (*ptr == ' ' && maxLength == 0)
+		{
+			bool atLineStart = (ptr == buffer || ptr[-1] == '\r');
+			bool atLineEnd = (ptr + 1 == end || ptr[1] == '\r');
+			if (atLineStart || atLineEnd)
+				print("\\s");
+			else
+				print(" ");
+		}
+		else if (*ptr == 0x0B)
+			print("\\b");
+		else if (*ptr == 0x0C)
+			print("\\k");
 		else if (*ptr == '\r')
-			print("\\n");
-		else if (*ptr == '\t')
-			print("\\t");
-		else if (*ptr < 31 || *ptr >= 127 || *ptr == '{' || *ptr == '}')
 		{
 			if (maxLength == 0)
-				print("{%d}", (uint8_t)*ptr);
+				print("\n\n");
 			else
-				print(".");
+				print("\\n");
+		}
+		else if (*ptr == 0x0E)
+			print("\\g");
+		else if (*ptr == 0x0F)
+			print("\\t");
+		else if (*ptr == 0x7F)
+			print("\\f");
+		else if (*ptr == '\\')
+			print("\\\\");
+		else if (*ptr == '{' || *ptr == '}')
+			print("%c", *ptr);
+		else if (*ptr >= 16)
+		{
+			const char* utf8 = DDB_CharToUTF8(*ptr);
+			if (utf8 != 0)
+				print("%s", utf8);
+			else
+				print("%c", *ptr);
 		}
 		else
-			print("%c", DDB_Char2ISO[*ptr]);
+			print("%c", *ptr);
 	}
 	return true;
 }
@@ -240,7 +276,6 @@ void DDB_DumpMessageTable (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print)
 		if (DDB_DumpMessage(ddb, type, n, print, 0))
 			print("\n");
 	}
-	print("\n");
 }
 
 void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
@@ -265,13 +300,13 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 		entry += 4;
 
 		if (verb == 255)
-			print("_    ");
+			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Verb, verb, print);
 		print("       ");
 
 		if (noun == 255)
-			print("_    ");
+			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Noun, noun, print);
 		print("       ");
@@ -330,7 +365,7 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 
 void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 {
-	print("\n/CTL\n_\n\n");
+	print("\n/CTL\n%c\n\n", DDB_GetNullWordChar(ddb));
 
 	if (ddb->hasTokens)
 	{
@@ -343,9 +378,13 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 				for (;; ptr++)
 				{
 					if ((*ptr & 0x7F) == ' ')
-						print("_");
+						print("%c", DDB_GetNullWordChar(ddb));
 					else
-						print("%c", DDB_Char2ISO[*ptr & 0x7F]);
+					{
+						const char* utf8 = DDB_CharToUTF8(*ptr & 0x7F);
+						if (utf8 != 0)
+							print("%s", utf8);
+					}
 					if (*ptr & 0x80)
 						break;
 				}
@@ -359,7 +398,11 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 	for (uint8_t* ptr = ddb->vocabulary; *ptr; ptr += 7)
 	{
 		for (int n = 0; n < 5; n++)
-			print("%c", DDB_Char2ISO[(ptr[n] ^ 0xFF) & 0x7F]);
+		{
+			const char* utf8 = DDB_CharToUTF8((ptr[n] ^ 0xFF) & 0x7F);
+			if (utf8 != 0)
+				print("%s", utf8);
+		}
 		print("       %3d    ", ptr[5]);
 		switch (ptr[6])
 		{
@@ -411,34 +454,38 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 		print("/%-7d", n);
 
 		uint8_t loc = ddb->objLocTable[n];
-		if (loc == 252)
-			print("_       ");
-		else
-			print("%-8d", loc);
+		switch (loc)
+		{
+			case Loc_Destroyed: print("%c       ", DDB_GetNullWordChar(ddb)); break;
+			case Loc_Worn:      print("WORN    "); break;
+			case Loc_Carried:   print("CARRIED "); break;
+			case Loc_Here:      print("HERE    "); break;
+			default:            print("%-8d", loc); break;
+		}
 
 		uint8_t flags = ddb->objAttrTable[n];
 		print("%-8d", flags & Obj_Weight);
-		print("%-8c", (flags & Obj_Container) ? 'Y' : '_');
-		print("%-8c", (flags & Obj_Wearable) ? 'Y' : '_');
+		print("%-8c", (flags & Obj_Container) ? 'Y' : DDB_GetNullWordChar(ddb));
+		print("%-8c", (flags & Obj_Wearable) ? 'Y' : DDB_GetNullWordChar(ddb));
 
 		if (ddb->objExAttrTable != 0)
 		{
 			uint16_t flags = ddb->objExAttrTable[n];
 			flags = (flags >> 8) | (flags << 8);
 			for (int i = 15; i >= 0; i--)
-				print("%c ", (flags & (0x1 << i)) ? 'Y' : '_');
+				print("%c ", (flags & (0x1 << i)) ? 'Y' : DDB_GetNullWordChar(ddb));
 			print("  ");
 		}
 
 		uint8_t noun = ddb->objWordsTable[2*n];
 		uint8_t adj  = ddb->objWordsTable[2*n+1];
 		if (noun == 255)
-			print("_    ");
+			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Noun, noun, print);
 		print("   ");
 		if (adj == 255)
-			print("_    ");
+			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Adjective, adj, print);
 

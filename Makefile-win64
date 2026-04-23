@@ -1,4 +1,6 @@
-VERSION    ?= BETA0.3
+ifndef VERSION
+include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
+endif
 
 DEBUGPRINT ?= 0
 DEBUGCACHE ?= 0
@@ -106,8 +108,8 @@ VPATH := $(DIRS) src-tools/ src-sdl/ src-windows/
 SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS := tool_chr tool_ddb tool_dmg tool_dsk
-DC_SRCS := dc_main dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb tool_dc
-DC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_file os_lib os_mem files
+DC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
+DC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files
 
 COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
