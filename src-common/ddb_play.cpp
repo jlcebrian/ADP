@@ -717,31 +717,22 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 		if (!FileExistsByName(introScreen))
 		{
 			BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
-			if (!FileExistsByName(introScreen))
-			{
-				BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
-				if (!FileExistsByName(introScreen))
-				{
-					BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
-					if (!FileExistsByName(introScreen))
-						return 0;
-				}
-			}
+			if (FileExistsByName(introScreen))
+				goto found;
 		}
+		else
+			goto found;
 	}
-	else if (machine == DDB_MACHINE_ATARIST)
-	{
-		BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
-		if (!FileExistsByName(introScreen))
-		{
-			BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
-			if (!FileExistsByName(introScreen))
-				return 0;
-		}
-	}
-	else
-		return 0;
 
+	BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
+	if (!FileExistsByName(introScreen))
+	{
+		BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+		if (!FileExistsByName(introScreen))
+			return 0;
+	}
+
+	found:
 	if (HasPCXHeader(introScreen, screenMode))
 		return introScreen;
 
@@ -1379,6 +1370,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			}
 			else if (scrCount > 0 && StrIComp(scrExtension, ".fcr") == 0)
 				introScreen = GetFile(".fcr", 0);
+			else
+				introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
 			VID_SetDisplayPlanesHint(displayPlanes);
 			DebugPrintf("Checked %s\n", ddbFileName);
 			VID_Initialize(machine, version, screenMode);
@@ -1394,7 +1387,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			}
 		}
 		
-		if (scrCount > 0)
+		if (scrCount > 0 || introScreen != 0)
 		{
 			const char* screenFile = introScreen != 0 ? introScreen : GetFile(scrExtension, 0);
 			if (StrIComp(scrExtension, ".scr") == 0 && ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
@@ -1567,6 +1560,12 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	{
 		*screenMode = ScreenMode_VGA16;
 		*introScreen = GetFile(".vgs", 0);
+	}
+	else
+	{
+		const char* pcxIntro = FindPCXIntroScreen(ddbFileName, *machine, version, screenMode);
+		if (pcxIntro != 0)
+			*introScreen = pcxIntro;
 	}
 }
 
@@ -1762,7 +1761,7 @@ bool DDB_RunPlayer()
 	#endif
 	VID_ShowProgressBar(255);
 
-	if (scrCount > 0 && ddbCount == 1)
+	if ((scrCount > 0 || introScreen != 0) && ddbCount == 1)
 	{
 		if (!introVisible)
 			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
