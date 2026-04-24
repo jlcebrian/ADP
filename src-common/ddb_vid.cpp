@@ -232,6 +232,25 @@ void VID_ShowError(const char* msg)
 }
 
 static bool progressBarVisible = false;
+static bool progressBarEnabled = true;
+static bool fadeEnabled = true;
+
+void VID_SetFadeEnabled(bool enabled)
+{
+	fadeEnabled = enabled;
+}
+
+bool VID_IsFadeEnabled()
+{
+	return fadeEnabled;
+}
+
+void VID_SetProgressBarEnabled(bool enabled)
+{
+	progressBarEnabled = enabled;
+	if (!enabled)
+		progressBarVisible = false;
+}
 
 void VID_ShowProgressBar(uint16_t amount)
 {
@@ -239,19 +258,26 @@ void VID_ShowProgressBar(uint16_t amount)
 	(void)amount;
 	return;
 	#else
+	if (!progressBarEnabled)
+		return;
+	#ifdef _AMIGA
+	const VID_ClearMode clearMode = Clear_All;
+	#else
+	const VID_ClearMode clearMode = Clear_Text;
+	#endif
 	uint16_t x = screenWidth/2 - 32;
 	uint16_t y = screenHeight - 32;
 	
 	if (!progressBarVisible)
 	{
-		VID_Clear(x, y, 64, 1, 15);
-		VID_Clear(x, y, 1, 12, 15);
-		VID_Clear(x+63, y, 1, 12, 15);
-		VID_Clear(x, y+11, 64, 1, 15);
-		VID_Clear(x+1, y+1, 62, 10, 0);
+		VID_Clear(x, y, 64, 1, 15, clearMode);
+		VID_Clear(x, y, 1, 12, 15, clearMode);
+		VID_Clear(x+63, y, 1, 12, 15, clearMode);
+		VID_Clear(x, y+11, 64, 1, 15, clearMode);
+		VID_Clear(x+1, y+1, 62, 10, 0, clearMode);
 		progressBarVisible = true;
 	}
-	VID_Clear(x+2, y+2, amount*60/255, 8, 15);
+	VID_Clear(x+2, y+2, amount*60/255, 8, 15, clearMode);
 	#endif
 }
 

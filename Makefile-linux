@@ -1,6 +1,4 @@
-ifndef VERSION
-include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
-endif
+VERSION    ?= BETA0.3
 
 DEBUGPRINT ?= 1
 DEBUGCACHE ?= 0
@@ -47,7 +45,7 @@ VPATH := $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS := $(wildcard src-tools/tool_*.cpp)
-ADPC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
+ADPC_SRCS := dc_main dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_dc
 ADPC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files error
 
 OBJDIR := obj/unix

@@ -56,6 +56,9 @@ extern void   VID_VSync               ();
 extern void   VID_WaitForKey          ();		// Not suported in all platforms
 extern void   VID_ShowError           (const char* msg);
 extern void   VID_ActivatePalette     ();
+extern void   VID_SetFadeEnabled      (bool enabled);
+extern bool   VID_IsFadeEnabled       ();
+extern void   VID_SetProgressBarEnabled(bool enabled);
 extern void   VID_ShowProgressBar     (uint16_t amount);
 extern void   VID_InnerLoop           ();
 extern void   VID_SetCharset          (const uint8_t* charset);

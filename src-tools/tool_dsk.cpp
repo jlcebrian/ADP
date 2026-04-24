@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <sys/stat.h>
 #include <time.h>
 
 #define INTERACTIVE_MAX_ARGS 64
@@ -70,11 +71,27 @@ enum
 	TEXTOPT_BASIC = 0x01,
 };
 
+enum
+{
+	ADDOPT_RECURSIVE = 0x01,
+};
+
+enum
+{
+	CREATEOPT_BOOTABLE = 0x0100,
+	CREATEOPT_DD       = 0x0200,
+	CREATEOPT_HD       = 0x0400,
+};
+
 typedef enum
 {
 	DSK_OPTION_BRIEF = 1,
 	DSK_OPTION_LOWERCASE,
 	DSK_OPTION_ASCII,
+	DSK_OPTION_RECURSIVE,
+	DSK_OPTION_BOOTABLE,
+	DSK_OPTION_DD,
+	DSK_OPTION_HD,
 	DSK_OPTION_HELP,
 }
 DSK_CLIOption;
@@ -181,9 +198,13 @@ static const CLI_ActionSpec actionSpecs[] =
 
 static const CLI_OptionSpec optionSpecs[] =
 {
-	{ 'b', "brief", DSK_OPTION_BRIEF, CLI_OPTION_NONE },
+	{ 'B', "brief", DSK_OPTION_BRIEF, CLI_OPTION_NONE },
 	{ 'l', "lowercase", DSK_OPTION_LOWERCASE, CLI_OPTION_NONE },
 	{ 'a', "ascii", DSK_OPTION_ASCII, CLI_OPTION_NONE },
+	{ 'r', "recursive", DSK_OPTION_RECURSIVE, CLI_OPTION_NONE },
+	{ 'b', "bootable", DSK_OPTION_BOOTABLE, CLI_OPTION_NONE },
+	{ 'd', "dd", DSK_OPTION_DD, CLI_OPTION_NONE },
+	{ 'H', "hd", DSK_OPTION_HD, CLI_OPTION_NONE },
 	{ 'h', "help", DSK_OPTION_HELP, CLI_OPTION_NONE },
 	{ 0, 0, 0, CLI_OPTION_NONE }
 };
@@ -202,10 +223,12 @@ static bool RunSessionCommands(int argc, char* argv[], bool implicitDiskOpen);
 
 static bool AddFiles (int argc, char *argv[]);
 static bool AddTree  (int argc, char *argv[]);
+static bool AddTreeRecursive(const char* hostDir, const char* destDir);
 static bool Extract  (int argc, char *argv[]);
 static bool SetBoot  (int argc, char *argv[]);
 static bool GetBoot  (int argc, char *argv[]);
 static char* FindLastPathSeparator(char* path);
+static void NormalizeHostPathSeparators(char* path);
 static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNameSize, char* diskFileName, size_t diskFileNameSize);
 
 static inline char ToUpper(char c)
@@ -231,6 +254,22 @@ static char* FindLastPathSeparator(char* path)
 	return slash > bslash ? slash : bslash;
 }
 
+static void NormalizeHostPathSeparators(char* path)
+{
+	if (path == NULL)
+		return;
+
+#ifdef _UNIX
+	for (; *path != 0; path++)
+	{
+		if (*path == '\\')
+			*path = '/';
+	}
+#else
+	(void)path;
+#endif
+}
+
 void TracePrintf(const char* format, ...)
 {
 }
@@ -253,12 +292,16 @@ static void PrintHelp(int argc, char *argv[])
 					case ACTION_LIST:
 						printf("Usage: dsk list [options] disk.img [pattern]\n");
 						printf("       dsk disk.img [pattern]\n\n");
-						printf("    -b, --brief       Brief listing\n");
+						printf("    -B, --brief       Brief listing\n");
 						printf("    -l, --lowercase   Lowercase filenames\n");
 						return;
 					case ACTION_CREATEDISK:
-						printf("Usage: dsk create diskfile [plus3|cpc|pcw|size|dd|hd]\n\n");
-						printf("    Create a new empty disk image\n");
+						printf("Usage: dsk create [options] diskfile [plus3|cpc|pcw|size|dd|hd] [files...]\n\n");
+						printf("    Create a new disk image and optionally populate it.\n");
+						printf("    -b, --bootable   Write the default Amiga bootblock after creation.\n");
+						printf("    -r, --recursive  Recursively copy host directories listed in files.\n");
+						printf("    -d, --dd         Use the double-density preset.\n");
+						printf("    -H, --hd         Use the high-density preset.\n");
 						printf("    The disk format is chosen based on the file extension:\n");
 						printf("      .adf  - Amiga Disk File (ADF)\n");
 						printf("      .dsk  - CPC/+3/PCW Disk Image\n");
@@ -271,18 +314,21 @@ static void PrintHelp(int argc, char *argv[])
 						printf("    FAT/ADF size presets:\n");
 						printf("      dd    - 880K for .adf, 720K for .img/.st\n");
 						printf("      hd    - 1760K for .adf, 1440K for .img/.st\n");
+						printf("    Any extra file or directory arguments are added to the new image.\n");
 						return;
 					case ACTION_INFO:
 						printf("Usage: dsk info disk.img\n\n");
 						printf("    Show information about the given disk image\n");
 						return;
 					case ACTION_ADD:
-						printf("Usage: dsk add disk.img hostfile[:diskpath] [hostfile2[:diskpath2] ...]\n\n");
+						printf("Usage: dsk add [options] disk.img hostfile[:diskpath] [hostfile2[:diskpath2] ...]\n\n");
 						printf("    Copy one or more host files into the disk image.\n");
+						printf("    -r, --recursive  Recursively copy host directories.\n");
 						printf("    Directory paths in hostfile are stripped inside the image unless diskpath is supplied.\n");
 						printf("    Examples:\n");
 						printf("      dsk add disk.adf foo.txt\n");
 						printf("      dsk add disk.adf foo.txt:S/foo.txt\n");
+						printf("      dsk add -r disk.adf RELEASE/AMIGA_EXPERIMENTAL\n");
 						return;
 					case ACTION_DELETE:
 						printf("Usage: dsk delete disk.img pattern [pattern2 ...]\n\n");
@@ -335,6 +381,7 @@ static void PrintHelp(int argc, char *argv[])
 					case ACTION_ADDTREE:
 						printf("Usage: dsk addtree disk.img hostdir [destdir]\n\n");
 						printf("    Recursively copy a host directory tree into the disk image.\n");
+						printf("    Equivalent to dsk add -r disk.img hostdir[:destdir].\n");
 						printf("    Files keep their relative paths inside the image.\n");
 						return;
 					case ACTION_INTERACTIVE:
@@ -397,6 +444,18 @@ static void TrimLine(char* line)
 static bool HostGetCurrentDirectory(char* buffer, size_t bufferSize)
 {
 	return OS_GetCurrentDirectory(buffer, bufferSize);
+}
+
+static bool HostPathIsDirectory(const char* path)
+{
+	if (path == NULL || path[0] == 0)
+		return false;
+
+	struct stat st;
+	if (stat(path, &st) != 0)
+		return false;
+
+	return (st.st_mode & S_IFDIR) != 0;
 }
 
 static void HostPrintCurrentDirectory()
@@ -1022,56 +1081,94 @@ static bool Dir (int argc, char* argv[])
 static bool CreateDisk(int argc, char *argv[])
 {
 	int size = 0;
+	const char* densityPreset = NULL;
 	const char* preset = NULL;
-    int n;
-    for (n = 0; n < argc; n++)
-    {
-        const char* command = argv[n];
-        if (stricmp(command, "/?") == 0 || stricmp(command, "/h") == 0 || stricmp(command, "/help") == 0)
-        {
-            PrintHelp(1, argv);
-            return true;
-        }
-        if (diskFileName == NULL)
-        {
-            diskFileName = command;
-        }
-        else if ((size = ResolveDiskPresetSize(diskFileName, argv[n])) != 0)
-        {
-        }
-		else if (CheckExtension(diskFileName, "dsk") &&
-			     (stricmp(argv[n], "plus3") == 0 || stricmp(argv[n], "cpc") == 0 || stricmp(argv[n], "pcw") == 0))
-		{
-			preset = argv[n];
-		}
-        else if (isdigit(argv[n][0]))
-        {
-            int sizeKB = atoi(argv[n]);
-            char lastChar = argv[n][strlen(argv[n]) - 1];
-            if (sizeKB > 0)
-            {
-                if (lastChar == 'm' || lastChar == 'M')
-                    sizeKB *= 1024;
-            }
-            size = sizeKB * 1024;
-        }
-        else
-        {
-            printf("Unknown disk size preset: %s\n", argv[n]);
-            return false;
-        }
-    }
-	if (diskFileName == NULL && argc > 0)
+	const char* localDiskFileName = diskFileName;
+	int contentStart = argc;
+	bool bootable = (options & CREATEOPT_BOOTABLE) != 0;
+
+	if ((options & CREATEOPT_DD) && (options & CREATEOPT_HD))
 	{
-		diskFileName = argv[0];
-		argc--, argv++;
+		printf("Error: --dd and --hd cannot be used together\n");
+		return false;
 	}
-	if (diskFileName == NULL)
+	if (options & CREATEOPT_DD)
+		densityPreset = "dd";
+	if (options & CREATEOPT_HD)
+		densityPreset = "hd";
+
+	for (int n = 0; n < argc; n++)
+	{
+		const char* command = argv[n];
+		if (stricmp(command, "/?") == 0 || stricmp(command, "/h") == 0 || stricmp(command, "/help") == 0)
+		{
+			PrintHelp(1, argv);
+			return true;
+		}
+		if (localDiskFileName == NULL)
+		{
+			localDiskFileName = command;
+			continue;
+		}
+		if (stricmp(command, "dd") == 0 || stricmp(command, "hd") == 0)
+		{
+			if (size != 0 || preset != NULL || densityPreset != NULL)
+			{
+				printf("Error: Multiple disk size presets supplied\n");
+				return false;
+			}
+			densityPreset = command;
+			continue;
+		}
+		if (CheckExtension(localDiskFileName, "dsk") &&
+		    (stricmp(command, "plus3") == 0 || stricmp(command, "cpc") == 0 || stricmp(command, "pcw") == 0))
+		{
+			if (size != 0 || densityPreset != NULL || preset != NULL)
+			{
+				printf("Error: Multiple disk size presets supplied\n");
+				return false;
+			}
+			preset = command;
+			continue;
+		}
+		if (isdigit((unsigned char)command[0]))
+		{
+			if (size != 0 || densityPreset != NULL || preset != NULL)
+			{
+				printf("Error: Multiple disk size presets supplied\n");
+				return false;
+			}
+			int sizeKB = atoi(command);
+			char lastChar = command[strlen(command) - 1];
+			if (sizeKB > 0)
+			{
+				if (lastChar == 'm' || lastChar == 'M')
+					sizeKB *= 1024;
+			}
+			size = sizeKB * 1024;
+			continue;
+		}
+
+		contentStart = n;
+		break;
+	}
+
+	if (localDiskFileName == NULL)
 	{
 		printf("Missing disk file name\n");
 		return false;
 	}
+	if (densityPreset != NULL)
+	{
+		size = ResolveDiskPresetSize(localDiskFileName, densityPreset);
+		if (size == 0)
+		{
+			printf("Unknown disk size preset: %s\n", densityPreset);
+			return false;
+		}
+	}
 
+	diskFileName = localDiskFileName;
 	disk = DIM_CreateDisk(diskFileName, size, preset);
 	if (!disk)
 	{
@@ -1079,6 +1176,13 @@ static bool CreateDisk(int argc, char *argv[])
 		return false;
 	}
 	printf("%s created\n", diskFileName);
+
+	if (contentStart < argc && !AddFiles(argc - contentStart, argv + contentStart))
+		return false;
+
+	if (bootable && !SetBoot(0, NULL))
+		return false;
+
 	return true;
 }
 
@@ -1185,6 +1289,12 @@ static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 	if (DIM_GetCWD(disk, savedCwd, sizeof(savedCwd)) == 0)
 		savedCwd[0] = 0;
 
+	if (HostPathIsDirectory(hostFileName))
+	{
+		printf("%s: is a directory\n", hostFileName);
+		return false;
+	}
+
 	File* file = File_Open(hostFileName);
 	if (file == NULL)
 	{
@@ -1286,6 +1396,7 @@ static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNa
 	{
 		strncpy(hostFileName, spec, hostFileNameSize);
 		hostFileName[hostFileNameSize - 1] = 0;
+		NormalizeHostPathSeparators(hostFileName);
 		diskFileName[0] = 0;
 		return true;
 	}
@@ -1297,6 +1408,7 @@ static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNa
 
 	memcpy(hostFileName, spec, hostLen);
 	hostFileName[hostLen] = 0;
+	NormalizeHostPathSeparators(hostFileName);
 	memcpy(diskFileName, split + 1, diskLen + 1);
 	return true;
 }
@@ -1304,6 +1416,7 @@ static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNa
 static bool AddFiles (int argc, char *argv[])
 {
 	bool ok = true;
+	bool recursive = (options & ADDOPT_RECURSIVE) != 0;
 
 	for (; argc > 0; argc--, argv++)
 	{
@@ -1316,29 +1429,33 @@ static bool AddFiles (int argc, char *argv[])
 			continue;
 		}
 
-        if (strchr(hostFileName, '*') != NULL || strchr(hostFileName, '?') != NULL)
-        {
-            FindFileResults results;
-            char *dirSep = strrchr(hostFileName, '/');
-            if (!dirSep)
-                dirSep = strrchr(hostFileName, '\\');
-            if (dirSep)
-            {
-                char savedChar = *dirSep;
-                *dirSep = 0;
-                if (!OS_ChangeDirectory(hostFileName))
-                {
-                    printf("%s: directory not found\n", hostFileName);
-                    ok = false;
-                    *dirSep = savedChar;
-                    continue;
-                }
-                *dirSep = savedChar;
-                memmove(hostFileName, dirSep + 1, strlen(dirSep + 1) + 1);
-            }
+		if (strchr(hostFileName, '*') != NULL || strchr(hostFileName, '?') != NULL)
+		{
+			FindFileResults results;
+			char savedHostCwd[FILE_MAX_PATH];
+			bool hostCwdSaved = HostGetCurrentDirectory(savedHostCwd, sizeof(savedHostCwd));
+			char *dirSep = strrchr(hostFileName, '/');
+			if (!dirSep)
+				dirSep = strrchr(hostFileName, '\\');
+			if (dirSep)
+			{
+				char savedChar = *dirSep;
+				*dirSep = 0;
+				if (!OS_ChangeDirectory(hostFileName))
+				{
+					printf("%s: directory not found\n", hostFileName);
+					ok = false;
+					*dirSep = savedChar;
+					continue;
+				}
+				*dirSep = savedChar;
+				memmove(hostFileName, dirSep + 1, strlen(dirSep + 1) + 1);
+			}
             if (diskPath[0] != 0)
             {
                 printf("%s: wildcard host patterns cannot be combined with a disk destination path\n", argv[0]);
+				if (hostCwdSaved)
+					OS_ChangeDirectory(savedHostCwd);
                 ok = false;
                 continue;
             }
@@ -1358,8 +1475,22 @@ static bool AddFiles (int argc, char *argv[])
                 printf("%s: file not found\n", hostFileName);
                 ok = false;
             }
+			if (hostCwdSaved)
+				OS_ChangeDirectory(savedHostCwd);
             continue;
         }
+
+		if (HostPathIsDirectory(hostFileName))
+		{
+			if (recursive)
+			{
+				if (!AddTreeRecursive(hostFileName, diskPath))
+					ok = false;
+				continue;
+			}
+			printf("%s: skipping directory\n", hostFileName);
+			continue;
+		}
 
 		if (!AddFileToDisk(hostFileName, diskPath[0] ? diskPath : NULL))
 			ok = false;
@@ -1727,6 +1858,12 @@ static bool ActionAllowsOption(Action action, int optionId)
 			return action == ACTION_LIST;
 		case DSK_OPTION_ASCII:
 			return action == ACTION_EXTRACT || action == ACTION_CAT;
+		case DSK_OPTION_RECURSIVE:
+			return action == ACTION_ADD || action == ACTION_CREATEDISK;
+		case DSK_OPTION_BOOTABLE:
+		case DSK_OPTION_DD:
+		case DSK_OPTION_HD:
+			return action == ACTION_CREATEDISK;
 	}
 	return false;
 }
@@ -1771,6 +1908,18 @@ static bool ExecuteCLICommand(int argc, char* argv[], bool implicitDiskOpen)
 				case DSK_OPTION_ASCII:
 					printf("Error: --ascii is only valid with the extract or cat actions\n");
 					break;
+				case DSK_OPTION_RECURSIVE:
+					printf("Error: --recursive is only valid with the add or create actions\n");
+					break;
+				case DSK_OPTION_BOOTABLE:
+					printf("Error: --bootable is only valid with the create action\n");
+					break;
+				case DSK_OPTION_DD:
+					printf("Error: --dd is only valid with the create action\n");
+					break;
+				case DSK_OPTION_HD:
+					printf("Error: --hd is only valid with the create action\n");
+					break;
 				default:
 					printf("Error: Invalid option\n");
 					break;
@@ -1789,6 +1938,18 @@ static bool ExecuteCLICommand(int argc, char* argv[], bool implicitDiskOpen)
 			case DSK_OPTION_ASCII:
 				options |= TEXTOPT_BASIC;
 				break;
+			case DSK_OPTION_RECURSIVE:
+				options |= ADDOPT_RECURSIVE;
+				break;
+			case DSK_OPTION_BOOTABLE:
+				options |= CREATEOPT_BOOTABLE;
+				break;
+			case DSK_OPTION_DD:
+				options |= CREATEOPT_DD;
+				break;
+			case DSK_OPTION_HD:
+				options |= CREATEOPT_HD;
+				break;
 		}
 	}
 
@@ -1800,7 +1961,7 @@ static bool ExecuteCLICommand(int argc, char* argv[], bool implicitDiskOpen)
 
 	if (implicitDiskOpen)
 	{
-		if (action == ACTION_CREATEDISK)
+		if (action == ACTION_CREATEDISK && disk != NULL)
 		{
 			printf("%s: command unavailable during an active session\n", CLI_GetActionName(&commandLine) ? CLI_GetActionName(&commandLine) : "create");
 			return true;
@@ -1899,13 +2060,6 @@ static bool PrepareSessionTarget(int argc, char* argv[])
 	{
 		DIM_CloseDisk(disk);
 		disk = NULL;
-	}
-
-	disk = DIM_OpenDisk(diskFileName);
-	if (!disk)
-	{
-		printf("%s: %s\n", diskFileName, DIM_GetErrorString());
-		return false;
 	}
 	return true;
 }

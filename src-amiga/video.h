@@ -30,6 +30,10 @@ const uint32_t SCR_BPNEXTL  = 2000;
 const uint32_t SCR_ALLOCATE = SCR_WIDTHPX * SCR_HEIGHTPX / 2;
 
 extern void VID_SetColor (uint8_t n, uint16_t pal);
+extern void VID_SetDisplayColorModeHint(uint8_t colorMode);
+extern bool VID_IsIntroScreenModeCompatible(uint8_t planes, bool ham);
+extern uint8_t** VID_GetIntroScratchPlanes();
+extern void VID_PresentIntroScreen(const uint32_t* palette, uint16_t count, bool fadeIn);
 extern void VID_VSync    ();
 extern void VID_ActivatePalette();
 extern void VID_Finish();

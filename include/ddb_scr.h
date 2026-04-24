@@ -91,7 +91,10 @@ typedef void (*MainLoopCallback)(int elapsed);
 static inline bool SCR_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	VID_LoadPicture(picno, screenMode);
-	return VID_PictureExists(picno);
+	bool fixed;
+	int16_t x, y, w, h;
+	VID_GetPictureInfo(&fixed, &x, &y, &w, &h);
+	return w > 0 && h > 0;
 }
 
 static inline void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t paper, bool smooth)

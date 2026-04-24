@@ -186,6 +186,31 @@ int main (int argc, char *argv[])
 #include <stdarg.h>
 #include <stdio.h>
 
+static bool ChangeToGamePath(const char* path)
+{
+	if (path == 0 || path[0] == 0)
+		return false;
+	if (OS_ChangeDirectory(path))
+		return true;
+
+	const char* slash = StrRChr(path, '/');
+	#if _WINDOWS
+	const char* backslash = StrRChr(path, '\\');
+	if (slash == 0 || (backslash != 0 && backslash > slash))
+		slash = backslash;
+	#endif
+	if (slash == 0)
+		return false;
+
+	char folder[FILE_MAX_PATH];
+	size_t length = (size_t)(slash - path);
+	if (length >= sizeof(folder))
+		return false;
+	MemCopy(folder, path, length);
+	folder[length] = 0;
+	return OS_ChangeDirectory(folder);
+}
+
 void TracePrintf(const char* format, ...)
 {
 	if (traceOn)
@@ -202,6 +227,9 @@ int main (int argc, char *argv[])
 	#if _OSX
 	chdir(SDL_GetBasePath());
 	#endif
+
+	if (argc > 1 && !ChangeToGamePath(argv[1]))
+		fprintf(stderr, "Warning: unable to change directory to '%s'\n", argv[1]);
 
 	OSInit();
 	if (!DDB_RunPlayer())

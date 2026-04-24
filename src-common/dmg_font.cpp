@@ -18,6 +18,22 @@ static bool ReadExact(File* file, void* buffer, uint64_t size)
 	return File_Read(file, buffer, size) == size;
 }
 
+bool DMG_IsSINTACFontV4(const char* fileName)
+{
+	File* file = File_Open(fileName);
+	if (file == 0)
+		return false;
+
+	uint64_t fileSize = File_GetSize(file);
+	uint8_t header[16];
+	bool ok = fileSize == SintacFontV4Size &&
+		ReadExact(file, header, sizeof(header)) &&
+		MemComp(header, (void*)SintacFontHeaderV4, sizeof(header)) == 0;
+
+	File_Close(file);
+	return ok;
+}
+
 static bool WriteExact(File* file, const void* buffer, uint64_t size)
 {
 	return File_Write(file, buffer, size) == size;

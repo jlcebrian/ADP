@@ -382,10 +382,11 @@ static bool LoadCharset (uint8_t* ptr, const char* filename)
 static bool LoadSINTACFont(const char* filename)
 {
 	DMG_Font font;
+	bool hasNative16 = DMG_IsSINTACFontV4(filename);
 	if (!DMG_ReadSINTACFont(filename, &font))
 		return false;
 
-	if (screen2XMode)
+	if (screen2XMode && hasNative16)
 	{
 		MemCopy(charset16, font.bitmap16, sizeof(font.bitmap16));
 		MemCopy(charWidth, font.width16, sizeof(font.width16));
@@ -394,7 +395,15 @@ static bool LoadSINTACFont(const char* filename)
 	else
 	{
 		MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
-		MemCopy(charWidth, font.width8, sizeof(font.width8));
+		if (screen2XMode)
+		{
+			for (int n = 0; n < 256; n++)
+				charWidth[n] = (uint8_t)(font.width8[n] * 2);
+		}
+		else
+		{
+			MemCopy(charWidth, font.width8, sizeof(font.width8));
+		}
 	}
 	charsetInitialized = true;
 	return true;

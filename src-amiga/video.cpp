@@ -39,6 +39,10 @@ extern struct View* ActiView;
 #define DEBUG_MEMORY 0
 #endif
 
+#ifndef DEBUG_AMIGA_PICTURE_IO
+#define DEBUG_AMIGA_PICTURE_IO 1
+#endif
+
 #define R_VPOSR ( *(volatile uint32_t*)0xDFF004 )
 
 extern volatile Custom *custom;
@@ -74,6 +78,35 @@ static uint8_t       displayColorMode = DMG_DAT5_COLORMODE_PLANAR4;
 static uint32_t 	screenBytesPerPlane = SCR_BPNEXTB;
 static uint32_t 	screenAllocate = SCR_BPNEXTB * TEXT_PLANES;
 static uint32_t 	activePalette[256];
+
+static void SetPictureDecodeErrorFromDMG()
+{
+	DMG_Error error = DMG_GetError();
+	switch (error)
+	{
+		case DMG_ERROR_FILE_NOT_FOUND:
+			DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+			break;
+		case DMG_ERROR_READING_FILE:
+		case DMG_ERROR_SEEKING_FILE:
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			break;
+		case DMG_ERROR_OUT_OF_MEMORY:
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			break;
+		case DMG_ERROR_INVALID_IMAGE:
+		case DMG_ERROR_TRUNCATED_DATA_STREAM:
+		case DMG_ERROR_DATA_STREAM_TOO_LONG:
+		case DMG_ERROR_DATA_OFFSET_OUT_OF_BOUNDS:
+		case DMG_ERROR_CORRUPTED_DATA_STREAM:
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			break;
+		default:
+			if (error != DMG_ERROR_NONE)
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+			break;
+	}
+}
 static uint32_t 	frontPalette[256];
 static uint32_t 	backPalette[256];
 static uint32_t 	scratchDisplayPalette[256];
@@ -90,7 +123,7 @@ static uint16_t   paletteLowG[256];
 static uint16_t   paletteLowB[256];
 static uint8_t    paletteNibbleExpand[16];
 
-static DMG*       	pictureOrigin;
+static DMG*       	pictureOrigin = 0;
 static DMG_Entry* 	pictureEntry = 0;
 static int        	pictureIndex = 0;
 static uint16_t*  	pictureData = 0;
@@ -123,6 +156,12 @@ static uint16_t* AppendCopperPalette(uint16_t* copListEnd);
 static bool IsHAMDisplayMode()
 {
 	return displayColorMode == DMG_DAT5_COLORMODE_HAM6;
+}
+
+static void UpdateVisualEffectAvailability()
+{
+	VID_SetProgressBarEnabled(!IsHAMDisplayMode());
+	VID_SetFadeEnabled(!IsHAMDisplayMode());
 }
 
 static uint16_t GetDisplayPaletteCapacity()
@@ -832,6 +871,8 @@ static bool ProbeDataFileHeader(const char* fileName, uint8_t* requiredPlanes, u
 {
 	File* file = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
 	if (file == 0)
+		file = File_Open(ChangeExtension(fileName, ".DAT"), ReadOnly);
+	if (file == 0)
 		return false;
 
 	uint8_t header[16];
@@ -963,6 +1004,98 @@ void VID_SetDisplayPlanesHint(uint8_t planes)
 	requestedDisplayPlanes = planes;
 }
 
+void VID_SetDisplayColorModeHint(uint8_t colorMode)
+{
+	if (!IsSupportedDAT5ColorMode(colorMode))
+		colorMode = DMG_DAT5_COLORMODE_PLANAR4;
+
+	bool modeChanged = displayColorMode != colorMode;
+	displayColorMode = colorMode;
+	UpdateVisualEffectAvailability();
+	if (initialized && frontBuffer != 0 && modeChanged)
+		ProgramDisplay();
+}
+
+bool VID_IsIntroScreenModeCompatible(uint8_t planes, bool ham)
+{
+	uint8_t colorMode = DMG_DAT5_COLORMODE_PLANAR4;
+
+	switch (planes)
+	{
+		case 4:
+			if (ham)
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+			colorMode = DMG_DAT5_COLORMODE_PLANAR4;
+			break;
+		case 5:
+			if (ham)
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+			colorMode = DMG_DAT5_COLORMODE_PLANAR5;
+			break;
+		case 6:
+			if (!ham)
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+			colorMode = DMG_DAT5_COLORMODE_HAM6;
+			break;
+		case 8:
+			if (ham || !isAGA)
+			{
+				DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+				return false;
+			}
+			colorMode = DMG_DAT5_COLORMODE_PLANAR8;
+			break;
+		default:
+			DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+			return false;
+	}
+
+	if (displayPlanes != planes)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	// Before the DAT is opened we only know the requested plane count from the
+	// header probe. The exact DAT5 color mode is not committed until
+	// VID_LoadDataFile(), so intro screens shown during early startup must not be
+	// rejected just because displayColorMode still holds the default planar4.
+	if (dmg == 0)
+		return true;
+
+	if (displayColorMode != colorMode)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	return true;
+}
+
+uint8_t** VID_GetIntroScratchPlanes()
+{
+	return scratchDisplayPlane;
+}
+
+void VID_PresentIntroScreen(const uint32_t* palette, uint16_t count, bool fadeIn)
+{
+	uint32_t blackPalette[256] = { 0 };
+	const uint32_t* introPalette = fadeIn ? blackPalette : palette;
+
+	CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
+	UpdatePaletteStore(scratchDisplayPalette, introPalette, count, 0, true);
+	PresentScratchDisplayBuffer();
+}
+
 void VID_SetColor(uint8_t color, uint16_t pal)
 {
 	if (color >= 32)
@@ -1002,6 +1135,18 @@ static void VID_CommitPalette(bool waitForVBlank)
 	{
 		for (uint16_t color = 0; color < 32; color++)
 			custom->color[color] = copper2[color * 2 + 1];
+
+		if (copperLists[0] != 0 && copperLists[1] != 0)
+		{
+			uint16_t* program = BeginCopperBuild();
+			uint16_t* end = program;
+			end = SetScreenLayout(end);
+			end = SetBitPlanes(end);
+			end = SetVisiblePlanes(GetVisiblePlanes(), end);
+			end = AppendCopperPalette(end);
+			CommitCopperBuild(program, end);
+			UpdateDrawPlanes();
+		}
 	}
 }
 
@@ -1170,21 +1315,33 @@ bool VID_LoadDataFile (const char* fileName)
 		}
 	}
 
-	const char* datName = ChangeExtension(fileName, ".dat");
-	const char* loadedName = datName;
+	const char* loadedName = ChangeExtension(fileName, ".dat");
 	uint32_t tOpen = GetMilliseconds();
-	dmg = DMG_Open(datName, true);
+	dmg = DMG_Open(loadedName, true);
 	if (dmg == 0)
 	{
-		const char* egaName = ChangeExtension(fileName, ".ega");
-		loadedName = egaName;
-		dmg = DMG_Open(egaName, true);
+		loadedName = ChangeExtension(fileName, ".DAT");
+		dmg = DMG_Open(loadedName, true);
 	}
 	if (dmg == 0)
 	{
-		const char* cgaName = ChangeExtension(fileName, ".cga");
-		loadedName = cgaName;
-		dmg = DMG_Open(cgaName, true);
+		loadedName = ChangeExtension(fileName, ".ega");
+		dmg = DMG_Open(loadedName, true);
+	}
+	if (dmg == 0)
+	{
+		loadedName = ChangeExtension(fileName, ".EGA");
+		dmg = DMG_Open(loadedName, true);
+	}
+	if (dmg == 0)
+	{
+		loadedName = ChangeExtension(fileName, ".cga");
+		dmg = DMG_Open(loadedName, true);
+	}
+	if (dmg == 0)
+	{
+		loadedName = ChangeExtension(fileName, ".CGA");
+		dmg = DMG_Open(loadedName, true);
 	}
 	if (dmg == 0)
 	{
@@ -1238,6 +1395,7 @@ bool VID_LoadDataFile (const char* fileName)
 
 	bool displayModeChanged = displayColorMode != newDisplayColorMode;
 	displayColorMode = newDisplayColorMode;
+	UpdateVisualEffectAvailability();
 	if (requiredPlanes != displayPlanes)
 	{
 		DebugPrintf("Reconfiguring display planes for data file (required=%u active=%u)\n",
@@ -1267,7 +1425,9 @@ bool VID_LoadDataFile (const char* fileName)
 	bool fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
 		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
 
-	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		memcpy(charset, DefaultCharset, 1024);
@@ -1445,11 +1605,15 @@ void VID_PresentDefaultScreen()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {
+	#if DEBUG_AMIGA_PICTURE_IO
 	DebugPrintf("VID_DisplayPicture(x=%d, y=%d, w=%d, h=%d, mode=%u)\n",
 		x, y, w, h, (unsigned)screenMode);
-	if (pictureEntry == 0)
+	#endif
+	if (pictureEntry == 0 || pictureOrigin != dmg || pictureData == 0)
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_DisplayPicture: skipped because no picture is loaded\n");
+		#endif
 		return;
 	}
 
@@ -1682,23 +1846,30 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	if (dmg == 0) 
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): no data file loaded\n", (unsigned)picno);
+		#endif
 		return;
 	}
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == 0 || entry->type != DMGEntry_Image)
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): entry missing or not an image\n", (unsigned)picno);
+		#endif
 		return;
 	}
 
 	if (pictureOrigin == dmg && pictureEntry == entry && pictureIndex == picno && pictureData != 0)
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): reusing cached decoded picture\n", (unsigned)picno);
+		#endif
 		return;
 	}
 
+	#if DEBUG_AMIGA_PICTURE_IO
 	DebugPrintf("VID_LoadPicture(%u): loading %ux%u image, mode=%u bitDepth=%u screenMode=%u\n",
 		(unsigned)picno,
 		(unsigned)entry->width,
@@ -1706,21 +1877,31 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		(unsigned)(dmg != 0 ? dmg->colorMode : 0),
 		(unsigned)(entry->bitDepth ? entry->bitDepth : TEXT_PLANES),
 		(unsigned)screenMode);
+	#endif
 
-	pictureOrigin = dmg;
-	pictureEntry  = entry;
-	pictureIndex  = picno;
+	pictureOrigin = 0;
+	pictureEntry = 0;
+	pictureIndex = 0;
+	pictureData = 0;
+	pictureStride = 0;
+	picturePlaneStride = 0;
+	picturePlaneMajor = false;
 	picturePlanes = entry->bitDepth ? entry->bitDepth : TEXT_PLANES;
 	uint32_t widthWords = (uint32_t)(entry->width + 15) >> 4;
 	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData != 0)
 	{
+		pictureOrigin = dmg;
+		pictureEntry  = entry;
+		pictureIndex  = picno;
 		picturePlaneMajor = true;
 		pictureStride = widthWords;
 		picturePlaneStride = pictureStride * entry->height;
 	}
 	if (pictureData == 0)
 	{
+		SetPictureDecodeErrorFromDMG();
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): native decode failed for %ux%u image, mode=%u bitDepth=%u error=%d (%s)\n",
 			(unsigned)picno,
 			(unsigned)entry->width,
@@ -1729,29 +1910,37 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 			(unsigned)picturePlanes,
 			(int)DMG_GetError(),
 			DMG_GetErrorString());
+		#endif
 	}
 	else if (picturePlanes > displayPlanes)
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): decoded picture requires %u planes but display has %u planes\n",
 			(unsigned)picno,
 			(unsigned)picturePlanes,
 			(unsigned)displayPlanes);
+		#endif
 	}
 	if (pictureData == 0 || picturePlanes > displayPlanes)
 	{
+		pictureData = 0;
 		pictureEntry = 0;
 		pictureOrigin = 0;
 		pictureIndex = 0;
+		pictureStride = 0;
+		picturePlaneStride = 0;
 		picturePlanes = TEXT_PLANES;
 		picturePlaneMajor = false;
 	}
 	else
 	{
+		#if DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("VID_LoadPicture(%u): decode ok, strideWords=%lu planeStrideWords=%lu planes=%u\n",
 			(unsigned)picno,
 			(unsigned long)pictureStride,
 			(unsigned long)picturePlaneStride,
 			(unsigned)picturePlanes);
+		#endif
 	}
 }
 

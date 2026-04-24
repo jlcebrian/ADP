@@ -6,6 +6,10 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
+#ifndef DEBUG_AMIGA_PICTURE_IO
+#define DEBUG_AMIGA_PICTURE_IO 1
+#endif
+
 extern "C" void DecompressRLE (const void* data, uint32_t dataSize,
 	void* output, uint32_t outputSize, uint16_t rleMask);
 
@@ -126,6 +130,20 @@ static bool DMG_EnsureDAT5PaletteFromPayload(DMG_Entry* entry, const uint8_t* pa
 
 static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* entry, uint8_t* buffer, uint32_t bufferSize)
 {
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): begin len=%lu buf=%p bufSize=%lu mode=%u bitDepth=%u size=%ux%u flags=%u palette=%u\n",
+		(unsigned)index,
+		(unsigned long)entry->length,
+		buffer,
+		(unsigned long)bufferSize,
+		(unsigned)dmg->colorMode,
+		(unsigned)entry->bitDepth,
+		(unsigned)entry->width,
+		(unsigned)entry->height,
+		(unsigned)entry->flags,
+		(unsigned)entry->paletteColors);
+	#endif
+
 	if (entry->type != DMGEntry_Image)
 		return 0;
 
@@ -138,6 +156,13 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 	uint32_t requiredSize = DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
     uint32_t paletteBytes = entry->paletteColors * 3;
     uint32_t imageDataLength = entry->length >= paletteBytes ? entry->length - paletteBytes : 0;
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): required=%lu paletteBytes=%lu imageBytes=%lu\n",
+		(unsigned)index,
+		(unsigned long)requiredSize,
+		(unsigned long)paletteBytes,
+		(unsigned long)imageDataLength);
+	#endif
 	if (requiredSize == 0)
 	{
 		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
@@ -164,6 +189,13 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 
 		const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
 		uint8_t* scratch = 0;
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): compressed payload cache=%p offset=%lu len=%lu\n",
+			(unsigned)index,
+			payloadData,
+			(unsigned long)entry->fileOffset,
+			(unsigned long)entry->length);
+		#endif
 		if (payloadData == 0)
 		{
 			if (bufferSize >= requiredSize + entry->length)
@@ -172,26 +204,70 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 				scratch = DMG_GetScratchBuffer(dmg, entry->length);
 			else
 			{
+				#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+				DebugPrintf("DMG_GetEntryDataPlanarV5(%u): no scratch buffer for compressed payload len=%lu bufSize=%lu scratchSize=%lu\n",
+					(unsigned)index,
+					(unsigned long)entry->length,
+					(unsigned long)bufferSize,
+					(unsigned long)DMG_GetScratchBufferSize(dmg));
+				#endif
 				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 				return 0;
 			}
 
+			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+			DebugPrintf("DMG_GetEntryDataPlanarV5(%u): compressed scratch=%p source=%s\n",
+				(unsigned)index,
+				scratch,
+				bufferSize >= requiredSize + entry->length ? "tail" : "zx0");
+			#endif
+
 			if (DMG_ReadFromFile(dmg, entry->fileOffset, scratch, entry->length) != entry->length)
 			{
+				#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+				DebugPrintf("DMG_GetEntryDataPlanarV5(%u): compressed read failed offset=%lu len=%lu\n",
+					(unsigned)index,
+					(unsigned long)entry->fileOffset,
+					(unsigned long)entry->length);
+				#endif
 				DMG_SetError(DMG_ERROR_READING_FILE);
 				return 0;
 			}
 			payloadData = scratch;
+			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+			DebugPrintf("DMG_GetEntryDataPlanarV5(%u): compressed payload read into %p\n",
+				(unsigned)index,
+				payloadData);
+			#endif
 		}
 
         if (!DMG_EnsureDAT5PaletteFromPayload(entry, payloadData))
             return 0;
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): palette ok, decompressing ZX0 src=%p dst=%p bytes=%lu -> %lu\n",
+			(unsigned)index,
+			payloadData + paletteBytes,
+			buffer,
+			(unsigned long)imageDataLength,
+			(unsigned long)requiredSize);
+		#endif
 
 		if (!DMG_DecompressZX0(payloadData + paletteBytes, imageDataLength, buffer, requiredSize))
 		{
+			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+			DebugPrintf("DMG_GetEntryDataPlanarV5(%u): ZX0 decode failed error=%d (%s)\n",
+				(unsigned)index,
+				(int)DMG_GetError(),
+				DMG_GetErrorString());
+			#endif
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 			return 0;
 		}
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): ZX0 decode returned buffer=%p\n",
+			(unsigned)index,
+			buffer);
+		#endif
 		return buffer;
 	}
 
@@ -202,11 +278,28 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 	}
 
 	const uint8_t* payloadData = (const uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset, entry->length);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): raw payload cache=%p offset=%lu len=%lu\n",
+		(unsigned)index,
+		payloadData,
+		(unsigned long)entry->fileOffset,
+		(unsigned long)entry->length);
+	#endif
 	if (payloadData != 0)
 	{
         if (!DMG_EnsureDAT5PaletteFromPayload(entry, payloadData))
             return 0;
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): copying raw payload src=%p dst=%p bytes=%lu\n",
+			(unsigned)index,
+			payloadData + paletteBytes,
+			buffer,
+			(unsigned long)requiredSize);
+		#endif
 		MemCopy(buffer, payloadData + paletteBytes, requiredSize);
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): raw copy complete\n", (unsigned)index);
+		#endif
 		return buffer;
 	}
 
@@ -217,18 +310,41 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 		scratch = DMG_GetScratchBuffer(dmg, entry->length);
     else
     {
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): no scratch buffer for raw payload len=%lu bufSize=%lu scratchSize=%lu\n",
+			(unsigned)index,
+			(unsigned long)entry->length,
+			(unsigned long)bufferSize,
+			(unsigned long)DMG_GetScratchBufferSize(dmg));
+		#endif
         DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
         return 0;
     }
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): raw scratch=%p source=%s\n",
+		(unsigned)index,
+		scratch,
+		bufferSize >= requiredSize + entry->length ? "tail" : "zx0");
+	#endif
 
 	if (DMG_ReadFromFile(dmg, entry->fileOffset, scratch, entry->length) != entry->length)
 	{
 		DMG_SetError(DMG_ERROR_READING_FILE);
 		return 0;
 	}
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): raw payload read into %p, copying %lu bytes to %p\n",
+		(unsigned)index,
+		scratch,
+		(unsigned long)requiredSize,
+		buffer);
+	#endif
     if (!DMG_EnsureDAT5PaletteFromPayload(entry, scratch))
         return 0;
     MemCopy(buffer, scratch + paletteBytes, requiredSize);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanarV5(%u): raw read/copy complete\n", (unsigned)index);
+	#endif
 	return buffer;
 }
 
@@ -428,13 +544,29 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		ImageMode_Planar :
 		ImageMode_PlanarST;
 	unsigned requiredSize = DMG_CalculateRequiredSize(entry, nativePlanarMode);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanar(%u): required=%u mode=%u version=%u colorMode=%u\n",
+		(unsigned)index,
+		requiredSize,
+		(unsigned)nativePlanarMode,
+		(unsigned)(dmg != 0 ? dmg->version : 0),
+		(unsigned)(dmg != 0 ? dmg->colorMode : 0));
+	#endif
 
 	cache = DMG_GetImageCache (dmg, index, entry, requiredSize);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DMG_GetEntryDataPlanar(%u): cache=%p\n", (unsigned)index, cache);
+	#endif
 	if (cache)
 	{
 		buffer = (uint8_t*)(cache + 1);
 		if (cache->populated)
+		{
+			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+			DebugPrintf("DMG_GetEntryDataPlanar(%u): cache hit buffer=%p\n", (unsigned)index, buffer);
+			#endif
 			return buffer;
+		}
 		bufferSize = cache->size;
 		destinationIsImageCache = true;
 	}
@@ -459,7 +591,19 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 
 	if (dmg->version == DMG_Version5)
 	{
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanar(%u): entering V5 decoder buffer=%p size=%lu\n",
+			(unsigned)index,
+			buffer,
+			(unsigned long)bufferSize);
+		#endif
 		uint8_t* result = DMG_GetEntryDataPlanarV5(dmg, index, entry, buffer, bufferSize);
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		DebugPrintf("DMG_GetEntryDataPlanar(%u): V5 decoder result=%p error=%d\n",
+			(unsigned)index,
+			result,
+			(int)DMG_GetError());
+		#endif
 		if (result != 0 && cache != 0)
 		{
 			cache->populated = true;

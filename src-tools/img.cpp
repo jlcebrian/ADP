@@ -543,12 +543,16 @@ static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t
 {
     File* file = File_Open(filename, ReadOnly);
     if (file == 0)
+    {
+        DMG_SetError(DMG_ERROR_FILE_NOT_FOUND);
         return false;
+    }
 
     uint32_t fileSize = (uint32_t)File_GetSize(file);
     if (fileSize < 12)
     {
         File_Close(file);
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
         return false;
     }
 
@@ -556,6 +560,7 @@ static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t
     if (data == 0)
     {
         File_Close(file);
+        DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
         return false;
     }
 
@@ -564,12 +569,14 @@ static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t
     if (!ok)
     {
         Free(data);
+        DMG_SetError(DMG_ERROR_READING_FILE);
         return false;
     }
 
     if (memcmp(data, "FORM", 4) != 0 || memcmp(data + 8, "ILBM", 4) != 0)
     {
         Free(data);
+        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
         return false;
     }
 

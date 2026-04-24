@@ -584,9 +584,33 @@ static void DrawBufferedPicture (DDB_Interpreter* i)
 	DDB_Window* w = &i->win;
 	int16_t x, width;
 
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DrawBufferedPicture: begin pic=%u win=(%d,%d,%d,%d) screenMode=%u\n",
+		(unsigned)i->currentPicture,
+		(int)w->x,
+		(int)w->y,
+		(int)w->width,
+		(int)w->height,
+		(unsigned)i->screenMode);
+	#endif
+
 	PrepareBufferedPictureWindow(i, &x, &width);
 
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DrawBufferedPicture: prepared x=%d width=%d pos=(%d,%d) size=(%d,%d)\n",
+		(int)x,
+		(int)width,
+		(int)w->x,
+		(int)w->y,
+		(int)w->width,
+		(int)w->height);
+	#endif
+
 	SCR_DisplayPicture(x, w->y, width, w->height, i->screenMode);
+
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("DrawBufferedPicture: SCR_DisplayPicture returned\n");
+	#endif
 }
 
 void DDB_GetCurrentColors (DDB* ddb, DDB_Window* w, uint8_t* ink, uint8_t* paper)

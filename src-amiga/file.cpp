@@ -1,5 +1,6 @@
 #include <os_file.h>
 #include <os_lib.h>
+#include <os_char.h>
 
 #ifdef _AMIGA
 
@@ -183,6 +184,8 @@ static bool PatternMatches(const char* p, const char* f)
 	{
 		if (*p == '?')
 		{
+			if (*f == 0)
+				return false;
 			p++;
 			f++;
 		}
@@ -199,7 +202,7 @@ static bool PatternMatches(const char* p, const char* f)
 			}
 			return false;
 		}
-		else if (*p == *f)
+		else if (ToUpper((uint8_t)*p) == ToUpper((uint8_t)*f))
 		{
 			p++;
 			f++;

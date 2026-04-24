@@ -25,6 +25,7 @@
 #define LOAD_BUFFER_SIZE 1024*1024*3
 
 static int ignoredWildcardExpansionCount = 0;
+static int trailingIgnoredWildcardExpansionCount = 0;
 static bool debug = false;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_BYTES = 32;
 static const uint32_t DAT5_MIN_ZX0_SAVINGS_PERCENT = 1;
@@ -121,6 +122,7 @@ static uint16_t createImportHeight = 0;
 static bool compressionEnabled = true;
 static bool ignoreMissingWildcards = false;
 static char commandError[512];
+static bool preferIFFDirectoryImports = false;
 
 static void ClearCommandError()
 {
@@ -603,7 +605,7 @@ typedef struct
 DMGCacheHeader;
 
 #define DMG_CACHE_MAGIC 0x444D4743u
-#define DMG_CACHE_VERSION_MULTI 2u
+#define DMG_CACHE_VERSION_MULTI 3u
 
 typedef struct
 {
@@ -654,6 +656,17 @@ static bool DMGCacheEntryMatches(const DMGCacheEntryHeader* entry, uint32_t form
         entry->compressed == compressed;
 }
 
+    static bool DMGCacheEntryMatchesIgnoringCompression(const DMGCacheEntryHeader* entry, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height)
+    {
+        return entry->format == format &&
+        entry->colorMode == colorMode &&
+        entry->remap == remap &&
+        entry->firstColor == firstColor &&
+        entry->lastColor == lastColor &&
+        entry->width == width &&
+        entry->height == height;
+    }
+
 static bool DMGCacheReadPayload(File* file, uint32_t payloadSize, uint8_t** payload, uint32_t* payloadSizeOut)
 {
     uint8_t* data = Allocate<uint8_t>("DMG cache payload", payloadSize);
@@ -669,10 +682,11 @@ static bool DMGCacheReadPayload(File* file, uint32_t payloadSize, uint8_t** payl
     return true;
 }
 
-static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, uint8_t** payload, uint32_t* payloadSize)
+static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t requestedCompression, uint8_t** payload, uint32_t* payloadSize, uint8_t* payloadCompression)
 {
     *payload = 0;
     *payloadSize = 0;
+    *payloadCompression = 0;
 
     DMGSourceFileInfo sourceInfo;
     if (!GetSourceFileInfo(sourceFile, &sourceInfo))
@@ -704,8 +718,10 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
     }
 
     bool found = false;
+    bool foundExact = false;
     uint8_t* matchedPayload = 0;
     uint32_t matchedPayloadSize = 0;
+    uint8_t matchedPayloadCompression = 0;
     uint64_t fileSize = File_GetSize(file);
     while (File_GetPosition(file) + sizeof(DMGCacheEntryHeader) <= fileSize)
     {
@@ -716,7 +732,13 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
         if (entry.payloadSize > fileSize || File_GetPosition(file) + entry.payloadSize > fileSize)
             break;
 
-        if (DMGCacheEntryMatches(&entry, format, colorMode, remap, firstColor, lastColor, width, height, compressed))
+        bool exactMatch = DMGCacheEntryMatches(&entry, format, colorMode, remap, firstColor, lastColor, width, height, requestedCompression);
+        bool fallbackMatch = !foundExact &&
+            requestedCompression != 0 &&
+            entry.compressed == 0 &&
+            DMGCacheEntryMatchesIgnoringCompression(&entry, format, colorMode, remap, firstColor, lastColor, width, height);
+
+        if (exactMatch || fallbackMatch)
         {
             uint8_t* data = 0;
             uint32_t dataSize = 0;
@@ -726,7 +748,11 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
                 Free(matchedPayload);
             matchedPayload = data;
             matchedPayloadSize = dataSize;
+            matchedPayloadCompression = entry.compressed;
             found = true;
+            foundExact = exactMatch;
+            if (foundExact)
+                break;
         }
         else if (!File_Seek(file, File_GetPosition(file) + entry.payloadSize))
         {
@@ -740,6 +766,7 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
 
     *payload = matchedPayload;
     *payloadSize = matchedPayloadSize;
+    *payloadCompression = matchedPayloadCompression;
     return true;
 }
 
@@ -3472,7 +3499,16 @@ static int ExpandDirectoryToken(const char* token, const char** outTokens, int* 
         char locationToken[8];
         snprintf(locationToken, sizeof(locationToken), "%d", location);
 
-        if (entries[location].hasPNG)
+        if (preferIFFDirectoryImports && entries[location].hasIFF)
+        {
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
+                return -1;
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, entries[location].iffPath, token))
+                return -1;
+        }
+        else if (entries[location].hasPNG)
         {
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
                 return -1;
@@ -3543,6 +3579,49 @@ static int ExpandDirectoryToken(const char* token, const char** outTokens, int* 
     if (foundAnySupportedFiles)
         return 1;
     return processedDirectory ? 1 : 0;
+}
+
+static bool ParseSpecialDAT5ModePreferenceToken(const char* token, DMG_DAT5ColorMode* mode)
+{
+    if (token == 0 || mode == 0)
+        return false;
+
+    const char* value = 0;
+    if (strnicmp(token, "mode:", 5) == 0)
+        value = token + 5;
+    else if (strnicmp(token, "-mode=", 6) == 0 || strnicmp(token, "--mode=", 7) == 0)
+        value = strchr(token, '=') + 1;
+    else if (strnicmp(token, "mode=", 5) == 0)
+        value = token + 5;
+    else
+        return false;
+
+    if (value == 0 || *value == 0)
+        return false;
+    if (!ParseDAT5Mode(value, mode))
+        return false;
+    return DMG_DAT5ModeIsAmigaSpecial((uint8_t)*mode);
+}
+
+static void PreScanDirectoryImportPreferences(int argc, const char* argv[])
+{
+    preferIFFDirectoryImports = false;
+
+    if (createDAT5 && DMG_DAT5ModeIsAmigaSpecial((uint8_t)createDAT5Mode))
+    {
+        preferIFFDirectoryImports = true;
+        return;
+    }
+
+    for (int i = 0; i < argc; i++)
+    {
+        DMG_DAT5ColorMode mode = DMG_DAT5_COLORMODE_NONE;
+        if (ParseSpecialDAT5ModePreferenceToken(argv[i], &mode))
+        {
+            preferIFFDirectoryImports = true;
+            return;
+        }
+    }
 }
 
 static int ExpandWildcardToken(const char* token, const char** outTokens, int* outCount, int maxOutCount)
@@ -3628,6 +3707,7 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
 {
     int expandedArgCount = 0;
     bool skipExpansionForValueToken = false;
+    PreScanDirectoryImportPreferences(argc, argv);
     for (int i = 0; i < argc; i++)
     {
         if (skipExpansionForValueToken)
@@ -3640,6 +3720,7 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
             expandedArgs[expandedArgCount] = argv[i];
             expandedArgOwned[expandedArgCount] = false;
             expandedArgCount++;
+            trailingIgnoredWildcardExpansionCount = 0;
             skipExpansionForValueToken = false;
             continue;
         }
@@ -3652,6 +3733,7 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
         {
             for (int n = before; n < expandedArgCount; n++)
                 expandedArgOwned[n] = true;
+            trailingIgnoredWildcardExpansionCount = 0;
             continue;
         }
 
@@ -3663,6 +3745,10 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
         {
             for (int n = before; n < expandedArgCount; n++)
                 expandedArgOwned[n] = true;
+            if (expandedArgCount == before)
+                trailingIgnoredWildcardExpansionCount++;
+            else
+                trailingIgnoredWildcardExpansionCount = 0;
             continue;
         }
         if (expandedArgCount >= maxExpandedArgs)
@@ -3673,6 +3759,7 @@ static int ExpandArgumentTokens(int argc, const char* argv[], const char** expan
         expandedArgs[expandedArgCount] = argv[i];
         expandedArgOwned[expandedArgCount] = false;
         expandedArgCount++;
+        trailingIgnoredWildcardExpansionCount = 0;
         skipExpansionForValueToken = OptionConsumesFollowingValueToken(argv[i]);
     }
     return expandedArgCount;
@@ -4570,14 +4657,10 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     int lastColor = 0;
     bool quantized = false;
     bool specialAmigaDAT5 = dmg->version == DMG_Version5 && DMG_DAT5ModeIsAmigaSpecial(dmg->colorMode);
+    uint16_t targetWidth = effectiveOptions.hasWidth ? (uint16_t)effectiveOptions.width : 0;
+    uint16_t targetHeight = effectiveOptions.hasHeight ? (uint16_t)effectiveOptions.height : 0;
     if (specialAmigaDAT5)
     {
-        if (effectiveOptions.hasWidth || effectiveOptions.hasHeight)
-        {
-            fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF dimensions; crop/pad is not supported\n",
-                DescribeDAT5ColorMode(dmg->colorMode));
-            return false;
-        }
         if (effectiveOptions.hasFirstColor || effectiveOptions.hasLastColor)
         {
             fprintf(stderr, "Error: DAT5 %s import uses a fixed 32-entry palette range; PCS/PCE overrides are not supported\n",
@@ -4604,10 +4687,12 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         fprintf(stderr, "Error: Unable to load image \"%s\": %s\n", path, DMG_GetErrorString());
         return false;
     }
-    if (!specialAmigaDAT5 && (effectiveOptions.hasWidth || effectiveOptions.hasHeight))
+    if (effectiveOptions.hasWidth || effectiveOptions.hasHeight)
     {
-        uint16_t targetWidth = effectiveOptions.hasWidth ? (uint16_t)effectiveOptions.width : width;
-        uint16_t targetHeight = effectiveOptions.hasHeight ? (uint16_t)effectiveOptions.height : height;
+        if (targetWidth == 0)
+            targetWidth = width;
+        if (targetHeight == 0)
+            targetHeight = height;
         if (!CropPadIndexedImage(&buffer, &bufferSize, &width, &height, targetWidth, targetHeight))
             return false;
     }
@@ -4639,6 +4724,13 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             {
                 fprintf(stderr, "Error: Unable to reload image \"%s\": %s\n", path, DMG_GetErrorString());
                 return false;
+            }
+            if (effectiveOptions.hasWidth || effectiveOptions.hasHeight)
+            {
+                uint16_t resizedWidth = targetWidth != 0 ? targetWidth : width;
+                uint16_t resizedHeight = targetHeight != 0 ? targetHeight : height;
+                if (!CropPadIndexedImage(&buffer, &bufferSize, &width, &height, resizedWidth, resizedHeight))
+                    return false;
             }
             size = width * height;
         }
@@ -4675,7 +4767,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         uint8_t* cachedPayload = 0;
         uint32_t cachedPayloadSize = 0;
         BuildSidecarPath(path, DMG_CACHE_EXTENSION, cacheFile, sizeof(cacheFile));
-        if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize))
+        uint8_t cachedPayloadCompression = 0;
+        if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize, &cachedPayloadCompression))
         {
             if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
             {
@@ -4695,13 +4788,13 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 storedBuffer = outBuffer;
                 storedSize = encodedSize;
             }
-            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, storedBuffer, storedSize);
+            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, compressed ? 1 : 0, storedBuffer, storedSize);
         }
         else
         {
             storedBuffer = cachedPayload;
             storedSize = cachedPayloadSize;
-            compressed = localCompressionEnabled;
+            compressed = cachedPayloadCompression != 0;
         }
         if (!DMG_SetEntryPaletteRange(dmg, targetIndex, palette, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
         {
@@ -5112,7 +5205,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 
     if (HasPendingTrailingEntryOptions() || HasPendingImageOnlyInputOptions())
     {
-        if (ignoreMissingWildcards && ignoredWildcardExpansionCount > 0 && pendingInputRequiresFile)
+        if (ignoreMissingWildcards && trailingIgnoredWildcardExpansionCount > 0 && pendingInputRequiresFile)
         {
             ResetPendingInputOptions();
             return true;
@@ -6208,6 +6301,7 @@ static bool ExecuteCLICommandLine(int argc, char *argv[])
     compressionEnabled = true;
     ignoreMissingWildcards = false;
     ignoredWildcardExpansionCount = 0;
+    trailingIgnoredWildcardExpansionCount = 0;
     debug = false;
     listSortById = true;
     verbose = false;

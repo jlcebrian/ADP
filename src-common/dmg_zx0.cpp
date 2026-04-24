@@ -1,6 +1,11 @@
 #include <dmg.h>
+#include <ddb.h>
 #include <os_lib.h>
 #include <os_mem.h>
+
+#ifndef DEBUG_AMIGA_PICTURE_IO
+#define DEBUG_AMIGA_PICTURE_IO 1
+#endif
 
 #if defined(_UNIX) || defined(_OSX) || defined(_WEB)
 #define DMG_USE_SALVADOR_COMPRESSOR 1
@@ -111,10 +116,22 @@ bool DMG_DecompressZX0(const uint8_t* data, uint32_t dataLength, uint8_t* buffer
 {
 #if defined(_AMIGA) || defined(_ATARIST)
     (void)dataLength;
+    #if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+    DebugPrintf("DMG_DecompressZX0: begin src=%p dst=%p out=%lu path=%s\n",
+        data,
+        buffer,
+        (unsigned long)outputSize,
+        outputSize <= ZX0_FAST_68K_MAX_OUTPUT ? "fast68k" : "68k");
+    #endif
     if (outputSize <= ZX0_FAST_68K_MAX_OUTPUT)
         zx0_decompress_fast(data, buffer);
     else
         zx0_decompress(data, buffer);
+    #if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+    DebugPrintf("DMG_DecompressZX0: end dst=%p out=%lu\n",
+        buffer,
+        (unsigned long)outputSize);
+    #endif
     return true;
 #else
     ZX0_State state;

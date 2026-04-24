@@ -139,6 +139,10 @@ bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 	else
 	{
 		VID_LoadPicture(picno, screenMode);
+		bool fixed;
+		int16_t x, y, w, h;
+		VID_GetPictureInfo(&fixed, &x, &y, &w, &h);
+		return w > 0 && h > 0;
 	}
 
 	return VID_PictureExists(picno);
@@ -146,6 +150,10 @@ bool SCR_LoadPicture(uint8_t picno, DDB_ScreenMode screenMode)
 
 void SCR_DisplayPicture(int x, int y, int w, int h, DDB_ScreenMode mode)
 {
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("SCR_DisplayPicture(x=%d, y=%d, w=%d, h=%d, mode=%u, buffering=%d)\n",
+		x, y, w, h, (unsigned)mode, buffering ? 1 : 0);
+	#endif
 	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
@@ -160,6 +168,9 @@ void SCR_DisplayPicture(int x, int y, int w, int h, DDB_ScreenMode mode)
 	{
 		VID_DisplayPicture(x, y, w, h, mode);
 	}
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	DebugPrintf("SCR_DisplayPicture: done\n");
+	#endif
 }
 
 bool SCR_PictureExists(uint8_t picno)

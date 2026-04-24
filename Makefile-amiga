@@ -6,8 +6,8 @@ ifndef VERSION
 include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
 endif
 DEBUG_MEMORY ?= 0
-DEBUG_ALLOCS ?= 0
-DEBUGPRINT   ?= 0
+DEBUG_ALLOCS ?= 1
+DEBUGPRINT   ?= 1
 OPTIM        ?= -Os
 
 STACK_WARNING ?= 1024

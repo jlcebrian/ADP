@@ -156,6 +156,11 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 	ddb->version = (DDB_Version)data[0];
 	ddb->language = (DDB_Language)(data[1] & 0x0F);
 	ddb->target = (DDB_Machine)(data[1] >> 4);
+	// drb.php emits target 0x0D for the new PC VGA256 interpreter.
+	// The native SDL runtime needs to treat that target as IBM PC so it
+	// enables DAT loading and PC intro-screen handling.
+	if ((uint8_t)ddb->target == 0x0D)
+		ddb->target = DDB_MACHINE_IBMPC;
 	ddb->nullWordChar = data[2];
 	ddb->firstToken = 128;
 

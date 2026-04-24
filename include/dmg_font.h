@@ -10,5 +10,6 @@ struct DMG_Font
 	uint8_t bitmap8[256 * 8];
 };
 
+bool DMG_IsSINTACFontV4(const char* fileName);
 bool DMG_ReadSINTACFont(const char* fileName, DMG_Font* font);
 bool DMG_WriteSINTACFont(const char* fileName, const DMG_Font* font);

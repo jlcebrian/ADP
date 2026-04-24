@@ -424,7 +424,7 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	{
 		if (lastTransparentInk != ink)
 		{
-			DebugPrintf("Amiga DrawTextSpan transparent emitter: ink=%u paper=255\n", (unsigned)ink);
+			// DebugPrintf("Amiga DrawTextSpan transparent emitter: ink=%u paper=255\n", (unsigned)ink);
 			if (!EmitTransparentTextStub(transparentTextStubCode, transparentTextStubSize, ink))
 				return;
 			lastTransparentInk = ink;
@@ -451,10 +451,10 @@ void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	uint8_t attributes = (paper << 4) | ink;
 	if (lastSolidAttributes != attributes)
 	{
-		DebugPrintf("Amiga DrawTextSpan solid emitter: ink=%u paper=%u attr=%u\n",
-			(unsigned)ink,
-			(unsigned)paper,
-			(unsigned)attributes);
+		// DebugPrintf("Amiga DrawTextSpan solid emitter: ink=%u paper=%u attr=%u\n",
+		// 	(unsigned)ink,
+		// 	(unsigned)paper,
+		// 	(unsigned)attributes);
 		if (!EmitSolidTextStub(solidTextStubCode, solidTextStubSize, ink, paper))
 			return;
 		lastSolidAttributes = attributes;

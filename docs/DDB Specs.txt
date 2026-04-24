@@ -6,7 +6,7 @@
 
     OFFSET		SIZE		DESCRIPTION
 
-    0x0000		1			DAAD version number (1 for Aventura Original and Jabato, 1989, 2 for the rest)
+    0x0000		1			DAAD version number (1 for Aventura Original and Jabato, 1989, 2 for the rest, 3 for DAAD v3)
     0x0001		1			High nibble: target machine; low nibble: target language 
     0x0002		1			Special token character (usually '_', 0x5F) which replaces current object in messages
     0x0003		1			Number of objects
@@ -58,6 +58,7 @@
            5		Atari ST
            6		Amiga
            7		Amstrad PCW
+          13        PC VGA (256 colors)
           14		Commodore Plus/4	0x7080
           15		MSX2
 

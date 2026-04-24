@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #endif
 
 #include <stdlib.h>
@@ -69,6 +70,62 @@ static void File_SetErrnoState(FileError defaultError)
 	File_SetErrorState(mapped, detail != 0 ? detail : "");
 }
 
+#ifdef _UNIX
+static bool Native_ResolveReadOnlyPathCaseInsensitive(const char* name, char* resolved, size_t resolvedSize)
+{
+	if (name == 0 || resolved == 0 || resolvedSize == 0)
+		return false;
+
+	const char* slash = StrRChr(name, '/');
+	char directory[FILE_MAX_PATH];
+	const char* leaf = name;
+
+	if (slash != 0)
+	{
+		size_t dirLength = (size_t)(slash - name);
+		if (dirLength >= sizeof(directory))
+			return false;
+		MemCopy(directory, name, dirLength);
+		directory[dirLength] = 0;
+		leaf = slash + 1;
+	}
+	else
+	{
+		StrCopy(directory, sizeof(directory), ".");
+	}
+
+	DIR* dir = opendir(directory);
+	if (dir == 0)
+		return false;
+
+	bool found = false;
+	for (;;)
+	{
+		struct dirent* entry = readdir(dir);
+		if (entry == 0)
+			break;
+		if (StrIComp(entry->d_name, leaf) != 0)
+			continue;
+
+		if (slash != 0)
+		{
+			StrCopy(resolved, resolvedSize, directory);
+			StrCat(resolved, resolvedSize, "/");
+			StrCat(resolved, resolvedSize, entry->d_name);
+		}
+		else
+		{
+			StrCopy(resolved, resolvedSize, entry->d_name);
+		}
+		found = true;
+		break;
+	}
+
+	closedir(dir);
+	return found;
+}
+#endif
+
 // ----- Native files
 
 uint64_t Native_GetPosition(File *file)
@@ -121,6 +178,11 @@ bool Native_Seek(File *file, uint64_t position)
 File *Native_Open(const char *name, FileOpenMode mode)
 {
 	void* nativeFile = (void*) fopen(name, mode == ReadOnly ? "rb" : "rb+");
+	#ifdef _UNIX
+	char resolvedName[FILE_MAX_PATH * 2];
+	if (nativeFile == 0 && mode == ReadOnly && Native_ResolveReadOnlyPathCaseInsensitive(name, resolvedName, sizeof(resolvedName)))
+		nativeFile = (void*)fopen(resolvedName, "rb");
+	#endif
 	if (nativeFile == 0)
 	{
 		File_SetErrnoState(mode == ReadOnly ? FileError_NotReadable : FileError_NotWritable);

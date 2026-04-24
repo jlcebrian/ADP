@@ -85,6 +85,7 @@ static void ShowLoaderPrompt(int parts, DDB_Language language);
 static void ShowDiskPrompt(int diskNumber, DDB_Language language);
 static const char* ResolveSelectedDDBFile(int partIndex);
 static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language);
+static const char* GetDisplaySCRFileErrorString();
 
 #ifdef _WEB
 static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language);
@@ -92,6 +93,7 @@ static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language);
 
 #ifdef _AMIGA
 extern bool VID_IsAGAAvailable();
+extern void VID_SetDisplayColorModeHint(uint8_t colorMode);
 extern void OpenKeyboard();
 extern bool OpenAudio();
 #endif
@@ -103,6 +105,13 @@ static bool FileExistsByName(const char* fileName)
 		return false;
 	File_Close(file);
 	return true;
+}
+
+static const char* GetDisplaySCRFileErrorString()
+{
+	if (DDB_GetError() == DDB_ERROR_INVALID_FILE)
+		return "Unsupported or invalid loading screen file";
+	return DDB_GetErrorString();
 }
 
 static void SetStartupPattern(const char* pattern)
@@ -590,6 +599,16 @@ static bool ProbeDAT5Header(const char* fileName, uint16_t* width, uint16_t* hei
 	if (colorMode) *colorMode = header[0x0E];
 	return true;
 }
+
+#ifdef _AMIGA
+static uint8_t GetAmigaDisplayColorModeHint(const char* fileName)
+{
+	uint8_t colorMode = 0;
+	if (ProbeDAT5Header(fileName, 0, 0, &colorMode))
+		return colorMode;
+	return DMG_DAT5_COLORMODE_PLANAR4;
+}
+#endif
 
 static bool ValidateResolvedVideoConfig(const char* fileName, DDB_Machine machine, DDB_ScreenMode screenMode, uint8_t planes)
 {
@@ -1157,6 +1176,9 @@ static void FadeOutStep(int elapsed)
 
 static void FadeOut()
 {
+	if (!VID_IsFadeEnabled())
+		return;
+
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
@@ -1453,6 +1475,9 @@ static const uint16_t fadeScale[fadeSteps] = { 256, 219, 183, 146, 110, 73, 37, 
 
 static void FadeOut()
 {
+	if (!VID_IsFadeEnabled())
+		return;
+
 	uint32_t sourcePalette[256];
 	uint32_t palette[256];
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
@@ -1517,6 +1542,7 @@ bool DDB_RunPlayer()
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(machine);
 	DDB_Version version = DDB_VERSION_2;
 	const char* introScreen = 0;
+	bool introVisible = false;
 	introScreenName[0] = 0;
 	SetStartupPattern("*");
 
@@ -1553,6 +1579,9 @@ bool DDB_RunPlayer()
 			DDB_SetError(DDB_ERROR_INVALID_FILE);
 		return false;
 	}
+	#ifdef _AMIGA
+	VID_SetDisplayColorModeHint(GetAmigaDisplayColorModeHint(ddbFileName));
+	#endif
 	VID_SetDisplayPlanesHint(displayPlanes);
 
 	#if HAS_PCX
@@ -1575,7 +1604,9 @@ bool DDB_RunPlayer()
 	if (introScreen != 0)
 	{
 		if (!VID_DisplaySCRFile(introScreen, machine, true))
-			VID_ShowError(DDB_GetErrorString());
+			VID_ShowError(GetDisplaySCRFileErrorString());
+		else
+			introVisible = true;
 	}
 
 	if (GetConfiguredPartCount() > 1)
@@ -1615,6 +1646,10 @@ bool DDB_RunPlayer()
 			return false;
 		}
 
+		#ifdef _AMIGA
+		VID_SetDisplayColorModeHint(GetAmigaDisplayColorModeHint(ddbFileName));
+		#endif
+
 		#if HAS_PCX
 		CheckIntroScreenFiles(ddbFileName, &introScreen, &selectedMachine, selectedVersion, &selectedScreenMode);
 		#else
@@ -1636,11 +1671,11 @@ bool DDB_RunPlayer()
 			screenMode = selectedScreenMode;
 			displayPlanes = selectedDisplayPlanes;
 			if (introScreen != 0)
-				VID_DisplaySCRFile(introScreen, machine, false);
+				introVisible = VID_DisplaySCRFile(introScreen, machine, false);
 		}
 		else if (introScreen != 0)
 		{
-			VID_DisplaySCRFile(introScreen, machine, false);
+			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
 		}
 	}
 
@@ -1693,7 +1728,8 @@ bool DDB_RunPlayer()
 
 	if (scrCount > 0 && ddbCount == 1)
 	{
-		VID_DisplaySCRFile(introScreen, machine, false);
+		if (!introVisible)
+			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
 		DDB_Interpreter* i = interpreter;
 		VID_MainLoop(0, WaitForKeyUpdate);
 		interpreter = i;
