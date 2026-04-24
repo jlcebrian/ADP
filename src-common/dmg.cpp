@@ -936,9 +936,14 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
 		}
 		else
 		{
+			uint16_t flags = read16BE(ptr + 0x0A);
 			entry->x = ptr[0x09];
-			if ((read16BE(ptr + 0x0A) & 0x0001) != 0)
+			if ((flags & 0x0001) != 0)
 				entry->bitDepth = 16;
+			if ((flags & 0x0010) == 0)
+				entry->flags |= DMG_FLAG_FIXED;
+			if ((flags & 0x0020) != 0)
+				entry->flags |= DMG_FLAG_BUFFERED;
 		}
 	}
 

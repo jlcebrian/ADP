@@ -153,7 +153,7 @@
                 Bit 1       0: pause the game while playing, 1: play sound in background
                 Bit 2       0: sound has no loop, 1: loop sound indefinitely
 
-    0x000C		2			Offset of right channel data in file, if present
+    0x000C		4			Offset of right channel data in file, if present
     0x0010		4			Size of data in file
 
     0x0014		4			Unused

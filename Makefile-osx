@@ -13,6 +13,8 @@ OPTIM      ?= -O2
 OBJDIR := obj/osx
 OUTDIR := out
 APPDIR := $(OUTDIR)/ADP.app
+DISTDIR := daad-ready/dist
+CANONICAL_PLAYER := $(DISTDIR)/ASSETS/MACOS_EXPERIMENTAL/ADP-EXPERIMENTAL.app/Contents/MacOS/ADP
 PLAYER_TARGET := $(OUTDIR)/player
 TOOL_TARGETS := $(OUTDIR)/dmg $(OUTDIR)/chr $(OUTDIR)/ddb $(OUTDIR)/dsk
 
@@ -82,6 +84,8 @@ $(APPDIR): $(PLAYER_TARGET) | $(OUTDIR)
 	@cp $(PLAYER_TARGET) $(APPDIR)/Contents/MacOS/ADP
 	@cp lib/logo.icns $(APPDIR)/Contents/Resources/ADP.icns
 	@cp lib/Info.plist $(APPDIR)/Contents/Info.plist
+	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
+	@cp $(PLAYER_TARGET) "$(CANONICAL_PLAYER)"
 
 $(OUTDIR)/dmg: $(COMMON_OBJS) $(TOOL_OBJS) $(OBJDIR)/tool_dmg.o | $(OUTDIR)
 	$(info Linking $@)

@@ -41,6 +41,8 @@ objects := $(cpp_objects) $(c_objects) $(s_objects) $(zx0_s_object) $(zx0_fast_s
 exename = adp
 program = out/amiga/$(exename)
 OUT = $(program)
+DISTDIR = daad-ready/dist
+CANONICAL_PLAYER = $(DISTDIR)/ASSETS/AMIGA_EXPERIMENTAL/ADP.EXE
 BOOTBLOCK = src-amiga/bootblock.bin
 STARTUP_SEQUENCE = src-amiga/Startup-Sequence
 FLOPPY_DIR = out/amiga/floppy
@@ -110,6 +112,8 @@ $(OUT).exe: $(OUT).elf
 ifdef SHRINKLER	
 	@$(SHRINKLER) $(OUT).exe $(OUT).exe
 endif
+	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
+	@cp "$(OUT).exe" "$(CANONICAL_PLAYER)"
 
 $(ADF_STAGE_DIR):
 	mkdir -p "$(ADF_STAGE_DIR)/S"

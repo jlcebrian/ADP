@@ -50,6 +50,8 @@ ADPC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib 
 
 OBJDIR := obj/unix
 OUTDIR := out
+DISTDIR := daad-ready/dist
+CANONICAL_PLAYER := $(DISTDIR)/ASSETS/LINUX_EXPERIMENTAL/player
 PLAYER_TARGET := $(OUTDIR)/player
 TOOL_TARGETS := $(OUTDIR)/dmg $(OUTDIR)/chr $(OUTDIR)/ddb $(OUTDIR)/dsk
 ADPC_TARGET := $(OUTDIR)/adpc
@@ -99,6 +101,8 @@ $(ADPC_TARGET): $(ADPC_OBJS) $(ADPC_COMMON_OBJS) | $(OUTDIR)
 $(PLAYER_TARGET): $(COMMON_OBJS) $(PLAYER_OBJ) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(LDFLAGS)
+	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
+	@cp "$@" "$(CANONICAL_PLAYER)"
 
 clean:
 	rm -f $(OBJDIR)/*.o $(OBJDIR)/*.d $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)

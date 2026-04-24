@@ -23,6 +23,8 @@ VASM     = vasmm68k_mot
 OUTDIR := out/atarist
 TARGET := $(OUTDIR)/adp.prg
 DUMP   := $(OUTDIR)/adp.dump
+DISTDIR := daad-ready/dist
+CANONICAL_TARGET := $(DISTDIR)/ASSETS/ATARIST_EXPERIMENTAL/adp.prg
 
 ifeq ($(UPX),1)
 PACK_CMD = upx $(UPXFLAGS) $(TARGET) >/dev/null
@@ -131,6 +133,8 @@ ifeq ($(DEBUG),0)
 	$(STRIP) $@
 	$(PACK_CMD)
 endif
+	@mkdir -p "$(dir $(CANONICAL_TARGET))"
+	@cp "$@" "$(CANONICAL_TARGET)"
 	@find tests/atarist/ -type d -exec echo cp $(TARGET) {} \;
 	@find tests/atarist/ -type d -exec cp $(TARGET) {} \;
 

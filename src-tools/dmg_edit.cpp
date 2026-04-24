@@ -884,7 +884,7 @@ bool DMG_SetEntryConversionPalette(DMG* dmg, uint8_t index, const DMG_CVPal* pal
 	return true;
 }
 
-bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq)
+bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint32_t size, DMG_KHZ freq, uint8_t bitDepth)
 {
 	if (dmg->version == DMG_Version5 && !DMG_EnsureDAT5EntryRange(dmg, index))
 		return false;
@@ -897,6 +897,12 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
         dmg->version == DMG_Version1_PCW)
     {
         DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+        return false;
+    }
+
+    if (dmg->version != DMG_Version5 && size > 0xFFFFu)
+    {
+        DMG_SetError(DMG_ERROR_FILE_TOO_BIG);
         return false;
     }
 
@@ -925,6 +931,7 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
         if (!DMG_StoreEntryData(dmg, index, buffer, size))
             return false;
         entry->type = DMGEntry_Audio;
+        entry->bitDepth = bitDepth;
         entry->fileOffset = 0;
         entry->length = size;
         entry->x = freq;
@@ -958,6 +965,7 @@ bool DMG_SetAudioData (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, 
         return false;
 
 	entry->type = DMGEntry_Audio;
+    entry->bitDepth = bitDepth;
 	entry->fileOffset = 0;
 	entry->length = size;
 	entry->x = freq;
@@ -1639,7 +1647,12 @@ bool DMG_Save(DMG* dmg)
                 }
                 else
                 {
+                    uint16_t flags = 0;
                     buffer[0x09] = (uint8_t)entry->x;
+                    if (entry->bitDepth == 16) flags |= 0x0001;
+                    if ((entry->flags & DMG_FLAG_FIXED) == 0) flags |= 0x0010;
+                    if (entry->flags & DMG_FLAG_BUFFERED) flags |= 0x0020;
+                    write16(buffer + 0x0A, flags, false);
                 }
             }
             if (File_Write(dmg->file, buffer, sizeof(buffer)) != sizeof(buffer))

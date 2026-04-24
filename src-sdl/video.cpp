@@ -299,6 +299,7 @@ static uint8_t* audioPtr;
 static uint8_t* audioEnd;
 static int mixVolume = 256;
 static int inputHz;
+static uint8_t audioBitsPerSample = 8;
 static int outputHz;
 static int mixCounter = 0;
 
@@ -1966,8 +1967,9 @@ void VID_MainLoop (DDB_Interpreter* interpreter, void (*callback)(int elapsed))
 
 void SDLCALL VID_FillAudio (void *udata, Uint8 *stream, int len)
 {
-	Uint8* end = stream + len;
-	memset(stream, 128, len);
+	Sint16* out = (Sint16*)stream;
+	Sint16* end = out + len / (int)sizeof(Sint16);
+	memset(stream, 0, len);
 
 	if (audioPtr == NULL)
 		return;
@@ -1979,13 +1981,18 @@ void SDLCALL VID_FillAudio (void *udata, Uint8 *stream, int len)
 	{
 		while (mixCounter <= 0)
 		{
-			*stream++ = 0x80 + (((*audioPtr - 0x80) * mixVolume) >> 8);
-			if (stream >= end) return;
+			int32_t sample = 0;
+			if (audioBitsPerSample == 16)
+				sample = ((int32_t)(int16_t)((uint16_t)audioPtr[0] | ((uint16_t)audioPtr[1] << 8)) * mixVolume) >> 8;
+			else
+				sample = ((((int32_t)*audioPtr - 0x80) << 8) * mixVolume) >> 8;
+			*out++ = (Sint16)sample;
+			if (out >= end) return;
 			mixCounter += inputHz;
 		}
 		while (mixCounter > 0)
 		{
-			audioPtr++;
+			audioPtr += audioBitsPerSample == 16 ? 2 : 1;
 			if (audioPtr >= audioEnd) return;
 			mixCounter -= outputHz;
 		}
@@ -1999,6 +2006,7 @@ void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int v)
 	audioEnd = (uint8_t*)buffer + samples;
 	inputHz = hz;
 	mixVolume = v;
+	audioBitsPerSample = 8;
 	SDL_UnlockAudio();
 
 	// fprintf(stderr, "PlaySampleBuffer: %d samples, %d Hz, %d volume\n", samples, hz, v);
@@ -2020,6 +2028,7 @@ void VID_PlaySample (uint8_t picno, int* duration)
 	audioPtr = audioData;
 	audioEnd = audioPtr + entry->length;
 	mixVolume = 256;
+	audioBitsPerSample = entry->bitDepth == 16 ? 16 : 8;
 	switch (entry->x)
 	{
 		case DMG_5KHZ:     inputHz =  5000; break;
@@ -2035,7 +2044,7 @@ void VID_PlaySample (uint8_t picno, int* duration)
 	SDL_UnlockAudio();
 
 	if (duration != NULL)
-		*duration = entry->length * 1000 / inputHz;
+		*duration = (entry->length / (audioBitsPerSample == 16 ? 2 : 1)) * 1000 / inputHz;
 }
 
 void VID_InitAudio ()
@@ -2043,7 +2052,7 @@ void VID_InitAudio ()
 	SDL_AudioSpec wanted;
 	memset(&wanted, 0, sizeof(wanted));
     wanted.freq = 30000;
-    wanted.format = AUDIO_U8;
+	wanted.format = AUDIO_S16SYS;
     wanted.channels = 1;    /* 1 = mono, 2 = stereo */
     wanted.samples = 1024;  /* Good low-latency value for callback */
     wanted.callback = VID_FillAudio;

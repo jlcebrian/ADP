@@ -451,7 +451,7 @@ bool        DMG_SetEntryConversionPalette(DMG* dmg, uint8_t index, const DMG_CVP
 bool        DMG_EnsureEditableEntryData(DMG* dmg);
 bool		DMG_SetImageData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint16_t size, bool compressed);
 bool        DMG_SetImageDataEx     (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t width, uint16_t height, uint32_t size, bool compressed, uint8_t bitDepth);
-bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint16_t size, DMG_KHZ freq);
+bool        DMG_SetAudioData       (DMG* dmg, uint8_t index, uint8_t* buffer, uint32_t size, DMG_KHZ freq, uint8_t bitDepth);
 bool        DMG_ReuseEntryData     (DMG* dmg, uint8_t index, uint8_t originalIndex);
 void        DMG_ClearSavePriority  (DMG* dmg);
 bool        DMG_AddSavePriority    (DMG* dmg, uint8_t index);

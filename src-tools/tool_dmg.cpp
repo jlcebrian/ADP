@@ -121,7 +121,10 @@ static uint16_t createImportWidth = 0;
 static uint16_t createImportHeight = 0;
 static bool compressionEnabled = true;
 static bool ignoreMissingWildcards = false;
+static bool convertAudioToMono8 = false;
 static char commandError[512];
+static char audioLoadError[256];
+static char audioLoadWarning[256];
 static bool preferIFFDirectoryImports = false;
 
 static void ClearCommandError()
@@ -141,6 +144,96 @@ static bool SetCommandError(const char* format, ...)
 static const char* GetCommandError()
 {
     return commandError[0] != 0 ? commandError : "Invalid arguments";
+}
+
+static void ClearAudioLoadError()
+{
+    audioLoadError[0] = 0;
+}
+
+static void ClearAudioLoadWarning()
+{
+    audioLoadWarning[0] = 0;
+}
+
+static bool SetAudioLoadError(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(audioLoadError, sizeof(audioLoadError), format, args);
+    va_end(args);
+    return false;
+}
+
+static const char* GetAudioLoadError()
+{
+    return audioLoadError[0] != 0 ? audioLoadError : DMG_GetErrorString();
+}
+
+static bool SetAudioLoadWarning(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(audioLoadWarning, sizeof(audioLoadWarning), format, args);
+    va_end(args);
+    return true;
+}
+
+static const char* GetAudioLoadWarning()
+{
+    return audioLoadWarning;
+}
+
+static bool SetInvalidAudioFormat(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(audioLoadError, sizeof(audioLoadError), format, args);
+    va_end(args);
+    DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+    return false;
+}
+
+static bool TryMapNearestWaveSampleRate(uint32_t samplesPerSec, DMG_KHZ* freq, uint32_t* mappedSamplesPerSec)
+{
+    static const struct
+    {
+        uint32_t samplesPerSec;
+        DMG_KHZ freq;
+    }
+    supportedRates[] =
+    {
+        { 5000,  DMG_5KHZ },
+        { 7000,  DMG_7KHZ },
+        { 9500,  DMG_9_5KHZ },
+        { 15000, DMG_15KHZ },
+        { 20000, DMG_20KHZ },
+        { 30000, DMG_30KHZ },
+        { 44100, DMG_44_1KHZ },
+        { 48000, DMG_48KHZ },
+    };
+
+    uint32_t bestDistance = 0xFFFFFFFFu;
+    int bestIndex = -1;
+
+    for (int i = 0; i < (int)(sizeof(supportedRates) / sizeof(supportedRates[0])); i++)
+    {
+        uint32_t candidate = supportedRates[i].samplesPerSec;
+        uint32_t distance = candidate > samplesPerSec ? candidate - samplesPerSec : samplesPerSec - candidate;
+        if (bestIndex < 0 || distance < bestDistance || (distance == bestDistance && candidate < supportedRates[bestIndex].samplesPerSec))
+        {
+            bestDistance = distance;
+            bestIndex = i;
+        }
+    }
+
+    if (bestIndex < 0)
+        return false;
+
+    *freq = supportedRates[bestIndex].freq;
+    if (mappedSamplesPerSec != 0)
+        *mappedSamplesPerSec = supportedRates[bestIndex].samplesPerSec;
+    return true;
 }
 
 typedef struct
@@ -395,6 +488,7 @@ static void PrintHelp()
     printf("   -json auto|off|<file> Use adjacent JSON metadata, disable it, or force a file\n");
     printf("   -clone <n>         Clone entry data from another slot as an input source\n");
     printf("   -amiga-hack|-noamiga-hack Toggle the classic DAT Amiga 4-bit palette marker on the adjacent file\n");
+    printf("   -audio-8bit        Convert imported WAV files to 8-bit mono PCM\n");
     printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: min, reserve, std, dark, A-B\n");
     printf("   -priority <list>   Rebuild order preference for update/create\n");
     printf("   -ignore-missing    Ignore unmatched wildcard file arguments\n");
@@ -586,6 +680,18 @@ static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions
 
     Free(json);
     return true;
+}
+
+static bool LoadPendingOptionsFromSidecar(const char* sourceFile, PendingInputOptions* options)
+{
+    char sidecar[FILE_MAX_PATH];
+
+    BuildSidecarPath(sourceFile, ".json", sidecar, sizeof(sidecar));
+    if (LoadPendingOptionsFromJson(sidecar, options))
+        return true;
+
+    BuildSidecarPath(sourceFile, ".JSON", sidecar, sizeof(sidecar));
+    return LoadPendingOptionsFromJson(sidecar, options);
 }
 
 typedef struct
@@ -1487,7 +1593,7 @@ static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t*
     return true;
 }
 
-static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ sampleRate)
+static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ sampleRate, uint8_t bitDepth)
 {
 	struct WAVHeader wav;
 	File* file = File_Create(filename);
@@ -1496,11 +1602,20 @@ static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ s
 	if (file == NULL)
 		return false;
 
-	// Some samples have 0 padding at the end which produces nasty clicks
-	ptr = data + size - 1;
-	while (ptr > data && *ptr == 0)
-		ptr--;
-	size = ptr - data + 1;
+    if (size == 0)
+    {
+        File_Close(file);
+        return false;
+    }
+
+    // Some samples have 0 padding at the end which produces nasty clicks.
+    // Keep 16-bit data aligned to sample boundaries.
+    ptr = data + size - 1;
+    while (ptr > data && *ptr == 0)
+        ptr--;
+    size = ptr - data + 1;
+    if (bitDepth == 16 && (size & 1) != 0)
+        size++;
 
 	memcpy(wav.riff, "RIFF", 4);
 	wav.fileSize = 36 + size;
@@ -1521,9 +1636,9 @@ static bool SaveWAV (const char* filename, uint8_t* data, size_t size, DMG_KHZ s
         case DMG_48KHZ:   wav.samplesPerSec = 48000; break;
 		default:          wav.samplesPerSec = 11025; break;
 	}
-	wav.avgBytesPerSec = wav.samplesPerSec;
-	wav.blockAlign = 1;
-	wav.bitsPerSample = 8;
+    wav.avgBytesPerSec = wav.samplesPerSec * (bitDepth / 8);
+    wav.blockAlign = bitDepth / 8;
+    wav.bitsPerSample = bitDepth;
 	memcpy(wav.data, "data", 4);
 	wav.dataSize = size;
 
@@ -1685,8 +1800,11 @@ static bool TryMapWaveSampleRate(uint32_t samplesPerSec, DMG_KHZ* freq)
     return false;
 }
 
-static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBufferSize, uint32_t* sampleDataSize, DMG_KHZ* sampleRate)
+static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBufferSize, uint32_t* sampleDataSize, DMG_KHZ* sampleRate, uint8_t* sampleBitDepth)
 {
+    ClearAudioLoadError();
+    ClearAudioLoadWarning();
+
     File* file = File_Open(fileName, ReadOnly);
     if (file == 0)
     {
@@ -1698,8 +1816,7 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
     if (fileSize64 < 44 || fileSize64 > 0xFFFFFFFFu)
     {
         File_Close(file);
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("Not a valid WAV file");
     }
 
     uint32_t fileSize = (uint32_t)fileSize64;
@@ -1727,8 +1844,7 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
     uint8_t* fileData = *ioBuffer;
     if (memcmp(fileData + 0, "RIFF", 4) != 0 || memcmp(fileData + 8, "WAVE", 4) != 0)
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("Not a RIFF/WAVE file");
     }
 
     bool haveFmt = false;
@@ -1749,16 +1865,14 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
         offset += 8;
         if (chunkSize > fileSize - offset)
         {
-            DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-            return false;
+            return SetInvalidAudioFormat("Truncated WAV chunk");
         }
 
         if (memcmp(chunk + 0, "fmt ", 4) == 0)
         {
             if (chunkSize < 16)
             {
-                DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-                return false;
+                return SetInvalidAudioFormat("Invalid WAV format chunk");
             }
             format = ReadLE16(fileData + offset + 0);
             channels = ReadLE16(fileData + offset + 2);
@@ -1779,30 +1893,34 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
 
     if (!haveFmt || !haveData || dataChunk == 0)
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("Missing WAV format or data chunks");
     }
     if (format != 1 || (channels != 1 && channels != 2) || (bitsPerSample != 8 && bitsPerSample != 16))
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("Must be PCM WAV with 8-bit or 16-bit mono/stereo samples");
     }
     if (blockAlign == 0 || dataChunkSize < blockAlign)
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("Invalid WAV block alignment");
     }
     if (!TryMapWaveSampleRate(samplesPerSec, sampleRate))
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        uint32_t mappedSamplesPerSec = 0;
+        if (!TryMapNearestWaveSampleRate(samplesPerSec, sampleRate, &mappedSamplesPerSec))
+            return SetInvalidAudioFormat("Unsupported sample rate %u Hz", samplesPerSec);
+        SetAudioLoadWarning("Unsupported sample rate %u Hz, using nearest supported rate %u Hz", samplesPerSec, mappedSamplesPerSec);
+    }
+
+    if (!convertAudioToMono8 && channels != 1)
+    {
+        const char* channelText = channels == 1 ? "mono" : "stereo";
+        return SetAudioLoadError("%u-bit %s PCM; use -audio-8bit to import it as 8-bit mono", bitsPerSample, channelText);
     }
 
     uint32_t sampleCount = dataChunkSize / blockAlign;
-    if (sampleCount == 0 || sampleCount > 0xFFFFu)
+    if (sampleCount == 0)
     {
-        DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-        return false;
+        return SetInvalidAudioFormat("No sample data");
     }
 
     uint8_t* output = *ioBuffer;
@@ -1810,6 +1928,16 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
     {
         if (dataChunk != output)
             MemMove(output, dataChunk, sampleCount);
+        *sampleDataSize = sampleCount;
+        *sampleBitDepth = 8;
+    }
+    else if (channels == 1 && bitsPerSample == 16 && !convertAudioToMono8)
+    {
+        uint32_t outputBytes = sampleCount * 2;
+        if (dataChunk != output)
+            MemMove(output, dataChunk, outputBytes);
+        *sampleDataSize = outputBytes;
+        *sampleBitDepth = 16;
     }
     else if (channels == 1 && bitsPerSample == 16)
     {
@@ -1818,6 +1946,8 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
             int16_t sample = (int16_t)ReadLE16(dataChunk + i * 2);
             output[i] = (uint8_t)(((int32_t)sample + 32768) >> 8);
         }
+        *sampleDataSize = sampleCount;
+        *sampleBitDepth = 8;
     }
     else if (channels == 2 && bitsPerSample == 8)
     {
@@ -1827,6 +1957,8 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
             uint32_t right = dataChunk[i * 2 + 1];
             output[i] = (uint8_t)((left + right) >> 1);
         }
+        *sampleDataSize = sampleCount;
+        *sampleBitDepth = 8;
     }
     else
     {
@@ -1837,9 +1969,9 @@ static bool LoadWAVFile(const char* fileName, uint8_t** ioBuffer, uint32_t* ioBu
             int32_t mixed = ((int32_t)left + (int32_t)right) / 2;
             output[i] = (uint8_t)((mixed + 32768) >> 8);
         }
+        *sampleDataSize = sampleCount;
+        *sampleBitDepth = 8;
     }
-
-    *sampleDataSize = sampleCount;
     return true;
 }
 
@@ -2171,7 +2303,7 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
                     if (saveToFile)
                     {
                         outputFileName = MakeFileName(extractOutputDirectory, n, "wav");
-                        if (!SaveWAV(outputFileName, buffer, entry->length, (DMG_KHZ)entry->x))
+                        if (!SaveWAV(outputFileName, buffer, entry->length, (DMG_KHZ)entry->x, entry->bitDepth == 16 ? 16 : 8))
                         {
                             fprintf(stderr, "%03d: Error: Unable to write audio entry to %s\n", n, outputFileName);
                             continue;
@@ -3023,6 +3155,21 @@ static bool IsRemapToken(const char* token)
 static bool IsCreateToken(const char* token)
 {
     return strnicmp(token, "mode:", 5) == 0 || strnicmp(token, "screen:", 7) == 0 || strnicmp(token, "2x:", 3) == 0;
+}
+
+static bool ParseGlobalAudioImportToken(const char* token)
+{
+    if (stricmp(token, "audio-8bit:1") == 0)
+    {
+        convertAudioToMono8 = true;
+        return true;
+    }
+    return false;
+}
+
+static bool IsGlobalAudioImportToken(const char* token)
+{
+    return stricmp(token, "audio-8bit:1") == 0;
 }
 
 static bool IsDAT5ScreenToken(const char* token)
@@ -4590,11 +4737,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     }
 
     if (pendingInputOptions.useSidecarJson)
-    {
-        char sidecar[FILE_MAX_PATH];
-        BuildSidecarPath(path, ".json", sidecar, sizeof(sidecar));
-        LoadPendingOptionsFromJson(sidecar, &effectiveOptions);
-    }
+        LoadPendingOptionsFromSidecar(path, &effectiveOptions);
     else if (pendingInputOptions.hasJsonFile)
     {
         LoadPendingOptionsFromJson(pendingInputOptions.jsonFile, &effectiveOptions);
@@ -4963,6 +5106,10 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
     const char* filepart = slash ? slash + 1 : backslash ? backslash + 1 : token;
     int targetIndex = -1;
 
+    PendingInputOptions effectiveOptions;
+    MemClear(&effectiveOptions, sizeof(effectiveOptions));
+    effectiveOptions.useSidecarJson = true;
+
     if (HasPendingAudioUnsupportedOptions())
     {
         fprintf(stderr, "Error: Audio input \"%s\" does not support image-only options\n", token);
@@ -5002,37 +5149,51 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
         }
     }
 
+    if (pendingInputOptions.useSidecarJson)
+        LoadPendingOptionsFromSidecar(path, &effectiveOptions);
+    else if (pendingInputOptions.hasJsonFile)
+    {
+        LoadPendingOptionsFromJson(pendingInputOptions.jsonFile, &effectiveOptions);
+    }
+
+    if (pendingInputOptions.hasBuffer) { effectiveOptions.hasBuffer = true; effectiveOptions.buffer = pendingInputOptions.buffer; }
+    if (pendingInputOptions.hasFixed) { effectiveOptions.hasFixed = true; effectiveOptions.fixed = pendingInputOptions.fixed; }
+
     DMG_KHZ sampleRate;
     uint32_t sampleSize = 0;
-    if (!LoadWAVFile(path, &buffer, &bufferSize, &sampleSize, &sampleRate))
+    uint8_t sampleBitDepth = 8;
+    if (!LoadWAVFile(path, &buffer, &bufferSize, &sampleSize, &sampleRate, &sampleBitDepth))
     {
         if (pendingInputOptions.fromDirectoryImport)
         {
-            fprintf(stderr, "%03d: Warning: Unable to load audio \"%s\": %s\n", targetIndex, path, DMG_GetErrorString());
+            fprintf(stderr, "%03d: Warning: Unable to load audio \"%s\": %s\n", targetIndex, path, GetAudioLoadError());
             ResetPendingInputOptions();
             return true;
         }
-        fprintf(stderr, "Error: Unable to load audio \"%s\": %s\n", path, DMG_GetErrorString());
+        fprintf(stderr, "Error: Unable to load audio \"%s\": %s\n", path, GetAudioLoadError());
         return false;
     }
 
-    if (!DMG_SetAudioData(dmg, (uint8_t)targetIndex, buffer, (uint16_t)sampleSize, sampleRate))
+    if (!DMG_SetAudioData(dmg, (uint8_t)targetIndex, buffer, sampleSize, sampleRate, sampleBitDepth))
     {
         fprintf(stderr, "Error: Unable to set audio data: %s\n", DMG_GetErrorString());
         return false;
     }
 
+    if (GetAudioLoadWarning()[0] != 0)
+        fprintf(stderr, "%03d: Warning: %s\n", targetIndex, GetAudioLoadWarning());
+
     DMG_Entry* entry = DMG_GetEntry(dmg, (uint8_t)targetIndex);
     if (entry != 0)
     {
-        if (pendingInputOptions.hasBuffer)
+        if (effectiveOptions.hasBuffer)
         {
-            if (pendingInputOptions.buffer) entry->flags |= DMG_FLAG_BUFFERED;
+            if (effectiveOptions.buffer) entry->flags |= DMG_FLAG_BUFFERED;
             else entry->flags &= ~DMG_FLAG_BUFFERED;
         }
-        if (pendingInputOptions.hasFixed)
+        if (effectiveOptions.hasFixed)
         {
-            if (pendingInputOptions.fixed) entry->flags |= DMG_FLAG_FIXED;
+            if (effectiveOptions.fixed) entry->flags |= DMG_FLAG_FIXED;
             else entry->flags &= ~DMG_FLAG_FIXED;
         }
         DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
@@ -5110,6 +5271,9 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
         }
 
         if (IsGlobalImportSizeToken(token))
+            continue;
+
+        if (IsGlobalAudioImportToken(token))
             continue;
 
         if (IsInputOptionToken(token))
@@ -5345,14 +5509,14 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 
 		if (entry->type == DMGEntry_Audio)
 		{
-			uint16_t size = entry->length;
+            uint32_t size = entry->length;
 			uint8_t* data = DMG_GetEntryData(dmg, n, ImageMode_Audio);
 			if (data == 0)
 			{
 				fprintf(stderr, "%03d: Error: Unable to read audio entry: %s\n", n, DMG_GetErrorString());
 				continue;
 			}
-			if (!DMG_SetAudioData(out, n, data, size, (DMG_KHZ)entry->x))
+            if (!DMG_SetAudioData(out, n, data, size, (DMG_KHZ)entry->x, entry->bitDepth == 16 ? 16 : 8))
 			{
 				fprintf(stderr, "Error: Unable to set audio data: %s\n", DMG_GetErrorString());
 				DMG_Close(out);
@@ -5561,6 +5725,14 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
                 return false;
             }
         }
+        else if (IsGlobalAudioImportToken(tokens[i]))
+        {
+            if (!ParseGlobalAudioImportToken(tokens[i]))
+            {
+                fprintf(stderr, "Error: Invalid audio import setting: \"%s\"\n", tokens[i]);
+                return false;
+            }
+        }
         else if (strnicmp(tokens[i], "mode:", 5) == 0)
         {
             createDAT5 = true;
@@ -5653,6 +5825,8 @@ static bool UpdateTokenRequiresRebuild(const char* token)
         return true;
     if (IsCompressionToken(token))
         return true;
+    if (IsGlobalAudioImportToken(token))
+        return false;
     if (IsDAT5ModeToken(token))
         return true;
     if (IsDAT5ScreenToken(token))
@@ -5693,6 +5867,7 @@ static void ResetCommandExecutionState(Action commandAction)
     remapRangeLast = 0;
     compressionEnabled = true;
     ignoreMissingWildcards = false;
+    convertAudioToMono8 = false;
     ResetPriorityEntries();
     ClearSelection(selected);
 }
@@ -6106,6 +6281,7 @@ static bool TranslateModernArguments(Action action, int inputCount, const char* 
         if (MatchFlagToken(token, "--nocompress")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "compression:0", token)) return false; continue; }
         if (MatchFlagToken(token, "--amiga-hack")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-amiga-hack:1", token)) return false; continue; }
         if (MatchFlagToken(token, "--noamiga-hack")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-amiga-hack:0", token)) return false; continue; }
+        if (MatchFlagToken(token, "--audio-8bit")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "audio-8bit:1", token)) return false; continue; }
         if ((action == ACTION_EXTRACT || action == ACTION_EXTRACT_PALETTES) && MatchFlagToken(token, "--nojson")) { if (!AppendTranslatedArgument(translatedArgs, translatedCount, maxTranslatedArgs, "set-json:off", token)) return false; continue; }
         inlineValue = MatchOptionValueToken(token, "--x");
         if (inlineValue != 0)

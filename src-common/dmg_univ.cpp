@@ -379,6 +379,14 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		bufferSize = DMG_GetTemporaryBufferSize();
 		if (bufferSize < requiredSize)
 		{
+			if (mode == ImageMode_Audio && DMG_ReserveTemporaryBuffer(requiredSize))
+			{
+				buffer = DMG_GetTemporaryBuffer(mode);
+				bufferSize = DMG_GetTemporaryBufferSize();
+			}
+		}
+		if (bufferSize < requiredSize)
+		{
 			DMG_Warning("Entry %d: Internal buffer too small for entry (%d bytes required)", index, requiredSize);
 			DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
 			return 0;

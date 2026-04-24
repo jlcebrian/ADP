@@ -23,6 +23,13 @@ UPXFLAGS    ?= -q -5
 
 OBJDIR := obj/win64
 OUTDIR := out/win64
+DISTDIR := daad-ready/dist
+CANONICAL_TOOL_DIR := $(DISTDIR)/TOOLS/ADP
+CANONICAL_PLAYER := $(DISTDIR)/ASSETS/WINDOWS_EXPERIMENTAL/adp-player.exe
+CANONICAL_DDB := $(CANONICAL_TOOL_DIR)/ddb.exe
+CANONICAL_DMG := $(CANONICAL_TOOL_DIR)/dmg.exe
+CANONICAL_CHR := $(CANONICAL_TOOL_DIR)/chr.exe
+CANONICAL_DSK := $(CANONICAL_TOOL_DIR)/dsk.exe
 
 PLAYER_TARGET := $(OUTDIR)/player.exe
 DDB_TARGET := $(OUTDIR)/ddb.exe
@@ -161,26 +168,36 @@ $(DDB_TARGET): $(OBJDIR)/tool_ddb.o $(TOOL_LIB) $(COMMON_LIB) $(DDB_RES) | $(OUT
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
 	@$(POSTPROCESS_CMD)
+	@mkdir -p "$(dir $(CANONICAL_DDB))"
+	@cp "$@" "$(CANONICAL_DDB)"
 
 $(PLAYER_TARGET): $(PLAYER_OBJ) $(COMMON_LIB) $(PLAYER_RES) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(PLAYER_LDFLAGS)
 	@$(POSTPROCESS_CMD)
+	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
+	@cp "$@" "$(CANONICAL_PLAYER)"
 
 $(DMG_TARGET): $(OBJDIR)/tool_dmg.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
 	@$(POSTPROCESS_CMD)
+	@mkdir -p "$(dir $(CANONICAL_DMG))"
+	@cp "$@" "$(CANONICAL_DMG)"
 
 $(CHR_TARGET): $(OBJDIR)/tool_chr.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
 	@$(POSTPROCESS_CMD)
+	@mkdir -p "$(dir $(CANONICAL_CHR))"
+	@cp "$@" "$(CANONICAL_CHR)"
 
 $(DSK_TARGET): $(OBJDIR)/tool_dsk.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
 	@$(POSTPROCESS_CMD)
+	@mkdir -p "$(dir $(CANONICAL_DSK))"
+	@cp "$@" "$(CANONICAL_DSK)"
 
 $(DC_TARGET): $(DC_OBJS) $(DC_COMMON_OBJS) | $(OUTDIR)
 	$(info Linking $@)
