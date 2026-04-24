@@ -4,7 +4,7 @@
 #include <os_lib.h>
 #include <dmg.h>
 
-#ifdef _AMIGA
+#if defined(_AMIGA) || defined(_ATARIST)
 extern void VID_PresentDefaultScreen();
 extern void VID_SetPaletteRangeFast(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank);
 #endif
@@ -31,7 +31,7 @@ void VID_ResetDisplay()
 #endif
 }
 
-#ifndef _AMIGA
+#if !defined(_AMIGA) && !defined(_ATARIST)
 void VID_SetPaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
 {
 	uint16_t paletteSize = VID_GetPaletteSize();
@@ -63,9 +63,16 @@ void VID_SetPaletteEntries(const uint32_t* palette, uint16_t count, uint16_t fir
 }
 #endif
 
+#ifdef _ATARIST
+void VID_SetPaletteEntries(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
+{
+	VID_SetPaletteRangeFast(palette, count, firstColor, clearOutside, waitForVBlank);
+}
+#endif
+
 void VID_SetPaletteRange(const uint32_t* palette, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVBlank)
 {
-#ifdef _AMIGA
+#if defined(_AMIGA) || defined(_ATARIST)
 	VID_SetPaletteRangeFast(palette, count, firstColor, clearOutside, waitForVBlank);
 #else
 	VID_SetPaletteEntries(palette, count, firstColor, clearOutside, waitForVBlank);

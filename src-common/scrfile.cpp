@@ -4,7 +4,14 @@
 
 static bool SCR_HasPI1Header(const uint8_t* data, uint64_t size)
 {
-	return size == 32034 && data[0] == 0x00 && data[1] == 0x00;
+	(void)data;
+	return size == 32034 || size == 32066;
+}
+
+static bool SCR_HasFalconRawHeader(const uint8_t* data, uint64_t size)
+{
+	return size == (uint64_t)(4 + 256 * 3 + 64000) &&
+		data[0] == 'F' && data[1] == 'C' && data[2] == 'R' && data[3] == '1';
 }
 
 static void SCR_DecodePlanarST(const uint8_t* data, uint8_t* output, int width, int height, uint32_t* palette)
@@ -39,6 +46,45 @@ static void SCR_DecodePlanarST(const uint8_t* data, uint8_t* output, int width, 
 	}
 }
 
+static void SCR_DecodePlanarFalcon(const uint8_t* data, uint8_t* output, int width, int height, uint32_t* palette)
+{
+	const uint8_t* filePalette = data + 4;
+	for (int n = 0; n < 256; n++)
+	{
+		palette[n] = 0xFF000000UL |
+			((uint32_t)filePalette[n * 3 + 0] << 16) |
+			((uint32_t)filePalette[n * 3 + 1] << 8) |
+			(uint32_t)filePalette[n * 3 + 2];
+	}
+
+	const uint8_t* imageData = data + 4 + 256 * 3;
+	for (int y = 0; y < 200 && y < height; y++)
+	{
+		const uint8_t* row = imageData + y * 320;
+		uint8_t* ptr = output + y * width;
+		for (int x = 0; x < 320; x += 16)
+		{
+			uint16_t planes[8];
+			for (int plane = 0; plane < 8; plane++)
+				planes[plane] = (uint16_t)(row[plane * 2] << 8) | row[plane * 2 + 1];
+
+			int mask = 0x8000;
+			do
+			{
+				uint8_t color = 0;
+				for (int plane = 0; plane < 8; plane++)
+					if (planes[plane] & mask)
+						color |= (uint8_t)(1u << plane);
+				*ptr++ = color;
+				mask >>= 1;
+			}
+			while (mask != 0);
+
+			row += 16;
+		}
+	}
+}
+
 bool SCR_GetScreen (const char* fileName, DDB_Machine target, 
                     uint8_t* buffer, size_t bufferSize, 
                     uint8_t* output, int width, int height, uint32_t* palette)
@@ -60,7 +106,7 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 			return false;
 		}
 	}
-	else if (size < 16384 || size > 32768)
+	else if (size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
 		File_Close(file);
@@ -117,6 +163,12 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	if (SCR_HasPI1Header(buffer, size))
 	{
 		SCR_DecodePlanarST(buffer + 2, output, width, height, palette);
+		return true;
+	}
+
+	if (SCR_HasFalconRawHeader(buffer, size))
+	{
+		SCR_DecodePlanarFalcon(buffer, output, width, height, palette);
 		return true;
 	}
 

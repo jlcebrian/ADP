@@ -1,0 +1,546 @@
+;------------------------------------------------------------------------------------------
+;ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+;ÑÑÑÑÑ                                                                                  ÑÑÑÑÑ
+;ÑÑÑÑÑ Este es el fichero de inicio de la librería para DAAD Reborn Compiler en español ÑÑÑÑÑ
+;ÑÑÑÑÑ                                                                                  ÑÑÑÑÑ
+;ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+;------------------------------------------------------------------------------
+;
+; 'Everything is possible in this life ( but it all costs time and money! )'
+;                                                              Tim Gilberts
+;
+;                                      'And also WE ALL have to work for it'
+;                                                            Andres Samudio
+;
+;                                                                   [8-6-89]
+;
+;------------------------------------------------------------------------------
+
+
+; Por favor no quites las eñes en el recuadro justo encima, están ahí para que notes fácil-
+; mente si abres el fichero con una codificación que no es la correcta (ISO-8859-1 o Win1252)
+
+
+
+; System flags 0-63
+#define fDark               0
+#define fObjectsCarried     1
+
+#define fDarkF              28
+#define fGFlags             29     ; This is best tested using HASAT GMODE
+#define fScore              30
+#define fTurns              31    ; 2 bytes
+#define fTurnsHi            32
+
+#define fVerb               33
+#define fNoun               34
+#define fAdject1            35
+#define fAdverb             36
+#define fMaxCarr            37
+#define fPlayer             38
+#define fStream             41
+#define fPrompt             42
+#define fPrep               43
+#define fNoun2              44
+#define fAdject2            45
+#define fCPronounNoun       46
+#define fCPronounAdject     47
+#define fTimeout            48
+#define fTimeoutFlags       49
+#define fDoallObjNo         50
+#define fRefObject          51
+#define fStrength           52
+#define fObjFlags           53
+#define fRefObjLoc          54
+#define fRefObjWeight       55
+#define fRefObjIsContainer  56
+#define fRefObjisWearable   57
+#define fRefObjAttr1        58
+#define fRefObjAttr2        59
+#define fInkeyKey1          60
+#define fInkeyKey2          61
+#define fScreenMode         62     ; 2=Text, 4=CGA, 13=EGA, 141=VGA
+#define fCurrentWindow      63     ; Which window is active at the moment
+
+; Attr flags for HASAT/HASNAT
+#define WEARABLE  23            ;Current object is wearable
+#define CONTAINER 31            ;Current object is a container
+#define LISTED    55            ;Objects - listed by LISTOBJ etc
+#define OA_CLIST  54            ; - continous list
+#define OO_CLIST  64
+#define DOALL_FAIL  48          ; if doall failed to find objects
+#define HASAT_ALT 49            ; to use alternative set of flags for HASAT/HASNAT/SETAT
+#define ES_PRONOUN_240 50       ; set to avoud enclicit pronouns over 240
+#define PREP_B4_NOUN 52         ; is set if last SL had a preposition before noun  
+#define UNKNOWN_WORD 53         ; is set if last SL had an unknown word after verb
+#define TIMEOUT   87            ;If Timeout last frame
+#define IA_RBUF   85            ;Input - recall buffer
+#define IO_RBUF   32
+#define IA_PINP   84            ; - reprint in stream
+#define IO_PINP   16
+#define IA_CSTR   83            ; - clear stream
+#define IO_CSTR   8
+#define IA_TAKEY  82            ; - timeout on any key
+#define IO_TAKEY  4
+#define IA_TMORE  81            ; - timeout on More...
+#define IO_TMORE  2
+#define IA_TSTAR  80            ; - timeout at start of input
+#define IO_TSTAR  1
+#define GMODE     247           ;Graphics - available
+#define GA_MDRW   246           ; - Invisible draw (drawstring)
+#define GO_MDRW   64
+#define GA_POFF   245           ; - Pictures OFF (drawstring)
+#define GO_POFF   32
+#define GA_WKEY   244           ; - Wait after drawing (drawstring)
+#define GO_WKEY   16
+#define GA_CBOR   243           ; - Change BORDER (drawstring)
+#define GO_CBOR   8
+#define MOUSE     240           ;mouse available (!DRAW only)
+
+
+
+
+/CTL    ;Sección de control
+_
+
+;------------------------------------------------------------------------------
+/VOC    ;Vocabulario
+;                       Movimiento: verbos y nombres < 14
+N       2       noun
+NORTE   2       noun
+S       3       noun
+SUR     3       noun
+E       4       noun
+ESTE    4       noun
+O       5       noun
+OESTE   5       noun
+NE      6       noun
+NO      7       noun
+SE      8       noun
+SO      9       noun
+AR      10      noun
+ARRIBA  10      noun
+SUBIR   10      verb
+AB      11      noun
+ABAJO   11      noun
+BAJAR   11      verb
+
+
+;                       Nombres <40 indica que se pueden usar como verbos
+;                               <50 indica nombre propio (no admite lo, la...)
+I       14      noun
+INVEN   14      noun
+TODO    20      noun
+TODOS   20      noun
+TODAS   20      noun
+
+;
+LINTER  100     noun
+
+;                       Verbos
+COGER   20      verb
+DEJAR   21      verb
+SOLTAR  21      verb
+QUITAR  22      verb
+PONER   23      verb
+R       24      verb
+M       24      verb
+MIRAR   24      verb
+REDES   24      verb
+F       25      verb
+FIN     25      verb
+SAVE    26      verb
+SV      26      verb
+LOAD    27      verb
+LD      27      Verb
+RAMSA   28      verb
+RAMLO   29      verb
+EX      30      verb
+EXAMI   30      verb
+JUGAR   31      verb
+
+; Verbos por encima de 240 no aplican terminaciones pronominales. Evita que
+; HABLA sea entendido como HABLA-LA
+DECIR   240      verb
+PREGUNT 240      verb
+HABLA   240     verb
+
+;                            Adjetivos
+PEQUE   2       adjective
+GRANDE  3       adjective
+VIEJO   4       adjective
+VIEJA   4       adjective
+NUEVO   5       adjective
+NUEVA   5       adjective
+DURO    6       adjective
+DURA    6       adjective
+BLANDO  7       adjective
+CORTO   8       adjective
+CORTA   8       adjective
+LARGO   9       adjective
+LARGA   9       adjective
+;                               Adverbios
+RAPID   2       adverb
+DESPA   3       adverb
+LENTA   3       adverb
+CUIDAd  5       adverb
+;                               Prepositions
+A       2       preposition
+DE      3       preposition
+EN      4       preposition
+POR     5       preposition
+TRAVES  5       preposition
+BAJO    7       preposition
+JUNTO   8       preposition
+MENOS   13      preposition
+;                               Pronombres
+;                               Conjunciones
+Y       2       conjugation
+ENTONCE 2       conjugation
+LUEGO   2       conjugation
+
+;------------------------------------------------------------------------------
+/STX    ;Mensajes del sistema
+/0 "Está demasiado oscuro para ver nada."
+/1 "También puedo ver:"
+/2 "#n"
+/3 "#n"
+/4 "#n"
+/5 "#n"
+/6 "No he entendido nada."
+/7 "No puedo ir en esa dirección."
+/8 "No puedo hacer eso."
+/9 "Llevo:#n"
+/10 "Llevo puesto:"
+/11 "";*Libre
+/12 "¿Seguro?"
+/13 "¿Quieres intentarlo de nuevo?"
+/14 ""  ;*Libre
+/15 "Vale."
+/16 "Pulsa una tecla para continuar."
+/17 "" ;*Has jugado
+/18 "" ;*\sturno
+/19 "" ;*s
+/20 "" ; *.
+/21 "" ; *Ha resuelto un
+/22 "" ; *%
+/23 "No llevo eso puesto."
+/24 "No puedo. Tengo puesto _."
+/25 "Ya tengo _."
+/26 "Aquí no hay nada de eso."
+/27 "No puedo llevar nada más."
+/28 "No tengo eso.#n"
+/29 "Ya llevo puesto _.#n"
+/30 "S";Un solo carácter en mayúsculas. Inicial de Sí
+/31 "N"  ;Un solo carácter en mayúsculas. Inicial de No
+/32 "Hay más..."
+/33 ">"
+/34 "" ;*Libre
+/35 "#nEl tiempo pasa..."
+/36 "He cogido _."
+/37 "Me he puesto _."
+/38 "Me he quitado _."
+/39 "He dejado _."
+/40 "No puedo ponerme _."
+/41 "No puedo quitarme _."
+/42 "No puedo quitarme _.  No puedo llevar nada más en las manos."
+/43 "@ pesa demasiado para mí."
+/44 "@ está en"
+/45 "@ no está en"
+/46 ", "
+/47 " y "
+/48 ".#n"
+/49 "No tengo _."
+/50 "No llevo puesto _."
+/51 ".#n"
+/52 "No hay nada de eso en"
+/53 "Nada."
+/54 "C" ; Inicial de Cinta
+/55 "D" ; Disco
+/56 "Unidad no preparada. Pulsa una tecla para volver a intentarlo."
+/57 "Error de entrada/salida."
+/58 "El disco o el directorio puede estar lleno."
+/59 "Nombre de fichero no válido."
+/60 "Nombre del fichero:"
+/61 "Pon en marcha la cinta."
+/62 "¿Cinta o disco?"
+;------------------------------------------------------------------------------
+/MTX    ;Mensajes
+
+;------------------------------------------------------------------------------
+/OTX    ;Object Texts
+/0 "Una linterna.(encendida)"
+;------------------------------------------------------------------------------
+/LTX    ;Location Texts
+/0 "BASE DE DATOS VACIA - DAAD V2."
+/1 "Has entrado a la mazmorra, múltiples peligros te esperan, pero también grandes logros y enormes tesoros. "
+/2 "Estás en una oscura gruta."
+;------------------------------------------------------------------------------
+/CON    ;Conexiones
+/0
+/1 N 2 
+/2 S 1
+;------------------------------------------------------------------------------
+/OBJ    ;Objetos
+;num    starts at   weight    c w  5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0    noun   adjective
+/0      CARRIED       1       _ _  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _    LINTER  _
+;------------------------------------------------------------------------------
+/PRO 0   
+
+; Este proceso es el primero en ser ejecutado por DAAD, y así contiene una primera entrada que
+; salta al proceso que inicializa objetos, flags, etc. y luego cada vez que es llamado, y el
+; jugador ya no está en la localidad 0, se encarga de mostrar el gráfico y texto de la localidad
+; actual, si procede,  y saltar al proceso 1 donde está el sistema que pide órdenes al jugador.
+
+
+
+> _       _     AT      0               ; Iniciando el juego
+                PROCESS 6               ; El proceso de inicialización
+                
+
+> _       _     WINAT 13 0              ; por defecto, la ventana de texto está en la parte inferior
+                #ifdef "splitModeOn"    ; si soporta split screen, activarla
+                    XSPLITSCR 1
+                    #ifdef "cpc"
+                    WINAT 14 0           ;  y si es CPC, la ponemos un poco más abajo para evitar problemas en la zona de cambio de modo
+                    #endif
+                #endif
+                WINDOW 1
+                WINSIZE 25 127
+
+
+> _       _     WINDOW  0               ; Ventana de gráficos
+                CLEAR   fDarkF          ; Asume que hay luz
+                NOTZERO 0
+                ABSENT  0
+                SET     fDarkF          ; Oscuro
+                
+
+                
+> _       _     ZERO fDarkF
+                PICTURE @fPlayer        ; Si hay una imagen, cargarla
+                DISPLAY 0
+                SKIP $pictureOK
+
+; Si llegamos aquí, no había gráfico para esta localidad, ponemos texto a pantalla completa
+> _       _     #ifdef "splitModeOn"                  
+                    CLS                     ; Si era modo split, tenemos que limpiar la pantalla
+                    XSPLITSCR 0             ; y quitar el modo split 
+                #endif
+                WINDOW 1
+                WINAT 0 0               ; Si no hay imagen, nos ponemos a pantalla completa de texto
+                WINSIZE 25 127
+                CLS
+
+$pictureOK
+
+> _       _     WINDOW 1                 ; Ventana de texto
+                NOTZERO fDarkF           ; Oscuro
+                SYSMESS 0
+
+> _       _     ZERO    fDarkF
+                DESC   @fPlayer        
+
+> _       _     PROCESS 3
+
+; Ahora usamos el proceso 1 como el bucle principal del juego. Un retorno desde
+; aquí significa el fin del juego
+
+> _       _     PROCESS 1
+
+;------------------------------------------------------------------------------
+/PRO 1
+
+; Este proceso se encarga de ir pidiendo órdenes al jugador e ir ejecutándolas,
+; ya sea como órdenes, o como movimientos en las distintas direcciones.
+
+> _       _     PROCESS 4               ; Lo que en el PAW era el proceso 2
+
+> _       _     PARSE   0               ; Toma sentencia lógica del buffer
+                PROCESS 2               ; Sentencia no válida o timeout
+                REDO
+
+> _       _     EQ      fTurns   255     ; El valor máximo de un byte
+                PLUS    fTurnsHi   1
+                CLEAR   fTurns
+                SKIP    1
+
+> _       _     PLUS    fTurns   1
+
+> _       _     PROCESS 5               ; La antigua tabla de respuestas
+                ISDONE                  ; Ha hecho algo?
+                REDO                    ; Sí­: pedimos otra orden del jugador
+
+> _       _     MOVE    fPlayer         ; No: intentamos mover al jugador
+                CLS
+                RESTART                 ; Lo movimos: salta al principio de PRO 0
+
+> _       _     NEWTEXT
+                LT      fVerb    14
+                SYSMESS 7
+                REDO
+
+> _       _     SYSMESS 8
+                REDO
+
+
+;------------------------------------------------------------------------------
+/PRO 2
+
+; Este pequeño proceso se encarga de dar una respuesta diferente al jugador dependiendo de si
+; ha ocurrido un timeout, o si lo que ha tecleado es ininteligible para el parser.
+
+> _       _     HASAT TIMEOUT
+                SYSMESS 35
+                DONE
+
+> _       _     SYSMESS 6               ; No te entiendo
+
+;------------------------------------------------------------------------------
+/PRO 3
+
+; Este proceso se ejecuta justo después de mostrar la descripción de una localidad, y se encarga de mostrar la lista de objetos
+; que hay en ella, si los hay. Puedes añadir aquí entradas que muestren texto o hagan cosas cuando el jugador llega a determinada 
+; localidad. Para los que venís de PAW, es el equivalente al proceso 1. Ver las entradas de ejemplo:
+
+; EJEMPLOS:
+; > _ _  AT 2                                       ; ¿Estamos en la localidad de la puerta?
+;        NOTZERO fPuertaAbierta                     ; ¿Está la puerta abierta? (esto requiere que en otro sitio modifiquemos el flag fPuertaAbierta)
+;        MESSAGE "La puerta está abierta. "         ; Mostramos texto
+;
+; > _ _  AT 17                                      ; ¿Estamos en la localidad con atmósfera irrespirable?
+;        NOTCARRIED oTrajeProtector                 ; ¿No llevamos el traje?
+;        MESSAGE "Te has asfixiado. Estás muerto."  ; Mostramos texto
+;        END                                        ; ¿Jugar de nuevo?
+
+
+ 
+; Esta entrada ya viene activa, y es la que se encarga precisamente de mostrar la lista de objetos (si los hay, y no está oscuro)
+> _       _     NEWLINE
+                ZERO    fDarkF            ; No está oscuro
+                LISTOBJ
+
+
+;------------------------------------------------------------------------------
+/PRO 4 
+
+; Este proceso se ejecuta cada turno, después de dar respuesta la orden del jugador. Es útil para controlar cosas que puedan 
+; pasar pasado un tiempo, o eventos que puedan ocurrir en cualquier momento. Para los que venís de PAW, es el equivalente al
+; proceso 2. Ver las entradas de ejemplo:
+
+; > _ _   AT 17                                         ; ¿Estamos en la localidad de la atmósfera irrespirable?
+;         MINUS fOxigenoEnTraje 1                       ; Decrementamos en 1 el valor del flag fOxigeno en traje (ha debido ser puesto a un cierto valor antes)
+;         ZERO fOxigenoEnTraje                          ; ¿Hemos llegado a cero? ¿El óxigeno se ha acabado?
+;         MESSAGE "No puedes respirar. Estás muerto."   ; Mostramos texto
+;         END                                           ; ¿Jugar de nuevo?
+;
+; > _ _   AT 4                                          ; ¿Estamos en el bosque?
+;         CHANCE 10                                     ; Esta condición se cumple un 10% de las veces
+;         MESSAGE "Oyes algo que repta entre las hojas" ; Mostrar texto
+
+
+/PRO 5 
+
+; En este proceso se da respuesta a la ordenes del jugador, por lo que las entradas suelen
+; tener verbo y nombre, o al menos verbo. Las órdenes del jugador ejecutarán cada entrada
+; si coinciden con las palabras indicadas en cada una. Ten en cuenta que se ejecutan en 
+; el orden en el que están en el fichero, por lo que las respuestás más genéricas deben
+; detrás de las más específicas. Para los que venís de PAW, es el equivalente a la tabla 
+; de respuestas.
+
+
+> I       _     SYSMESS 9
+                LISTAT  CARRIED
+                SYSMESS 10
+                LISTAT  WORN
+                DONE
+
+> COGER   TODO  DOALL   HERE                
+> COGER   _     AUTOG
+                DONE
+
+> DEJAR   TODO  DOALL   CARRIED
+> DEJAR   _     AUTOD
+                DONE
+
+> QUITAR  TODO  DOALL   WORN
+> QUITAR  _     AUTOR
+                DONE
+
+> PONER   TODO  DOALL   CARRIED
+> PONER   _     AUTOW
+                DONE
+
+> R       _     CLS
+                RESTART
+
+> FIN     _     QUIT
+                END
+
+> FIN     _     DONE                    
+
+> SAVE    _     SAVE 0
+                CLS
+                RESTART
+
+> LOAD    _     LOAD   0
+                CLS
+                RESTART
+
+> RAMSA   _     RAMSAVE
+                CLS
+                RESTART
+
+> RAMLO   _     RAMLOAD 255                             ;Reload all flags
+                CLS
+                RESTART
+
+> MIRAR   _     CLS
+            RESTART
+
+/PRO 6 ; Inicialización
+
+> _       _     
+                WINDOW  0
+                WINAT 0 0
+                WINSIZE 25 128
+                CLS
+                WINDOW  1               ; Pantalla de texto a media altura
+                WINAT 14 0
+                WINSIZE 25 128
+                WINDOW   0
+                PICTURE 0 
+                DISPLAY 0
+                SKIP $picture0OK
+
+#ifndef "splitModeON"                  
+>  _     _      WINDOW  1                   ; Si llegamos aquí, el gráfico 000 no estaba
+                WINAT 0 0              
+                WINSIZE 25 128             ; Ponemos la pantalla a full screen, salvo si  es split mode
+#endif
+
+$picture0OK
+> _       _     WINDOW 1
+                DESC    0               ; Texto Introducción
+                ANYKEY
+                CLS
+                SET   255             
+
+$initLoop                
+> _       _     MINUS   255 1          ; Pone a cero todos los flags
+                NOTEQ   255  fGFlags  ; menos GFlags!!!
+                CLEAR   @255
+
+> _       _     NOTZERO 255             
+                SKIP    $initLoop
+
+> _       _     RESET                     ; Objetos a su loc. inicial / Flag 1
+                LET     fStrength 10
+                LET     fMaxCarr 4
+                SET     fCPronounNoun
+                SET     fCPronounAdject
+                LET     fObjectsCarried   NUM_CARRIED 
+                LET     fObjFlags 4       ; Activar sin terminaciones pronominales para verbos >=240
+                GOTO    1                 ; Primera localidad del juego
+/END

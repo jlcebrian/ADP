@@ -4,6 +4,7 @@
 #include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <os_file.h>
+#include <os_lib.h>
 #include <os_mem.h>
 
 #ifdef _ATARIST
@@ -22,7 +23,7 @@
 
 static uint32_t ret;
 static uint16_t defaultPalette[16];
-static uint32_t savedFalconPalette[256];
+static uint32_t savedFalconSTPalette[16];
 static uint16_t savedPalette[256];
 static uint16_t savedConterm;
 static void* savedLogbase;
@@ -107,24 +108,36 @@ static void FalconSetScreen(void* logbase, void* physbase, int16_t mode)
 		(short)SCR_MODECODE, (short)mode);
 }
 
-static void RestoreDesktopVideoState()
+static void FlushPendingVideoState()
 {
 	Vsync();
-	memset(Physbase(), 0, 32000);
-	for (int n = 0; n < 16; n++)
-		Setcolor(n, defaultPalette[n]);
+	Vsync();
+	Vsync();
+}
+
+static void RestoreDesktopVideoState()
+{
 	*conterm = savedConterm;
 	if (savedFalconModeValid)
 	{
-		(void)FalconSetMode(savedFalconMode);
+		Vsync();
 		FalconSetScreen(savedLogbase, savedPhysbase, savedFalconMode);
-		VsetRGB(0, 256, (long*)savedFalconPalette);
+		VsetRGB(0, 16, (long*)savedFalconSTPalette);
+		for (int n = 0; n < 16; n++)
+			Setcolor(n, defaultPalette[n]);
 	}
-	else if (savedRez != ST_LOW)
+	else
 	{
-		Setscreen(savedLogbase, savedPhysbase, -1);
-		EsetShift(savedShift);
-		EsetPalette(0, 256, savedPalette);
+		Vsync();
+		memset(Physbase(), 0, 32000);
+		for (int n = 0; n < 16; n++)
+			Setcolor(n, defaultPalette[n]);
+		if (savedRez != ST_LOW)
+		{
+			Setscreen(savedLogbase, savedPhysbase, -1);
+			EsetShift(savedShift);
+			EsetPalette(0, 256, savedPalette);
+		}
 	}
 }
 
@@ -138,11 +151,13 @@ static void init()
 	savedPhysbase = Physbase();
 	savedRez = Getrez();
 	savedShift = hasFalconVideo ? -1 : EgetShift();
+	for (int n = 0; n < 16; n++)
+		defaultPalette[n] = Setcolor(n, -1);
 	savedFalconModeValid = hasFalconVideo;
 	if (hasFalconVideo)
 	{
 		savedFalconMode = initialFalconMode;
-		VgetRGB(0, 256, (long*)savedFalconPalette);
+		VgetRGB(0, 16, (long*)savedFalconSTPalette);
 		if (initialFalconMode != FalconModeSTLow)
 		{
 			(void)FalconSetMode(FalconModeSTLow);
@@ -156,9 +171,6 @@ static void init()
 		Setscreen(-1, -1, ST_LOW);
 	}
 
-	for (int n = 0; n < 16; n++)
-		defaultPalette[n] = Setcolor(n, -1);
-
 	// Disable the TOS key click but preserve repeat and other console flags.
 	savedConterm = *conterm;
 	*conterm = (uint16_t)(savedConterm & ~1u);
@@ -166,9 +178,9 @@ static void init()
 
 static void quit()
 {
-	RestoreDesktopVideoState();
-
 	VID_Finish();
+	RestoreDesktopVideoState();
+	FlushPendingVideoState();
 
 	OSReleaseArena();
 
@@ -180,6 +192,7 @@ static void error(const char* message)
 {
 	VID_Finish();
 	RestoreDesktopVideoState();
+	FlushPendingVideoState();
 
 	char text[256];
 	strcpy(text, "[4][");

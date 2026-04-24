@@ -40,8 +40,9 @@ static void _vblHandler(void)
     if (!swapPending)
         return;
 
-    _vblWriteFalconScreenBase((void*)newScreen);
-    _vblWriteFalconPalette((const long*)newPalette, colors);
+	if (newPalette != 0 && colors > 0)
+		_vblWriteFalconPalette((const long*)newPalette, colors);
+	_vblWriteFalconScreenBase((void*)newScreen);
 
     swapPending = 0;
 }
@@ -90,11 +91,11 @@ void VBL_Remove(void)
     Supexec(_vblRemove);
 }
 
-void VBL_QueueSwap(void* screen, long* palette)
+void VBL_QueueSwap(void* screen, long* palette, int count)
 {
     newScreen = screen;
     newPalette = palette;
-    colors = 256;
+    colors = count;
     swapPending = 1;
 }
 

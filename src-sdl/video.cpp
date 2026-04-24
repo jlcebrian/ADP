@@ -1216,8 +1216,8 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	}
 	#endif
 
-	uint8_t* buffer = Allocate<uint8_t>("SCR Temporary buffer", 32768);
-	bool ok = SCR_GetScreen(fileName, target, buffer, 32768,
+	uint8_t* buffer = Allocate<uint8_t>("SCR Temporary buffer", 65536);
+	bool ok = SCR_GetScreen(fileName, target, buffer, 65536,
 		graphicsBuffer, screenWidth, screenHeight, palette);
 	Free(buffer);
 	return ok;

@@ -98,6 +98,13 @@ static int16_t VID_GetFalcon256Mode(DDB_ScreenMode selectedMode)
 	return monitor == MON_VGA ? (int16_t)(rgbMode | VGA) : (int16_t)(rgbMode | PAL);
 }
 
+static int16_t VID_GetFalconModeCode()
+{
+	return screenMode == ImageMode_PlanarFalcon ?
+		VID_GetFalcon256Mode(ScreenMode_VGA) :
+		FalconModeSTLow;
+}
+
 static bool     quit;
 static uint8_t  palette[256][3];
 static uint16_t colors[16];
@@ -226,6 +233,14 @@ static bool VID_ApplyHardwareMode(DDB_ScreenMode selectedMode)
 	return true;
 }
 
+static void VID_SetVisibleScreen(void* buffer)
+{
+	if (hasFalconVideo)
+		FalconSetScreen((void*)-1, buffer, VID_GetFalconModeCode());
+	else
+		Setscreen(-1, buffer, -1);
+}
+
 static bool VID_EnsureBackBufferCapacity()
 {
 	if (!backBufferEnabled)
@@ -252,7 +267,6 @@ static bool VID_EnsureBackBufferCapacity()
 	memset(backBuffer, 0, screenBufferSize);
 	return true;
 }
-
 #if 0
 /* Replacement of special DAAD spanish characters -not used- */
 uint8_t DDB_Char2AtariST[16] =
@@ -437,6 +451,40 @@ static void VID_LoadPaletteFromRGB32(STPaletteState* state, const uint32_t* pal,
 	}
 }
 
+static void VID_ClearPaletteRange(STPaletteState* state, uint16_t count, uint8_t firstColor)
+{
+	uint16_t paletteSize = VID_GetActivePaletteSize();
+	if (firstColor >= paletteSize)
+		return;
+	if (count > paletteSize - firstColor)
+		count = paletteSize - firstColor;
+	for (uint16_t n = 0; n < count; n++)
+		VID_SetPaletteEntry(state, (uint8_t)(firstColor + n), 0, 0, 0);
+}
+
+void VID_SetPaletteRangeFast(const uint32_t* pal, uint16_t count, uint16_t firstColor, bool clearOutside, bool waitForVsync)
+{
+	uint16_t paletteSize = VID_GetActivePaletteSize();
+	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
+	STPaletteState* state = &frontPaletteState;
+	if (backBufferEnabled)
+		state = paletteToFront ? visibleState : (displaySwap ? &frontPaletteState : &backPaletteState);
+
+	if (clearOutside)
+	{
+		VID_ClearPaletteRange(state, firstColor, 0);
+		if (firstColor + count < paletteSize)
+			VID_ClearPaletteRange(state, (uint16_t)(paletteSize - (firstColor + count)), (uint8_t)(firstColor + count));
+	}
+
+	VID_LoadPaletteFromRGB32(state, pal, count, (uint8_t)firstColor);
+	if (state == visibleState)
+	{
+		VID_LoadHardwarePaletteFromState(state);
+		VID_ApplyPalette(waitForVsync);
+	}
+}
+
 void VID_ApplyPalette(bool waitForVsync)
 {
 	if (waitForVsync)
@@ -498,18 +546,116 @@ static void VID_Blit(uint16_t* dstBase, const uint16_t* srcBase, uint32_t srcStr
 		VID_BlitFalcon(dstBase, srcBase, srcStride, x, y, w, h);
 }
 
+static bool IsFalconRawScreenFile(const char* fileName)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+
+	uint8_t header[4];
+	uint64_t size = File_GetSize(file);
+	bool ok = size == (uint64_t)(4 + 256 * 3 + 64000) && File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	return ok && header[0] == 'F' && header[1] == 'C' && header[2] == 'R' && header[3] == '1';
+}
+
+static const uint16_t kFadeInScale[8] = { 0, 37, 73, 110, 146, 183, 219, 256 };
+
+static void VID_ScalePalette(const uint32_t* sourcePalette, uint32_t* fadedPalette, uint16_t count, uint16_t scale)
+{
+	for (uint16_t i = 0; i < count; i++)
+	{
+		uint32_t color = sourcePalette[i];
+		uint32_t r = ((color >> 16) & 0xFFu) * scale / 256u;
+		uint32_t g = ((color >> 8) & 0xFFu) * scale / 256u;
+		uint32_t b = (color & 0xFFu) * scale / 256u;
+		fadedPalette[i] = (r << 16) | (g << 8) | b;
+	}
+}
+
+static void VID_FadeInPalette(const uint32_t* palette, uint16_t count)
+{
+	if (!VID_IsFadeEnabled())
+	{
+		VID_SetPaletteRangeFast(palette, count, 0, false, true);
+		return;
+	}
+
+	uint32_t fadedPalette[256];
+	for (int frame = 0; frame < 8; frame++)
+	{
+		VID_ScalePalette(palette, fadedPalette, count, kFadeInScale[frame]);
+		VID_SetPaletteRangeFast(fadedPalette, count, 0, false, true);
+	}
+	}
+
+static bool VID_LoadFalconRawScreen(const char* fileName, bool fadeIn)
+{
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+
+	if (File_GetSize(file) != (uint64_t)(4 + 256 * 3 + 64000))
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	uint8_t header[4];
+	if (File_Read(file, header, sizeof(header)) != sizeof(header) ||
+		header[0] != 'F' || header[1] != 'C' || header[2] != 'R' || header[3] != '1')
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	uint8_t rawPalette[256 * 3];
+	if (File_Read(file, rawPalette, sizeof(rawPalette)) != sizeof(rawPalette))
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+
+	uint32_t palette[256];
+	for (int i = 0; i < 256; i++)
+		palette[i] = ((uint32_t)rawPalette[i * 3 + 0] << 16) |
+			((uint32_t)rawPalette[i * 3 + 1] << 8) |
+			(uint32_t)rawPalette[i * 3 + 2];
+
+	uint32_t black[256];
+	MemClear(black, sizeof(black));
+	VID_SetPaletteRangeFast(black, 256, 0, false, true);
+
+	if (File_Read(file, screen, 64000) != 64000)
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+	File_Close(file);
+
+	if (fadeIn)
+		VID_FadeInPalette(palette, 256);
+	else
+		VID_SetPaletteRangeFast(palette, 256, 0, false, true);
+	return true;
+}
+
 static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool paletteUpdated, int x, int y, int w, int h)
 {
 	if (!drawToFront) {
-		// DebugPrintf("Atomic picture present not available: drawing to back buffer\n");
+		DebugPrintf("Atomic picture present not available: drawing to back buffer\n");
 		return false;
 	}
 	if (!paletteUpdated) {
-		// DebugPrintf("Atomic picture present not available: picture contains no palette changes\n");
+		DebugPrintf("Atomic picture present not available: picture contains no palette changes\n");
 		return false;
 	}
 	if (pictureData == 0) {
-		// DebugPrintf("Atomic picture present not available: picture data is null\n");
+		DebugPrintf("Atomic picture present not available: picture data is null\n");
 		return false;
 	}
 
@@ -523,22 +669,24 @@ static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool 
 
 	uint8_t* tempBase = DMG_GetTemporaryBufferBase();
 	if (tempBase == 0) {
-		// DebugPrintf("Atomic picture present not available: no temporary buffer\n");
+		DebugPrintf("Atomic picture present not available: no temporary buffer\n");
 		return false;
 	}
 	if (tempBase == 0 || DMG_GetTemporaryBufferSize() < screenBufferSize) {
-		// DebugPrintf("Atomic picture present not available: buffer too small (%u bytes)\n", DMG_GetTemporaryBufferSize());
+		DebugPrintf("Atomic picture present not available: buffer too small (%u bytes)\n", DMG_GetTemporaryBufferSize());
 		return false;
 	}
 
 	uint16_t* visibleBuffer = displaySwap ? backBuffer : frontBuffer;
 	STPaletteState* visiblePalette = displaySwap ? &backPaletteState : &frontPaletteState;
+	uint16_t* hiddenBuffer = displaySwap ? frontBuffer : backBuffer;
+	STPaletteState* hiddenPalette = displaySwap ? &frontPaletteState : &backPaletteState;
 	uint16_t* tempScreen = (uint16_t*)tempBase;
 	const uint16_t* sourcePicture = pictureData;
 	uint32_t sourceStride = pictureStride;
 
 	if (DMG_IsTemporaryBufferPointer(pictureData)) {
-		// DebugPrintf("Atomic picture present not available: picture comes from temporary buffer\n", DMG_GetTemporaryBufferSize());
+		DebugPrintf("Atomic picture present not available: picture comes from temporary buffer\n");
 		return false;
 	}
 
@@ -547,21 +695,43 @@ static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool 
 	VID_LoadPaletteFromRGB32(visiblePalette, pal, paletteSize, firstColor);
 	VID_LoadHardwarePaletteFromState(visiblePalette);
 
-	if (screenMode == ImageMode_PlanarFalcon)
+	if (hasFalconVideo)
 	{
-		VBL_QueueSwap(tempScreen, (long*)falconColors);
+		if (screenMode == ImageMode_PlanarFalcon)
+		{
+			VBL_QueueSwap(tempScreen, (long*)falconColors, 256);
+		}
+		else
+		{
+			VID_ApplyPalette(false);
+			VBL_QueueSwap(tempScreen, 0, 0);
+		}
 		VBL_Wait();
 	}
 	else
 	{
 		// In ST, Setscreen becomes active on the next VBL, so switch first, wait once, then latch the palette.
-		Setscreen(-1, tempScreen, -1);
+		VID_SetVisibleScreen(tempScreen);
 		Vsync();
 		VID_ApplyPalette(false);
 	}
 
 	memcpy(visibleBuffer, tempScreen, screenBufferSize);
-	Setscreen(-1, visibleBuffer, -1);
+	if (backBufferEnabled)
+	{
+		memcpy(hiddenBuffer, tempScreen, screenBufferSize);
+		VID_CopyPaletteState(hiddenPalette, visiblePalette);
+	}
+	if (hasFalconVideo)
+	{
+		VBL_QueueSwap(visibleBuffer, 0, 0);
+		VBL_Wait();
+	}
+	else
+	{
+		VID_SetVisibleScreen(visibleBuffer);
+	}
+	DebugPrintf("Atomic picture present: success\n");
 	return true;
 }
 
@@ -854,11 +1024,23 @@ void VID_ActivatePalette()
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
+	if (target == DDB_MACHINE_ATARIST && screenMode == ImageMode_PlanarFalcon && IsFalconRawScreenFile(fileName))
+		return VID_LoadFalconRawScreen(fileName, fadeIn);
+
 	if (target == DDB_MACHINE_ATARIST)
 	{
 		uint16_t palette[16];
+		uint32_t palette32[16];
 		File* file = File_Open(fileName);
-		if (!file) return false;
+		if (!file)
+			return false;
+
+		uint64_t size = File_GetSize(file);
+		if (size != 32032 && size != 32034 && size != 32066)
+		{
+			File_Close(file);
+			return false;
+		}
 
 		if (fadeIn)
 		{
@@ -867,15 +1049,27 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			Vsync();
 		}
 
-		File_Seek(file, 2);
-		File_Read(file, palette, 32);
-		File_Read(file, screen, 32000);
+		if (size != 32032)
+			File_Seek(file, 2);
+
+		bool ok =
+			File_Read(file, palette, 32) == 32 &&
+			File_Read(file, screen, 32000) == 32000;
 		File_Close(file);
+		if (!ok)
+			return false;
 
 		if (fadeIn)
 		{
 			for (int n = 0; n < 16; n++)
+				palette32[n] = Pal2RGB(palette[n], false);
+			VID_FadeInPalette(palette32, 16);
+		}
+		else
+		{
+			for (int n = 0; n < 16; n++)
 				VID_SetPaletteColor16(n, palette[n]);
+			VID_ApplyPalette(false);
 		}
 		return true;
 	}
@@ -1147,6 +1341,10 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	if (VID_PresentPictureAtomicallyWithTemporaryBuffer(palette, paletteUpdated, x, y, w, h))
 		return;
 
+	DebugPrintf("Atomic picture present: fallback path (drawToFront=%d paletteUpdated=%d)\n",
+		drawToFront ? 1 : 0,
+		paletteUpdated ? 1 : 0);
+
 	if (drawToFront)
 	{
 		Vsync();
@@ -1249,7 +1447,7 @@ void VID_SwapScreen ()
 	uint16_t* visibleBuffer = displaySwap ? backBuffer : frontBuffer;
 	STPaletteState* visibleState = displaySwap ? &backPaletteState : &frontPaletteState;
 	VID_LoadHardwarePaletteFromState(visibleState);
-	Setscreen(-1, visibleBuffer, -1);
+	VID_SetVisibleScreen(visibleBuffer);
 	VID_ApplyPalette(true);
 }
 

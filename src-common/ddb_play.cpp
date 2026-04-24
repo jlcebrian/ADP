@@ -708,24 +708,39 @@ static bool HasPCXHeader(const char* fileName, DDB_ScreenMode* screenMode)
 static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine, DDB_Version version, DDB_ScreenMode* screenMode)
 {
 	static char introScreen[FILE_MAX_PATH];
-	if (machine != DDB_MACHINE_IBMPC || version < DDB_VERSION_2)
-		return 0;
-
-	BuildFileNameWithExtension(fileName, ".VGA", introScreen, sizeof(introScreen));
-	if (!FileExistsByName(introScreen))
+	if (machine == DDB_MACHINE_IBMPC)
 	{
-		BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
+		if (version < DDB_VERSION_2)
+			return 0;
+
+		BuildFileNameWithExtension(fileName, ".VGA", introScreen, sizeof(introScreen));
 		if (!FileExistsByName(introScreen))
 		{
-			BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
+			BuildFileNameWithExtension(fileName, ".vga", introScreen, sizeof(introScreen));
 			if (!FileExistsByName(introScreen))
 			{
-				BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+				BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
 				if (!FileExistsByName(introScreen))
-					return 0;
+				{
+					BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+					if (!FileExistsByName(introScreen))
+						return 0;
+				}
 			}
 		}
 	}
+	else if (machine == DDB_MACHINE_ATARIST)
+	{
+		BuildFileNameWithExtension(fileName, ".PCX", introScreen, sizeof(introScreen));
+		if (!FileExistsByName(introScreen))
+		{
+			BuildFileNameWithExtension(fileName, ".pcx", introScreen, sizeof(introScreen));
+			if (!FileExistsByName(introScreen))
+				return 0;
+		}
+	}
+	else
+		return 0;
 
 	if (HasPCXHeader(introScreen, screenMode))
 		return introScreen;
@@ -737,15 +752,31 @@ static const char* FindPCXIntroScreen(const char* fileName, DDB_Machine machine,
 
 static bool HasPI1Header(const char* fileName)
 {
-	uint8_t header[2];
 	File* file = File_Open(fileName, ReadOnly);
 	if (file == 0)
 		return false;
 
 	uint64_t size = File_GetSize(file);
-	bool ok = size == 32034 && File_Read(file, header, sizeof(header)) == sizeof(header);
 	File_Close(file);
-	return ok && header[0] == 0x00 && header[1] == 0x00;
+	return size == 32034 || size == 32066;
+}
+
+static bool HasFalconRawHeader(const char* fileName)
+{
+	uint8_t header[4];
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == 0)
+		return false;
+
+	uint64_t size = File_GetSize(file);
+	bool ok = size == (uint64_t)(4 + 256 * 3 + 64000) && File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	return ok && header[0] == 'F' && header[1] == 'C' && header[2] == 'R' && header[3] == '1';
+}
+
+static bool SupportsFalconRawIntroScreens()
+{
+	return true;
 }
 
 static bool ShouldPreferAmigaSCR(const char* fileName, DDB_Machine machine, DDB_ScreenMode* screenMode)
@@ -757,6 +788,8 @@ static bool ShouldPreferAmigaSCR(const char* fileName, DDB_Machine machine, DDB_
 	if (CountFiles(".ch0") > 0)
 		return false;
 	if (HasPI1Header(fileName))
+		return false;
+	if (HasFalconRawHeader(fileName))
 		return false;
 	#if HAS_PCX
 	if (HasPCXHeader(fileName, screenMode))
@@ -1229,7 +1262,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	{
 		VID_ClearBuffer(true);
 		VID_ClearBuffer(false);
-		VID_SetPaletteRange(DefaultPalette, 16, 0, true, true);
+		VID_SetPaletteRange(DefaultPalette, 16, 0, VID_GetPaletteSize() <= 16, true);
 
 		DebugPrintf("Starting interpreter\n");
 		DDB_Run(interpreter);
@@ -1265,9 +1298,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		ddbCount = CountDDBFiles();
 		scrCount = CountFiles(".scr");
 		const char* scrExtension = ".scr";
-		#if HAS_PCX
 		const char* introScreen = 0;
-		#endif
+		if (scrCount == 0)
+		{
+			scrCount = SupportsFalconRawIntroScreens() ? CountFiles(".fcr") : 0;
+			scrExtension = ".fcr";
+			if (scrCount > 0 && !HasFalconRawHeader(GetFile(".fcr", 0)))
+				scrCount = 0;
+		}
 		if (scrCount == 0)
 		{
 			if ((scrCount = CountFiles(".egs")) > 0)
@@ -1299,6 +1337,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			snapshotCount = CountSnapshots();
 			ddbCount = CountDDBFiles();
 			scrCount = CountFiles(".scr");
+			scrExtension = ".scr";
+			if (scrCount == 0)
+			{
+				scrCount = SupportsFalconRawIntroScreens() ? CountFiles(".fcr") : 0;
+				scrExtension = ".fcr";
+				if (scrCount > 0 && !HasFalconRawHeader(GetFile(".fcr", 0)))
+					scrCount = 0;
+			}
 		}
 
 		if (snapshotCount > 0)
@@ -1330,18 +1376,10 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				const char* screenFile = GetFile(".scr", 0);
 				if (ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
 					machine = DDB_MACHINE_AMIGA;
-				#if HAS_PCX
-				else if (HasPCXHeader(screenFile, &screenMode))
-					introScreen = screenFile;
-				#endif
 			}
+			else if (scrCount > 0 && StrIComp(scrExtension, ".fcr") == 0)
+				introScreen = GetFile(".fcr", 0);
 			VID_SetDisplayPlanesHint(displayPlanes);
-			#if HAS_PCX
-			if (introScreen == 0)
-				introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
-			if (introScreen != 0)
-				scrCount = 1;
-			#endif
 			DebugPrintf("Checked %s\n", ddbFileName);
 			VID_Initialize(machine, version, screenMode);
 				initializedMachine = machine;
@@ -1358,12 +1396,8 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		
 		if (scrCount > 0)
 		{
-			#if HAS_PCX
 			const char* screenFile = introScreen != 0 ? introScreen : GetFile(scrExtension, 0);
-			#else
-			const char* screenFile = GetFile(scrExtension, 0);
-			#endif
-			if (ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
+			if (StrIComp(scrExtension, ".scr") == 0 && ShouldPreferAmigaSCR(screenFile, machine, &screenMode))
 				machine = DDB_MACHINE_AMIGA;
 			if (!VID_DisplaySCRFile(screenFile, machine, true))
 			{
@@ -1507,9 +1541,17 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
 	{
-		if (ShouldPreferAmigaSCR(GetFile(".scr", 0), *machine, screenMode))
+		const char* screenFile = GetFile(".scr", 0);
+		if (HasFalconRawHeader(screenFile))
+			*introScreen = screenFile;
+		if (ShouldPreferAmigaSCR(screenFile, *machine, screenMode))
 			*machine = DDB_MACHINE_AMIGA;
-        *introScreen = GetFile(".scr", 0);
+		if (*introScreen == 0)
+			*introScreen = screenFile;
+	}
+	else if ((scrCount = SupportsFalconRawIntroScreens() ? CountFiles(".fcr") : 0) > 0)
+	{
+		*introScreen = GetFile(".fcr", 0);
 	}
 	else if ((scrCount = CountFiles(".egs")) > 0)
 	{
@@ -1521,12 +1563,6 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 		*screenMode = ScreenMode_CGA;
 		*introScreen = GetFile(".cgs", 0);
 	}
-	#if HAS_PCX
-	else if ((*introScreen = FindPCXIntroScreen(ddbFileName, *machine, version, screenMode)) != 0)
-	{
-		scrCount = 1;
-	}
-	#endif
 	else if ((scrCount = CountFiles(".vgs")) > 0)
 	{
 		*screenMode = ScreenMode_VGA16;
@@ -1746,7 +1782,7 @@ bool DDB_RunPlayer()
 
 	VID_ClearBuffer(true);
 	VID_ClearBuffer(false);
-	VID_SetPaletteRange(DefaultPalette, 16, 0, true, true);
+	VID_SetPaletteRange(DefaultPalette, 16, 0, VID_GetPaletteSize() <= 16, true);
 
 	DebugPrintf("Starting interpreter\n");
 	DDB_Run(interpreter);

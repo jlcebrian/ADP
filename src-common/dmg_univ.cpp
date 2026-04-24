@@ -181,6 +181,20 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		return 0;
 	}
 
+	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST || mode == ImageMode_PlanarFalcon)
+	{
+		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
+			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8))
+		{
+			if (fileData != buffer)
+				MemMove(buffer, fileData, imageDataLength);
+			if (tempFileData)
+				Free(tempFileData);
+			return buffer;
+		}
+	}
+
 	DMG_ColorPaletteMode paletteMode = ColorPaletteMode_Native;
 
 	switch (dmg->screenMode)
@@ -317,15 +331,6 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 
 	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST || mode == ImageMode_PlanarFalcon)
 	{
-		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
-			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
-			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8))
-		{
-			MemMove(buffer, fileData, imageDataLength);
-			if (tempFileData)
-				Free(tempFileData);
-			return buffer;
-		}
 		if (tempFileData)
 			Free(tempFileData);
 		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
@@ -628,9 +633,7 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 	#if defined(_AMIGA)
 	return DMG_GetEntryDataPlanar(dmg, index);
 	#elif defined(_ATARIST)
-	if (screenMode == ImageMode_PlanarFalcon)
-		return DMG_GetEntryData(dmg, index, screenMode);
-	return DMG_GetEntryDataPlanar(dmg, index);
+	return DMG_GetEntryData(dmg, index, screenMode);
 	#else
 	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
 	#endif

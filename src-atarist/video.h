@@ -20,7 +20,7 @@ extern void VID_ScrollFalcon (int x, int y, int w, int h, int lines, uint8_t pap
 extern void VID_BlitFalcon   (uint16_t* dstBase, const uint16_t* srcBase, uint32_t srcStride, int x, int y, int w, int h);
 
 extern int  VBL_Install      (void);
-extern void VBL_QueueSwap    (void* screen, long* palette);
+extern void VBL_QueueSwap    (void* screen, long* palette, int count);
 extern void VBL_Wait         (void);
 extern void VBL_Remove       (void);
 
