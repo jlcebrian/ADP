@@ -317,6 +317,7 @@ typedef struct
     bool hasAmigaHack;
     bool hasClone;
     bool hasCompression;
+    bool hasRemap;
     bool fromDirectoryImport;
     bool useSidecarJson;
     bool hasJsonFile;
@@ -327,10 +328,13 @@ typedef struct
     int firstColor;
     int lastColor;
     int cloneSource;
+    int remapRangeFirst;
+    int remapRangeLast;
     bool buffer;
     bool fixed;
     bool amigaHack;
     bool compression;
+    RemapMode remapMode;
     char jsonFile[FILE_MAX_PATH];
 }
 PendingInputOptions;
@@ -489,7 +493,7 @@ static void PrintHelp()
     printf("   -clone <n>         Clone entry data from another slot as an input source\n");
     printf("   -amiga-hack|-noamiga-hack Toggle the classic DAT Amiga 4-bit palette marker on the adjacent file\n");
     printf("   -audio-8bit        Convert imported WAV files to 8-bit mono PCM\n");
-    printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: min, reserve, std, dark, A-B\n");
+    printf("   -remap <mode>      Palette remap mode for DAT5, dat1, dat2: none, min, reserve, std, dark, A-B\n");
     printf("   -priority <list>   Rebuild order preference for update/create\n");
     printf("   -ignore-missing    Ignore unmatched wildcard file arguments\n");
     printf("\n");
@@ -633,6 +637,76 @@ static bool ParseJsonIntField(const char* json, const char* key, int* outValue)
     return false;
 }
 
+static bool ParseJsonStringField(const char* json, const char* key, char* outValue, size_t outValueSize)
+{
+    if (outValue == 0 || outValueSize == 0)
+        return false;
+
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
+    const char* ptr = strstr(json, pattern);
+    if (ptr == 0)
+        return false;
+    ptr += strlen(pattern);
+    while (*ptr != 0 && isspace((unsigned char)*ptr))
+        ptr++;
+    if (*ptr != ':')
+        return false;
+    ptr++;
+    while (*ptr != 0 && isspace((unsigned char)*ptr))
+        ptr++;
+    if (*ptr != '"')
+        return false;
+    ptr++;
+
+    size_t written = 0;
+    while (*ptr != 0 && *ptr != '"')
+    {
+        if (*ptr == '\\' && ptr[1] != 0)
+            ptr++;
+        if (written + 1 >= outValueSize)
+            return false;
+        outValue[written++] = *ptr++;
+    }
+    if (*ptr != '"')
+        return false;
+    outValue[written] = 0;
+    return true;
+}
+
+static bool ParseRemapValue(const char* value, RemapMode* mode, int* rangeFirst, int* rangeLast)
+{
+    if (stricmp(value, "none") == 0)
+        *mode = REMAP_NONE;
+    else if (stricmp(value, "min") == 0)
+        *mode = REMAP_MIN;
+    else if (stricmp(value, "reserve") == 0)
+        *mode = REMAP_RESERVE;
+    else if (stricmp(value, "std") == 0)
+        *mode = REMAP_STD;
+    else if (stricmp(value, "dark") == 0)
+        *mode = REMAP_DARK;
+    else if (isdigit((unsigned char)*value))
+    {
+        char* end = 0;
+        long first = strtol(value, &end, 10);
+        if (end == value || *end != '-')
+            return false;
+        const char* lastPtr = end + 1;
+        if (!isdigit((unsigned char)*lastPtr))
+            return false;
+        long last = strtol(lastPtr, &end, 10);
+        if (*end != 0 || first < 0 || first > 255 || last < 0 || last > 255 || last < first)
+            return false;
+        if (rangeFirst) *rangeFirst = (int)first;
+        if (rangeLast) *rangeLast = (int)last;
+        *mode = REMAP_RANGE;
+    }
+    else
+        return false;
+    return true;
+}
+
 static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions* options)
 {
     File* file = File_Open(jsonFile, ReadOnly);
@@ -656,6 +730,7 @@ static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions
     json[size] = 0;
 
     int value = 0;
+    char textValue[32];
     if (ParseJsonIntField(json, "X", &value)) { options->hasX = true; options->x = value; }
     if (ParseJsonIntField(json, "Y", &value)) { options->hasY = true; options->y = value; }
     if (ParseJsonIntField(json, "width", &value)) { options->hasWidth = true; options->width = value; }
@@ -676,6 +751,21 @@ static bool LoadPendingOptionsFromJson(const char* jsonFile, PendingInputOptions
     {
         options->hasCompression = true;
         options->compression = value != 0;
+    }
+    if (ParseJsonStringField(json, "remap", textValue, sizeof(textValue)))
+    {
+        RemapMode mode = REMAP_NONE;
+        int rangeFirst = 0;
+        int rangeLast = 0;
+        if (!ParseRemapValue(textValue, &mode, &rangeFirst, &rangeLast))
+        {
+            Free(json);
+            return false;
+        }
+        options->hasRemap = true;
+        options->remapMode = mode;
+        options->remapRangeFirst = rangeFirst;
+        options->remapRangeLast = rangeLast;
     }
 
     Free(json);
@@ -1538,11 +1628,15 @@ static void ReindexPaletteRange(uint8_t* pixels, uint32_t pixelCount, int palett
     if (lastColor) *lastColor = effectiveFirst + paletteSize - 1;
 }
 
-static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int* paletteSize, int paletteLimit, int* firstColor, int* lastColor)
+static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int* paletteSize, int paletteLimit, RemapMode mode, int rangeFirst, int rangeLast, int* firstColor, int* lastColor)
 {
     if (firstColor) *firstColor = 0;
     if (lastColor) *lastColor = *paletteSize > 0 ? *paletteSize - 1 : 0;
-    switch (remapMode)
+    int previousRangeFirst = remapRangeFirst;
+    int previousRangeLast = remapRangeLast;
+    remapRangeFirst = rangeFirst;
+    remapRangeLast = rangeLast;
+    switch (mode)
     {
         case REMAP_MIN:
             ReindexPaletteMinimal(pixels, pixelCount, palette, *paletteSize);
@@ -1562,6 +1656,8 @@ static void ApplyPaletteRemap(uint8_t* pixels, uint32_t pixelCount, uint32_t* pa
         default:
             break;
     }
+    remapRangeFirst = previousRangeFirst;
+    remapRangeLast = previousRangeLast;
 }
 
 static bool CompressDAT5Image(const uint8_t* input, uint32_t inputSize, uint8_t** output, uint32_t* outputSize, bool* compressed)
@@ -2727,12 +2823,12 @@ static int GetImportPaletteLimit(const DMG* dmg)
     return 16;
 }
 
-static int GetRequestedImportPaletteLimit(const DMG* dmg)
+static int GetRequestedImportPaletteLimitForRemap(const DMG* dmg, RemapMode mode, int rangeFirst, int rangeLast)
 {
     int limit = GetImportPaletteLimit(dmg);
-    if (remapMode == REMAP_RANGE)
+    if (mode == REMAP_RANGE)
     {
-        int available = remapRangeLast - remapRangeFirst + 1;
+        int available = rangeLast - rangeFirst + 1;
         if (available > 0 && available < limit)
             limit = available;
     }
@@ -3117,31 +3213,7 @@ static bool ParseRemapMode(const char* token, RemapMode* mode)
     if (strnicmp(token, "remap:", 6) != 0)
         return false;
     const char* value = token + 6;
-    if (stricmp(value, "min") == 0)
-        *mode = REMAP_MIN;
-    else if (stricmp(value, "reserve") == 0)
-        *mode = REMAP_RESERVE;
-    else if (stricmp(value, "std") == 0)
-        *mode = REMAP_STD;
-    else if (stricmp(value, "dark") == 0)
-        *mode = REMAP_DARK;
-    else if (isdigit(*value))
-    {
-        char* end = 0;
-        long first = strtol(value, &end, 10);
-        if (end == value || *end != '-')
-            return false;
-        const char* lastPtr = end + 1;
-        if (!isdigit(*lastPtr))
-            return false;
-        long last = strtol(lastPtr, &end, 10);
-        if (*end != 0 || first < 0 || first > 255 || last < 0 || last > 255 || last < first)
-            return false;
-        remapRangeFirst = (int)first;
-        remapRangeLast = (int)last;
-        *mode = REMAP_RANGE;
-    }
-    else
+    if (!ParseRemapValue(value, mode, &remapRangeFirst, &remapRangeLast))
         return false;
     return true;
 }
@@ -4754,8 +4826,18 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     if (pendingInputOptions.hasAmigaHack) { effectiveOptions.hasAmigaHack = true; effectiveOptions.amigaHack = pendingInputOptions.amigaHack; }
     if (pendingInputOptions.hasClone) { effectiveOptions.hasClone = true; effectiveOptions.cloneSource = pendingInputOptions.cloneSource; }
     if (pendingInputOptions.hasCompression) { effectiveOptions.hasCompression = true; effectiveOptions.compression = pendingInputOptions.compression; }
+    if (pendingInputOptions.hasRemap)
+    {
+        effectiveOptions.hasRemap = true;
+        effectiveOptions.remapMode = pendingInputOptions.remapMode;
+        effectiveOptions.remapRangeFirst = pendingInputOptions.remapRangeFirst;
+        effectiveOptions.remapRangeLast = pendingInputOptions.remapRangeLast;
+    }
 
     bool localCompressionEnabled = effectiveOptions.hasCompression ? effectiveOptions.compression : compressionEnabled;
+    RemapMode effectiveRemapMode = effectiveOptions.hasRemap ? effectiveOptions.remapMode : remapMode;
+    int effectiveRemapRangeFirst = effectiveOptions.hasRemap ? effectiveOptions.remapRangeFirst : remapRangeFirst;
+    int effectiveRemapRangeLast = effectiveOptions.hasRemap ? effectiveOptions.remapRangeLast : remapRangeLast;
 
     if (effectiveOptions.hasClone)
     {
@@ -4795,7 +4877,9 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     uint32_t palette[256];
     int paletteSize = 0;
     int sourceColorCount = 0;
-    int importPaletteLimit = GetRequestedImportPaletteLimit(dmg);
+    if (effectiveOptions.hasFirstColor || effectiveOptions.hasLastColor)
+        effectiveRemapMode = REMAP_NONE;
+    int importPaletteLimit = GetRequestedImportPaletteLimitForRemap(dmg, effectiveRemapMode, effectiveRemapRangeFirst, effectiveRemapRangeLast);
     int firstColor = 0;
     int lastColor = 0;
     bool quantized = false;
@@ -4810,7 +4894,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 DescribeDAT5ColorMode(dmg->colorMode));
             return false;
         }
-        if (remapMode != REMAP_NONE)
+        if (effectiveRemapMode != REMAP_NONE)
         {
             fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF data; palette remap is not supported\n",
                 DescribeDAT5ColorMode(dmg->colorMode));
@@ -4884,8 +4968,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         snprintf(warning, sizeof(warning), "Image \"%s\" reduced from %d to %d colors", path, sourceColorCount, paletteSize);
         ShowWarning(warning);
     }
-    if (!specialAmigaDAT5 && remapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
-        ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), &firstColor, &lastColor);
+    if (!specialAmigaDAT5 && effectiveRemapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
+        ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), effectiveRemapMode, effectiveRemapRangeFirst, effectiveRemapRangeLast, &firstColor, &lastColor);
 
     if (!specialAmigaDAT5 && effectiveOptions.hasFirstColor)
         firstColor = effectiveOptions.firstColor;
@@ -4911,7 +4995,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         uint32_t cachedPayloadSize = 0;
         BuildSidecarPath(path, DMG_CACHE_EXTENSION, cacheFile, sizeof(cacheFile));
         uint8_t cachedPayloadCompression = 0;
-        if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize, &cachedPayloadCompression))
+        if (!TryLoadCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)effectiveRemapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, &cachedPayload, &cachedPayloadSize, &cachedPayloadCompression))
         {
             if (!EncodeDAT5Image((DMG_DAT5ColorMode)dmg->colorMode, buffer, width, height, outBuffer, &encodedSize))
             {
@@ -4931,7 +5015,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 storedBuffer = outBuffer;
                 storedSize = encodedSize;
             }
-            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)remapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, compressed ? 1 : 0, storedBuffer, storedSize);
+            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)effectiveRemapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, compressed ? 1 : 0, storedBuffer, storedSize);
         }
         else
         {
@@ -4967,8 +5051,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
             fprintf(stderr, "Error: Legacy DAT formats only support up to 16 colors. Use DAT5 mode:planar4/mode:planar5/mode:planar8.\n");
             return false;
         }
-        if (remapMode != REMAP_NONE && IsClassicPaletteDAT(dmg) && paletteSize > 0)
-            ApplyPaletteRemap(buffer, size, palette, &paletteSize, 16, &firstColor, &lastColor);
+        if (effectiveRemapMode != REMAP_NONE && IsClassicPaletteDAT(dmg) && paletteSize > 0)
+            ApplyPaletteRemap(buffer, size, palette, &paletteSize, 16, effectiveRemapMode, effectiveRemapRangeFirst, effectiveRemapRangeLast, &firstColor, &lastColor);
         uint8_t* storedBuffer = buffer;
         uint16_t compressedSize = (uint16_t)size;
         bool compressed = false;
@@ -5584,7 +5668,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
                 {
                     memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
                     if (remapMode != REMAP_NONE)
-                        ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)out->colorMode), &firstColor, &lastColor);
+                        ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)out->colorMode), remapMode, remapRangeFirst, remapRangeLast, &firstColor, &lastColor);
                     if (!DMG_SetEntryPaletteRange(out, n, paletteBuffer, paletteSize, (uint8_t)firstColor, (uint8_t)lastColor))
                     {
                         fprintf(stderr, "%03d: Error: Unable to copy palette: %s\n", n, DMG_GetErrorString());
@@ -5630,7 +5714,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
             {
                 memcpy(paletteBuffer, palettePtr, paletteSize * sizeof(uint32_t));
                 if (remapMode != REMAP_NONE && paletteSize > 0)
-                    ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, 16, &firstColor, &lastColor);
+                    ApplyPaletteRemap(inPtr, size, paletteBuffer, &paletteSize, 16, remapMode, remapRangeFirst, remapRangeLast, &firstColor, &lastColor);
                 BuildClassicPalette16(classicPalette, paletteBuffer, paletteSize, firstColor);
                 if (!DMG_SetEntryPalette(out, n, classicPalette))
                 {
