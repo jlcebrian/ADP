@@ -20,8 +20,8 @@ TOOL_TARGETS := $(OUTDIR)/dmg $(OUTDIR)/chr $(OUTDIR)/ddb $(OUTDIR)/dsk
 
 # Toolchain and macOS SDK/link settings.
 CPPFLAGS += -D_OSX -D_THREAD_SAFE
-CPPFLAGS += -arch arm64 -target macos11.0
-LDFLAGS += -target macos11.0 -arch arm64
+CPPFLAGS += -arch arm64 -target macos15.0
+LDFLAGS += -target macos15.0 -arch arm64
 CPPFLAGS += -Ilib/sdl2/include
 LDFLAGS += lib/osx/libSDL2.a lib/osx/libSDL2main.a
 LDFLAGS += -lm -liconv -Wl,-framework,CoreAudio -Wl,-framework,AudioToolbox -Wl,-weak_framework,CoreHaptics -Wl,-weak_framework,GameController -Wl,-framework,ForceFeedback -lobjc -Wl,-framework,CoreVideo -Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,IOKit -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal
