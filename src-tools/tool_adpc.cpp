@@ -50,7 +50,7 @@ static void ShowHelp()
 	printf("Usage: adpc [options] <input.sce> [<output.ddb>]\n\n");
 	printf("Defaults: version=v1, target=amiga, language=spanish, charset=auto\n\n");
 	printf("Options:\n");
-	printf("  --version v1|v2|v3     Target DAAD version (only v1 is implemented today)\n");
+	printf("  --version v1|v2|v3     Target DAAD version (v1 and v2 are implemented today)\n");
 	printf("  --target <machine>     ibmpc, spectrum, c64, cpc, msx, atarist, amiga, pcw, plus4, msx2\n");
 	printf("  --language <lang>      english or spanish\n");
 	printf("  --charset <mode>       auto, utf8, cp437\n");

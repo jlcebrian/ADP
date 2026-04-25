@@ -46,6 +46,7 @@ struct DC_ProcessInstruction
 	uint8_t opcode;
 	bool    indirect;
 	int     parameters[2];
+	char*   parameterLabels[2];
 	int     parameterCount;
 };
 
@@ -58,12 +59,21 @@ struct DC_ProcessEntry
 	size_t instructionCapacity;
 };
 
+struct DC_ProcessLabel
+{
+	char* name;
+	int entryIndex;
+};
+
 struct DC_Process
 {
 	int index;
 	DC_ProcessEntry* entries;
 	size_t entryCount;
 	size_t entryCapacity;
+	DC_ProcessLabel* labels;
+	size_t labelCount;
+	size_t labelCapacity;
 };
 
 struct DC_ObjectDef
@@ -72,6 +82,7 @@ struct DC_ObjectDef
 	int weight;
 	bool container;
 	bool wearable;
+	uint16_t attributes;
 	int noun;
 	int adjective;
 };
@@ -152,6 +163,7 @@ struct DC_Context
 	size_t processIdCapacity;
 	DC_VocabWord* parsedVocabulary;
 	size_t parsedVocabularyCount;
+	bool preprocessRawSection;
 	const char* currentSourceFile;
 	int currentSourceLine;
 	char currentNullWordChar;
@@ -217,6 +229,20 @@ static bool StringStartsWithTextI(DC_String s, const char* text)
 	return true;
 }
 
+static bool HeaderStartsWithWordI(DC_String header, const char* text)
+{
+	header = TrimString(header);
+	size_t len = StrLen(text);
+	if ((size_t)(header.end - header.ptr) < len)
+		return false;
+	for (size_t i = 0; i < len; i++)
+	{
+		if (ToUpper(header.ptr[i]) != ToUpper((uint8_t)text[i]))
+			return false;
+	}
+	return (size_t)(header.end - header.ptr) == len || IsSpace(header.ptr[len]);
+}
+
 static char* CopyString(Arena* arena, DC_String s)
 {
 	size_t size = (size_t)(s.end - s.ptr);
@@ -261,7 +287,15 @@ static bool IsNumber(DC_String s)
 	s = TrimString(s);
 	if (s.ptr < s.end && (*s.ptr == '-' || *s.ptr == '+'))
 		s.ptr++;
-	return s.ptr < s.end && IsDigit(*s.ptr);
+	if (s.ptr >= s.end || !IsDigit(*s.ptr))
+		return false;
+	while (s.ptr < s.end)
+	{
+		if (!IsDigit(*s.ptr))
+			return false;
+		s.ptr++;
+	}
+	return true;
 }
 
 static void AppendRawErrorText(const char* text)
@@ -485,16 +519,18 @@ static DC_Define* FindDefine(DC_Context* ctx, DC_String name)
 {
 	for (size_t i = 0; i < ctx->defineCount; i++)
 	{
-		if (StringIEqualsText(name, ctx->defines[i].name))
+		if (StringEqualsText(name, ctx->defines[i].name))
 			return &ctx->defines[i];
 	}
 	return 0;
 }
 
+static DC_String StripComment(DC_String line);
+
 static bool SetDefine(DC_Context* ctx, DC_String name, DC_String value)
 {
 	name = TrimString(name);
-	value = TrimString(value);
+	value = TrimString(StripComment(value));
 	if (StringEmpty(name))
 		return true;
 	DC_Define* define = FindDefine(ctx, name);
@@ -502,7 +538,7 @@ static bool SetDefine(DC_Context* ctx, DC_String name, DC_String value)
 		define = AppendArray(ctx->arena, &ctx->defines, &ctx->defineCount, &ctx->defineCapacity);
 	if (define == 0)
 		return false;
-	define->name = CopyUpperString(ctx->arena, name);
+	define->name = CopyString(ctx->arena, name);
 	define->value = StringEmpty(value) ? CopyString(ctx->arena, MakeString("1")) : CopyString(ctx->arena, value);
 	return define->name != 0 && define->value != 0;
 }
@@ -681,6 +717,35 @@ static bool JoinPath(char* buffer, size_t bufferSize, const char* folder, size_t
 	return true;
 }
 
+static bool FileExists(const char* path);
+
+static bool HasFileExtension(const char* path)
+{
+	const char* base = BaseName(path);
+	return StrRChr(base, '.') != 0;
+}
+
+static bool TryResolveIncludePath(char* resolved, size_t resolvedSize, const char* path)
+{
+	if (FileExists(path))
+	{
+		StrCopy(resolved, (uint32_t)resolvedSize, path);
+		return true;
+	}
+	if (!HasFileExtension(path))
+	{
+		char candidate[FILE_MAX_PATH];
+		StrCopy(candidate, sizeof(candidate), path);
+		StrCat(candidate, sizeof(candidate), ".sce");
+		if (FileExists(candidate))
+		{
+			StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool FileExists(const char* path)
 {
 	File* file = File_Open(path, ReadOnly);
@@ -710,38 +775,27 @@ static bool ResolveInclude(DC_Context* ctx, const char* includingFile, DC_String
 	StrCopy(includeBuffer, sizeof(includeBuffer), include);
 	const char* base = BaseName(includeBuffer);
 
-	if (FileExists(includeBuffer))
-	{
-		StrCopy(resolved, (uint32_t)resolvedSize, includeBuffer);
+	if (TryResolveIncludePath(resolved, resolvedSize, includeBuffer))
 		return true;
-	}
-	if (JoinPath(candidate, sizeof(candidate), includingFile, DirNameSize(includingFile), includeBuffer) && FileExists(candidate))
-	{
-		StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+	if (JoinPath(candidate, sizeof(candidate), includingFile, DirNameSize(includingFile), includeBuffer) &&
+		TryResolveIncludePath(resolved, resolvedSize, candidate))
 		return true;
-	}
-	if (JoinPath(candidate, sizeof(candidate), includingFile, DirNameSize(includingFile), base) && FileExists(candidate))
-	{
-		StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+	if (JoinPath(candidate, sizeof(candidate), includingFile, DirNameSize(includingFile), base) &&
+		TryResolveIncludePath(resolved, resolvedSize, candidate))
 		return true;
-	}
 	for (size_t i = 0; i < ctx->opts.includePathCount; i++)
 	{
 		const char* path = ctx->opts.includePaths[i];
-		if (path != 0 && JoinPath(candidate, sizeof(candidate), path, StrLen(path), base) && FileExists(candidate))
-		{
-			StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+		if (path != 0 && JoinPath(candidate, sizeof(candidate), path, StrLen(path), base) &&
+			TryResolveIncludePath(resolved, resolvedSize, candidate))
 			return true;
-		}
 	}
 	static const char* testPaths[] = { "tests/sce", "tests/devdisk", "tests/pcw" };
 	for (size_t i = 0; i < sizeof(testPaths) / sizeof(testPaths[0]); i++)
 	{
-		if (JoinPath(candidate, sizeof(candidate), testPaths[i], StrLen(testPaths[i]), base) && FileExists(candidate))
-		{
-			StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+		if (JoinPath(candidate, sizeof(candidate), testPaths[i], StrLen(testPaths[i]), base) &&
+			TryResolveIncludePath(resolved, resolvedSize, candidate))
 			return true;
-		}
 	}
 	return false;
 }
@@ -771,6 +825,7 @@ static bool ExprConsume(DC_ExprParser* parser, const char* token)
 }
 
 static int ParseExprOr(DC_ExprParser* parser);
+static DC_ProcessID* FindProcessID(DC_Context* ctx, DC_String name);
 
 static int ParseExprUnary(DC_ExprParser* parser)
 {
@@ -800,7 +855,10 @@ static int ParseExprUnary(DC_ExprParser* parser)
 		name.end = parser->text.ptr;
 		DC_Define* define = FindDefine(parser->ctx, name);
 		if (define == 0)
-			return 0;
+		{
+			DC_ProcessID* proc = FindProcessID(parser->ctx, name);
+			return proc != 0 ? proc->value : 0;
+		}
 		if (define->value[0] == 0)
 			return 1;
 		DC_ExprParser nested;
@@ -826,17 +884,18 @@ static int ParseExprAdd(DC_ExprParser* parser)
 static int ParseExprCompare(DC_ExprParser* parser)
 {
 	int value = ParseExprAdd(parser);
+	bool compared = false;
 	for (;;)
 	{
-		if (ExprConsume(parser, "==")) value = value == ParseExprAdd(parser);
-		else if (ExprConsume(parser, "!=")) value = value != ParseExprAdd(parser);
-		else if (ExprConsume(parser, "<=")) value = value <= ParseExprAdd(parser);
-		else if (ExprConsume(parser, ">=")) value = value >= ParseExprAdd(parser);
-		else if (ExprConsume(parser, "<")) value = value < ParseExprAdd(parser);
-		else if (ExprConsume(parser, ">")) value = value > ParseExprAdd(parser);
+		if (ExprConsume(parser, "==")) { value = value == ParseExprAdd(parser); compared = true; }
+		else if (ExprConsume(parser, "!=")) { value = value != ParseExprAdd(parser); compared = true; }
+		else if (ExprConsume(parser, "<=")) { value = value <= ParseExprAdd(parser); compared = true; }
+		else if (ExprConsume(parser, ">=")) { value = value >= ParseExprAdd(parser); compared = true; }
+		else if (ExprConsume(parser, "<")) { value = value < ParseExprAdd(parser); compared = true; }
+		else if (ExprConsume(parser, ">")) { value = value > ParseExprAdd(parser); compared = true; }
 		else break;
 	}
-	return value ? 1 : 0;
+	return compared ? (value ? 1 : 0) : value;
 }
 
 static int ParseExprAnd(DC_ExprParser* parser)
@@ -856,6 +915,20 @@ static int ParseExprOr(DC_ExprParser* parser)
 }
 
 static bool PreprocessFile(DC_Context* ctx, const char* path, DC_SourceLine** lines, size_t* lineCount, size_t* lineCapacity);
+
+static bool IsCompilerSectionHeader(DC_String header)
+{
+	return HeaderStartsWithWordI(header, "CTL") ||
+		HeaderStartsWithWordI(header, "TOK") ||
+		HeaderStartsWithWordI(header, "VOC") ||
+		HeaderStartsWithWordI(header, "STX") ||
+		HeaderStartsWithWordI(header, "MTX") ||
+		HeaderStartsWithWordI(header, "OTX") ||
+		HeaderStartsWithWordI(header, "LTX") ||
+		HeaderStartsWithWordI(header, "CON") ||
+		HeaderStartsWithWordI(header, "OBJ") ||
+		HeaderStartsWithWordI(header, "PRO");
+}
 
 static bool HandleDirective(
 	DC_Context* ctx,
@@ -908,12 +981,9 @@ static bool HandleDirective(
 		bool condition = false;
 		if (parentActive)
 		{
-			DC_Text expanded = {};
-			if (!ExpandMacros(ctx, args, &expanded))
-				return false;
 			DC_ExprParser parser;
 			parser.ctx = ctx;
-			parser.text = MakeString(expanded.data != 0 ? expanded.data : "");
+			parser.text = args;
 			condition = ParseExprOr(&parser) != 0;
 		}
 		if (*frameCount >= 32)
@@ -1032,17 +1102,22 @@ static bool PreprocessFile(DC_Context* ctx, const char* path, DC_SourceLine** li
 		}
 		else if (active)
 		{
+			bool isSectionHeader = false;
+			bool enteringRawSection = false;
+			if (!StringEmpty(trimmed) && *trimmed.ptr == '/')
+			{
+				DC_String header = TrimString(StripComment(DC_String(trimmed.ptr + 1, trimmed.end)));
+				if (IsCompilerSectionHeader(header))
+				{
+					isSectionHeader = true;
+					enteringRawSection = true;
+				}
+			}
 			int depth = frameCount;
 			while (depth > 0 && line.ptr < line.end && *line.ptr == ' ')
 			{
 				line.ptr++;
 				depth--;
-			}
-			DC_Text expanded = {};
-			if (!ExpandMacros(ctx, line, &expanded))
-			{
-				ctx->includeStackCount--;
-				return false;
 			}
 			DC_SourceLine* sourceLine = AppendArray(ctx->arena, lines, lineCount, lineCapacity);
 			if (sourceLine == 0)
@@ -1052,7 +1127,9 @@ static bool PreprocessFile(DC_Context* ctx, const char* path, DC_SourceLine** li
 			}
 			sourceLine->file = path;
 			sourceLine->line = lineNumber;
-			sourceLine->text = expanded.data != 0 ? expanded.data : CopyString(ctx->arena, MakeString(""));
+			sourceLine->text = CopyString(ctx->arena, line);
+			if (isSectionHeader)
+				ctx->preprocessRawSection = enteringRawSection;
 		}
 
 		if (ptr >= end)
@@ -1212,7 +1289,7 @@ static bool AppendToken(DC_Context* ctx, DC_BufferBuilder* data, DC_String token
 	return true;
 }
 
-static bool AppendMessage(DC_Context* ctx, DC_BufferBuilder* data, DC_String text)
+static bool AppendMessagePlainBytes(DC_Context* ctx, DC_BufferBuilder* out, DC_String text)
 {
 	size_t size = (size_t)(text.end - text.ptr);
 	for (size_t i = 0; i < size;)
@@ -1220,7 +1297,7 @@ static bool AppendMessage(DC_Context* ctx, DC_BufferBuilder* data, DC_String tex
 		uint8_t escaped = 0;
 		if (TryParseEscape(text, &i, true, &escaped))
 		{
-			if (!AppendByte(ctx, data, escaped ^ 0xFF))
+			if (!AppendByte(ctx, out, escaped))
 				return false;
 			continue;
 		}
@@ -1237,7 +1314,7 @@ static bool AppendMessage(DC_Context* ctx, DC_BufferBuilder* data, DC_String tex
 					digits = digits && IsDigit(text.ptr[n]);
 				if (digits)
 				{
-					if (!AppendByte(ctx, data, (uint8_t)ParseInt(DC_String(text.ptr + start, text.ptr + end)) ^ 0xFF))
+					if (!AppendByte(ctx, out, (uint8_t)ParseInt(DC_String(text.ptr + start, text.ptr + end))))
 						return false;
 					i = end + 1;
 					continue;
@@ -1250,12 +1327,100 @@ static bool AppendMessage(DC_Context* ctx, DC_BufferBuilder* data, DC_String tex
 		uint8_t legacyControl = 0;
 		if (MapLegacySourceControl(codepoint, &legacyControl))
 		{
-			if (!AppendByte(ctx, data, legacyControl ^ 0xFF))
+			if (!AppendByte(ctx, out, legacyControl))
 				return false;
 			continue;
 		}
-		if (!AppendByte(ctx, data, EncodeCodepointToDAAD(codepoint) ^ 0xFF))
+		if (!AppendByte(ctx, out, EncodeCodepointToDAAD(codepoint)))
 			return false;
+	}
+	return true;
+}
+
+static bool EncodeTokenBytes(DC_Context* ctx, DC_Text* token, DC_BufferBuilder* out)
+{
+	return AppendEncodedPlain(ctx, out, MakeString(token->data != 0 ? token->data : ""), 65535);
+}
+
+static bool TokenMatchesAt(const DC_BufferBuilder* plain, size_t offset, const DC_BufferBuilder* token)
+{
+	if (token->size == 0 || offset + token->size > plain->size)
+		return false;
+	return MemComp(plain->data + offset, token->data, token->size) == 0;
+}
+
+static bool AppendMessage(DC_Context* ctx, DC_BufferBuilder* data, DC_String text, DC_Text* tokens, size_t tokenCount, bool compress)
+{
+	DC_BufferBuilder plain = {};
+	if (!AppendMessagePlainBytes(ctx, &plain, text))
+		return false;
+	DC_BufferBuilder tokenBytes[128] = {};
+	if (compress && tokenCount > 128)
+		tokenCount = 128;
+	if (compress)
+	{
+		for (size_t i = 0; i < tokenCount; i++)
+		{
+			if (!EncodeTokenBytes(ctx, &tokens[i], &tokenBytes[i]))
+				return false;
+		}
+	}
+	int* tokenAt = 0;
+	bool* covered = 0;
+	if (compress && plain.size != 0)
+	{
+		tokenAt = Allocate<int>(ctx->arena, (unsigned)plain.size, false);
+		covered = Allocate<bool>(ctx->arena, (unsigned)plain.size, false);
+		if (tokenAt == 0 || covered == 0)
+			return false;
+		for (size_t i = 0; i < plain.size; i++)
+		{
+			tokenAt[i] = -1;
+			covered[i] = false;
+		}
+		for (size_t n = 0; n < tokenCount; n++)
+		{
+			if (tokenBytes[n].size == 0)
+				continue;
+			for (size_t i = 0; i + tokenBytes[n].size <= plain.size;)
+			{
+				bool match = true;
+				for (size_t k = 0; k < tokenBytes[n].size; k++)
+				{
+					if (covered[i + k] || tokenAt[i + k] >= 0 || plain.data[i + k] != tokenBytes[n].data[k])
+					{
+						match = false;
+						break;
+					}
+				}
+				if (match)
+				{
+					tokenAt[i] = (int)n;
+					for (size_t k = 1; k < tokenBytes[n].size; k++)
+						covered[i + k] = true;
+					i += tokenBytes[n].size;
+				}
+				else
+				{
+					i++;
+				}
+			}
+		}
+	}
+	for (size_t i = 0; i < plain.size; i++)
+	{
+		if (covered != 0 && covered[i])
+			continue;
+		if (tokenAt != 0 && tokenAt[i] >= 0)
+		{
+			if (!AppendByte(ctx, data, (uint8_t)((0x80 + tokenAt[i]) ^ 0xFF)))
+				return false;
+		}
+		else
+		{
+			if (!AppendByte(ctx, data, plain.data[i] ^ 0xFF))
+				return false;
+		}
 	}
 	return AppendByte(ctx, data, 0x0A ^ 0xFF);
 }
@@ -1279,6 +1444,15 @@ static bool IsNullWord(DC_Context* ctx, DC_String text)
 
 static bool VocabularyMatches(DC_Context* ctx, DC_VocabWord* word, DC_String text)
 {
+	char buffer[256];
+	size_t size = (size_t)(text.end - text.ptr);
+	if (size < sizeof(buffer))
+	{
+		for (size_t i = 0; i < size; i++)
+			buffer[i] = (char)ToUpper(text.ptr[i]);
+		text.ptr = (const uint8_t*)buffer;
+		text.end = text.ptr + size;
+	}
 	uint8_t encoded[5];
 	if (!EncodeWord(ctx, text, encoded))
 		return false;
@@ -1337,11 +1511,13 @@ static DC_ProcessID* FindProcessID(DC_Context* ctx, DC_String name)
 {
 	for (size_t i = 0; i < ctx->processIdCount; i++)
 	{
-		if (StringIEqualsText(name, ctx->processIds[i].name))
+		if (StringEqualsText(name, ctx->processIds[i].name))
 			return &ctx->processIds[i];
 	}
 	return 0;
 }
+
+static int LookupNumeric(DC_Context* ctx, DC_String text);
 
 static int ParseSymbolicIndex(DC_Context* ctx, DC_String text, int fallbackIndex)
 {
@@ -1355,7 +1531,10 @@ static int ParseSymbolicIndex(DC_Context* ctx, DC_String text, int fallbackIndex
 		plus++;
 	if (plus < text.end)
 	{
-		DC_ProcessID* id = FindProcessID(ctx, TrimString(DC_String(text.ptr, plus)));
+		DC_String base = TrimString(DC_String(text.ptr, plus));
+		DC_ProcessID* id = FindProcessID(ctx, base);
+		if (id == 0 && FindDefine(ctx, base) != 0)
+			return LookupNumeric(ctx, text);
 		if (id == 0)
 		{
 			SetFailure(ctx, DCError_SemanticError, "Unknown symbolic index");
@@ -1366,10 +1545,12 @@ static int ParseSymbolicIndex(DC_Context* ctx, DC_String text, int fallbackIndex
 	DC_ProcessID* id = FindProcessID(ctx, text);
 	if (id != 0)
 		return id->value;
+	if (FindDefine(ctx, text) != 0)
+		return LookupNumeric(ctx, text);
 	id = AppendArray(ctx->arena, &ctx->processIds, &ctx->processIdCount, &ctx->processIdCapacity);
 	if (id == 0)
 		return -1;
-	id->name = CopyUpperString(ctx->arena, text);
+	id->name = CopyString(ctx->arena, text);
 	id->value = fallbackIndex;
 	return fallbackIndex;
 }
@@ -1386,13 +1567,22 @@ static int LookupNumeric(DC_Context* ctx, DC_String text)
 	DC_Define* define = FindDefine(ctx, text);
 	if (define != 0)
 	{
-		DC_ExprParser parser;
-		parser.ctx = ctx;
-		parser.text = MakeString(define->value);
-		return ParseExprOr(&parser);
+		DC_ExprParser nested;
+		nested.ctx = ctx;
+		nested.text = MakeString(define->value);
+		return ParseExprOr(&nested);
 	}
 	DC_ProcessID* proc = FindProcessID(ctx, text);
-	return proc != 0 ? proc->value : 0;
+	if (proc != 0)
+		return proc->value;
+	DC_ExprParser parser;
+	parser.ctx = ctx;
+	parser.text = text;
+	int value = ParseExprOr(&parser);
+	ExprSkipSpaces(&parser);
+	if (parser.text.ptr == parser.text.end)
+		return value;
+	return 0;
 }
 
 static int ParseObjectLocation(DC_Context* ctx, DC_String text)
@@ -1405,7 +1595,7 @@ static int ParseObjectLocation(DC_Context* ctx, DC_String text)
 		return Loc_Carried;
 	if (StringIEqualsText(text, "HERE"))
 		return Loc_Here;
-	return ParseInt(text);
+	return LookupNumeric(ctx, text);
 }
 
 static bool ParseIndexedSectionHeader(DC_String header, int* index, DC_String* remainder)
@@ -1417,6 +1607,44 @@ static bool ParseIndexedSectionHeader(DC_String header, int* index, DC_String* r
 	while (pos < header.end && IsDigit(*pos))
 		pos++;
 	*index = ParseInt(DC_String(header.ptr, pos));
+	if (remainder != 0)
+		*remainder = TrimString(DC_String(pos, header.end));
+	return true;
+}
+
+static bool ParseSymbolicSectionHeader(DC_Context* ctx, DC_String header, int fallbackIndex, int* index, DC_String* remainder)
+{
+	header = TrimString(header);
+	if (StringEmpty(header) || (!IsDigit(*header.ptr) && !IsIdentifierStart(*header.ptr)))
+		return false;
+	const uint8_t* pos = header.ptr;
+	while (pos < header.end && !IsSpace(*pos))
+		pos++;
+	DC_String symbol = DC_String(header.ptr, pos);
+	bool plainIdentifier = !StringEmpty(symbol) && IsIdentifierStart(*symbol.ptr);
+	for (const uint8_t* p = symbol.ptr; p < symbol.end; p++)
+	{
+		if (!IsIdentifierChar(*p))
+		{
+			plainIdentifier = false;
+			break;
+		}
+	}
+	if (plainIdentifier && FindDefine(ctx, symbol) == 0)
+	{
+		DC_ProcessID* id = FindProcessID(ctx, symbol);
+		if (id == 0)
+			id = AppendArray(ctx->arena, &ctx->processIds, &ctx->processIdCount, &ctx->processIdCapacity);
+		if (id == 0)
+			return false;
+		id->name = CopyString(ctx->arena, symbol);
+		id->value = fallbackIndex;
+		*index = fallbackIndex;
+	}
+	else
+	{
+		*index = ParseSymbolicIndex(ctx, symbol, fallbackIndex);
+	}
 	if (remainder != 0)
 		*remainder = TrimString(DC_String(pos, header.end));
 	return true;
@@ -1466,7 +1694,7 @@ static bool ParseConnectionLine(DC_Context* ctx, DC_ProgramModel* model, DC_Stri
 	if (connection == 0)
 		return false;
 	connection->word = word;
-	connection->destination = ParseInt(fields[1]);
+	connection->destination = LookupNumeric(ctx, fields[1]);
 	return true;
 }
 
@@ -1478,19 +1706,48 @@ static bool ParseObjectLine(DC_Context* ctx, DC_ProgramModel* model, DC_String l
 	int fieldCount = 0;
 	if (!SplitFields(line, fields, 8, &fieldCount) || fieldCount < 6)
 	{
-		SetFailure(ctx, DCError_SyntaxError, "Invalid object line");
-		return false;
+		DC_String fieldsV2[24];
+		if (ctx->opts.version < DDB_VERSION_2 || !SplitFields(line, fieldsV2, 24, &fieldCount) || fieldCount < 22)
+		{
+			SetFailure(ctx, DCError_SyntaxError, "Invalid object line");
+			return false;
+		}
+		if (!EnsureArray(ctx->arena, &model->objects, &model->objectCount, &model->objectCapacity, (size_t)objectIndex + 1))
+			return false;
+		DC_ObjectDef* object = &model->objects[objectIndex];
+		object->location = ParseObjectLocation(ctx, fieldsV2[0]);
+		object->weight = LookupNumeric(ctx, fieldsV2[1]) & Obj_Weight;
+		object->container = !IsNullWord(ctx, fieldsV2[2]);
+		object->wearable = !IsNullWord(ctx, fieldsV2[3]);
+		object->attributes = 0;
+		for (int i = 0; i < 16; i++)
+		{
+			if (!IsNullWord(ctx, fieldsV2[4 + i]))
+				object->attributes |= (uint16_t)(1u << (15 - i));
+		}
+		object->noun = ResolveWordReference(ctx, model, fieldsV2[20], false, WordType_Unknown);
+		object->adjective = ResolveWordReference(ctx, model, fieldsV2[21], false, WordType_Adjective);
+		return object->noun >= -1 && object->adjective >= -1;
 	}
 	if (!EnsureArray(ctx->arena, &model->objects, &model->objectCount, &model->objectCapacity, (size_t)objectIndex + 1))
 		return false;
 	DC_ObjectDef* object = &model->objects[objectIndex];
 	object->location = ParseObjectLocation(ctx, fields[0]);
-	object->weight = ParseInt(fields[1]) & Obj_Weight;
+	object->weight = LookupNumeric(ctx, fields[1]) & Obj_Weight;
 	object->container = !IsNullWord(ctx, fields[2]);
 	object->wearable = !IsNullWord(ctx, fields[3]);
+	object->attributes = 0;
 	object->noun = ResolveWordReference(ctx, model, fields[4], false, WordType_Unknown);
 	object->adjective = ResolveWordReference(ctx, model, fields[5], false, WordType_Adjective);
-	return object->noun >= 0 && object->adjective >= -1;
+	return object->noun >= -1 && object->adjective >= -1;
+}
+
+static int LookupInstructionWord(DC_Context* ctx, DC_String text, uint8_t type)
+{
+	text = TrimString(text);
+	if (IsNumber(text))
+		return ParseInt(text);
+	return LookupWordNumber(ctx, text, type);
 }
 
 static bool ParseInstruction(DC_Context* ctx, DC_String* fields, int fieldCount, DC_ProcessInstruction* instruction)
@@ -1517,6 +1774,8 @@ static bool ParseInstruction(DC_Context* ctx, DC_String* fields, int fieldCount,
 	instruction->parameterCount = parameterCount;
 	instruction->parameters[0] = 0;
 	instruction->parameters[1] = 0;
+	instruction->parameterLabels[0] = 0;
+	instruction->parameterLabels[1] = 0;
 	for (int i = 0; i < parameterCount; i++)
 	{
 		if (i + 1 >= fieldCount)
@@ -1536,8 +1795,51 @@ static bool ParseInstruction(DC_Context* ctx, DC_String* fields, int fieldCount,
 			value.ptr++;
 			value.end--;
 		}
-		instruction->parameters[i] = LookupNumeric(ctx, value);
+		if (value.ptr < value.end && value.ptr[0] == '$')
+			instruction->parameterLabels[i] = CopyUpperString(ctx->arena, value);
+		else if (StringIEqualsText(fields[0], "SYNONYM"))
+		{
+			instruction->parameters[i] = LookupInstructionWord(ctx, value, i == 0 ? WordType_Verb : WordType_Noun);
+			if (instruction->parameters[i] < 0)
+				return false;
+		}
+		else if (StringIEqualsText(fields[0], "NOUN2"))
+		{
+			instruction->parameters[i] = LookupInstructionWord(ctx, value, WordType_Noun);
+			if (instruction->parameters[i] < 0)
+				return false;
+		}
+		else if (StringIEqualsText(fields[0], "ADJECT1") || StringIEqualsText(fields[0], "ADJECT2"))
+		{
+			instruction->parameters[i] = LookupInstructionWord(ctx, value, WordType_Adjective);
+			if (instruction->parameters[i] < 0)
+				return false;
+		}
+		else if (StringIEqualsText(fields[0], "ADVERB"))
+		{
+			instruction->parameters[i] = LookupInstructionWord(ctx, value, WordType_Adverb);
+			if (instruction->parameters[i] < 0)
+				return false;
+		}
+		else if (StringIEqualsText(fields[0], "PREP"))
+		{
+			instruction->parameters[i] = LookupInstructionWord(ctx, value, WordType_Preposition);
+			if (instruction->parameters[i] < 0)
+				return false;
+		}
+		else
+			instruction->parameters[i] = LookupNumeric(ctx, value);
 	}
+	return true;
+}
+
+static bool AddProcessLabel(DC_Context* ctx, DC_Process* process, DC_String name, int entryIndex)
+{
+	DC_ProcessLabel* label = AppendArray(ctx->arena, &process->labels, &process->labelCount, &process->labelCapacity);
+	if (label == 0)
+		return false;
+	label->name = CopyUpperString(ctx->arena, name);
+	label->entryIndex = entryIndex;
 	return true;
 }
 
@@ -1553,6 +1855,8 @@ static bool ParseProcessLine(DC_Context* ctx, DC_Process* process, DC_ProcessEnt
 	int fieldCount = 0;
 	if (!SplitFields(trimmed, fields, 16, &fieldCount) || fieldCount == 0)
 		return true;
+	if (fields[0].ptr < fields[0].end && fields[0].ptr[0] == '$')
+		return AddProcessLabel(ctx, process, fields[0], (int)process->entryCount);
 
 	DC_ProcessEntry localEntry = {};
 	DC_ProcessEntry* targetEntry = *currentEntry;
@@ -1628,9 +1932,10 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 		DC_String rawLine = MakeString(source[i].text);
 		DC_String line = StripComment(rawLine);
 		DC_String trimmed = TrimString(line);
+		DC_String rawTrimmed = TrimString(rawLine);
 		if (StringEmpty(trimmed))
 		{
-			if (currentTextTable != 0 && currentIndex >= 0 && (size_t)currentIndex < *currentTextCount)
+			if (StringEmpty(rawTrimmed) && currentTextTable != 0 && currentIndex >= 0 && (size_t)currentIndex < *currentTextCount)
 				AppendTextBreak(ctx, &currentTextTable[currentIndex]);
 			continue;
 		}
@@ -1639,16 +1944,16 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 			DC_String header = TrimString(StripComment(DC_String(trimmed.ptr + 1, trimmed.end)));
 			DC_String inlineRemainder = {};
 			int inlineIndex = -1;
-			if (StringIEqualsText(header, "CTL")) { section = Section_CTL; currentTextTable = 0; currentProcess = 0; continue; }
-			if (StringIEqualsText(header, "TOK")) { section = Section_TOK; currentTextTable = 0; currentProcess = 0; continue; }
-			if (StringIEqualsText(header, "VOC")) { section = Section_VOC; currentTextTable = 0; currentProcess = 0; continue; }
-			if (StringIEqualsText(header, "STX")) { section = Section_STX; currentTextTable = model->systemMessages; currentTextCount = &model->systemMessageCount; currentTextCapacity = &model->systemMessageCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringIEqualsText(header, "MTX")) { section = Section_MTX; currentTextTable = model->messages; currentTextCount = &model->messageCount; currentTextCapacity = &model->messageCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringIEqualsText(header, "OTX")) { section = Section_OTX; currentTextTable = model->objectTexts; currentTextCount = &model->objectTextCount; currentTextCapacity = &model->objectTextCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringIEqualsText(header, "LTX")) { section = Section_LTX; currentTextTable = model->locationTexts; currentTextCount = &model->locationTextCount; currentTextCapacity = &model->locationTextCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringIEqualsText(header, "CON")) { section = Section_CON; currentTextTable = 0; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringIEqualsText(header, "OBJ")) { section = Section_OBJ; currentTextTable = 0; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
-			if (StringStartsWithTextI(header, "PRO"))
+			if (HeaderStartsWithWordI(header, "CTL")) { section = Section_CTL; currentTextTable = 0; currentProcess = 0; continue; }
+			if (HeaderStartsWithWordI(header, "TOK")) { section = Section_TOK; currentTextTable = 0; currentProcess = 0; continue; }
+			if (HeaderStartsWithWordI(header, "VOC")) { section = Section_VOC; currentTextTable = 0; currentProcess = 0; continue; }
+			if (HeaderStartsWithWordI(header, "STX")) { section = Section_STX; currentTextTable = model->systemMessages; currentTextCount = &model->systemMessageCount; currentTextCapacity = &model->systemMessageCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "MTX")) { section = Section_MTX; currentTextTable = model->messages; currentTextCount = &model->messageCount; currentTextCapacity = &model->messageCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "OTX")) { section = Section_OTX; currentTextTable = model->objectTexts; currentTextCount = &model->objectTextCount; currentTextCapacity = &model->objectTextCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "LTX")) { section = Section_LTX; currentTextTable = model->locationTexts; currentTextCount = &model->locationTextCount; currentTextCapacity = &model->locationTextCapacity; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "CON")) { section = Section_CON; currentTextTable = 0; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "OBJ")) { section = Section_OBJ; currentTextTable = 0; currentProcess = 0; currentEntry = 0; currentIndex = -1; continue; }
+			if (HeaderStartsWithWordI(header, "PRO"))
 			{
 				section = Section_PRO;
 				currentTextTable = 0;
@@ -1667,14 +1972,41 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 				continue;
 			}
 			if ((section == Section_STX || section == Section_MTX || section == Section_OTX || section == Section_LTX || section == Section_CON) &&
-				ParseIndexedSectionHeader(header, &inlineIndex, &inlineRemainder))
+				ParseSymbolicSectionHeader(ctx, header, currentIndex + 1, &inlineIndex, &inlineRemainder))
 			{
+				DC_String textSymbol = TrimString(header);
+				const uint8_t* textSymbolEnd = textSymbol.ptr;
+				while (textSymbolEnd < textSymbol.end && !IsSpace(*textSymbolEnd))
+					textSymbolEnd++;
+				textSymbol.end = textSymbolEnd;
+				bool plainTextSymbol = section != Section_CON && !StringEmpty(textSymbol) && IsIdentifierStart(*textSymbol.ptr);
+				for (const uint8_t* p = textSymbol.ptr; p < textSymbol.end; p++)
+				{
+					if (!IsIdentifierChar(*p))
+					{
+						plainTextSymbol = false;
+						break;
+					}
+				}
+				if (plainTextSymbol)
+				{
+					inlineIndex = currentIndex + 1;
+					DC_ProcessID* id = FindProcessID(ctx, textSymbol);
+					if (id == 0)
+						id = AppendArray(ctx->arena, &ctx->processIds, &ctx->processIdCount, &ctx->processIdCapacity);
+					if (id == 0)
+						return false;
+					id->name = CopyString(ctx->arena, textSymbol);
+					id->value = inlineIndex;
+				}
+				else if (section != Section_CON && currentIndex >= 0 && inlineIndex <= currentIndex && !IsDigit(*textSymbol.ptr))
+				{
+					inlineIndex = currentIndex + 1;
+				}
 				currentIndex = inlineIndex;
 				if (section == Section_CON)
 				{
 					if (!EnsureArray(ctx->arena, &model->connections, &model->connectionCount, &model->connectionCapacity, (size_t)currentIndex + 1))
-						return false;
-					if (!StringEmpty(inlineRemainder) && !ParseConnectionLine(ctx, model, inlineRemainder, currentIndex))
 						return false;
 					continue;
 				}
@@ -1684,12 +2016,38 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 				if (section == Section_MTX) model->messages = currentTextTable;
 				if (section == Section_OTX) model->objectTexts = currentTextTable;
 				if (section == Section_LTX) model->locationTexts = currentTextTable;
-				if (!StringEmpty(inlineRemainder))
-					AppendTextLine(ctx, &currentTextTable[currentIndex], inlineRemainder);
 				continue;
 			}
-			if (section == Section_OBJ && ParseIndexedSectionHeader(header, &inlineIndex, &inlineRemainder))
+			if (section == Section_OBJ && ParseSymbolicSectionHeader(ctx, header, currentIndex + 1, &inlineIndex, &inlineRemainder))
 			{
+				DC_String objSymbol = TrimString(header);
+				const uint8_t* objSymbolEnd = objSymbol.ptr;
+				while (objSymbolEnd < objSymbol.end && !IsSpace(*objSymbolEnd))
+					objSymbolEnd++;
+				objSymbol.end = objSymbolEnd;
+				bool plainObjectSymbol = !StringEmpty(objSymbol) && IsIdentifierStart(*objSymbol.ptr);
+				for (const uint8_t* p = objSymbol.ptr; p < objSymbol.end; p++)
+				{
+					if (!IsIdentifierChar(*p))
+					{
+						plainObjectSymbol = false;
+						break;
+					}
+				}
+				if (plainObjectSymbol)
+				{
+					inlineIndex = currentIndex + 1;
+					DC_ProcessID* id = FindProcessID(ctx, objSymbol);
+					if (id == 0)
+						id = AppendArray(ctx->arena, &ctx->processIds, &ctx->processIdCount, &ctx->processIdCapacity);
+					if (id == 0)
+						return false;
+					id->name = CopyString(ctx->arena, objSymbol);
+					id->value = inlineIndex;
+					char objectIndexText[32];
+					LongToChar(inlineIndex, objectIndexText, 10);
+					SetDefine(ctx, objSymbol, MakeString(objectIndexText));
+				}
 				currentIndex = inlineIndex;
 				if (!EnsureArray(ctx->arena, &model->objects, &model->objectCount, &model->objectCapacity, (size_t)currentIndex + 1))
 					return false;
@@ -1732,7 +2090,7 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 					SetFailure(ctx, DCError_SyntaxError, "Text outside item");
 					break;
 				}
-				AppendTextLine(ctx, &currentTextTable[currentIndex], rawLine);
+				AppendTextLine(ctx, &currentTextTable[currentIndex], line);
 				break;
 			case Section_CON:
 				if (!ParseConnectionLine(ctx, model, trimmed, currentIndex))
@@ -1759,6 +2117,11 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 static bool IsLittleEndianTarget(DDB_Machine machine)
 {
 	return machine != DDB_MACHINE_ATARIST && machine != DDB_MACHINE_AMIGA;
+}
+
+static bool UsesV2HeaderExtension(DDB_Machine machine)
+{
+	return machine == DDB_MACHINE_IBMPC || machine == DDB_MACHINE_ATARIST || machine == DDB_MACHINE_AMIGA;
 }
 
 static uint16_t GetBaseOffset(DDB_Machine machine)
@@ -1826,37 +2189,50 @@ static bool AppendVocabularyWord(DC_Context* ctx, DC_BufferBuilder* data, const 
 	return AppendByte(ctx, data, (uint8_t)word->index) && AppendByte(ctx, data, word->type);
 }
 
-static uint16_t AppendMessageTable(DC_Context* ctx, DC_BufferBuilder* data, DC_Text* table, size_t count, bool littleEndian)
+static uint16_t AppendMessageTable(DC_Context* ctx, DC_BufferBuilder* data, DC_Text* table, size_t count, bool littleEndian,
+	DC_Text* tokens, size_t tokenCount, bool compress)
 {
+	uint16_t* messageOffsets = Allocate<uint16_t>(ctx->arena, (unsigned)count, false);
+	if (count != 0 && messageOffsets == 0)
+		return 0;
+	for (size_t i = 0; i < count; i++)
+	{
+		messageOffsets[i] = (uint16_t)data->size;
+		if (table[i].data != 0)
+			AppendMessage(ctx, data, MakeString(table[i].data), tokens, tokenCount, compress);
+		else
+			AppendByte(ctx, data, 0x0A ^ 0xFF);
+	}
+	if ((data->size & 1) != 0)
+		AppendByte(ctx, data, 0);
 	uint16_t tableOffset = (uint16_t)data->size;
 	ResizeBytes(ctx, data, data->size + count * 2);
 	for (size_t i = 0; i < count; i++)
-	{
-		uint16_t messageOffset = (uint16_t)data->size;
-		if (table[i].data != 0)
-			AppendMessage(ctx, data, MakeString(table[i].data));
-		else
-			AppendByte(ctx, data, 0x0A ^ 0xFF);
-		Write16(data->data, tableOffset + i * 2, messageOffset, littleEndian);
-	}
+		Write16(data->data, tableOffset + i * 2, messageOffsets[i], littleEndian);
 	return tableOffset;
 }
 
 static uint16_t AppendConnections(DC_Context* ctx, DC_BufferBuilder* data, DC_ConnectionList* connections, size_t count, bool littleEndian)
 {
-	uint16_t tableOffset = (uint16_t)data->size;
-	ResizeBytes(ctx, data, data->size + count * 2);
+	uint16_t* entryOffsets = Allocate<uint16_t>(ctx->arena, (unsigned)count, false);
+	if (count != 0 && entryOffsets == 0)
+		return 0;
 	for (size_t i = 0; i < count; i++)
 	{
-		uint16_t entryOffset = (uint16_t)data->size;
+		entryOffsets[i] = (uint16_t)data->size;
 		for (size_t n = 0; n < connections[i].count; n++)
 		{
 			AppendByte(ctx, data, (uint8_t)connections[i].items[n].word);
 			AppendByte(ctx, data, (uint8_t)connections[i].items[n].destination);
 		}
 		AppendByte(ctx, data, 0xFF);
-		Write16(data->data, tableOffset + i * 2, entryOffset, littleEndian);
 	}
+	if ((data->size & 1) != 0)
+		AppendByte(ctx, data, 0);
+	uint16_t tableOffset = (uint16_t)data->size;
+	ResizeBytes(ctx, data, data->size + count * 2);
+	for (size_t i = 0; i < count; i++)
+		Write16(data->data, tableOffset + i * 2, entryOffsets[i], littleEndian);
 	return tableOffset;
 }
 
@@ -1892,42 +2268,84 @@ static uint16_t AppendObjectAttributes(DC_Context* ctx, DC_BufferBuilder* data, 
 	return offset;
 }
 
-static uint16_t AppendProcesses(DC_Context* ctx, DC_BufferBuilder* data, DC_Process* processes, size_t count, bool littleEndian)
+static uint16_t AppendObjectExtendedAttributes(DC_Context* ctx, DC_BufferBuilder* data, DC_ObjectDef* objects, size_t count, bool littleEndian)
 {
-	uint16_t processTableOffset = (uint16_t)data->size;
-	ResizeBytes(ctx, data, data->size + count * 2);
+	uint16_t offset = (uint16_t)data->size;
 	for (size_t i = 0; i < count; i++)
 	{
-		uint16_t entriesOffset = (uint16_t)data->size;
-		Write16(data->data, processTableOffset + i * 2, entriesOffset, littleEndian);
-		size_t* patches = Allocate<size_t>(ctx->arena, (unsigned)processes[i].entryCount, false);
-		for (size_t e = 0; e < processes[i].entryCount; e++)
-		{
-			AppendByte(ctx, data, (uint8_t)processes[i].entries[e].verb);
-			AppendByte(ctx, data, (uint8_t)processes[i].entries[e].noun);
-			patches[e] = data->size;
-			AppendByte(ctx, data, 0);
-			AppendByte(ctx, data, 0);
-		}
+		size_t attrOffset = data->size;
 		AppendByte(ctx, data, 0);
 		AppendByte(ctx, data, 0);
-		AppendByte(ctx, data, 0);
-		AppendByte(ctx, data, 0);
+		Write16(data->data, attrOffset, objects[i].attributes, littleEndian);
+	}
+	return offset;
+}
+
+static int FindProcessLabelEntry(const DC_Process* process, const char* name)
+{
+	for (size_t i = 0; i < process->labelCount; i++)
+	{
+		if (StrComp(process->labels[i].name, name) == 0)
+			return process->labels[i].entryIndex;
+	}
+	return -1;
+}
+
+static uint16_t AppendProcesses(DC_Context* ctx, DC_BufferBuilder* data, DC_Process* processes, size_t count, bool littleEndian)
+{
+	uint16_t* processOffsets = Allocate<uint16_t>(ctx->arena, (unsigned)count, false);
+	if (count != 0 && processOffsets == 0)
+		return 0;
+	AppendByte(ctx, data, 0xFF);
+	for (size_t i = 0; i < count; i++)
+	{
+		uint16_t* codeOffsets = Allocate<uint16_t>(ctx->arena, (unsigned)processes[i].entryCount, false);
+		if (processes[i].entryCount != 0 && codeOffsets == 0)
+			return 0;
 		for (size_t e = 0; e < processes[i].entryCount; e++)
 		{
 			uint16_t codeOffset = (uint16_t)data->size;
-			Write16(data->data, patches[e], codeOffset, littleEndian);
+			codeOffsets[e] = codeOffset;
 			DC_ProcessEntry* entry = &processes[i].entries[e];
 			for (size_t n = 0; n < entry->instructionCount; n++)
 			{
 				DC_ProcessInstruction* inst = &entry->instructions[n];
 				AppendByte(ctx, data, (uint8_t)(inst->opcode | (inst->indirect ? 0x80 : 0)));
 				for (int p = 0; p < inst->parameterCount; p++)
-					AppendByte(ctx, data, (uint8_t)inst->parameters[p]);
+				{
+					int value = inst->parameters[p];
+					if (inst->parameterLabels[p] != 0)
+					{
+						int targetEntry = FindProcessLabelEntry(&processes[i], inst->parameterLabels[p]);
+						value = targetEntry < 0 ? 0 : targetEntry - (int)e - 1;
+					}
+					AppendByte(ctx, data, (uint8_t)value);
+				}
 			}
 			AppendByte(ctx, data, 0xFF);
 		}
+		if ((data->size & 1) != 0)
+			AppendByte(ctx, data, 0);
+		uint16_t entriesOffset = (uint16_t)data->size;
+		processOffsets[i] = entriesOffset;
+		for (size_t e = 0; e < processes[i].entryCount; e++)
+		{
+			AppendByte(ctx, data, (uint8_t)processes[i].entries[e].verb);
+			AppendByte(ctx, data, (uint8_t)processes[i].entries[e].noun);
+			size_t offsetPatch = data->size;
+			AppendByte(ctx, data, 0);
+			AppendByte(ctx, data, 0);
+			Write16(data->data, offsetPatch, codeOffsets[e], littleEndian);
+		}
+		AppendByte(ctx, data, 0);
+		AppendByte(ctx, data, 0);
 	}
+	if ((data->size & 1) != 0)
+		AppendByte(ctx, data, 0);
+	uint16_t processTableOffset = (uint16_t)data->size;
+	ResizeBytes(ctx, data, data->size + count * 2);
+	for (size_t i = 0; i < count; i++)
+		Write16(data->data, processTableOffset + i * 2, processOffsets[i], littleEndian);
 	return processTableOffset;
 }
 
@@ -1948,7 +2366,8 @@ static void WriteHeaderPointer(uint8_t* header, size_t offset, uint16_t value, b
 
 static void WriteHeader(DC_Context* ctx, uint8_t* header, DDB_Machine outputTarget, bool littleEndian, uint16_t baseOffset, DC_ProgramModel* model,
 	uint16_t processTableOffset, uint16_t objNamTableOffset, uint16_t locDescTableOffset, uint16_t msgTableOffset, uint16_t sysMsgTableOffset,
-	uint16_t conTableOffset, uint16_t vocabularyOffset, uint16_t objLocOffset, uint16_t objWordsOffset, uint16_t objAttrOffset, uint16_t tokensOffset)
+	uint16_t conTableOffset, uint16_t vocabularyOffset, uint16_t objLocOffset, uint16_t objWordsOffset, uint16_t objAttrOffset,
+	uint16_t objExAttrOffset, uint16_t tokensOffset)
 {
 	header[0] = (uint8_t)ctx->opts.version;
 	header[1] = (uint8_t)(((uint8_t)outputTarget << 4) | ((uint8_t)ctx->opts.language & 0x0F));
@@ -1970,6 +2389,22 @@ static void WriteHeader(DC_Context* ctx, uint8_t* header, DDB_Machine outputTarg
 	WriteHeaderPointer(header, 0x1A, objWordsOffset, littleEndian, baseOffset, true);
 	WriteHeaderPointer(header, 0x1C, objAttrOffset, littleEndian, baseOffset, true);
 	uint16_t declaredSize = (uint16_t)(baseOffset + (uint16_t)ctx->compiledSize);
+	if (ctx->opts.version >= DDB_VERSION_2)
+	{
+		WriteHeaderPointer(header, 0x1E, objExAttrOffset, littleEndian, baseOffset, true);
+		if (littleEndian)
+		{
+			header[0x20] = (uint8_t)(declaredSize & 0xFF);
+			header[0x21] = (uint8_t)(declaredSize >> 8);
+		}
+		else
+		{
+			header[0x20] = (uint8_t)(declaredSize >> 8);
+			header[0x21] = (uint8_t)(declaredSize & 0xFF);
+		}
+		WriteHeaderPointer(header, 0x22, 0, littleEndian, 0, false);
+		return;
+	}
 	if (littleEndian)
 	{
 		header[0x1E] = (uint8_t)(declaredSize & 0xFF);
@@ -1986,7 +2421,11 @@ static void WriteHeader(DC_Context* ctx, uint8_t* header, DDB_Machine outputTarg
 static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* output)
 {
 	DC_BufferBuilder data = {};
-	ResizeBytes(ctx, &data, 34);
+	ResizeBytes(ctx, &data, ctx->opts.version >= DDB_VERSION_2 ? 36 : 34);
+	DDB_Machine outputTarget = ctx->opts.target;
+	bool littleEndian = IsLittleEndianTarget(outputTarget);
+	if (ctx->opts.version >= DDB_VERSION_2 && UsesV2HeaderExtension(outputTarget))
+		ResizeBytes(ctx, &data, data.size + 24);
 
 	uint16_t vocabularyOffset = (uint16_t)data.size;
 	DC_VocabWord* sorted = Allocate<DC_VocabWord>(ctx->arena, (unsigned)model->vocabularyCount, false);
@@ -2006,19 +2445,31 @@ static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* 
 		AppendByte(ctx, &data, 0xFF);
 		for (size_t i = 0; i < model->tokenCount; i++)
 			AppendToken(ctx, &data, MakeString(model->tokens[i].data != 0 ? model->tokens[i].data : ""));
-		AppendByte(ctx, &data, 0);
+		if (model->tokenCount < 128)
+			AppendByte(ctx, &data, 0);
 	}
 
-	DDB_Machine outputTarget = ctx->opts.target;
-	bool littleEndian = IsLittleEndianTarget(outputTarget);
-	uint16_t sysTableOffset = AppendMessageTable(ctx, &data, model->systemMessages, model->systemMessageCount, littleEndian);
-	uint16_t msgTableOffset = AppendMessageTable(ctx, &data, model->messages, model->messageCount, littleEndian);
-	uint16_t objTableOffset = AppendMessageTable(ctx, &data, model->objectTexts, model->objectTextCount, littleEndian);
-	uint16_t locTableOffset = AppendMessageTable(ctx, &data, model->locationTexts, model->locationTextCount, littleEndian);
-	uint16_t conTableOffset = AppendConnections(ctx, &data, model->connections, model->connectionCount, littleEndian);
-	uint16_t objLocOffset = AppendObjectLocations(ctx, &data, model->objects, model->objectCount);
+	if (model->connectionCount < model->locationTextCount &&
+		!EnsureArray(ctx->arena, &model->connections, &model->connectionCount, &model->connectionCapacity, model->locationTextCount))
+		return false;
+	if (model->objectTextCount < model->objectCount &&
+		!EnsureArray(ctx->arena, &model->objectTexts, &model->objectTextCount, &model->objectTextCapacity, model->objectCount))
+		return false;
+	uint16_t sysTableOffset = AppendMessageTable(ctx, &data, model->systemMessages, model->systemMessageCount, littleEndian, model->tokens, model->tokenCount, false);
+	uint16_t msgTableOffset = AppendMessageTable(ctx, &data, model->messages, model->messageCount, littleEndian, model->tokens, model->tokenCount, false);
+	uint16_t objTableOffset = AppendMessageTable(ctx, &data, model->objectTexts, model->objectTextCount, littleEndian, model->tokens, model->tokenCount, false);
+	uint16_t locTableOffset = AppendMessageTable(ctx, &data, model->locationTexts, model->locationTextCount, littleEndian, model->tokens, model->tokenCount, true);
+	uint16_t conTableOffset = AppendConnections(ctx, &data, model->connections, model->locationTextCount, littleEndian);
 	uint16_t objWordsOffset = AppendObjectWords(ctx, &data, model->objects, model->objectCount);
 	uint16_t objAttrOffset = AppendObjectAttributes(ctx, &data, model->objects, model->objectCount);
+	if ((data.size & 1) != 0)
+		AppendByte(ctx, &data, 0);
+	uint16_t objExAttrOffset = 0;
+	if (ctx->opts.version >= DDB_VERSION_2)
+	{
+		objExAttrOffset = AppendObjectExtendedAttributes(ctx, &data, model->objects, model->objectCount, littleEndian);
+	}
+	uint16_t objLocOffset = AppendObjectLocations(ctx, &data, model->objects, model->objectCount);
 	uint16_t processTableOffset = AppendProcesses(ctx, &data, model->processes, model->processCount, littleEndian);
 	if (data.size > MAX_DDB_SIZE)
 	{
@@ -2027,7 +2478,7 @@ static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* 
 	}
 	ctx->compiledSize = data.size;
 	WriteHeader(ctx, data.data, outputTarget, littleEndian, GetBaseOffset(outputTarget), model, processTableOffset, objTableOffset, locTableOffset,
-		msgTableOffset, sysTableOffset, conTableOffset, vocabularyOffset, objLocOffset, objWordsOffset, objAttrOffset, tokensOffset);
+		msgTableOffset, sysTableOffset, conTableOffset, vocabularyOffset, objLocOffset, objWordsOffset, objAttrOffset, objExAttrOffset, tokensOffset);
 	*output = data;
 	return true;
 }
@@ -2036,6 +2487,11 @@ static bool SeedDefines(DC_Context* ctx)
 {
 	SetDefine(ctx, MakeString("TRUE"), MakeString("1"));
 	SetDefine(ctx, MakeString("FALSE"), MakeString("0"));
+	SetDefine(ctx, MakeString("HERE"), MakeString("255"));
+	SetDefine(ctx, MakeString("CARRIED"), MakeString("254"));
+	SetDefine(ctx, MakeString("LIMBO"), MakeString("254"));
+	SetDefine(ctx, MakeString("NOTCREATED"), MakeString("252"));
+	SetDefine(ctx, MakeString("DESTROYED"), MakeString("252"));
 	switch (ctx->opts.target)
 	{
 		case DDB_MACHINE_IBMPC: SetDefine(ctx, MakeString("PC"), MakeString("1")); break;
@@ -2052,6 +2508,8 @@ static bool SeedDefines(DC_Context* ctx)
 	}
 	if (ctx->opts.language == DDB_ENGLISH) SetDefine(ctx, MakeString("ENGLISH"), MakeString("1"));
 	if (ctx->opts.language == DDB_SPANISH) SetDefine(ctx, MakeString("SPANISH"), MakeString("1"));
+	if (ctx->opts.target == DDB_MACHINE_IBMPC || ctx->opts.target == DDB_MACHINE_ATARIST || ctx->opts.target == DDB_MACHINE_AMIGA || ctx->opts.target == DDB_MACHINE_PCW)
+		SetDefine(ctx, MakeString("BIGMEM"), MakeString("1"));
 	if (ctx->opts.target == DDB_MACHINE_SPECTRUM || ctx->opts.target == DDB_MACHINE_C64 || ctx->opts.target == DDB_MACHINE_CPC || ctx->opts.target == DDB_MACHINE_MSX || ctx->opts.target == DDB_MACHINE_MSX2)
 		SetDefine(ctx, MakeString("DRAW"), MakeString("1"));
 	char buffer[32];
@@ -2151,9 +2609,9 @@ const DC_Compilation* DC_Compile(const char* fileName, const DC_CompilerOptions*
 		DC_SetError(DCError_SyntaxError, "Missing compiler input");
 		return 0;
 	}
-	if (options->version != DDB_VERSION_1)
+	if (options->version != DDB_VERSION_1 && options->version != DDB_VERSION_2)
 	{
-		DC_SetError(DCError_Unsupported, "Only DAAD v1 compilation is implemented in this version of adpc");
+		DC_SetError(DCError_Unsupported, "Only DAAD v1 and v2 compilation is implemented in this version of adpc");
 		return 0;
 	}
 
