@@ -2358,6 +2358,12 @@ void VID_ActivatePalette()
 void VID_VSync()
 {
 	VID_ActivatePalette();
+#if _WEB
+	// The browser already drives the main loop through requestAnimationFrame.
+	// Re-entering VID_InnerLoop from palette/fade updates causes recursive
+	// event pumping and crashes in the Emscripten SDL path.
+	return;
+#endif
 	VID_InnerLoop();
 	SDL_Delay(16);
 }

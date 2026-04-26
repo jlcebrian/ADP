@@ -1,113 +1,109 @@
 ifndef VERSION
 include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
 endif
+
+DEBUGPRINT ?= 1
+DEBUGCACHE ?= 0
+DEBUGALLOC ?= 0
+DEBUGLTIME ?= 0
+DEBUG      ?= 1
+TRACE      ?= 1
+OPTIM      ?= -Os
+
+ifeq ($(OS),Windows_NT)
 SHELL := cmd.exe
+endif
 
-CC = emcc
-CXX = em++
-CPPFLAGS += -flto=full -Os -sUSE_SDL=2 \
-	-fno-rtti -s DISABLE_EXCEPTION_CATCHING 
-LDFLAGS += -sUSE_SDL=2 -lSDL -lidbfs.js -sFORCE_FILESYSTEM \
-	-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap'] \
-	-sEXPORTED_FUNCTIONS=_main,_KeyPressed,_RunGame,_RunGameFromTXT,_RunGameFrom,_SaveFile,_malloc
-	
-CPPFLAGS += -Iinclude -Ilib-src/salvador -D_STDCLIB -D_UNIX -D_WEB -D_DEBUGPRINT -DTRACE_ON
-CPPFLAGS += -DHAS_CLIPBOARD -DHAS_FULLSCREEN -DHAS_VIRTUALFILESYSTEM -DHAS_SNAPSHOTS -DHAS_DRAWSTRING -DHAS_PAWS
-CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG
-CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp 
-CPPFLAGS += -g -DVERSION=$(VERSION)
+CC := emcc
+CXX := em++
+DEPFLAGS := -MMD -MP
+.DEFAULT_GOAL := all
+EM_CACHE ?= $(CURDIR)/.cache/emscripten
+export EM_CACHE
 
-TOOL_SRCS = dim_adf dim_cpc dim_fat dim dmg_edit img
+CPPFLAGS += -Iinclude -Ilib-src/salvador
+CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB -D_UNIX -D_WEB
+CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
+CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG
+CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG -DNO_SAMPLES
+CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
+CPPFLAGS += -flto=full -fno-rtti -sUSE_SDL=2 -s DISABLE_EXCEPTION_CATCHING
 
-DIRS = src-common/ lib-src/salvador/ src-sdl/ src-unix/
-VPATH = $(DIRS) src-tools/
+ifeq ($(DEBUGPRINT),1)
+CPPFLAGS += -D_DEBUGPRINT
+CPPFLAGS += -DDEBUG_IMAGE_CACHE=$(DEBUGCACHE)
+endif
+ifeq ($(DEBUGALLOC),1)
+CPPFLAGS += -DDEBUG_ALLOCS=1
+endif
+ifeq ($(DEBUGLTIME),1)
+CPPFLAGS += -DDEBUG_RLE -DDEBUG_ZX0
+endif
+ifeq ($(DEBUG),1)
+CPPFLAGS += -g3
+endif
+ifeq ($(TRACE),1)
+CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
+endif
 
-SRCS := \
-	player.cpp \
-	ddb.cpp \
-	ddb_data.cpp \
-	ddb_dump.cpp \
-	ddb_inp.cpp \
-	ddb_pal.cpp \
-	ddb_play.cpp \
-	ddb_psg.cpp \
-	ddb_run.cpp \
-	ddb_scr.cpp \
-	ddb_vid.cpp \
-	ddb_draw.cpp \
-	ddb_snap.cpp \
-	dim.cpp \
-	dim_adf.cpp \
-	dim_cpc.cpp \
-	dim_fat.cpp \
-	dmg.cpp \
-	dmg_cga.cpp \
-	dmg_ega.cpp \
-	dmg_cach.cpp \
-	dmg_imgc.cpp \
-	dmg_imgp.cpp \
-	dmg_rlec.cpp \
-	dmg_univ.cpp \
-	os_file.cpp \
-	os_lib.cpp \
-	os_mem.cpp \
-	os_char.cpp \
-	scrfile.cpp \
-	video.cpp \
-	error.cpp \
-	files.cpp
+CPPFLAGS += $(OPTIM)
 
-OBJS := $(addprefix obj/web/,$(patsubst %.cpp,%.o,$(SRCS)))
+LDFLAGS += $(OPTIM) -flto=full
+LDFLAGS += -sUSE_SDL=2 -lidbfs.js -sFORCE_FILESYSTEM
+LDFLAGS += -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']
+LDFLAGS += -sEXPORTED_FUNCTIONS=_main,_KeyPressed,_RunGame,_RunGameFromTXT,_RunGameFrom,_SaveFile,_QuitGame,_malloc,_free
+
+ifeq ($(DEBUG),1)
+LDFLAGS += -gsource-map --emit-symbol-map
+endif
+
+DIRS := src-common/ lib-src/salvador/
+VPATH := $(DIRS) src-sdl/ src-unix/
+SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp src-sdl/player.cpp src-unix/files.cpp src-unix/error.cpp
+
+OBJDIR := obj/web
+OUTDIR := out/web
+JS_ASSET := src-web/kioskboard-aio-2.3.0.min.js
+
+OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 
 -include $(OBJS:.o=.d)
 
-GAMES = $(notdir $(wildcard web-games/*))
-GAMEDIRS = $(patsubst %,out\web\\%,$(GAMES))
-FILES = src-web/kioskboard-aio-2.3.0.min.js
+GAMES := $(notdir $(wildcard web-games/*))
+GAME_TARGETS := $(patsubst %,$(OUTDIR)/%/index.html,$(GAMES))
 
-all: out/web/adp/index.html out/web/dist/index.html $(patsubst %,out/web/%/index.html,$(GAMES)) 
+.PHONY: all clean
 
-out/web/dist/index.html: $(OBJS) $(FILES) src-web/from-files.html
+all: $(OUTDIR)/adp/index.html $(OUTDIR)/dist/index.html $(GAME_TARGETS)
+
+$(OUTDIR):
+	@mkdir -p $@
+
+$(OUTDIR)/kioskboard-aio-2.3.0.min.js: $(JS_ASSET) | $(OUTDIR)
+	@cp $< $@
+
+$(OUTDIR)/dist/index.html: $(OBJS) $(OUTDIR)/kioskboard-aio-2.3.0.min.js src-web/from-files.html
 	$(info Building dist)
-ifeq ($(OS), Windows_NT)
-	@IF NOT EXIST "out\web\dist" mkdir out\web\dist
-	@copy $(subst /,\,$(FILES)) out\web >NUL
-else
-	@mkdir -o out/web/dist
-	@cp $(FILES) out/web
-endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --shell-file src-web/from-files.html
+	@mkdir -p $(dir $@)
+	@cp $(OUTDIR)/kioskboard-aio-2.3.0.min.js $(dir $@)
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) $(if $(filter 1,$(DEBUG)),-Wl,-Map,$(@:.html=.wasm.map)) --shell-file src-web/from-files.html
 
-out/web/adp/index.html: $(OBJS) $(FILES) src-web/adp.html
+$(OUTDIR)/adp/index.html: $(OBJS) $(OUTDIR)/kioskboard-aio-2.3.0.min.js src-web/adp.html
 	$(info Building adp)
-ifeq ($(OS), Windows_NT)
-	@IF NOT EXIST "out\web\adp" mkdir out\web\adp
-	@copy $(subst /,\,$(FILES)) out\web >NUL
-else
-	@mkdir -o out/web/adp
-	@cp $(FILES) out/web
-endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --shell-file src-web/adp.html
+	@mkdir -p $(dir $@)
+	@cp $(OUTDIR)/kioskboard-aio-2.3.0.min.js $(dir $@)
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) $(if $(filter 1,$(DEBUG)),-Wl,-Map,$(@:.html=.wasm.map)) --shell-file src-web/adp.html
 
-out/web/%/index.html: $(OBJS) $(FILES) src-web/shell.html
+$(OUTDIR)/%/index.html: $(OBJS) $(OUTDIR)/kioskboard-aio-2.3.0.min.js src-web/shell.html
 	$(info Building $*)
-ifeq ($(OS), Windows_NT)
-	@IF NOT EXIST "out\web\$*" mkdir out\web\$*	
-	@copy $(subst /,\,$(FILES)) out\web >NUL
-else
-	@mkdir -o out/web/$*
-	@cp $(FILES) out/web
-endif
-	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) --preload-file web-games/$*@/data/ --shell-file src-web/shell.html
+	@mkdir -p $(dir $@)
+	@cp $(OUTDIR)/kioskboard-aio-2.3.0.min.js $(dir $@)
+	@$(CXX) -o $@ $(OBJS) $(LDFLAGS) $(if $(filter 1,$(DEBUG)),-Wl,-Map,$(@:.html=.wasm.map)) --preload-file web-games/$*@/data/ --shell-file src-web/shell.html
 
 clean:
-ifeq ($(OS), Windows_NT)
-	-rd /S /Q $(GAMEDIRS)
-	-del obj\web\*.o
-else
-	rm -f out/web/*/index.* obj/web/*.o
-endif
+	rm -rf $(OUTDIR)/* $(OBJDIR)/*
 
-$(OBJS) : obj/web/%.o : %.cpp
+$(OBJS): $(OBJDIR)/%.o: %.cpp Makefile-web
 	$(info Compiling $<)
-	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) $(DEPFLAGS) -c -o $@ $(CURDIR)/$<

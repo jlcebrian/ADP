@@ -91,6 +91,13 @@ static const char* GetDisplaySCRFileErrorString();
 static bool EnsureSelectedPartMediaAsync(int partIndex, DDB_Language language);
 #endif
 
+static void LogBackBufferAnalysisForDDB(const char* fileName, DDB_Machine machine, DDB* ddb)
+{
+	(void)fileName;
+	(void)machine;
+	(void)ddb;
+}
+
 #ifdef _AMIGA
 extern bool VID_IsAGAAvailable();
 extern void VID_SetDisplayColorModeHint(uint8_t colorMode);
@@ -1428,6 +1435,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	}
 
 	DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
+	DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
+	DDB_Language selectedLanguage = DDB_SPANISH;
+	DDB_Version selectedVersion = DDB_VERSION_2;
+	DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
+	uint8_t selectedDisplayPlanes = 4;
 	if (!EnsureSelectedPartMediaAsync(ddbSelected, selectedLanguage))
 	{
 		if (loaderPromptMode == LoaderPrompt_Disk)
@@ -1437,11 +1449,6 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	}
 	StrCopy(ddbFileName, FILE_MAX_PATH, ResolveSelectedDDBFile(ddbSelected));
 
-	DDB_Machine selectedMachine = DDB_MACHINE_AMIGA;
-	DDB_Language selectedLanguage = DDB_SPANISH;
-	DDB_Version selectedVersion = DDB_VERSION_2;
-	DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
-	uint8_t selectedDisplayPlanes = 4;
 	if (!ResolveDDBVideoConfig(ddbFileName, &selectedMachine, &selectedLanguage, &selectedVersion, &selectedScreenMode, &selectedDisplayPlanes))
 	{
 		CloseEnum();

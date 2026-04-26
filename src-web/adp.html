@@ -52,6 +52,10 @@
 		gap: 60px;
 		text-align: center;
 	}
+	#drop-title
+	{
+		display: block;
+	}
 	.info
 	{
 		font-size: 16px;
@@ -86,6 +90,7 @@
 	canvas.emscripten 
 	{ 
 		border: 0px none; 
+		outline: none;
 		background-color: black; 
 		width: 100%;
 		height: 100%;
@@ -93,7 +98,7 @@
     </style>
   </head>
   <body>
-  	<script src="../kioskboard-aio-2.3.0.min.js"></script>
+  	<script src="./kioskboard-aio-2.3.0.min.js"></script>
 	<input class="js-kioskboard-input"  style="position: fixed; top: 0; left: 0; width: 100vw" id="input" type="text">
     <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; visibility: hidden">
       <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
@@ -103,7 +108,7 @@
 		<div class="subtitle">ADP Web Player</div>
 		<div id="drop-area-text">
 			<div class="diskette"></div>
-			Drop your game here
+			<div id="drop-title">Drop your game here</div>
 			<div class="info">
 				Drag here the folder containing your game (.DDB, .DAT, .CHR, etc.)
 				or a disk image for Amiga (.ADF), Atari ST (.ST), MS-DOS (.DSK), etc.
@@ -116,6 +121,8 @@
 		var kbHeight = 0;
 		var kbVisible = false;
 		var isTouchScreen = ('ontouchstart' in document.documentElement);
+		var runtimeReady = false;
+		var uploadPath = "/uploads/";
 
 		var Module = {
 			print: n => {
@@ -133,13 +140,19 @@
 			})(),
 			noInitialRun: true,
 			onRuntimeInitialized: () => {
-				//Module.ccall('RunGameFromTXT', 'void', [], []);
-				
+				runtimeReady = true;
+				try {
+					FS.mkdir('/uploads');
+				} catch (error) {
+					// Directory can already exist after a restart.
+				}
 				var ddbFound = false;
 
 				// Add support to drop files into drop area
 				var dropArea = document.getElementById('drop-area');
-				var dropAreaText = document.getElementById('drop-area-text');
+				var dropTitle = document.getElementById('drop-title');
+				var defaultDropTitle = dropTitle.textContent;
+				var dragDepth = 0;
 				
 				async function readFileAsync(file) {
 					return new Promise((resolve, reject) => {
@@ -152,71 +165,202 @@
 					})
 				}
 
-				async function processDroppedItem(item) {
-					if (item.isDirectory) {
-						return new Promise((resolve, reject) => {
-							var reader = item.createReader();
-							reader.readEntries(async (entries) => {
-								var promises = [];
-								for (var i = 0; i < entries.length; i++) {
-									promises.push(processDroppedItem(entries[i]));
-								}
-								await Promise.all(promises);
-								resolve();
-							});
-						});
-					} else if (item.isFile) {
-						if (item.name.toLowerCase().endsWith(".ddb")) {
-							ddbFound = true;
+				function clearDirectory(path) {
+					var entries = FS.readdir(path);
+					for (var i = 0; i < entries.length; i++) {
+						var entry = entries[i];
+						if (entry === "." || entry === "..") {
+							continue;
 						}
-						return new Promise((resolve, reject) => {
-							item.file(file =>  {
-								readFileAsync(file).then(contents => {
-									var length = contents.byteLength;
-									var buffer = Module._malloc(length);
-									Module.HEAPU8.set(new Uint8Array(contents), buffer);
-									var playing = Module.ccall('SaveFile', 'bool', ['string', 'void*', 'int'], [ "/home/" + file.name, buffer, length]);
-									if (playing)
-									{
-										dropArea.style.visibility = "hidden";
-										document.getElementById('canvas').style.visibility = "visible";
-									}
-									resolve();
-								}).catch(error => {
-									console.log("Error reading file", file.name, error);
-									reject(error);
-								});
-							})
-						})
+						var fullPath = path + entry;
+						var stat = FS.stat(fullPath);
+						if (FS.isDir(stat.mode)) {
+							clearDirectory(fullPath + "/");
+							FS.rmdir(fullPath);
+						} else {
+							FS.unlink(fullPath);
+						}
+					}
+				}
+
+				function readDirectoryEntriesAsync(reader) {
+					return new Promise((resolve, reject) => {
+						reader.readEntries(resolve, reject);
+					});
+				}
+
+				function getFileFromEntryAsync(entry) {
+					return new Promise((resolve, reject) => {
+						entry.file(resolve, reject);
+					});
+				}
+
+				async function getFileFromHandleAsync(handle) {
+					return handle.getFile();
+				}
+
+				function yieldToBrowser() {
+					return new Promise(resolve => {
+						setTimeout(resolve, 0);
+					});
+				}
+
+				async function collectDroppedFiles(item, files) {
+					if (item.isDirectory) {
+						var reader = item.createReader();
+						for (;;) {
+							var entries = await readDirectoryEntriesAsync(reader);
+							if (entries.length === 0) {
+								break;
+							}
+							for (var i = 0; i < entries.length; i++) {
+								await collectDroppedFiles(entries[i], files);
+							}
+						}
+						return;
+					}
+					if (item.isFile) {
+						files.push(item);
+					}
+				}
+
+				async function collectDroppedHandles(handle, files) {
+					if (handle.kind === 'directory') {
+						for await (const child of handle.values()) {
+							await collectDroppedHandles(child, files);
+						}
+						return;
+					}
+					if (handle.kind === 'file') {
+						files.push(handle);
+					}
+				}
+
+				async function processDroppedFile(item) {
+					var file = item;
+					if (typeof item.getFile === 'function') {
+						file = await getFileFromHandleAsync(item);
+					} else if (typeof item.file === 'function') {
+						file = await getFileFromEntryAsync(item);
+					}
+
+					if (file.name.toLowerCase().endsWith(".ddb")) {
+						ddbFound = true;
+					}
+
+					var contents = await readFileAsync(file);
+					var length = contents.byteLength;
+					var buffer = Module._malloc(length);
+					HEAPU8.set(new Uint8Array(contents), buffer);
+					var playing = Module.ccall('SaveFile', 'bool', ['string', 'void*', 'int'], [ uploadPath + file.name, buffer, length]);
+					Module._free(buffer);
+					if (playing)
+					{
+						dropArea.style.visibility = "hidden";
+						document.getElementById('canvas').style.visibility = "visible";
+					}
+				}
+
+				async function processDropEntries(entries) {
+					if (entries.length <= 0) {
+						return;
+					}
+					ddbFound = false;
+					clearDirectory(uploadPath);
+					var files = [];
+					for (var i = 0; i < entries.length; i++) {
+						await collectDroppedFiles(entries[i], files);
+					}
+					for (var n = 0; n < files.length; n++) {
+						dropTitle.textContent = "Loading files... " + (n + 1) + "/" + files.length;
+						await processDroppedFile(files[n]);
+						await yieldToBrowser();
+					}
+					if (ddbFound) {
+						Module.ccall('RunGameFrom', 'void', [ 'string' ], [ uploadPath ]);
+						dropArea.style.visibility = "hidden";
+						document.getElementById('canvas').style.visibility = "visible";
+					} else {
+						dropTitle.textContent = defaultDropTitle;
+					}
+				}
+
+				async function processDropHandles(handles) {
+					if (handles.length <= 0) {
+						return;
+					}
+					ddbFound = false;
+					clearDirectory(uploadPath);
+					var files = [];
+					for (var i = 0; i < handles.length; i++) {
+						if (handles[i] != null) {
+							await collectDroppedHandles(handles[i], files);
+						}
+					}
+					for (var n = 0; n < files.length; n++) {
+						dropTitle.textContent = "Loading files... " + (n + 1) + "/" + files.length;
+						await processDroppedFile(files[n]);
+						await yieldToBrowser();
+					}
+					if (ddbFound) {
+						Module.ccall('RunGameFrom', 'void', [ 'string' ], [ uploadPath ]);
+						dropArea.style.visibility = "hidden";
+						document.getElementById('canvas').style.visibility = "visible";
+					} else {
+						dropTitle.textContent = defaultDropTitle;
 					}
 				}
 
 				function highlight(e) {
 					dropArea.classList.add('highlight');
-					dropAreaText.innerHTML = "Drop files here";
+					dragDepth++;
+					dropTitle.textContent = "Drop files here";
 				}
 
 				function unhighlight(e) {
-					dropArea.classList.remove('highlight');
-					dropAreaText.innerHTML = "Drop files here";
+					dragDepth--;
+					if (dragDepth <= 0) {
+						dragDepth = 0;
+						dropArea.classList.remove('highlight');
+						dropTitle.textContent = defaultDropTitle;
+					}
 				}
 
 				function handleDrop(e) {
-					var dt = e.dataTransfer;
-					var entries = dt.items;
-					if (entries.length > 0) {
-						ddbFound = false;
-						var promises = [];
-						for (var i = 0; i < entries.length; i++) {
-							var item = entries[i].webkitGetAsEntry();
-							promises.push(processDroppedItem(item));
-						}
-						Promise.all(promises).then(() => {
-							if (ddbFound) {
-									Module.ccall('RunGameFrom', 'void', [ 'string' ], [ "/home/" ]);
-									dropArea.style.visibility = "hidden";
-									document.getElementById('canvas').style.visibility = "visible";
+					dragDepth = 0;
+					dropArea.classList.remove('highlight');
+					if (!runtimeReady || typeof HEAPU8 === 'undefined') {
+						dropTitle.textContent = "Loading web runtime...";
+						e.preventDefault();
+						return;
+					}
+
+					var handlePromises = [];
+					var canUseHandles = typeof e.dataTransfer.items[0]?.getAsFileSystemHandle === 'function';
+					if (canUseHandles) {
+						for (var i = 0; i < e.dataTransfer.items.length; i++) {
+							var dataItem = e.dataTransfer.items[i];
+							if (dataItem.kind === 'file') {
+								handlePromises.push(dataItem.getAsFileSystemHandle());
 							}
+						}
+						Promise.all(handlePromises).then(handles => {
+							return processDropHandles(handles);
+						}).catch(error => {
+							console.log("Error processing dropped handles", error);
+							dropTitle.textContent = defaultDropTitle;
+						});
+					} else {
+						var entries = [];
+						for (var i = 0; i < e.dataTransfer.items.length; i++) {
+							var item = e.dataTransfer.items[i].webkitGetAsEntry();
+							if (item != null) {
+								entries.push(item);
+							}
+						}
+						processDropEntries(entries).catch(error => {
+							console.log("Error processing dropped items", error);
+							dropTitle.textContent = defaultDropTitle;
 						});
 					}
 					e.preventDefault();
@@ -240,7 +384,6 @@
 				});
 
 				dropArea.addEventListener('drop', handleDrop, false);
-
 			}
 		};
 

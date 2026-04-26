@@ -5,6 +5,7 @@ tests
 tools
 build
 tmp
+.cache
 
 *.map
 *.lst
