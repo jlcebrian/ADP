@@ -8,6 +8,13 @@ DEBUG      ?= 1
 TRACE      ?= 0
 OPTIM      ?= -O2
 DEPFLAGS   := -MMD -MP
+GCC8_COMPAT ?= 1
+
+# Conservative language baseline for older GCC-era ports.
+CPPFLAGS += -std=gnu++14
+ifeq ($(GCC8_COMPAT),1)
+CPPFLAGS += -fno-rtti -fno-exceptions
+endif
 
 # Platform and feature configuration.
 CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador
@@ -45,7 +52,7 @@ VPATH := $(DIRS) src-tools/ src-sdl/ src-unix/
 SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS := $(wildcard src-tools/tool_*.cpp)
-ADPC_SRCS := dc_main dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_dc
+ADPC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
 ADPC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files error
 
 OBJDIR := obj/unix

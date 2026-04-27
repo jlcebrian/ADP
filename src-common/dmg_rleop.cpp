@@ -191,7 +191,8 @@ static bool DMG_DecompressOldRLEToST_C(const uint8_t* data, uint16_t rleMask, ui
 		*out++ = plane3;
 	}
 
-	DebugPrintf("Decompress old RLE finished at %p (%u bytes written, tail has %d pixels)\n", out, (uint8_t*)out-(uint8_t*)buffer, bitsUsed);
+	DebugPrintf("Decompress old RLE finished at %p (%lu bytes written, tail has %d pixels)\n",
+		out, (unsigned long)((uint8_t*)out - (uint8_t*)buffer), bitsUsed);
 
     return true;
 }

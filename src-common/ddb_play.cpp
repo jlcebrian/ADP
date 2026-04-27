@@ -1570,9 +1570,11 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	}
 	else
 	{
+		#if HAS_PCX
 		const char* pcxIntro = FindPCXIntroScreen(ddbFileName, *machine, version, screenMode);
 		if (pcxIntro != 0)
 			*introScreen = pcxIntro;
+		#endif
 	}
 }
 
