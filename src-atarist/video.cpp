@@ -827,11 +827,13 @@ bool VID_LoadDataFile (const char* fileName)
 	if (DMG_GetTemporaryBufferSize() < screenBufferSize)
 		DMG_ReserveTemporaryBuffer(screenBufferSize);
 
-	dmg = DMG_Open(ChangeExtension(fileName, ".dat"), true);
-	if (dmg == 0)
-		dmg = DMG_Open(ChangeExtension(fileName, ".ega"), true);
-	if (dmg == 0)
-		dmg = DMG_Open(ChangeExtension(fileName, ".cga"), true);
+	char resolvedDataFile[FILE_MAX_PATH];
+	DDB_ScreenMode resolvedDataMode = screenMode;
+	if (DDB_ResolveDataFile(fileName, screenMachine, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0))
+	{
+		dmg = DMG_Open(resolvedDataFile, true);
+		screenMode = resolvedDataMode;
+	}
 	if (dmg == 0)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);

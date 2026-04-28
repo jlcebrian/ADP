@@ -117,6 +117,12 @@ static void WriteTranscriptChar(uint8_t ch)
 
 void DDB_SetupInkMap (DDB_Interpreter* i)
 {
+	DDB_ScreenMode logicScreenMode = i->screenMode;
+	#if !defined(_DOS)
+	if (i->ddb->target == DDB_MACHINE_IBMPC && logicScreenMode == ScreenMode_CGA)
+		logicScreenMode = ScreenMode_EGA;
+	#endif
+
 	switch (i->ddb->target)
 	{
 		case DDB_MACHINE_CPC:
@@ -142,12 +148,12 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 			break;
 
 		case DDB_MACHINE_IBMPC:
-			if (i->screenMode == ScreenMode_Text)
+			if (logicScreenMode == ScreenMode_Text)
 			{
 				for (int n = 0; n < 16; n++)
 					i->inkMap[n] = n;
 			}
-			else if (i->screenMode == ScreenMode_CGA)
+			else if (logicScreenMode == ScreenMode_CGA)
 			{
 				for (int n = 0; n < 16; n += 4)
 				{
@@ -158,7 +164,7 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 				}
 			}
 			#if HAS_PCX
-			else if (i->screenMode == ScreenMode_VGA && VID_HasExternalPictures())
+			else if (logicScreenMode == ScreenMode_VGA && VID_HasExternalPictures())
 			{
 				for (int n = 0; n < 16; n++)
 					i->inkMap[n] = n;
@@ -289,7 +295,12 @@ void DDB_Reset (DDB_Interpreter* i)
 
 	if (i->ddb->version > 1)
 	{
-		i->flags[Flag_ScreenMode] = i->screenMode;
+		DDB_ScreenMode logicScreenMode = i->screenMode;
+		#if !defined(_DOS)
+		if (i->ddb->target == DDB_MACHINE_IBMPC && logicScreenMode == ScreenMode_CGA)
+			logicScreenMode = ScreenMode_EGA;
+		#endif
+		i->flags[Flag_ScreenMode] = logicScreenMode;
 	}
 	if (i->ddb->oldMainLoop)
 	{

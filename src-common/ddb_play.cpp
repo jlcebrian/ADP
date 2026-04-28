@@ -9,6 +9,10 @@
 #include <os_lib.h>
 #include <os_mem.h>
 
+#if defined(_STDCLIB) && !defined(NO_PRINTF)
+#include <stdio.h>
+#endif
+
 #ifdef _ATARIST
 #include <mint/cookie.h>
 #endif
@@ -37,11 +41,14 @@ struct StartupConfig
 	int  boxX;
 	int  boxY;
 	int  ink;
+	DDB_ScreenMode videoMode;
 	char windowTitle[128];
 	char windowIcon[FILE_MAX_PATH];
+	char configFile[FILE_MAX_PATH];
 	bool hasBoxX;
 	bool hasBoxY;
 	bool hasInk;
+	bool hasVideoMode;
 	bool hasWindowTitle;
 	bool hasWindowIcon;
 };
@@ -60,6 +67,8 @@ static bool             diskPromptConfirmed = false;
 static char             diskImages[MAX_FILES][FILE_MAX_PATH];
 static int              diskImageCount = 0;
 static int              currentDiskNumber = 0;
+static DDB_ScreenMode   startupScreenModeOverride = ScreenMode_Default;
+static DDB_StartupVideoModePolicy startupVideoModePolicy = DDB_StartupVideoModePolicy_Configurable;
 
 #ifdef HAS_VIRTUALFILESYSTEM
 static void IgnoreDDBWarning(const char* message)
@@ -71,6 +80,7 @@ static void IgnoreDDBWarning(const char* message)
 static void CloseEnum();
 static void EnumFiles(const char* pattern = "*");
 static int CountFiles(const char* extension);
+static const char* GetFile(const char* extension, int index);
 static int CountDDBFiles();
 static const char* GetDDBFile(int index);
 static bool GetDDBMetadata(const char* fileName, DDB_Machine* machine, DDB_Language* language, DDB_Version* version);
@@ -79,6 +89,7 @@ static void WaitForKeyUpdate(int elapsed);
 
 static void ResetStartupConfig();
 static void LoadStartupConfig();
+static void SaveStartupVideoMode(const char* ddbFile, DDB_ScreenMode mode);
 static void CollectDiskImages();
 static int GetConfiguredPartCount();
 static void ShowLoaderPrompt(int parts, DDB_Language language);
@@ -114,11 +125,221 @@ static bool FileExistsByName(const char* fileName)
 	return true;
 }
 
+void DDB_SetStartupScreenModeOverride(DDB_ScreenMode mode)
+{
+	startupScreenModeOverride = mode;
+}
+
+void DDB_ClearStartupScreenModeOverride()
+{
+	startupScreenModeOverride = ScreenMode_Default;
+}
+
 static const char* GetDisplaySCRFileErrorString()
 {
 	if (DDB_GetError() == DDB_ERROR_INVALID_FILE)
 		return "Unsupported or invalid loading screen file";
 	return DDB_GetErrorString();
+}
+
+static const char* DescribeScreenMode(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_CGA:    return "CGA";
+		case ScreenMode_EGA:    return "EGA";
+		case ScreenMode_VGA16:  return "VGA";
+		case ScreenMode_VGA:    return "SVGA";
+		case ScreenMode_HiRes:  return "HiRes";
+		case ScreenMode_SHiRes: return "SuperHiRes";
+		default:                return "Default";
+	}
+}
+
+static bool GetModeSpecificIntroScreen(DDB_ScreenMode mode, const char** introScreen)
+{
+	const char* extension = 0;
+	switch (mode)
+	{
+		case ScreenMode_EGA:   extension = ".egs"; break;
+		case ScreenMode_CGA:   extension = ".cgs"; break;
+		case ScreenMode_VGA16: extension = ".vgs"; break;
+		default: break;
+	}
+
+	if (extension == 0)
+		return false;
+	if (CountFiles(extension) <= 0)
+		return false;
+	if (introScreen != 0)
+		*introScreen = GetFile(extension, 0);
+	return true;
+}
+
+static DDB_ScreenMode ParseScreenModeName(const char* text)
+{
+	if (StrIComp(text, "CGA") == 0)
+		return ScreenMode_CGA;
+	if (StrIComp(text, "EGA") == 0)
+		return ScreenMode_EGA;
+	if (StrIComp(text, "VGA") == 0 || StrIComp(text, "VGA16") == 0)
+		return ScreenMode_VGA16;
+	if (StrIComp(text, "SVGA") == 0 || StrIComp(text, "SGA") == 0)
+		return ScreenMode_VGA;
+	if (StrIComp(text, "HIRES") == 0)
+		return ScreenMode_HiRes;
+	if (StrIComp(text, "SUPERHIRES") == 0 || StrIComp(text, "SHIRES") == 0)
+		return ScreenMode_SHiRes;
+	return ScreenMode_Default;
+}
+
+static uint32_t GetScreenModeFlag(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_CGA:    return DDB_DataFileMode_CGA;
+		case ScreenMode_EGA:    return DDB_DataFileMode_EGA;
+		case ScreenMode_VGA16:  return DDB_DataFileMode_VGA16;
+		case ScreenMode_VGA:    return DDB_DataFileMode_VGA;
+		case ScreenMode_HiRes:  return DDB_DataFileMode_HiRes;
+		case ScreenMode_SHiRes: return DDB_DataFileMode_SHiRes;
+		default:                return 0;
+	}
+}
+
+static int CountScreenModes(uint32_t mask)
+{
+	int count = 0;
+	while (mask != 0)
+	{
+		count += (int)(mask & 1);
+		mask >>= 1;
+	}
+	return count;
+}
+
+static DDB_ScreenMode ChooseDefaultScreenModeForMask(uint32_t modeMask, DDB_ScreenMode fallback)
+{
+	static const DDB_ScreenMode order[] =
+	{
+		ScreenMode_CGA,
+		ScreenMode_EGA,
+		ScreenMode_VGA16,
+		ScreenMode_VGA,
+		ScreenMode_HiRes,
+		ScreenMode_SHiRes,
+	};
+
+	if ((modeMask & GetScreenModeFlag(fallback)) != 0)
+		return fallback;
+
+	for (unsigned i = 0; i < sizeof(order) / sizeof(order[0]); i++)
+	{
+		if ((modeMask & GetScreenModeFlag(order[i])) != 0)
+			return order[i];
+	}
+
+	return fallback;
+}
+
+static DDB_ScreenMode ChooseHighestScreenModeForMask(uint32_t modeMask, DDB_ScreenMode fallback)
+{
+	static const DDB_ScreenMode order[] =
+	{
+		ScreenMode_SHiRes,
+		ScreenMode_HiRes,
+		ScreenMode_VGA,
+		ScreenMode_VGA16,
+		ScreenMode_EGA,
+		ScreenMode_CGA,
+	};
+
+	for (unsigned i = 0; i < sizeof(order) / sizeof(order[0]); i++)
+	{
+		if ((modeMask & GetScreenModeFlag(order[i])) != 0)
+			return order[i];
+	}
+
+	return fallback;
+}
+
+void DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy policy)
+{
+	startupVideoModePolicy = policy;
+}
+
+#if defined(_STDCLIB) && !defined(NO_PRINTF)
+static bool PromptForVideoMode(const char* ddbFile, uint32_t modeMask, DDB_ScreenMode* selectedMode)
+{
+	struct ModeOption
+	{
+		char key;
+		DDB_ScreenMode mode;
+	};
+
+	static const DDB_ScreenMode order[] =
+	{
+		ScreenMode_CGA,
+		ScreenMode_EGA,
+		ScreenMode_VGA16,
+		ScreenMode_VGA,
+		ScreenMode_HiRes,
+		ScreenMode_SHiRes,
+	};
+	ModeOption options[6];
+	int optionCount = 0;
+
+	printf("\nSelect video mode for %s:\n", ddbFile);
+	for (unsigned i = 0; i < sizeof(order) / sizeof(order[0]); i++)
+	{
+		if ((modeMask & GetScreenModeFlag(order[i])) == 0)
+			continue;
+		options[optionCount].key = (char)('1' + optionCount);
+		options[optionCount].mode = order[i];
+		printf("  %c. %s\n", options[optionCount].key, DescribeScreenMode(order[i]));
+		optionCount++;
+	}
+
+	for (;;)
+	{
+		printf("Choice: ");
+		fflush(stdout);
+
+		int ch = getchar();
+		if (ch == EOF)
+			return false;
+		while (ch == '\r' || ch == '\n')
+		{
+			ch = getchar();
+			if (ch == EOF)
+				return false;
+		}
+
+		int discard = ch;
+		while (discard != '\n' && discard != '\r' && discard != EOF)
+			discard = getchar();
+
+		for (int i = 0; i < optionCount; i++)
+		{
+			if (ch == options[i].key)
+			{
+				*selectedMode = options[i].mode;
+				return true;
+			}
+		}
+
+		printf("Invalid choice.\n");
+	}
+}
+#endif
+
+static DDB_ScreenMode GetPreferredIntroScreenMode(DDB_ScreenMode resolvedMode)
+{
+	if (startupScreenModeOverride != ScreenMode_Default)
+		return startupScreenModeOverride;
+	if (startupVideoModePolicy == DDB_StartupVideoModePolicy_OverrideOrHighest)
+		return resolvedMode;
+	return ScreenMode_Default;
 }
 
 static void SetStartupPattern(const char* pattern)
@@ -248,6 +469,7 @@ static void ResetStartupConfig()
 	startupConfig.parts = 0;
 	startupConfig.disks = 0;
 	startupConfig.ink = 0x0F;
+	startupConfig.videoMode = ScreenMode_Default;
 	VID_SetWindowTitle(0);
 	VID_SetWindowIcon(0);
 	loaderPromptMode = LoaderPrompt_None;
@@ -273,6 +495,14 @@ static void ApplyConfigEntry(const char* cfgFile, const char* key, const char* v
 	{
 		ResolveConfigAdjacentPath(cfgFile, value, startupConfig.windowIcon, sizeof(startupConfig.windowIcon));
 		startupConfig.hasWindowIcon = startupConfig.windowIcon[0] != 0;
+		return;
+	}
+	if (StrIComp(key, "VIDEOMODE") == 0 || StrIComp(key, "SCREENMODE") == 0)
+	{
+		char buffer[32];
+		CopyConfigString(buffer, sizeof(buffer), value);
+		startupConfig.videoMode = ParseScreenModeName(buffer);
+		startupConfig.hasVideoMode = startupConfig.videoMode != ScreenMode_Default;
 		return;
 	}
 
@@ -309,6 +539,7 @@ static void LoadStartupConfig()
 		if (dot != 0 && StrIComp(dot, ".cfg") == 0)
 		{
 			cfgFile = files[i];
+			StrCopy(startupConfig.configFile, sizeof(startupConfig.configFile), cfgFile);
 			break;
 		}
 	}
@@ -398,6 +629,65 @@ static void LoadStartupConfig()
 	Free(buffer);
 }
 
+static void SaveStartupVideoMode(const char* ddbFile, DDB_ScreenMode mode)
+{
+#if defined(_STDCLIB) && !defined(NO_PRINTF)
+	char cfgPath[FILE_MAX_PATH];
+	if (startupConfig.configFile[0] != 0)
+		StrCopy(cfgPath, sizeof(cfgPath), startupConfig.configFile);
+	else
+		StrCopy(cfgPath, sizeof(cfgPath), ChangeExtension(ddbFile, ".cfg"));
+
+	char line[64];
+	int length = snprintf(line, sizeof(line), "VIDEOMODE=%s\n", DescribeScreenMode(mode));
+	if (length <= 0 || length >= (int)sizeof(line))
+		return;
+
+	File* existing = File_Open(cfgPath, ReadOnly);
+	char* buffer = 0;
+	uint64_t size = 0;
+	if (existing != 0)
+	{
+		size = File_GetSize(existing);
+		if (size > 8192)
+			size = 8192;
+		buffer = Allocate<char>("startup cfg save", (uint32_t)size + 1);
+		if (buffer != 0)
+		{
+			uint64_t read = File_Read(existing, buffer, size);
+			buffer[read] = 0;
+			size = read;
+		}
+		File_Close(existing);
+	}
+
+	File* file = File_Create(cfgPath);
+	if (file == 0)
+	{
+		if (buffer != 0)
+			Free(buffer);
+		return;
+	}
+
+	if (buffer != 0 && size > 0)
+	{
+		File_Write(file, buffer, size);
+		if (buffer[size - 1] != '\n')
+			File_Write(file, "\n", 1);
+		Free(buffer);
+	}
+	File_Write(file, line, (uint64_t)length);
+	File_Close(file);
+
+	StrCopy(startupConfig.configFile, sizeof(startupConfig.configFile), cfgPath);
+	startupConfig.videoMode = mode;
+	startupConfig.hasVideoMode = true;
+#else
+	(void)ddbFile;
+	(void)mode;
+#endif
+}
+
 static void CollectDiskImages()
 {
 	diskImageCount = 0;
@@ -467,10 +757,7 @@ static bool HasLocalDataForDDB(const char* ddbFile, DDB_Machine machine, DDB_Ver
 		return false;
 	if (!DDB_SupportsDataFile(version, machine))
 		return true;
-	return FileExistsByName(ChangeExtension(ddbFile, ".dat")) ||
-		FileExistsByName(ChangeExtension(ddbFile, ".DAT")) ||
-		FileExistsByName(ChangeExtension(ddbFile, ".ega")) ||
-		FileExistsByName(ChangeExtension(ddbFile, ".cga"));
+	return DDB_GetDataFileModes(ddbFile, machine) != 0;
 }
 
 static const char* ResolveSelectedDDBFile(int partIndex)
@@ -813,8 +1100,38 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 
 	DDB_ScreenMode resolvedScreenMode = DDB_GetDefaultScreenMode(resolvedMachine);
 	uint8_t resolvedPlanes = 4;
+	uint32_t supportedModes = DDB_GetDataFileModes(fileName, resolvedMachine);
+	if (supportedModes != 0)
+	{
+		DDB_ScreenMode selectedMode = startupVideoModePolicy == DDB_StartupVideoModePolicy_OverrideOrHighest ?
+			ChooseHighestScreenModeForMask(supportedModes, resolvedScreenMode) :
+			ChooseDefaultScreenModeForMask(supportedModes, resolvedScreenMode);
+		if (startupScreenModeOverride != ScreenMode_Default)
+		{
+			if ((supportedModes & GetScreenModeFlag(startupScreenModeOverride)) == 0)
+			{
+				DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
+				return false;
+			}
+			selectedMode = startupScreenModeOverride;
+		}
+		else if (startupVideoModePolicy == DDB_StartupVideoModePolicy_Configurable &&
+			startupConfig.hasVideoMode && (supportedModes & GetScreenModeFlag(startupConfig.videoMode)) != 0)
+			selectedMode = startupConfig.videoMode;
+		else if (startupVideoModePolicy == DDB_StartupVideoModePolicy_Configurable && CountScreenModes(supportedModes) > 1)
+		{
+			#if defined(_STDCLIB) && !defined(NO_PRINTF)
+				if (PromptForVideoMode(fileName, supportedModes, &selectedMode))
+					SaveStartupVideoMode(fileName, selectedMode);
+			#endif
+		}
 
-	DDB_CheckDataFileConfig(fileName, resolvedMachine, &resolvedScreenMode, &resolvedPlanes);
+		if (!DDB_ResolveDataFile(fileName, resolvedMachine, selectedMode, 0, 0, &resolvedScreenMode, &resolvedPlanes))
+		{
+			DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+			return false;
+		}
+	}
 	if (!ValidateResolvedVideoConfig(fileName, resolvedMachine, resolvedScreenMode, resolvedPlanes))
 		return false;
 
@@ -1306,7 +1623,17 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		}
 		if (scrCount == 0)
 		{
-			if ((scrCount = CountFiles(".egs")) > 0)
+			const char* preferredIntro = 0;
+			if (startupScreenModeOverride != ScreenMode_Default &&
+				GetModeSpecificIntroScreen(startupScreenModeOverride, &preferredIntro))
+			{
+				scrCount = 1;
+				screenMode = startupScreenModeOverride;
+				scrExtension =
+					startupScreenModeOverride == ScreenMode_CGA ? ".cgs" :
+					startupScreenModeOverride == ScreenMode_VGA16 ? ".vgs" : ".egs";
+			}
+			else if ((scrCount = CountFiles(".egs")) > 0)
 			{
 				scrExtension = ".egs";
 				screenMode = ScreenMode_EGA;
@@ -1357,7 +1684,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			}
 			DebugPrintf("Loaded snapshot from %s.\nVersion %s, machine %s\n", ddbFileName, DDB_DescribeVersion(ddb->version), DDB_DescribeMachine(ddb->machine));
 			LogBackBufferAnalysisForDDB(ddbFileName, ddb->machine, ddb);
-			VID_Initialize(ddb->machine, ddb->version, screenMode);
+			if (!VID_Initialize(ddb->machine, ddb->version, screenMode))
+			{
+				VID_ShowError(DDB_GetErrorString());
+				return state = Player_Error;
+			}
 		}
 		else
 		{
@@ -1381,7 +1712,12 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				introScreen = FindPCXIntroScreen(ddbFileName, machine, version, &screenMode);
 			VID_SetDisplayPlanesHint(displayPlanes);
 			DebugPrintf("Checked %s\n", ddbFileName);
-			VID_Initialize(machine, version, screenMode);
+			if (!VID_Initialize(machine, version, screenMode))
+			{
+				VID_ShowError(DDB_GetErrorString());
+				CloseEnum();
+				return state = Player_Error;
+			}
 				initializedMachine = machine;
 				initializedVersion = version;
 		    if (DDB_SupportsDataFile(version, machine) && !VID_LoadDataFile(ddbFileName))
@@ -1460,7 +1796,11 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 	{
 		VID_Finish();
 		VID_SetDisplayPlanesHint(selectedDisplayPlanes);
-		VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode);
+		if (!VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode))
+		{
+			CloseEnum();
+			return state = Player_Error;
+		}
 		initializedMachine = selectedMachine;
 		initializedVersion = selectedVersion;
 		screenMode = selectedScreenMode;
@@ -1538,6 +1878,16 @@ static void CheckIntroScreenFiles(const char* ddbFileName, const char** introScr
 static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine, DDB_ScreenMode* screenMode)
 #endif
 {
+	DDB_ScreenMode preferredMode = GetPreferredIntroScreenMode(*screenMode);
+	if (preferredMode != ScreenMode_Default)
+	{
+		if (GetModeSpecificIntroScreen(preferredMode, introScreen))
+		{
+			*screenMode = preferredMode;
+			return;
+		}
+	}
+
 	scrCount = CountFiles(".scr");
 	if (scrCount > 0)
 	{
@@ -1555,16 +1905,22 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	}
 	else if ((scrCount = CountFiles(".egs")) > 0)
 	{
+		if (preferredMode != ScreenMode_Default)
+			return;
 		*screenMode = ScreenMode_EGA;
 		*introScreen = GetFile(".egs", 0);
 	}
 	else if ((scrCount = CountFiles(".cgs")) > 0)
 	{
+		if (preferredMode != ScreenMode_Default)
+			return;
 		*screenMode = ScreenMode_CGA;
 		*introScreen = GetFile(".cgs", 0);
 	}
 	else if ((scrCount = CountFiles(".vgs")) > 0)
 	{
+		if (preferredMode != ScreenMode_Default)
+			return;
 		*screenMode = ScreenMode_VGA16;
 		*introScreen = GetFile(".vgs", 0);
 	}
@@ -1644,7 +2000,8 @@ bool DDB_RunPlayer()
 	OpenAudio();
 	#endif
 
-	VID_Initialize(machine, version, screenMode);
+	if (!VID_Initialize(machine, version, screenMode))
+		return false;
 	if (introScreen != 0)
 	{
 		if (!VID_DisplaySCRFile(introScreen, machine, true))
@@ -1709,7 +2066,8 @@ bool DDB_RunPlayer()
 		{
 			VID_Finish();
 			VID_SetDisplayPlanesHint(selectedDisplayPlanes);
-			VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode);
+			if (!VID_Initialize(selectedMachine, selectedVersion, selectedScreenMode))
+				return false;
 			machine = selectedMachine;
 			version = selectedVersion;
 			screenMode = selectedScreenMode;

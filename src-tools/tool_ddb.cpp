@@ -844,16 +844,16 @@ int main (int argc, char *argv[])
 
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
 	uint8_t displayPlanes = 4;
-	DDB_CheckDataFileConfig(loadedDDBFileName, ddb->target, &screenMode, &displayPlanes);
+	DDB_ScreenMode requestedDataMode = ScreenMode_Default;
 
 	if (screenOption != 0)
 	{
 		if (stricmp(screenOption, "ega") == 0)
-			screenMode = ScreenMode_EGA;
+			requestedDataMode = ScreenMode_EGA;
 		else if (stricmp(screenOption, "cga") == 0)
-			screenMode = ScreenMode_CGA;
+			requestedDataMode = ScreenMode_CGA;
 		else if (stricmp(screenOption, "vga") == 0)
-			screenMode = ScreenMode_VGA16;
+			requestedDataMode = ScreenMode_VGA16;
 		else
 		{
 			fprintf(stderr, "Error: Unknown screen mode '%s'\n", screenOption);
@@ -862,6 +862,19 @@ int main (int argc, char *argv[])
 				File_UnmountDisk();
 			return 1;
 		}
+	}
+
+	DDB_ScreenMode resolvedDataMode = requestedDataMode;
+	if (DDB_CheckDataFileConfig(loadedDDBFileName, ddb->target, &resolvedDataMode, &displayPlanes))
+	{
+		if (resolvedDataMode != ScreenMode_Default)
+			screenMode = resolvedDataMode;
+		else if (requestedDataMode != ScreenMode_Default)
+			screenMode = requestedDataMode;
+	}
+	else if (requestedDataMode != ScreenMode_Default)
+	{
+		screenMode = requestedDataMode;
 	}
 	VID_SetDisplayPlanesHint(displayPlanes);
 	VID_Initialize(ddb->target, ddb->version, screenMode);

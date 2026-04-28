@@ -1,19 +1,34 @@
 #include <dmg.h>
 #include <os_mem.h>
 
-bool DMG_UncEGAToPacked(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int outputSize)
+static bool DMG_RangesOverlap(const uint8_t* a, uint32_t aSize, const uint8_t* b, uint32_t bSize)
 {
-	uint8_t* tempBuffer = 0;
-	if (input >= output && input <= output + outputSize)
+	return aSize != 0 && bSize != 0 && a < b + bSize && b < a + aSize;
+}
+
+bool DMG_UncEGAToPacked(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int outputSize, uint8_t* scratch, uint32_t scratchSize)
+{
+	uint32_t inputSize = (uint32_t)width * (uint32_t)height / 2u;
+	if ((uint32_t)outputSize < inputSize)
 	{
-		tempBuffer = Allocate<uint8_t>("Temporary EGA buffer", width*height/2);
-		MemCopy(tempBuffer, input, width*height/2);
-		input = tempBuffer;
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+	if (DMG_RangesOverlap(input, inputSize, output, (uint32_t)outputSize))
+	{
+		if (scratch == 0 || scratchSize < inputSize ||
+			DMG_RangesOverlap(scratch, inputSize, output, (uint32_t)outputSize))
+		{
+			DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+			return false;
+		}
+		MemCopy(scratch, input, inputSize);
+		input = scratch;
 	}
 
-	const uint8_t* end = input + width*height/2;
+	const uint8_t* end = input + inputSize;
 	uint8_t* outputEnd = output + outputSize;
-	int bitPlaneStride = (width*height)/8;
+	uint32_t bitPlaneStride = ((uint32_t)width * (uint32_t)height) >> 3;
 
 	while (height > 0 && input < end && output < outputEnd) {
 		for (int x = 0; x < width; x += 2)
@@ -37,20 +52,18 @@ bool DMG_UncEGAToPacked(const uint8_t* input, uint16_t width, uint16_t height, u
 		height--;
 	}
 	
-	if (tempBuffer != 0)
-		Free(tempBuffer);
 	return true;// input == end && output == outputEnd;
 }
 
 static void ProcessEGABuffer (const uint8_t* buffer, int width, int height, uint8_t* output)
 {
 	int x, y;
-	int bitPlaneStride = (width*height)/8;
-	int rowStride = width/8;
+	uint32_t bitPlaneStride = ((uint32_t)width * (uint32_t)height) >> 3;
+	uint32_t rowStride = (uint32_t)width >> 3;
 
 	for (y = height-1; y >= 0; y--)
 	{
-		int base = y*rowStride;
+		uint32_t base = (uint32_t)y * rowStride;
 		uint8_t outc = 0;
 		bool outcm = false;
 
@@ -106,9 +119,15 @@ bool DMG_DecompressEGA (const uint8_t* data, uint16_t dataLength, uint8_t* buffe
 	const uint8_t* rleColors = data+1;
 	const uint8_t* dataEnd = data + dataLength;
 
-	uint8_t* tempBuffer = Allocate<uint8_t>("EGA decompression buffer", width * height / 2);
+	uint32_t packedSize = ((uint32_t)width * (uint32_t)height) >> 1;
+	uint8_t* tempBuffer = Allocate<uint8_t>("EGA decompression buffer", packedSize);
+	if (tempBuffer == 0)
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
 	uint8_t* ptr = tempBuffer;
-	uint8_t* end = tempBuffer + width * height / 2;
+	uint8_t* end = tempBuffer + packedSize;
 
 	if (dataLength < 6 || rleColorCount > 4)
 	{

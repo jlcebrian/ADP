@@ -100,6 +100,12 @@ uint32_t DMG_GetMinimumImageBufferSize(DMG* d, DMG_ImageMode mode)
 	{
 		case ImageMode_Packed:
 			return (pixels + 1) >> 1;
+		case ImageMode_PackedNative:
+			#if defined(_DOS)
+			if (d != 0 && d->version != DMG_Version5 && d->version != DMG_Version1_PCW)
+				return (pixels + 1) >> 1;
+			#endif
+			return ((width + 3u) & ~3u) * height;
 		case ImageMode_RGBA32:
 			return pixels * 4u;
 		case ImageMode_Planar:
@@ -1501,6 +1507,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 	uint16_t realEntryCount;
 	bool success;
 	const char* extension = StrRChr(filename, '.');
+	uint64_t rawFileSize;
 
 	DMG_SetError(DMG_ERROR_NONE);
 	
@@ -1511,14 +1518,14 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 
-	size_t fileSize = (size_t)File_GetSize(file);
-	if (fileSize < DMG_MIN_FILE_SIZE)
+	rawFileSize = File_GetSize(file);
+	if (rawFileSize < DMG_MIN_FILE_SIZE)
 	{
 		DMG_SetError(DMG_ERROR_FILE_TOO_SMALL);
 		File_Close(file);
 		return 0;
 	}
-	if (fileSize > DMG_MAX_FILE_SIZE)
+	if (rawFileSize > DMG_MAX_FILE_SIZE)
 	{
 		DMG_SetError(DMG_ERROR_FILE_TOO_BIG);
 		File_Close(file);
@@ -1534,7 +1541,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 	}
     MemClear(d, sizeof(DMG));
 	d->file = file;
-	d->fileSize = (int)fileSize;
+	d->fileSize = (uint32_t)rawFileSize;
     d->dirty = false;
 
 	// Read file header
@@ -1546,7 +1553,7 @@ DMG* DMG_Open(const char* filename, bool readOnly)
 		return 0;
 	}
 	signature = read16BE(header);
-	if (DMG_LooksLikePCWDataFile(header, fileSize, extension))
+	if (DMG_LooksLikePCWDataFile(header, rawFileSize, extension))
 	{
 		d->version = DMG_Version1_PCW;
 		d->littleEndian = true;
@@ -1795,28 +1802,28 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 	uint16_t width  = entry->width;
 	uint16_t height = entry->height;
 
-	if (mode == ImageMode_Audio)
+	if (mode == ImageMode_Audio && entry->type == DMGEntry_Audio)
 	{
-		if (entry->type == DMGEntry_Audio)
-			return entry->length;
+		return entry->length;
+	}
+
+	if (mode == ImageMode_Raw)
+	{
 		if (dmg != 0 && dmg->version == DMG_Version5)
 		{
 			if (entry->bitDepth <= 4)
 				return (width * height + 1) / 2;
 			return width * height;
 		}
-		if (dmg->screenMode == ScreenMode_CGA)
+		if (dmg != 0 && dmg->version == DMG_Version1_PCW)
+			return ((width + 7) >> 3) * height;
+		if (dmg != 0 && dmg->version == DMG_Version1_CGA)
 			return width * height / 4;
 		return width * height / 2;
 	}
 
 	switch (mode)
 	{
-		case ImageMode_Raw:
-			if (dmg != 0 && dmg->version == DMG_Version1_PCW)
-				return ((width + 7) >> 3) * height;
-			return width * height / 2;
-
 		case ImageMode_Packed:
             if (dmg != 0 && dmg->version == DMG_Version5)
             {
@@ -1825,6 +1832,9 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
                 return width * height;
             }
 			return width * height / 2;
+
+		case ImageMode_PackedNative:
+			return ((width + 3u) & ~3u) * height;
 
 		case ImageMode_Planar:
 			if (dmg != 0 && dmg->version == DMG_Version5 && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode))

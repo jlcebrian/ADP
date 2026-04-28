@@ -13,6 +13,7 @@
 #include "sb.h"
 #include "mixer.h"
 #include "timer.h"
+#include "vid_modex.h"
 
 #include <i86.h>
 #include <conio.h>
@@ -32,6 +33,7 @@ static uint32_t   pcxPalette[256];
 static uint8_t*   audioData = 0;
 static DMG_Entry* bufferedEntry;
 static int        bufferedEntryIndex;
+static bool       bufferedPictureIndexed = false;
 static bool       initialized = false;
 static bool       quit;
 static uint8_t    defaultCharWidth = 6;
@@ -180,40 +182,14 @@ static bool IsPCXScreenFile(const char* fileName)
 // ----------------------------------------------------------------------------
 //  Video related variables
 // ----------------------------------------------------------------------------
-
-static uint8_t* offset;
-static unsigned pageCount;
-static unsigned previousVideoMode;
-static unsigned activePage;
-static unsigned frontPage;
-static unsigned backPage;
-static unsigned scratchPage;
-static unsigned pageSize;
-static unsigned lineSize;
 static uint32_t palette[256];
 static uint8_t  paletteR[256];
 static uint8_t  paletteG[256];
 static uint8_t  paletteB[256];
-static unsigned width;
-static unsigned height;
 static uint8_t  fg;
 static int      cx;
 static int      cy;
-static int      minx;
-static int      maxx;
-static int      miny;
-static int      maxy;
 
-#define VGA_SEGMENT 0xA000
-#if defined(__386__)
-#define VGA_PTR(off) ((uint8_t*)(0xA0000UL + (uint32_t)(off)))
-#else
-#define VGA_PTR(off) ((uint8_t*)MK_FP(VGA_SEGMENT, (uint16_t)(off)))
-#endif
-
-#define INVALID_PAGE ((unsigned)-1)
-
-#if DEBUG_ALLOCS
 #if defined(__386__)
 struct DPMI_MemoryInfo
 {
@@ -314,370 +290,33 @@ static void GetDOSFreeMemoryInfo(uint32_t* totalFree, uint32_t* largestBlock)
 		*largestBlock = largest;
 #endif
 }
+
+static uint32_t GetDesiredDOSImageCacheSize(uint32_t totalFree, uint32_t largestBlock)
+{
+	uint32_t available = largestBlock != 0 ? largestBlock : totalFree;
+	if (available >= 256UL * 1024UL)
+		return 128UL * 1024UL;
+	if (available >= 160UL * 1024UL)
+		return 96UL * 1024UL;
+	if (available >= 128UL * 1024UL)
+		return 64UL * 1024UL;
+	if (available >= 96UL * 1024UL)
+		return 48UL * 1024UL;
+	if (available >= 64UL * 1024UL)
+		return 32UL * 1024UL;
+	if (available >= 48UL * 1024UL)
+		return 16UL * 1024UL;
+
+	DebugPrintf("Warning: not enough memory available (%lu bytes) for image cache\n", available);
+	return 0;
+}
+
+#if DEBUG_ALLOCS
 #endif
-
-// ----------------------------------------------------------------------------
-//  Setting the video mode 
-// ----------------------------------------------------------------------------
-
-enum VideoMode
-{
-	MODE_TEXT,
-	MODE_320x200,
-	MODE_320x240,
-	MODE_320x400,
-	MODE_360x270,
-	MODE_400x300
-};
-
-typedef struct 
-{
-	uint16_t port;
-	uint8_t  index;
-	uint8_t  value;
-}
-VideoModeReg;
-
-static VideoModeReg regs320x200[] =
-{
-	{ 0x3C2, 0x00, 0x63 },
-	{ 0x3D4, 0x00, 0x5F },
-	{ 0x3D4, 0x01, 0x4F },
-	{ 0x3D4, 0x02, 0x50 },
-	{ 0x3D4, 0x03, 0x82 },
-	{ 0x3D4, 0x04, 0x54 },
-	{ 0x3D4, 0x05, 0x80 },
-	{ 0x3D4, 0x06, 0xBF },
-	{ 0x3D4, 0x07, 0x1F },
-	{ 0x3D4, 0x08, 0x00 },
-	{ 0x3D4, 0x09, 0x41 },
-	{ 0x3D4, 0x10, 0x9C },
-	{ 0x3D4, 0x11, 0x8E },
-	{ 0x3D4, 0x12, 0x8F },
-	{ 0x3D4, 0x13, 0x28 },
-	{ 0x3D4, 0x14, 0x00 },
-	{ 0x3D4, 0x15, 0x96 },
-	{ 0x3D4, 0x16, 0xB9 },
-	{ 0x3D4, 0x17, 0xE3 },
-	{ 0x3C4, 0x01, 0x01 },
-	{ 0x3C4, 0x04, 0x06 },
-	{ 0x3CE, 0x05, 0x40 },
-	{ 0x3CE, 0x06, 0x05 },
-	{ 0x3C0, 0x10, 0x41 },
-	{ 0x3C0, 0x13, 0x00 },
-	{ 0 }
-};
-
-static VideoModeReg regs320x240[] =
-{
-	{ 0x3C2, 0x00, 0xE3 },
-	{ 0x3D4, 0x00, 0x5F },
-	{ 0x3D4, 0x01, 0x4F },
-	{ 0x3D4, 0x02, 0x50 },
-	{ 0x3D4, 0x03, 0x82 },
-	{ 0x3D4, 0x04, 0x54 },
-	{ 0x3D4, 0x05, 0x80 },
-	{ 0x3D4, 0x06, 0x0D },
-	{ 0x3D4, 0x07, 0x3E },
-	{ 0x3D4, 0x08, 0x00 },
-	{ 0x3D4, 0x09, 0x41 },
-	{ 0x3D4, 0x10, 0xEA },
-	{ 0x3D4, 0x11, 0xAC },
-	{ 0x3D4, 0x12, 0xDF },
-	{ 0x3D4, 0x13, 0x28 },
-	{ 0x3D4, 0x14, 0x00 },
-	{ 0x3D4, 0x15, 0xE7 },
-	{ 0x3D4, 0x16, 0x06 },
-	{ 0x3D4, 0x17, 0xE3 },
-	{ 0x3C4, 0x01, 0x01 },
-	{ 0x3C4, 0x04, 0x06 },
-	{ 0x3CE, 0x05, 0x40 },
-	{ 0x3CE, 0x06, 0x05 },
-	{ 0x3C0, 0x10, 0x41 },
-	{ 0x3C0, 0x13, 0x00 },
-	{ 0 }
-};
-
-static VideoModeReg regs360x270[] =
-{
-	{ 0x3C2, 0x00, 0xE7 },
-	{ 0x3D4, 0x00, 0x6B },
-	{ 0x3D4, 0x01, 0x59 },
-	{ 0x3D4, 0x02, 0x5A },
-	{ 0x3D4, 0x03, 0x8E },
-	{ 0x3D4, 0x04, 0x5E },
-	{ 0x3D4, 0x05, 0x8A },
-	{ 0x3D4, 0x06, 0x30 },
-	{ 0x3D4, 0x07, 0xF0 },
-	{ 0x3D4, 0x08, 0x00 },
-	{ 0x3D4, 0x09, 0x61 },
-	{ 0x3D4, 0x10, 0x20 },
-	{ 0x3D4, 0x11, 0xA9 },
-	{ 0x3D4, 0x12, 0x1B },
-	{ 0x3D4, 0x13, 0x2D },
-	{ 0x3D4, 0x14, 0x00 },
-	{ 0x3D4, 0x15, 0x1F },
-	{ 0x3D4, 0x16, 0x2F },
-	{ 0x3D4, 0x17, 0xE3 },
-	{ 0x3C4, 0x01, 0x01 },
-	{ 0x3C4, 0x04, 0x06 },
-	{ 0x3CE, 0x05, 0x40 },
-	{ 0x3CE, 0x06, 0x05 },
-	{ 0x3C0, 0x10, 0x41 },
-	{ 0x3C0, 0x13, 0x00 },
-	{ 0 }
-};
-
-static VideoModeReg regs400x300[] =
-{
-	{ 0x3C2, 0x00, 0xE7 },
-	{ 0x3D4, 0x00, 0x71 },
-	{ 0x3D4, 0x01, 0x63 },
-	{ 0x3D4, 0x02, 0x64 },
-	{ 0x3D4, 0x03, 0x92 },
-	{ 0x3D4, 0x04, 0x67 },
-	{ 0x3D4, 0x05, 0x82 },
-	{ 0x3D4, 0x06, 0x46 },
-	{ 0x3D4, 0x07, 0x1F },
-	{ 0x3D4, 0x08, 0x00 },
-	{ 0x3D4, 0x09, 0x40 },
-	{ 0x3D4, 0x10, 0x31 },
-	{ 0x3D4, 0x11, 0x80 },
-	{ 0x3D4, 0x12, 0x2B },
-	{ 0x3D4, 0x13, 0x32 },
-	{ 0x3D4, 0x14, 0x00 },
-	{ 0x3D4, 0x15, 0x2F },
-	{ 0x3D4, 0x16, 0x44 },
-	{ 0x3D4, 0x17, 0xE3 },
-	{ 0x3C4, 0x01, 0x01 },
-	{ 0x3C4, 0x02, 0x0F },
-	{ 0x3C4, 0x04, 0x06 },
-	{ 0x3CE, 0x05, 0x40 },
-	{ 0x3CE, 0x06, 0x05 },
-	{ 0x3C0, 0x10, 0x41 },
-	{ 0x3C0, 0x13, 0x00 },
-	{ 0 }
-};
-
-void SetBIOSMode (int mode)
-{
-	union REGS regs;
-	regs.w.ax = mode;
-#if defined(__386__)
-	int386(0x10, &regs, &regs);
-#else
-	int86(0x10, &regs, &regs);
-#endif
-}
-
-void SetVideoMode (int mode)
-{
-	VideoModeReg* regs;
-
-	switch (mode)
-	{
-		case MODE_TEXT:
-			SetBIOSMode(0x02);
-			return;
-
-		case MODE_320x200:
-			width  = 320;
-			height = 200;
-			regs   = regs320x200;
-			break;
-
-		case MODE_320x240:
-			width  = 320;
-			height = 240;
-			regs   = regs320x240;
-			break;
-
-		case MODE_360x270:
-			width  = 360;
-			height = 270;
-			regs   = regs360x270;
-			break;
-
-		case MODE_400x300:
-			width  = 400;
-			height = 300;
-			regs   = regs400x300;
-			break;
-
-		default:
-			return;
-	}
-
-	/* Set video mode 13h, takes care of the palette */
-	SetBIOSMode(0x13);
-
-	/* Clear bit 7 of CRTC controller register 11h
-	 * to enable writing to CRTC registers 0 to 7 */
-
-	outp(0x3D4, 0x11);			// CRT Controller
-	uint8_t v = inp(0x3D5);
-
-	outp(0x3D4, 0x11);
-	outp(0x3D5, v & 0x7F);
-
-	/* Program VGA registers from the mode table.
-	 * Consider special handling for several ports */
-
-	while (regs->port != 0)
-	{
-		switch (regs->port)
-		{
-			case 0x3C0:			// ATTR_CON
-				inp(0x3DA);		// STATUS
-				outp(0x3C0, regs->index | 0x20);
-				outp(0x3C0, regs->value);
-				break;
-
-			case 0x3C2:			// MISC
-			case 0x3C3:			// VGAENABLE
-				outp(regs->port, regs->value);
-				break;
-
-			default:
-				outp(regs->port,   regs->index);
-				outp(regs->port+1, regs->value);
-				break;
-		}
-		regs++;
-	}
-
-	/* Enable planar mode */
-
-	outpw(0x3C4, 0x0F02);
-
-	/* Fill other internal variables */
-	
-	pageSize    = (width*height) >> 2;
-	pageCount   = 65536 / pageSize;
-	lineSize    = width >> 2;
-	frontPage   = 0;
-	backPage    = (pageCount > 1) ? 1 : 0;
-	scratchPage = (pageCount > 2) ? 2 : INVALID_PAGE;
-	activePage  = frontPage;
-	offset      = VGA_PTR(pageSize * activePage);
-	minx        = 0;
-	miny        = 0;
-	maxx        = width-1;
-	maxy        = height-1;
-}
 
 // ----------------------------------------------------------------------------
 //  Video driver
 // ----------------------------------------------------------------------------
-
-static int32_t middleMask[4][4] = 
-{
-    {0x102, 0x302, 0x702, 0xf02},
-    {0x002, 0x202, 0x602, 0xe02},
-    {0x002, 0x002, 0x402, 0xc02},
-    {0x002, 0x002, 0x002, 0x802},
-};
-static int32_t leftMask[4]  = {0xf02, 0xe02, 0xc02, 0x802};
-static int32_t rightMask[4] = {0x102, 0x302, 0x702, 0xf02};
-
-#if defined(__386__)
-static void memset32 (void* addr, uint32_t value, int32_t count);
-#pragma aux memset32 = 		\
-	"cld" 					\
-	"rep stosd" 			\
-	parm [edi] [eax] [ecx];
-#else
-static void memset32 (void* addr, uint32_t value, int32_t count)
-{
-	uint8_t* p = (uint8_t*)addr;
-	uint8_t b0 = (uint8_t)(value & 0xFF);
-	uint8_t b1 = (uint8_t)((value >> 8) & 0xFF);
-	uint8_t b2 = (uint8_t)((value >> 16) & 0xFF);
-	uint8_t b3 = (uint8_t)((value >> 24) & 0xFF);
-
-	while (count-- > 0)
-	{
-		p[0] = b0;
-		p[1] = b1;
-		p[2] = b2;
-		p[3] = b3;
-		p += 4;
-	}
-}
-#endif
-
-#if defined(__386__)
-static void memset8 (void* addr, uint8_t value, int32_t count);
-#pragma aux memset8 =		\
-	"cld" 					\
-	"rep stosb" 			\
-	parm [edi] [al] [ecx];
-#else
-static void memset8 (void* addr, uint8_t value, int32_t count)
-{
-	memset(addr, value, (size_t)count);
-}
-#endif
-
-static void memcpy8 (void* dst, const void* src, int32_t count)
-{
-	uint8_t* out = (uint8_t*)dst;
-	const uint8_t* in = (const uint8_t*)src;
-
-	while (count-- > 0)
-		*out++ = *in++;
-}
-
-static inline uint8_t* GetPagePtr(unsigned page)
-{
-	return VGA_PTR(pageSize * page);
-}
-
-static void PresentPage(unsigned page)
-{
-	/* Wait for display disable */
-	while (inp(0x3DA) & 0x01)				// IST1
-		;
-
-	uint32_t offset = pageSize * page;
-	outpw(0x3D4, 0x0C |  (offset & 0xFF00));
-	outpw(0x3D4, 0x0D | ((offset & 0x00FF) << 8));
-}
-
-static void CopyPage(unsigned srcPage, unsigned dstPage)
-{
-	if (srcPage == dstPage)
-		return;
-
-	const uint8_t* in = GetPagePtr(srcPage);
-	uint8_t* out = GetPagePtr(dstPage);
-	uint8_t oldMapMask;
-	uint8_t oldMode;
-	uint8_t oldBitMask;
-
-	outp(0x3C4, 0x02);
-	oldMapMask = inp(0x3C5);
-
-	outp(0x3CE, 0x05);
-	oldMode = inp(0x3CF);
-
-	outp(0x3CE, 0x08);
-	oldBitMask = inp(0x3CF);
-
-	outpw(0x3C4, 0x0F02);
-	outp(0x3CE, 0x05);
-	outp(0x3CF, (oldMode & 0xFC) | 0x01);
-	outp(0x3CE, 0x08);
-	outp(0x3CF, 0xFF);
-
-	memcpy8(out, in, (int32_t)pageSize);
-
-	outp(0x3CE, 0x08);
-	outp(0x3CF, oldBitMask);
-	outp(0x3CE, 0x05);
-	outp(0x3CF, oldMode);
-	outpw(0x3C4, 0x0200 | oldMapMask);
-}
 
 void VID_VSync()
 {
@@ -722,62 +361,6 @@ bool VID_AnyKey ()
 	return kbhit();
 }
 
-#if HAS_PCX
-static void BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y, int w, int h)
-{
-	if (input == NULL || inputWidth <= 0)
-		return;
-
-	const uint16_t localLineSize = (uint16_t)lineSize;
-
-	if (x < minx)
-	{
-		int skip = minx - x;
-		input += skip;
-		w -= skip;
-		x = minx;
-	}
-	if (y < miny)
-	{
-		int skip = miny - y;
-		input += skip * inputWidth;
-		h -= skip;
-		y = miny;
-	}
-	if (x + w > maxx + 1)
-		w = maxx - x + 1;
-	if (y + h > maxy + 1)
-		h = maxy - y + 1;
-	if (w <= 0 || h <= 0)
-		return;
-
-	const uint8_t* src = input;
-	uint8_t* dst = offset + y * localLineSize + (x >> 2);
-	int mask = 1 << (x & 3);
-
-	outp(0x3C4, 0x02);
-
-	for (int dx = 0; dx < w; dx++)
-	{
-		const uint8_t* srcPtr = src;
-		uint8_t* dstPtr = dst;
-
-		outp(0x3C5, mask);
-		for (int dy = 0; dy < h; dy++)
-		{
-			*dstPtr = *srcPtr;
-			dstPtr += localLineSize;
-			srcPtr += inputWidth;
-		}
-
-		src++;
-		mask <<= 1;
-		dst += (mask >> 4);
-		mask |= (mask >> 4);
-		mask &= 0x0F;
-	}
-}
-
 static void ApplyPalette256(const uint32_t* colors)
 {
 	for (int n = 0; n < 256; n++)
@@ -788,7 +371,6 @@ static void ApplyPalette256(const uint32_t* colors)
 		VID_SetPaletteColor((uint8_t)n, r, g, b);
 	}
 }
-#endif
 
 bool VID_LoadDataFile (const char* fileName)
 {
@@ -809,11 +391,18 @@ bool VID_LoadDataFile (const char* fileName)
 		dmg = NULL;
 	}
 
-	dmg = DMG_Open(ChangeExtension(fileName, ".dat"), true);
-	if (dmg == NULL)
-		dmg = DMG_Open(ChangeExtension(fileName, ".ega"), true);
-	if (dmg == NULL)
-		dmg = DMG_Open(ChangeExtension(fileName, ".cga"), true);
+	char resolvedDataFile[FILE_MAX_PATH];
+	DDB_ScreenMode resolvedDataMode = screenMode;
+	bool resolved = DDB_ResolveDataFile(fileName, DDB_MACHINE_IBMPC, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0);
+	if (!resolved && screenMode != ScreenMode_Default)
+		resolved = DDB_ResolveDataFile(fileName, DDB_MACHINE_IBMPC, ScreenMode_Default, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0);
+	if (resolved)
+	{
+		dmg = DMG_Open(resolvedDataFile, true);
+		if (dmg != NULL)
+			dmg->screenMode = resolvedDataMode;
+		screenMode = resolvedDataMode;
+	}
 	if (dmg == NULL)
 	{
 		#if HAS_PCX
@@ -850,6 +439,20 @@ bool VID_LoadDataFile (const char* fileName)
 	DDB_InitializeXMessageCache(32768);
 	#endif
 
+	uint32_t totalFree = 0;
+	uint32_t largestBlock = 0;
+	GetDOSFreeMemoryInfo(&totalFree, &largestBlock);
+	DebugPrintf("Free RAM: %lu bytes (%lu largest block)\n", totalFree, largestBlock);
+	uint32_t imageCacheBytes = GetDesiredDOSImageCacheSize(totalFree, largestBlock);
+	if (imageCacheBytes == 0)
+	{
+		DebugPrintf("Unable to get image cache size\n");
+		VID_Finish();
+		abort();
+	}
+	if (imageCacheBytes != 0)
+		DMG_SetupImageCache(dmg, imageCacheBytes);
+
 	return true;
 }
 
@@ -865,111 +468,8 @@ void VID_EnableBackBuffer()
 
 void VID_Clear (int x, int y, int width, int height, uint8_t color, VID_ClearMode mode)
 {
-    int32_t i;
-    int32_t x1;
-    int32_t x2;
-    int32_t y1;
-    int32_t y2;
-
-    int32_t leftBand;
-    int32_t rightBand;
-    int32_t leftBit;
-    int32_t rightBit;
-    int32_t mask;
-    int32_t bands;
-    int32_t bands32;
-    uint32_t color32;
-
-    uint8_t *top;
-    uint8_t *where;
-
-    x1 = x;
-    x2 = x + width - 1;
-    y1 = y;
-    y2 = y + height - 1;
-
-    if (x1 < minx) 	x1 = minx;
-    if (x2 > maxx)	x2 = maxx;
-    if (y1 < miny)  y1 = miny;
-    if (y2 > maxy)  y2 = maxy;
-
-    if (y2 < y1 || x2 < x1)
-        return;
-
-	leftBand  = x1 >> 2; 
-	rightBand = x2 >> 2;
-	leftBit   = x1 & 3; 
-	rightBit  = x2 & 3;
-
-    if (leftBand == rightBand)
-    {
-        mask = middleMask[leftBit][rightBit];
-        outpw(0x3C4, mask);
-
-        top = offset + (lineSize * y1) + leftBand;
-        for (i = y1; i <= y2; i++)
-        {
-            *top = color;
-            top += lineSize;
-        }
-    }
-    else
-    {
-        mask = leftMask[leftBit];
-        outpw(0x3C4, mask);
-
-        top = offset + (lineSize * y1) + leftBand;
-        where = top;
-        for (i = y1; i <= y2; i++)          // fill the left edge
-        {
-            *where = color;
-            where += lineSize;
-        }
-        top++;
-
-        bands = rightBand - (leftBand + 1);
-        if (bands > 0)
-        {
-	        outpw(0x3C4, 0xF02);					// SEQ
-
-        	bands32 = bands >> 2;
-        	bands   = bands & 0x03;
-
-        	if (bands32 > 0)
-        	{
-        		color32 =  (color | (color << 8));
-        		color32 |= (color32 << 16);
-
-	            where = top;
-	            for (i = y1; i <= y2; i++)      // fill the middle
-	            {
-	                memset32(where, color32, bands32);
-	                where += lineSize;
-	            }
-	            top += bands32*4;
-	        }
-	        if (bands > 0)
-	        {
-	            where = top;
-	            for (i = y1; i <= y2; i++)      // fill the middle
-	            {
-	                memset8(where, color, bands);
-	                where += lineSize;
-	            }
-	            top += bands;
-	        }
-        }
-
-        mask = rightMask[rightBit];
-        outpw(0x3C4, mask);					// SEQ
-
-        where = top;
-        for (i = y1; i <= y2; i++)          // fill the right edge
-        {
-            *where = color;
-            where += lineSize;
-        }
-    }
+	(void)mode;
+	ModeX_ClearRect(x, y, width, height, color);
 }
 
 void VID_Finish()
@@ -988,7 +488,7 @@ void VID_Finish()
 	VID_Clear(0, 0, screenWidth, screenHeight, 0);
 	VID_VSync();
 
-	SetVideoMode(MODE_TEXT);
+	ModeX_SetVideoMode(MODE_TEXT);
 	initialized = false;
 }
 
@@ -1003,7 +503,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			w = pcxPictureWidth;
 		if (h > pcxPictureHeight)
 			h = pcxPictureHeight;
-		BlitLinearPicture(pcxPictureData, pcxPictureWidth, x, y, w, h);
+		ModeX_BlitLinearPicture(pcxPictureData, pcxPictureWidth, x, y, w, h);
 		ApplyPalette256(pcxPalette);
 		return;
 	}
@@ -1013,100 +513,13 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	if (entry == NULL)
 		return;
 		
-	int            sx  = 0;
-	int            sy  = 0;
-	int            bw  = entry->width;
-	int            bh  = entry->height;
-	int            bl  = bh;
-	const uint8_t* in  = pictureData;
-	uint8_t*       out = offset;
-		
-	if (bw > w)
-		bw = w;
-	if (bh > h)
-		bh = h;
-	if (x < minx)
-	{
-		sx  = minx-x;
-		bw -= sx;
-		x   = minx;
-	}
-	if (y < miny)
-	{
-		sy  = miny-y;
-		bh -= sy;
-		y   = miny;
-	}
-	if (x+bw > maxx)
-		bw = maxx-x+1;
-	if (y+bh > maxy)
-		bh = maxy-y+1;
-	if (bw <= 0 || bh <= 0)
-		return;
-
-	const uint16_t localLineSize = (uint16_t)lineSize;
 	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
-	bool useScratchPresentation = updatePalette && activePage == frontPage && scratchPage != INVALID_PAGE;
-	unsigned targetPage = useScratchPresentation ? scratchPage : activePage;
+	bool useScratchPresentation = updatePalette && ModeX_BeginFixedPicturePresentation();
 
-	in  += entry->height*sx + sy;
-	out  = GetPagePtr(targetPage);
-	out += y*localLineSize + (x >> 2);
-
-	if (useScratchPresentation)
-		CopyPage(frontPage, scratchPage);
-
-	outp(0x3C4, 0x02);
-
-	int stride  = entry->width >> 1;
-	int dec     = bh * localLineSize;
-	int idec    = bh * stride;
-	int mask    = 1 << (x & 3);
-
-	bw >>= 1;
-
-	do
-	{
-		uint8_t* cout      = out;
-		const uint8_t* cin = in;
-
-		outp(0x3C5, mask);
-
-		int n = bh;
-		do
-		{
-			*out = (*in >> 4) & 0x0F;
-			out += localLineSize;
-			in  += stride;
-		}
-		while (--n);
-		in  -= idec;
-		out -= dec;
-		mask <<= 1;
-
-		outp(0x3C5, mask);
-		out  += (mask >> 4);
-		mask |= (mask >> 4);
-		mask &= 0x0F;
-
-		n = bh;
-		do
-		{
-			*out = *in & 0x0F;
-			out += localLineSize;
-			in  += stride;
-		}
-		while (--n);
-		in  -= idec;
-		out -= dec;
-		mask <<= 1;
-
-		out  += (mask >> 4);
-		mask |= (mask >> 4);
-		mask &= 0x0F;
-		in++;
-	}
-	while (--bw);
+	if (bufferedPictureIndexed)
+		ModeX_BlitLinearPicture(pictureData, entry->width, x, y, w, h);
+	else
+		ModeX_BlitNativePicture(pictureData, entry->width, entry->height, x, y, w, h);
 
 	if (updatePalette)
 	{
@@ -1123,19 +536,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 
 	if (useScratchPresentation)
-	{
-		unsigned oldFront = frontPage;
-		frontPage = scratchPage;
-		scratchPage = oldFront;
-
-		PresentPage(frontPage);
-
-		CopyPage(frontPage, backPage);
-
-		if (activePage == oldFront)
-			activePage = frontPage;
-		offset = GetPagePtr(activePage);
-	}
+		ModeX_EndFixedPicturePresentation();
 }
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
@@ -1159,7 +560,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			return false;
 		}
 
-		BlitLinearPicture(output, width, 0, 0, width, height);
+		ModeX_BlitLinearPicture(output, width, 0, 0, width, height);
 		ApplyPalette256(pcxPalette);
 		Free(output);
 		return true;
@@ -1185,10 +586,6 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	if (SCR_GetScreen(fileName, target, buffer, 32768, output, 
 			screenWidth, screenHeight, palette))
 	{
-		int mask = 0x01;
-		uint8_t *out = offset;
-		uint8_t *in = output;
-
 		if (fadeIn)
 		{
 			for (int n = 0; n < 16; n++) 
@@ -1196,31 +593,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			VID_VSync();
 		}
 
-		outp(0x3C4, 0x02);
-
-		for (int x = 0; x < screenWidth; x++)
-		{
-			uint8_t* inPtr = in;
-			uint8_t* outPtr = out;
-
-			outp(0x3C5, mask);
-
-			int y = screenHeight;
-			do
-			{
-				*outPtr = *inPtr;
-				inPtr += screenWidth;
-				outPtr += lineSize;
-			}
-			while (--y);
-
-			in++;
-			
-			mask <<= 1;
-			out  += (mask >> 4);
-			mask |= (mask >> 4);
-			mask &= 0x0F;
-		}
+		ModeX_BlitLinearPicture(output, screenWidth, 0, 0, screenWidth, screenHeight);
 		
 		if (fadeIn)
 		{
@@ -1242,73 +615,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 
 void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 {
-	const uint16_t localLineSize = (uint16_t)lineSize;
-	uint8_t* ptr   = offset + localLineSize*y + (x >> 2);	
-	int      mask  = 1 << (x & 3);
-	int32_t        nextX = x + charWidth[c];
-	const uint8_t* data  = charset + 8*c;
-	int            pixel = 0x0080;
-
-	outp(0x3C4, 0x02);
-
-	x = nextX - x;
-	if (x <= 0) return;
-
-	if (paper == 255)
-	{
-		do
-		{
-			uint8_t *cptr = ptr;
-			const uint8_t *cdata = data;
-
-			outp(0x3C5, mask);
-
-			int n = 8;
-			do
-			{
-				if (*data & pixel)
-					*ptr = ink;
-				ptr += localLineSize, data++;
-			} while (--n);
-
-			data = cdata;
-			ptr = cptr;
-
-			mask <<= 1;
-			ptr   += (mask >> 4);
-			mask  |= (mask >> 4);
-			mask  &= 0x0F;
-			pixel >>= 1;
-		}
-		while (--x);
-	}
-	else
-	{
-		int dec = localLineSize*8;
-
-		do
-		{
-			outp(0x3C5, mask);
-
-			int n = 8;
-			do
-			{
-				*ptr = (*data & pixel) ? ink : paper;
-				ptr += localLineSize;
-				data++;
-			} while (--n);
-
-			data -= 8;
-			ptr -= dec;
-
-			mask <<= 1;
-			ptr   += (mask >> 4);
-			mask  |= (mask >> 4);
-			mask  &= 0x0F;
-			pixel >>= 1;
-		}
-		while(--x);
-	}
+	ModeX_DrawCharacter(x, y, c, ink, paper);
 }
 
 void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
@@ -1485,7 +792,8 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		return;
 	}
 	#else
-	if (dmg == NULL) return;
+	if (dmg == NULL)
+		return;
 	#endif
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
@@ -1494,9 +802,22 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 
 	bufferedEntry = entry;
 	bufferedEntryIndex = picno;
-	pictureData = DMG_GetEntryDataChunky(dmg, picno);
+	bufferedPictureIndexed = false;
+	pictureData = DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == NULL)
-		bufferedEntry = NULL;
+	{
+		pictureData = DMG_GetEntryData(dmg, picno, ImageMode_Indexed);
+		if (pictureData != NULL)
+		{
+			DMG_SetError(DMG_ERROR_NONE);
+			bufferedPictureIndexed = true;
+		}
+		else
+		{
+			bufferedEntry = NULL;
+			bufferedPictureIndexed = false;
+		}
+	}
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -1547,109 +868,33 @@ void VID_Quit ()
 
 void VID_RestoreScreen ()
 {
-	CopyPage(backPage, frontPage);
-	if (activePage == frontPage)
-		offset = GetPagePtr(activePage);
+	ModeX_RestoreScreen();
 }
 
 void VID_SaveScreen ()
 {
-	CopyPage(frontPage, backPage);
+	ModeX_SaveScreen();
 }
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 {
-	const uint16_t localLineSize = (uint16_t)lineSize;
-	const uint8_t* in  = offset + localLineSize*(y + lines) + (x >> 2);
-	uint8_t*       out = offset + localLineSize*y + (x >> 2);
-	int32_t        mask, plane;
-		
-	mask = 1 << (x & 3);
-	plane = (x & 3);
-
-	outp(0x3C4, 0x02);
-	outp(0x3CE, 0x04);
-
-	h -= lines;
-
-	if (w <= 0 || h <= 0)
-		return;
-
-	cx = w;
-	const int inc = localLineSize;
-	const int indec = lineSize * h;
-	const int outdec = lineSize * (h + lines);
-	do
-	{
-		outp(0x3C5, mask);
-		outp(0x3CF, plane);
-
-		int n = h;
-		do
-		{
-			*out = *in;
-			out += inc;
-			in  += inc;
-		}
-		while (--n);
-
-		n = lines;
-		do
-		{
-			*out = paper;
-			out += inc;
-		}
-		while (--n);
-
-		in  -= indec;
-		out -= outdec;
-
-		mask <<= 1;
-		out += (mask >> 4);
-		mask |= (mask >> 4);
-		mask &= 0x0F;
-		
-		if (plane < 3)
-			plane++;
-		else
-		{
-			in++;
-			plane = 0;
-		}
-	}
-	while (--cx);
+	ModeX_Scroll(x, y, w, h, lines, paper);
 }
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
 	(void)op;
-	activePage = front ? frontPage : backPage;
-	offset     = GetPagePtr(activePage);
+	ModeX_SetActiveBuffer(front);
 }
 
 void VID_ClearBuffer (bool front)
 {
-	uint8_t* top = GetPagePtr(front ? frontPage : backPage);
-
-	outpw(0x3C4, 0xF02);
-	memset32(top, 0, (int32_t)(pageSize >> 2));
+	ModeX_ClearBuffer(front, 0);
 }
 
 void VID_SwapScreen ()
 {
-	unsigned oldFront = frontPage;
-	unsigned oldBack = backPage;
-
-	frontPage = oldBack;
-	backPage = oldFront;
-
-	if (activePage == oldFront)
-		activePage = frontPage;
-	else if (activePage == oldBack)
-		activePage = backPage;
-
-	offset = GetPagePtr(activePage);
-	PresentPage(frontPage);
+	ModeX_SwapBuffers();
 }
 
 void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
@@ -1680,12 +925,41 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 
 bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode)
 {
-	(void)machine;
 	(void)version;
-	(void)mode;
 
 	if (initialized)
 		return false;
+
+	screenMachine = machine;
+	screenMode = mode;
+
+	if (machine != DDB_MACHINE_IBMPC)
+	{
+		DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
+		return false;
+	}
+
+	if (mode != ScreenMode_CGA &&
+		mode != ScreenMode_EGA &&
+		mode != ScreenMode_VGA16 &&
+		mode != ScreenMode_VGA)
+	{
+		DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
+		return false;
+	}
+
+	union REGS regs;
+	regs.w.ax = 0x1A00;
+#if defined(__386__)
+	int386(0x10, &regs, &regs);
+#else
+	int86(0x10, &regs, &regs);
+#endif
+	if (regs.h.al != 0x1A)
+	{
+		DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+		return false;
+	}
 
 	if (SB_Init(0, 30000))
 		SB_Start();
@@ -1704,7 +978,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
-	SetVideoMode(MODE_320x200);
+	ModeX_SetVideoMode(MODE_320x200);
 
 	initialized = true;
 	return true;

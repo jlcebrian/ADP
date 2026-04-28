@@ -1315,7 +1315,10 @@ bool VID_LoadDataFile (const char* fileName)
 		}
 	}
 
+	char resolvedDataFile[FILE_MAX_PATH];
 	const char* loadedName = ChangeExtension(fileName, ".dat");
+	if (DDB_ResolveDataFile(fileName, screenMachine, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &screenMode, 0))
+		loadedName = resolvedDataFile;
 	uint32_t tOpen = GetMilliseconds();
 	dmg = DMG_Open(loadedName, true);
 	if (dmg == 0)

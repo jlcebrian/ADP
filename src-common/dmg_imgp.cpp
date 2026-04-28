@@ -560,7 +560,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	if (cache)
 	{
 		buffer = (uint8_t*)(cache + 1);
-		if (cache->populated)
+		if (cache->populated && cache->imageMode == nativePlanarMode)
 		{
 			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
 			DebugPrintf("DMG_GetEntryDataPlanar(%u): cache hit buffer=%p\n", (unsigned)index, buffer);
@@ -646,6 +646,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	}
 
 	DMG_ImageMode outputMode = ImageMode_PlanarST;
+	uint8_t* scratch = 0;
+	uint32_t scratchSize = 0;
 
 	if ((entry->flags & DMG_FLAG_COMPRESSED) != 0)
 	{
@@ -757,14 +759,18 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
 		{
-			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+			scratch = DMG_GetScratchBuffer(dmg, packedSize);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
 			outputMode = ImageMode_Packed;
 		}
 		#endif
 		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
 		{
-			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+			scratch = DMG_GetScratchBuffer(dmg, entry->length);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
 			outputMode = ImageMode_Packed;
 		}
 		#endif

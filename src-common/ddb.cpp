@@ -678,6 +678,8 @@ const char* DDB_GetErrorString()
 		case DDB_ERROR_OUT_OF_MEMORY:      return "Out of memory";
 		case DDB_ERROR_INVALID_FILE:       return "Corrupted or invalid DDB file";
 		case DDB_ERROR_FILE_NOT_SUPPORTED: return "Unsupported file format";
+		case DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED: return "Selected video mode is not supported by this build";
+		case DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED: return "Required video hardware was not detected";
 		case DDB_ERROR_SDL:                return "SDL error";
 		case DDB_ERROR_NO_DDBS_FOUND:      return "No DDBs found";
 		default:                           return "Unknown error";
@@ -974,6 +976,200 @@ bool DDB_CheckVideoMode(const char* fileName, DDB_ScreenMode* mode)
     return true;
 }
 
+static uint32_t DDB_GetDataFileModeFlag(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_CGA:    return DDB_DataFileMode_CGA;
+		case ScreenMode_EGA:    return DDB_DataFileMode_EGA;
+		case ScreenMode_VGA16:  return DDB_DataFileMode_VGA16;
+		case ScreenMode_VGA:    return DDB_DataFileMode_VGA;
+		case ScreenMode_HiRes:  return DDB_DataFileMode_HiRes;
+		case ScreenMode_SHiRes: return DDB_DataFileMode_SHiRes;
+		default:                return 0;
+	}
+}
+
+static bool DDB_IsClassicDATSignature(uint16_t signature)
+{
+	return signature == 0x0004 || signature == 0x0300 || signature == 0xFFFF;
+}
+
+static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMode extensionHint, uint32_t* modeMask, DDB_ScreenMode* nativeMode, uint8_t* nativePlanes)
+{
+	File* file = File_Open(path, ReadOnly);
+	if (file == 0)
+		return false;
+
+	uint8_t header[16];
+	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header);
+	File_Close(file);
+	if (!ok)
+		return false;
+
+	DDB_ScreenMode mode = ScreenMode_Default;
+	uint8_t planes = 4;
+	uint32_t mask = 0;
+	const char* extension = StrRChr(path, '.');
+
+	if (extension != 0)
+	{
+		if (StrIComp(extension, ".cga") == 0)
+		{
+			mode = ScreenMode_CGA;
+			mask = DDB_DataFileMode_CGA;
+		}
+		else if (StrIComp(extension, ".ega") == 0)
+		{
+			mode = ScreenMode_EGA;
+			mask = DDB_DataFileMode_EGA;
+		}
+	}
+
+	if (mask == 0 && header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
+	{
+		uint16_t width = read16BE(header + 0x06);
+		uint16_t height = read16BE(header + 0x08);
+		uint8_t colorMode = header[0x0E];
+		planes = DMG_DAT5ModePlaneCount(colorMode);
+		if (planes == 0)
+			planes = 4;
+
+		if (width == 320 && height == 200)
+		{
+			mode =
+				(colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
+				(colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
+				(DMG_DAT5ModePlaneCount(colorMode) >= 8) ? ScreenMode_VGA :
+				ScreenMode_VGA16;
+		}
+		else if (width == 640 && height == 200)
+			mode = ScreenMode_HiRes;
+		else if (width == 640 && height == 400)
+			mode = ScreenMode_SHiRes;
+
+		mask = DDB_GetDataFileModeFlag(mode);
+	}
+	else if (mask == 0)
+	{
+		uint16_t signature = read16BE(header);
+		if (DDB_IsClassicDATSignature(signature))
+		{
+			uint16_t storedMode = read16BE(header + 2);
+			if (target == DDB_MACHINE_IBMPC && storedMode == 0)
+			{
+				mask = DDB_DataFileMode_CGA | DDB_DataFileMode_EGA | DDB_DataFileMode_VGA16;
+				mode = extensionHint != ScreenMode_Default ? extensionHint : ScreenMode_VGA16;
+			}
+			else if (storedMode == ScreenMode_CGA)
+			{
+				mode = ScreenMode_CGA;
+				mask = DDB_DataFileMode_CGA;
+			}
+			else if (storedMode == ScreenMode_EGA)
+			{
+				mode = ScreenMode_EGA;
+				mask = DDB_DataFileMode_EGA;
+			}
+			else if (storedMode == ScreenMode_HiRes)
+			{
+				mode = ScreenMode_HiRes;
+				mask = DDB_DataFileMode_HiRes;
+			}
+			else if (storedMode == ScreenMode_SHiRes)
+			{
+				mode = ScreenMode_SHiRes;
+				mask = DDB_DataFileMode_SHiRes;
+			}
+			else
+			{
+				mode = extensionHint != ScreenMode_Default ? extensionHint : ScreenMode_VGA16;
+				mask = DDB_GetDataFileModeFlag(mode);
+			}
+		}
+	}
+
+	if (mask == 0)
+		return false;
+
+	if (modeMask)
+		*modeMask |= mask;
+	if (nativeMode)
+		*nativeMode = mode;
+	if (nativePlanes)
+		*nativePlanes = planes;
+	return true;
+}
+
+uint32_t DDB_GetDataFileModes(const char* fileName, DDB_Machine target)
+{
+	uint32_t mask = 0;
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".dat"), target, ScreenMode_Default, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".DAT"), target, ScreenMode_Default, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".ega"), target, ScreenMode_EGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".EGA"), target, ScreenMode_EGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".cga"), target, ScreenMode_CGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".CGA"), target, ScreenMode_CGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".vga"), target, ScreenMode_VGA16, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".VGA"), target, ScreenMode_VGA16, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".sga"), target, ScreenMode_VGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".SGA"), target, ScreenMode_VGA, &mask, 0, 0);
+	return mask;
+}
+
+bool DDB_ResolveDataFile(const char* fileName, DDB_Machine target, DDB_ScreenMode requestedMode, char* resolvedFileName, size_t resolvedFileNameSize, DDB_ScreenMode* resolvedMode, uint8_t* planes)
+{
+	struct Candidate
+	{
+		const char* extension;
+		DDB_ScreenMode hint;
+	};
+
+	static const Candidate candidates[] =
+	{
+		{ ".dat", ScreenMode_Default },
+		{ ".DAT", ScreenMode_Default },
+		{ ".ega", ScreenMode_EGA },
+		{ ".EGA", ScreenMode_EGA },
+		{ ".cga", ScreenMode_CGA },
+		{ ".CGA", ScreenMode_CGA },
+		{ ".vga", ScreenMode_VGA16 },
+		{ ".VGA", ScreenMode_VGA16 },
+		{ ".sga", ScreenMode_VGA },
+		{ ".SGA", ScreenMode_VGA },
+		{ 0, ScreenMode_Default },
+	};
+
+	uint32_t requestedFlag = DDB_GetDataFileModeFlag(requestedMode);
+	for (const Candidate* candidate = candidates; candidate->extension != 0; candidate++)
+	{
+		char path[FILE_MAX_PATH];
+		StrCopy(path, sizeof(path), ChangeExtension(fileName, candidate->extension));
+		uint32_t mask = 0;
+		DDB_ScreenMode nativeMode = ScreenMode_Default;
+		uint8_t nativePlanes = 4;
+		if (!DDB_ProbeDataFile(path, target, candidate->hint, &mask, &nativeMode, &nativePlanes))
+			continue;
+		if (requestedMode != ScreenMode_Default && (mask & requestedFlag) == 0 && nativeMode != requestedMode)
+			continue;
+
+		if (resolvedFileName && resolvedFileNameSize > 0)
+			StrCopy(resolvedFileName, resolvedFileNameSize, path);
+		if (resolvedMode)
+		{
+			if (requestedMode != ScreenMode_Default && (mask & requestedFlag) != 0)
+				*resolvedMode = requestedMode;
+			else
+				*resolvedMode = nativeMode;
+		}
+		if (planes)
+			*planes = nativePlanes;
+		return true;
+	}
+
+	return false;
+}
+
 DDB_ScreenMode DDB_GetDefaultScreenMode(DDB_Machine machine)
 {
 	return machine == DDB_MACHINE_PCW ? ScreenMode_HiRes : ScreenMode_VGA16;
@@ -1004,81 +1200,16 @@ static bool DDB_HasSnapshotExtension(const char* filename)
 
 bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes)
 {
-    if (planes)
-        *planes = 4;
-
-    File* dat = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
-    if (dat != 0)
-    {
-        uint8_t header[16];
-        if (File_Read(dat, header, sizeof(header)) != sizeof(header))
-        {
-            File_Close(dat);
-            DebugPrintf("Unable to read DAT header for %s\n", fileName);
-            return false;
-        }
-        File_Close(dat);
-
-        if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 &&
-            header[4] == 0 && header[5] == 5)
-        {
-            uint16_t width = read16BE(header + 0x06);
-            uint16_t height = read16BE(header + 0x08);
-            uint8_t colorMode = header[0x0E];
-
-            if (width == 320 && height == 200)
-            {
-                if (mode) *mode = 
-					(colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
-					(colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
-					(DMG_DAT5ModePlaneCount(colorMode) >= 8) ? ScreenMode_VGA :
-					(DMG_DAT5ModePlaneCount(colorMode) > 0) ? ScreenMode_VGA16 :
-					 ScreenMode_VGA;
-            }
-            else if (width == 640 && height == 200)
-            {
-                if (mode) *mode = ScreenMode_HiRes;
-            }
-            else if (width == 640 && height == 400)
-            {
-                if (mode) *mode = ScreenMode_SHiRes;
-            }
-
-            if (planes)
-            {
-				uint8_t planeCount = DMG_DAT5ModePlaneCount(colorMode);
-				*planes = planeCount == 0 ? 4 : planeCount;
-            }
-        }
-        else
-        {
-			if (mode && target != DDB_MACHINE_PCW)
-                *mode = ScreenMode_VGA16;
-            if (planes)
-                *planes = 4;
-        }
-        return true;
-    }
-
-    File* ega = File_Open(ChangeExtension(fileName, ".ega"), ReadOnly);
-    if (ega != 0)
-    {
-        if (mode) *mode = ScreenMode_EGA;
-        if (planes) *planes = 4;
-        File_Close(ega);
-        return true;
-    }
-
-    File* cga = File_Open(ChangeExtension(fileName, ".cga"), ReadOnly);
-    if (cga != 0)
-    {
-        if (mode) *mode = ScreenMode_CGA;
-        if (planes) *planes = 4;
-        File_Close(cga);
-        return true;
-    }
-
-    return false;
+	DDB_ScreenMode requestedMode = mode ? *mode : ScreenMode_Default;
+	DDB_ScreenMode resolvedMode = ScreenMode_Default;
+	uint8_t resolvedPlanes = 4;
+	if (!DDB_ResolveDataFile(fileName, target, requestedMode, 0, 0, &resolvedMode, &resolvedPlanes))
+		return false;
+	if (mode)
+		*mode = resolvedMode;
+	if (planes)
+		*planes = resolvedPlanes;
+	return true;
 }
 
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)

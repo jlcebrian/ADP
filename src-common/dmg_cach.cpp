@@ -12,6 +12,25 @@
 
 static uint32_t useCounter = 0;
 static const uint32_t kMinImageCacheSize = 4096;
+#if defined(_DOS) && !defined(__386__)
+static const uint32_t kMaxSafe16BitImageCacheSize = 63UL * 1024UL;
+#endif
+
+static uint32_t DMG_GetCacheItemAllocationSize(uint32_t payloadSize)
+{
+	return ((payloadSize + 63u) & ~31u) + sizeof(DMG_Cache);
+}
+
+static bool DMG_CacheImagesInNativeFormatOnly(const DMG_Entry* entry)
+{
+	if (entry == 0 || entry->type != DMGEntry_Image)
+		return false;
+	#if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
+	return true;
+	#else
+	return false;
+	#endif
+}
 
 void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(uint16_t))
 {
@@ -223,6 +242,12 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 	uint32_t minimumBytes = DMG_GetMinimumImageCacheAllocationSize(dmg, DMG_NATIVE_IMAGE_MODE);
 	if (minimumBytes < kMinImageCacheSize)
 		minimumBytes = kMinImageCacheSize;
+	#if defined(_DOS) && !defined(__386__)
+	if (minimumBytes > kMaxSafe16BitImageCacheSize)
+		minimumBytes = kMaxSafe16BitImageCacheSize;
+	if (bytes > kMaxSafe16BitImageCacheSize)
+		bytes = kMaxSafe16BitImageCacheSize;
+	#endif
 	if (bytes < minimumBytes)
 		bytes = minimumBytes;
 
@@ -233,8 +258,12 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 	}
 
 	bytes &= ~31u;
-	if (bytes < minimumBytes)
+	if (bytes < minimumBytes) {
+		#if DEBUG_IMAGE_CACHE
+		DebugPrintf("WARNING: No image cache allocated, only %lu bytes of RAM available\n", (unsigned long)bytes);
+		#endif
 		return false;
+	}
 
 	while (true)
 	{
@@ -295,7 +324,7 @@ bool DMG_RemoveOlderCacheItem (DMG* dmg, bool force)
 		return false;
 	}
 
-	uint32_t space = older->size + sizeof(DMG_Cache);
+	uint32_t space = DMG_GetCacheItemAllocationSize(older->size);
 	uint8_t removedIndex = older->index;
 #if DEBUG_IMAGE_CACHE
 	DebugPrintf("Image cache evict: index=%u size=%lu buffered=%d free=%lu gain=%lu force=%d\n",
@@ -344,12 +373,29 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 		{
 			if (item->index == index)
 			{
+				if (DMG_CacheImagesInNativeFormatOnly(entry) && item->populated && item->imageMode != DMG_NATIVE_IMAGE_MODE)
+				{
+					DebugPrintf("FATAL: image cache contains non-native image data for entry %u (cached=%d native=%d)\n",
+						(unsigned)index,
+						(int)item->imageMode,
+						(int)DMG_NATIVE_IMAGE_MODE);
+					Abort();
+				}
 				if (item->size < size)
 				{
-					DebugPrintf("Image cache miss: cached block too small (cached=%lu required=%lu)\n",
+					DebugPrintf("Image cache grow: cached block too small (cached=%lu required=%lu), evicting index %u\n",
 						(unsigned long)item->size,
-						(unsigned long)size);
-					return 0;
+						(unsigned long)size,
+						(unsigned)index);
+					uint32_t oldTime = item->time;
+					item->time = 0;
+					if (!DMG_RemoveOlderCacheItem(dmg, true))
+					{
+						item->time = oldTime;
+						DebugPrintf("Image cache grow: failed to evict existing block for index %u\n", (unsigned)index);
+						return 0;
+					}
+					break;
 				}
 				item->time = useCounter++;
 #if DEBUG_IMAGE_CACHE
@@ -370,7 +416,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	// We're adding 32 bytes of extra pdding to help decompression
 	// inside the same buffer as read
 
-	uint32_t required = ((size + 63) & ~31) + sizeof(DMG_Cache);
+	uint32_t required = DMG_GetCacheItemAllocationSize(size);
 #if DEBUG_IMAGE_CACHE
 	DebugPrintf("Image cache lookup: index=%u miss required=%lu payload=%lu free=%lu total=%lu\n",
 		(unsigned)index,
@@ -388,7 +434,7 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 	}
 	if (dmg->cacheFree < required)
 	{
-		bool force = dmg->cacheSize < 96*1024;
+		bool force = dmg->cacheSize < 96UL * 1024UL;
 #if DEBUG_IMAGE_CACHE
 		DebugPrintf("Image cache compact: need=%lu free=%lu force=%d\n",
 			(unsigned long)required, (unsigned long)dmg->cacheFree, force ? 1 : 0);

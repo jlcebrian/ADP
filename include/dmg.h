@@ -37,6 +37,7 @@ enum DMG_Error
 enum DMG_ImageMode
 {
 	ImageMode_Packed            = 0x00,		// Packed indexed pixels, 2 colors per byte
+	ImageMode_PackedNative      = 0x01,		// Packed native blit format, palette conversion already applied
 	ImageMode_RGBA32            = 0x10,		// 4 bytes per pixel, native-endian 0xAARRGGBB
 	ImageMode_PlanarST          = 0x20,     // Atari ST interleaved words (P0P0P1P1P2P2P3P3)
     ImageMode_Planar            = 0x24,     // One complete bitmap per plane
@@ -81,6 +82,8 @@ static inline bool DMG_IsClassicNativeDATByteOrder(bool littleEndian)
 enum DMG_ImageMode;
 extern DMG_ImageMode screenMode;
 #define DMG_NATIVE_IMAGE_MODE screenMode
+#elif defined(_DOS)
+#define DMG_NATIVE_IMAGE_MODE ImageMode_PackedNative
 #else
 #define DMG_NATIVE_IMAGE_MODE ImageMode_Indexed
 #endif
@@ -488,8 +491,8 @@ bool        DMG_ReserveTemporaryBuffer (uint32_t size);
 bool        DMG_IsTemporaryBufferPointer(const void* ptr);
 void        DMG_FreeTemporaryBuffer    ();
 
-bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
-bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels);
+bool        DMG_UncCGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels, uint8_t* scratch, uint32_t scratchSize);
+bool        DMG_UncEGAToPacked         (const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, int pixels, uint8_t* scratch, uint32_t scratchSize);
 bool        DMG_CopyImageData          (uint8_t* ptr, uint16_t length, uint8_t* output, int pixels);
 uint8_t*    DMG_ConvertPlanar8ToPlanarST(uint8_t* data, uint8_t* buffer, int length, uint32_t width);
 uint8_t*    DMG_ConvertPlanar8ToPlanarFalcon(uint8_t* data, uint8_t* buffer, int length, uint32_t width);

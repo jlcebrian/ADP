@@ -2,28 +2,47 @@
 
 ## ADP 0.3
 
+La versión 0.3 de ADP introduce múltiples mejoras destinadas a la creación de nuevas aventuras, 
+incluyendo un nuevo formato de fichero .DAT (DAT5) exclusivo de ADP.
+
 ### Todas las versiones
 
-* **NUEVO:** Nuevo formato de base de datos gráfica DAT5, con modos de 32 y 256 colores.
+* **NUEVO:** Nuevo formato de base de datos gráfica DAT5, con nuevos modos gráficos.
 * **NUEVO:** Soporte para fuentes proporcionales SINTAC.
+* **NUEVO:** Soporte DAAD V3 incluyendo fichero de mensajes externo XMESS y soporte de nuevos flags y condactos.
 
 ### Versiones web y escritorio
 
-* **NUEVO:** Soporte para bases de datos PAWS.
-* **NUEVO:** Soporte para bases de datos y snapshots de 8 bits, incluyendo juegos de Spectrum, CPC, MSX y C64.
-* **NUEVO:** Soporte para gráficos vectoriales / imágenes DRAWSTRING en bases de datos de 8 bits.
-* **NUEVO:** Soporte para juegos PC DAAD (MS-DOS VGA) con imágenes PCX externas.
+* **NUEVO:** Soporte para juegos PC DAAD (MS-DOS VGA y SVGA 640x400) con imágenes PCX externas.
 * **NUEVO:** Soporte para archivos de transcripción y entrada.
+* **NUEVO:** Soporte de efectos de sonido PSG (Aventura Espacial)
+
+#### Características experimentales
+
+Las siguientes características son experimentales y no se recomienda su uso aún.
+
+* **NUEVO:** Soporte experimental para bases de datos PAWS. Advertencia: la compatibilidad es baja
+* **NUEVO:** Soporte experimental para bases de datos y snapshots de 8 bits, incluyendo juegos de Spectrum, CPC, MSX y C64.
+* **NUEVO:** Soporte para gráficos vectoriales / imágenes DRAWSTRING en bases de datos de 8 bits.
 
 ### Amiga
 
 * **NUEVO:** Soporte de 32 colores a través de las nuevas bases de datos DAT5.
-* **NUEVO:** Soporte de 256 colores (solo en máquinas AGA).
+* **NUEVO:** Soporte de modos gráficos HAM y EHB (halfbrite).
+* **NUEVO:** Soporte de modo de 256 colores (sólo en máquinas AGA).
 * Mejorada la estabilidad y el rendimiento.
 
-### Atari ST
+### Atari
 
+* **NUEVO:** Soporte de efectos de sonido PSG (Aventura Espacial)
+* **NUEVO:** Soporte de paletas de color de más de 512 colores (require Atari STE o Falcon)
+* **NUEVO:** Soporte de modo de 256 colores (sólo en Falcon)
 * Mejorada la estabilidad y el rendimiento.
+
+### MS-DOS
+
+* La versión DOS de ADP es ahora un ejecutable de 16 bits que funciona en cualquier PC y no requiere 386 o superior
+* **NUEVO:** Soporte de modo de 256 colores
 
 ## ADP 0.2
 

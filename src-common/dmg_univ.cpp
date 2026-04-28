@@ -6,6 +6,294 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
+static bool DMG_CacheImagesInNativeFormatOnly(const DMG_Entry* entry)
+{
+	if (entry == 0 || entry->type != DMGEntry_Image)
+		return false;
+	#if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
+	return true;
+	#else
+	return false;
+	#endif
+}
+
+static void DMG_AbortOnInvalidCachedImageMode(uint8_t index, DMG_ImageMode cachedMode, DMG_ImageMode requestedMode)
+{
+	DebugPrintf("FATAL: image cache contains non-native image data for entry %u (cached=%d requested=%d native=%d)\n",
+		(unsigned)index,
+		(int)cachedMode,
+		(int)requestedMode,
+		(int)DMG_NATIVE_IMAGE_MODE);
+	Abort();
+}
+
+static bool DMG_RangesOverlap(const uint8_t* a, uint32_t aSize, const uint8_t* b, uint32_t bSize)
+{
+	return a != 0 && b != 0 && aSize != 0 && bSize != 0 && a < b + bSize && b < a + aSize;
+}
+
+static bool DMG_ConvertIndexedToModeXNative(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, uint8_t* scratch, uint32_t scratchSize)
+{
+	uint32_t bands = ((uint32_t)width + 3u) >> 2;
+	uint32_t rowStride = bands * 4u;
+	uint32_t indexedSize = (uint32_t)width * (uint32_t)height;
+	uint32_t requiredSize = rowStride * (uint32_t)height;
+	if (input == 0 || output == 0 || outputSize < requiredSize)
+		return false;
+
+	uint8_t* rowScratch = 0;
+	if (scratch != 0 && scratchSize >= width)
+	{
+		uint8_t* candidate = scratch + scratchSize - width;
+		if (!DMG_RangesOverlap(candidate, width, input, indexedSize) &&
+			!DMG_RangesOverlap(candidate, width, output, requiredSize))
+		{
+			rowScratch = candidate;
+		}
+	}
+
+	if (rowScratch == 0)
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+
+	for (int32_t row = (int32_t)height - 1; row >= 0; row--)
+	{
+		const uint8_t* srcRow = input + (uint32_t)row * width;
+		uint8_t* dstRow = output + (uint32_t)row * rowStride;
+		MemCopy(rowScratch, srcRow, width);
+		for (int32_t band = (int32_t)bands - 1; band >= 0; band--)
+		{
+			uint32_t pixelBase = (uint32_t)band << 2;
+			uint8_t p0 = pixelBase + 0u < width ? rowScratch[pixelBase + 0u] : 0;
+			uint8_t p1 = pixelBase + 1u < width ? rowScratch[pixelBase + 1u] : 0;
+			uint8_t p2 = pixelBase + 2u < width ? rowScratch[pixelBase + 2u] : 0;
+			uint8_t p3 = pixelBase + 3u < width ? rowScratch[pixelBase + 3u] : 0;
+			dstRow[band + bands * 0u] = p0;
+			dstRow[band + bands * 1u] = p1;
+			dstRow[band + bands * 2u] = p2;
+			dstRow[band + bands * 3u] = p3;
+		}
+	}
+
+	return true;
+}
+
+static bool DMG_ConvertPackedToModeXNative(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, const uint8_t* paletteMap, uint8_t* scratch, uint32_t scratchSize)
+{
+	uint32_t bands = ((uint32_t)width + 3u) >> 2;
+	uint32_t rowStride = bands * 4u;
+	uint32_t packedRowBytes = (((uint32_t)width + 1u) >> 1);
+	uint32_t packedSize = packedRowBytes * (uint32_t)height;
+	uint32_t requiredSize = rowStride * (uint32_t)height;
+	if (input == 0 || output == 0 || outputSize < requiredSize)
+		return false;
+
+	uint8_t* rowScratch = 0;
+	if (scratch != 0 && scratchSize >= packedRowBytes)
+	{
+		uint8_t* candidate = scratch + scratchSize - packedRowBytes;
+		if (!DMG_RangesOverlap(candidate, packedRowBytes, input, packedSize) &&
+			!DMG_RangesOverlap(candidate, packedRowBytes, output, requiredSize))
+		{
+			rowScratch = candidate;
+		}
+	}
+
+	if (rowScratch == 0)
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		return false;
+	}
+
+	for (int32_t row = (int32_t)height - 1; row >= 0; row--)
+	{
+		const uint8_t* srcRow = input + (uint32_t)row * (((uint32_t)width + 1u) >> 1);
+		uint8_t* dstRow = output + (uint32_t)row * rowStride;
+		MemCopy(rowScratch, srcRow, packedRowBytes);
+		for (uint32_t band = 0; band < bands; band++)
+		{
+			uint32_t pixelBase = band << 2;
+			uint8_t p0 = 0;
+			uint8_t p1 = 0;
+			uint8_t p2 = 0;
+			uint8_t p3 = 0;
+
+			if (pixelBase + 0u < width)
+			{
+				uint8_t value = rowScratch[(pixelBase + 0u) >> 1];
+				p0 = ((pixelBase + 0u) & 1u) == 0 ? (value >> 4) : (value & 0x0F);
+				if (paletteMap != 0)
+					p0 = paletteMap[p0 & 0x0F];
+			}
+			if (pixelBase + 1u < width)
+			{
+				uint8_t value = rowScratch[(pixelBase + 1u) >> 1];
+				p1 = ((pixelBase + 1u) & 1u) == 0 ? (value >> 4) : (value & 0x0F);
+				if (paletteMap != 0)
+					p1 = paletteMap[p1 & 0x0F];
+			}
+			if (pixelBase + 2u < width)
+			{
+				uint8_t value = rowScratch[(pixelBase + 2u) >> 1];
+				p2 = ((pixelBase + 2u) & 1u) == 0 ? (value >> 4) : (value & 0x0F);
+				if (paletteMap != 0)
+					p2 = paletteMap[p2 & 0x0F];
+			}
+			if (pixelBase + 3u < width)
+			{
+				uint8_t value = rowScratch[(pixelBase + 3u) >> 1];
+				p3 = ((pixelBase + 3u) & 1u) == 0 ? (value >> 4) : (value & 0x0F);
+				if (paletteMap != 0)
+					p3 = paletteMap[p3 & 0x0F];
+			}
+
+			dstRow[band + bands * 0u] = p0;
+			dstRow[band + bands * 1u] = p1;
+			dstRow[band + bands * 2u] = p2;
+			dstRow[band + bands * 3u] = p3;
+		}
+	}
+
+	return true;
+}
+
+#if defined(_DOS)
+static bool DMG_RequiresNativeModeXLayout(const DMG* dmg)
+{
+	if (dmg == 0)
+		return false;
+	return dmg->version != DMG_Version1_PCW;
+}
+
+static bool DMG_CanConvertPackedToModeXNative(const DMG* dmg)
+{
+	if (dmg == 0)
+		return false;
+	return dmg->version != DMG_Version5 && dmg->version != DMG_Version1_PCW;
+}
+
+static uint8_t* DMG_GetEntryDataPackedNative(DMG* dmg, uint8_t index)
+{
+	DMG_Entry* entry = DMG_GetEntry(dmg, index);
+	if (entry == 0 || entry->type == DMGEntry_Empty)
+		return 0;
+	if (entry->type == DMGEntry_Audio || !DMG_RequiresNativeModeXLayout(dmg))
+		return DMG_GetEntryData(dmg, index, ImageMode_Packed);
+
+	uint32_t nativeSize = DMG_CalculateRequiredSize(entry, ImageMode_PackedNative);
+	DMG_Cache* cache = DMG_GetImageCache(dmg, index, entry, nativeSize);
+	uint8_t* output = cache != 0 ? (uint8_t*)(cache + 1) : 0;
+	if (cache != 0 && cache->populated && cache->imageMode == ImageMode_PackedNative)
+		return output;
+
+	if (DMG_CanConvertPackedToModeXNative(dmg))
+	{
+		if ((entry->flags & DMG_FLAG_FIXED) != 0)
+		{
+			uint8_t* indexedData = DMG_GetEntryData(dmg, index, ImageMode_Indexed);
+			if (indexedData == 0)
+			{
+				if (cache != 0)
+					cache->populated = false;
+				return 0;
+			}
+			if (output == 0)
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				return 0;
+			}
+			uint8_t* scratch = DMG_GetScratchBuffer(dmg, entry->width);
+			uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
+			if (!DMG_ConvertIndexedToModeXNative(indexedData, entry->width, entry->height, output, nativeSize, scratch, scratchSize))
+			{
+				if (cache != 0)
+					cache->populated = false;
+				return 0;
+			}
+		}
+		else
+		{
+		DMG_ColorPaletteMode paletteMode = ColorPaletteMode_Native;
+		const uint8_t* paletteMap = 0;
+		if (dmg->screenMode == ScreenMode_CGA || dmg->colorMode == DAT5_COLORMODE_CGA)
+			paletteMode = ColorPaletteMode_CGA;
+		if (dmg->screenMode == ScreenMode_EGA || dmg->colorMode == DAT5_COLORMODE_EGA)
+			paletteMode = ColorPaletteMode_EGA;
+		if (paletteMode == ColorPaletteMode_CGA)
+			paletteMap = DMG_GetEntryCGAPalette(entry);
+		else if (paletteMode == ColorPaletteMode_EGA)
+			paletteMap = DMG_GetEntryEGAPalette(entry);
+		if ((paletteMode == ColorPaletteMode_CGA || paletteMode == ColorPaletteMode_EGA) && paletteMap == 0)
+		{
+			if (cache != 0)
+				cache->populated = false;
+			DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+			return 0;
+		}
+
+		uint8_t* packedData = DMG_GetEntryData(dmg, index, ImageMode_Packed);
+		if (packedData == 0)
+		{
+			if (cache != 0)
+				cache->populated = false;
+			return 0;
+		}
+		if (output == 0)
+		{
+			DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+			return 0;
+		}
+		uint8_t* scratch = DMG_GetScratchBuffer(dmg, ((uint32_t)entry->width + 1u) >> 1);
+		uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
+		if (!DMG_ConvertPackedToModeXNative(packedData, entry->width, entry->height, output, nativeSize, paletteMap, scratch, scratchSize))
+		{
+			if (cache != 0)
+				cache->populated = false;
+			return 0;
+		}
+		}
+	}
+	else
+	{
+		uint8_t* indexedData = DMG_GetEntryData(dmg, index, ImageMode_Indexed);
+		if (indexedData == 0)
+		{
+			if (cache != 0)
+				cache->populated = false;
+			return 0;
+		}
+		if (output == 0)
+		{
+			uint32_t indexedSize = DMG_CalculateRequiredSize(entry, ImageMode_Indexed);
+			if (nativeSize > indexedSize)
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				return 0;
+			}
+			output = indexedData;
+		}
+		uint8_t* scratch = DMG_GetScratchBuffer(dmg, entry->width);
+		uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
+		if (!DMG_ConvertIndexedToModeXNative(indexedData, entry->width, entry->height, output, nativeSize, scratch, scratchSize))
+		{
+			if (cache != 0)
+				cache->populated = false;
+			return 0;
+		}
+	}
+
+	if (cache != 0)
+	{
+		cache->imageMode = ImageMode_PackedNative;
+		cache->populated = true;
+	}
+
+	return output;
+}
+#endif
+
 static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, DMG_Entry* entry, uint8_t* buffer, uint32_t bufferSize)
 {
 	uint32_t indexedSize = entry->width * entry->height;
@@ -361,14 +649,18 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	uint8_t* buffer = 0;
 	uint8_t* fileData;
 	uint32_t bufferSize = 0;
+	bool cacheNativeOnly = DMG_CacheImagesInNativeFormatOnly(entry);
+	bool allowCache = !cacheNativeOnly || mode == DMG_NATIVE_IMAGE_MODE;
 
 	uint32_t requiredSize = DMG_CalculateRequiredSize(entry, mode);
 
-	DMG_Cache* cache = DMG_GetImageCache (dmg, index, entry, requiredSize);
+	DMG_Cache* cache = allowCache ? DMG_GetImageCache(dmg, index, entry, requiredSize) : 0;
 	if (cache)
 	{
+		if (cacheNativeOnly && cache->populated && cache->imageMode != DMG_NATIVE_IMAGE_MODE)
+			DMG_AbortOnInvalidCachedImageMode(index, (DMG_ImageMode)cache->imageMode, mode);
 		buffer = (uint8_t*)(cache + 1);
-		if (cache->populated)
+		if (cache->populated && cache->imageMode == mode)
 			return buffer;
 		bufferSize = cache->size;
 	}
@@ -403,7 +695,13 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	{
 		uint8_t* result = DMG_GetEntryDataV5(dmg, index, mode, entry, buffer, bufferSize);
 		if (cache != 0)
+		{
+			if (cacheNativeOnly && mode != DMG_NATIVE_IMAGE_MODE)
+				DMG_AbortOnInvalidCachedImageMode(index, mode, mode);
 			cache->populated = result != 0;
+			if (result != 0)
+				cache->imageMode = mode;
+		}
 		return result;
 	}
 
@@ -479,7 +777,10 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 				if (success)
 				{
 					if (cache != 0)
+					{
 						cache->populated = true;
+						cache->imageMode = mode;
+					}
 					return buffer;
 				}
 			}
@@ -495,17 +796,27 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		// TODO: Handle ImageMode_Planar
 		uint32_t expectedSize = DMG_CalculateRequiredSize(entry, ImageMode_Raw);
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
+		uint8_t* scratch = 0;
+		uint32_t scratchSize = 0;
 		if (entry->length != expectedSize)
 			success = false;
 		else if (dmg->version == DMG_Version1_PCW)
 			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
-			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		{
+			scratch = DMG_GetScratchBuffer(dmg, packedSize);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
+		}
 		#endif
 		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
-			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		{
+			scratch = DMG_GetScratchBuffer(dmg, entry->length);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
+		}
 		#endif
 		#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 		else if (dmg->littleEndian)
@@ -522,7 +833,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	{
 		uint32_t *ptr;
 		uint32_t *colors;
-		int n;
+		uint32_t n;
 			
 		switch (mode)
 		{
@@ -631,7 +942,12 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	}
 
 	if (cache != 0)
+	{
+		if (cacheNativeOnly && mode != DMG_NATIVE_IMAGE_MODE)
+			DMG_AbortOnInvalidCachedImageMode(index, mode, mode);
+		cache->imageMode = mode;
 		cache->populated = true;
+	}
 
 	return buffer;
 }
@@ -642,6 +958,8 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 	return DMG_GetEntryDataPlanar(dmg, index);
 	#elif defined(_ATARIST)
 	return DMG_GetEntryData(dmg, index, screenMode);
+	#elif defined(_DOS)
+	return DMG_GetEntryDataPackedNative(dmg, index);
 	#else
 	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
 	#endif

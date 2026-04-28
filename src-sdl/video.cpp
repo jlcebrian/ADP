@@ -1270,8 +1270,14 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	if (dmg->version == DMG_Version1_PCW)
 		pictureData = DMG_GetEntryDataChunky(dmg, picno);
 	else
-		pictureData = DMG_GetEntryData(dmg, picno,
-			dmg->version == DMG_Version5 ? ImageMode_Indexed : ImageMode_Packed);
+	{
+		DMG_ImageMode imageMode = ImageMode_Packed;
+		if (dmg->version == DMG_Version5 ||
+			dmg->screenMode == ScreenMode_CGA ||
+			dmg->screenMode == ScreenMode_EGA)
+			imageMode = ImageMode_Indexed;
+		pictureData = DMG_GetEntryData(dmg, picno, imageMode);
+	}
 	if (pictureData == 0)
 	{
 		bufferedEntry = NULL;
@@ -1431,22 +1437,26 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 	uint8_t* srcPtr = (uint8_t*)pictureData;
 	uint8_t* dstPtr = graphicsBuffer + y * screenWidth + x;
 	uint32_t* filePalette = (uint32_t*)DMG_GetEntryPalette(dmg, bufferedIndex);
-    if (dmg->version == DMG_Version5)
-    {
-    	for (int dy = 0; dy < h; dy++, srcPtr += entry->width, dstPtr += screenWidth)
-            memcpy(dstPtr, srcPtr, w);
-    }
-    else
-    {
-    	for (int dy = 0; dy < h; dy++, srcPtr += entry->width/2, dstPtr += screenWidth)
-    	{
-    		for (int dx = 0, ix = 0; dx < w; dx += 2, ix++)
-    		{
-    			dstPtr[dx] = srcPtr[ix] >> 4;
-    			dstPtr[dx+1] = srcPtr[ix] & 0x0F;
-    		}
-    	}
-    }
+	bool indexedPicture =
+		dmg->version == DMG_Version5 ||
+		dmg->screenMode == ScreenMode_CGA ||
+		dmg->screenMode == ScreenMode_EGA;
+	if (indexedPicture)
+	{
+		for (int dy = 0; dy < h; dy++, srcPtr += entry->width, dstPtr += screenWidth)
+			memcpy(dstPtr, srcPtr, w);
+	}
+	else
+	{
+		for (int dy = 0; dy < h; dy++, srcPtr += entry->width/2, dstPtr += screenWidth)
+		{
+			for (int dx = 0, ix = 0; dx < w; dx += 2, ix++)
+			{
+				dstPtr[dx] = srcPtr[ix] >> 4;
+				dstPtr[dx+1] = srcPtr[ix] & 0x0F;
+			}
+		}
+	}
 
 	switch (mode)
 	{
@@ -1475,11 +1485,10 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			break;
 
 		case ScreenMode_CGA:
-			if (entry->flags & DMG_FLAG_FIXED)
 			{
 				uint32_t* cgaPalette = DMG_GetCGAMode(entry) == CGA_Red ? CGAPaletteRed : CGAPaletteCyan;
 				if (!PaletteMatches(cgaPalette, 16, 0, false))
-				{
+			{
 					for (int n = 0; n < 16; n++)
 						palette[n] = cgaPalette[n];
 				}
@@ -2094,13 +2103,15 @@ bool VID_LoadDataFile(const char* fileName)
 		dmg = NULL;
 	}
 
-	dmg = DMG_Open(ChangeExtension(fileName, ".dat"), true);
-	if (dmg == NULL)
-		dmg = DMG_Open(ChangeExtension(fileName, ".DAT"), true);
-	if (dmg == NULL)
-		dmg = DMG_Open(ChangeExtension(fileName, ".ega"), true);
-	if (dmg == NULL)
-		dmg = DMG_Open(ChangeExtension(fileName, ".cga"), true);
+	char resolvedDataFile[FILE_MAX_PATH];
+	DDB_ScreenMode resolvedDataMode = screenMode;
+	if (DDB_ResolveDataFile(fileName, screenMachine, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0))
+	{
+		dmg = DMG_Open(resolvedDataFile, true);
+		if (dmg != NULL && screenMachine == DDB_MACHINE_IBMPC)
+			dmg->screenMode = resolvedDataMode;
+		screenMode = resolvedDataMode;
+	}
 	if (dmg == NULL)
 	{
 		#if HAS_PCX

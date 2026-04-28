@@ -207,6 +207,22 @@ enum DDB_ScreenMode
     ScreenMode_SHiRes  = 0x91,       // 640x400 256c
 };
 
+enum DDB_DataFileModeFlags
+{
+	DDB_DataFileMode_CGA    = 0x01,
+	DDB_DataFileMode_EGA    = 0x02,
+	DDB_DataFileMode_VGA16  = 0x04,
+	DDB_DataFileMode_VGA    = 0x08,
+	DDB_DataFileMode_HiRes  = 0x10,
+	DDB_DataFileMode_SHiRes = 0x20,
+};
+
+enum DDB_StartupVideoModePolicy
+{
+	DDB_StartupVideoModePolicy_Configurable,
+	DDB_StartupVideoModePolicy_OverrideOrHighest,
+};
+
 enum DDB_Error
 {
 	DDB_ERROR_NONE,
@@ -218,6 +234,8 @@ enum DDB_Error
 	DDB_ERROR_OUT_OF_MEMORY,
 	DDB_ERROR_INVALID_FILE,
 	DDB_ERROR_FILE_NOT_SUPPORTED,
+	DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED,
+	DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED,
 	DDB_ERROR_SDL,
 	DDB_ERROR_NO_DDBS_FOUND,
 };
@@ -750,6 +768,8 @@ extern bool             DDB_FileRequiresBackBuffer(const char* filename);
 extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_ScreenMode* mode);
 extern DDB_ScreenMode   DDB_GetDefaultScreenMode (DDB_Machine machine);
 extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes);
+extern uint32_t         DDB_GetDataFileModes     (const char* fileName, DDB_Machine target);
+extern bool             DDB_ResolveDataFile      (const char* fileName, DDB_Machine target, DDB_ScreenMode requestedMode, char* resolvedFileName, size_t resolvedFileNameSize, DDB_ScreenMode* resolvedMode, uint8_t* planes);
 extern DDB_Error        DDB_GetError             ();
 extern DDB*             DDB_Create               ();
 extern bool             DDB_SupportsDataFile     (DDB_Version ddb, DDB_Machine target);
@@ -813,6 +833,9 @@ extern void             DDB_NewText              (DDB_Interpreter* i);
 extern DDB_Window*      DDB_GetInputWindow       (DDB_Interpreter* i);
 
 extern PlayerState      DDB_RunPlayerAsync       (const char* location);
+extern void             DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy policy);
+extern void             DDB_SetStartupScreenModeOverride(DDB_ScreenMode mode);
+extern void             DDB_ClearStartupScreenModeOverride();
 extern bool             DDB_RunPlayer            ();
 extern void             DDB_RestartAsyncPlayer   ();
 

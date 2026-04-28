@@ -141,7 +141,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	if (cache)
 	{
 		buffer = (uint8_t*)(cache + 1);
-		if (cache->populated)
+		if (cache->populated && cache->imageMode == ImageMode_Packed)
 			return buffer;
 		bufferSize = cache->size;
 	}
@@ -227,7 +227,14 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 				success = DMG_DecompressNewRLE(fileData+2, mask, 
 					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
 				if (success)
+				{
+					if (cache != 0)
+					{
+						cache->imageMode = ImageMode_Packed;
+						cache->populated = true;
+					}
 					return buffer;
+				}
 			}
 		}
 	}
@@ -235,17 +242,27 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	{
 		uint32_t expectedSize = DMG_CalculateRequiredSize(entry, ImageMode_Raw);
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
+		uint8_t* scratch = 0;
+		uint32_t scratchSize = 0;
 		if (entry->length != expectedSize)
 			success = false;
 		else if (dmg->version == DMG_Version1_PCW)
 			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
 		#if DMG_SUPPORT_EGA_SOURCES
 		else if (dmg->version == DMG_Version1_EGA)
-			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		{
+			scratch = DMG_GetScratchBuffer(dmg, packedSize);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncEGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
+		}
 		#endif
 		#if DMG_SUPPORT_CGA_SOURCES
 		else if (dmg->version == DMG_Version1_CGA)
-			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize);
+		{
+			scratch = DMG_GetScratchBuffer(dmg, entry->length);
+			scratchSize = DMG_GetScratchBufferSize(dmg);
+			success = DMG_UncCGAToPacked(fileData, entry->width, entry->height, buffer, packedSize, scratch, scratchSize);
+		}
 		#endif
 		#if DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 		else if (dmg->littleEndian)
@@ -264,7 +281,10 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 	}
 
 	if (cache != 0)
+	{
+		cache->imageMode = ImageMode_Packed;
 		cache->populated = true;
+	}
 
 	return buffer;
 }
