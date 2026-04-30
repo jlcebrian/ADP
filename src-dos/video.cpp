@@ -13,6 +13,7 @@
 #include "sb.h"
 #include "mixer.h"
 #include "timer.h"
+#include "vid_common.h"
 #include "vid_modex.h"
 
 #include <i86.h>
@@ -33,7 +34,6 @@ static uint32_t   pcxPalette[256];
 static uint8_t*   audioData = 0;
 static DMG_Entry* bufferedEntry;
 static int        bufferedEntryIndex;
-static bool       bufferedPictureIndexed = false;
 static bool       initialized = false;
 static bool       quit;
 static uint8_t    defaultCharWidth = 6;
@@ -178,6 +178,107 @@ static bool IsPCXScreenFile(const char* fileName)
 	return ok && header[0] == 0x0A && header[2] == 1 && header[3] == 8 && header[65] == 1;
 }
 #endif
+
+static uint32_t GetIndexedXImageSize(int width, int height)
+{
+	if (width <= 0 || height <= 0)
+		return 0;
+	return ((uint32_t)(width + 3) & ~3u) * (uint32_t)height;
+}
+
+static bool ConvertIndexedToIndexedX(const uint8_t* input, int width, int height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t requiredSize = GetIndexedXImageSize(width, height);
+	if (input == NULL || output == NULL || outputSize < requiredSize || width <= 0 || height <= 0)
+		return false;
+
+	uint32_t bands = ((uint32_t)width + 3u) >> 2;
+	uint32_t rowStride = bands * 4u;
+	for (int y = 0; y < height; y++)
+	{
+		const uint8_t* srcRow = input + (uint32_t)y * (uint32_t)width;
+		uint8_t* dstRow = output + (uint32_t)y * rowStride;
+		for (uint32_t band = 0; band < bands; band++)
+		{
+			uint32_t pixelBase = band << 2;
+			dstRow[band + bands * 0u] = pixelBase + 0u < (uint32_t)width ? srcRow[pixelBase + 0u] : 0;
+			dstRow[band + bands * 1u] = pixelBase + 1u < (uint32_t)width ? srcRow[pixelBase + 1u] : 0;
+			dstRow[band + bands * 2u] = pixelBase + 2u < (uint32_t)width ? srcRow[pixelBase + 2u] : 0;
+			dstRow[band + bands * 3u] = pixelBase + 3u < (uint32_t)width ? srcRow[pixelBase + 3u] : 0;
+		}
+	}
+
+	return true;
+}
+
+#if HAS_PCX
+static bool LoadNativePCXData(const char* fileName, uint8_t** output, uint32_t* outputSize, int* width, int* height, uint32_t* paletteOut)
+{
+	if (output == NULL || outputSize == NULL || width == NULL || height == NULL || paletteOut == NULL)
+		return false;
+
+	*output = NULL;
+	*outputSize = 0;
+	*width = 0;
+	*height = 0;
+
+	uint32_t indexedSize = 0;
+	int indexedWidth = 0;
+	int indexedHeight = 0;
+	if (DMG_DecompressPCX(fileName, NULL, &indexedSize, &indexedWidth, &indexedHeight, paletteOut) ||
+		DMG_GetError() != DMG_ERROR_BUFFER_TOO_SMALL)
+	{
+		return false;
+	}
+
+	uint8_t* indexed = Allocate<uint8_t>("PCX indexed picture", indexedSize);
+	if (indexed == NULL)
+	{
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	if (!DMG_DecompressPCX(fileName, indexed, &indexedSize, &indexedWidth, &indexedHeight, paletteOut))
+	{
+		Free(indexed);
+		return false;
+	}
+
+	uint32_t nativeSize = GetIndexedXImageSize(indexedWidth, indexedHeight);
+	uint8_t* native = Allocate<uint8_t>("PCX IndexedX picture", nativeSize);
+	if (native == NULL)
+	{
+		Free(indexed);
+		DMG_SetError(DMG_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	if (!ConvertIndexedToIndexedX(indexed, indexedWidth, indexedHeight, native, nativeSize))
+	{
+		Free(native);
+		Free(indexed);
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return false;
+	}
+
+	Free(indexed);
+	*output = native;
+	*outputSize = nativeSize;
+	*width = indexedWidth;
+	*height = indexedHeight;
+	return true;
+}
+#endif
+
+static bool RequireAlignedPictureX(int x)
+{
+	if ((x & 3) == 0)
+		return true;
+
+	DebugPrintf("FATAL: Mode X picture draw requires 4-pixel aligned X, got %d\n", x);
+	Abort();
+	return false;
+}
 
 // ----------------------------------------------------------------------------
 //  Video related variables
@@ -495,6 +596,8 @@ void VID_Finish()
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {	
 	(void)screenMode;
+	if (!RequireAlignedPictureX(x))
+		return;
 
 	#if HAS_PCX
 	if (pcxPictureData != NULL)
@@ -503,7 +606,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			w = pcxPictureWidth;
 		if (h > pcxPictureHeight)
 			h = pcxPictureHeight;
-		ModeX_BlitLinearPicture(pcxPictureData, pcxPictureWidth, x, y, w, h);
+		ModeX_BlitNativePicture(pcxPictureData, pcxPictureWidth, pcxPictureHeight, x, y, w, h);
 		ApplyPalette256(pcxPalette);
 		return;
 	}
@@ -514,12 +617,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		return;
 		
 	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
-	bool useScratchPresentation = updatePalette && ModeX_BeginFixedPicturePresentation();
+	bool useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
 
-	if (bufferedPictureIndexed)
-		ModeX_BlitLinearPicture(pictureData, entry->width, x, y, w, h);
-	else
-		ModeX_BlitNativePicture(pictureData, entry->width, entry->height, x, y, w, h);
+	ModeX_BlitNativePicture(pictureData, entry->width, entry->height, x, y, w, h);
 
 	if (updatePalette)
 	{
@@ -536,7 +636,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	}
 
 	if (useScratchPresentation)
-		ModeX_EndFixedPicturePresentation();
+		VID_CommonEndFixedPicturePresentation();
 }
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
@@ -544,23 +644,16 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	#if HAS_PCX
 	if (IsPCXScreenFile(fileName))
 	{
-		uint32_t bufferSize = 65535;
-		uint8_t* output = Allocate<uint8_t>("Temporary PCX buffer", bufferSize);
-		if (output == NULL)
-		{
-			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
-			return false;
-		}
-
+		uint8_t* output = NULL;
+		uint32_t bufferSize = 0;
 		int width = 0;
 		int height = 0;
-		if (!DMG_DecompressPCX(fileName, output, &bufferSize, &width, &height, pcxPalette))
+		if (!LoadNativePCXData(fileName, &output, &bufferSize, &width, &height, pcxPalette))
 		{
-			Free(output);
 			return false;
 		}
 
-		ModeX_BlitLinearPicture(output, width, 0, 0, width, height);
+		ModeX_BlitNativePicture(output, width, height, 0, 0, width, height);
 		ApplyPalette256(pcxPalette);
 		Free(output);
 		return true;
@@ -586,6 +679,24 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	if (SCR_GetScreen(fileName, target, buffer, 32768, output, 
 			screenWidth, screenHeight, palette))
 	{
+		uint32_t nativeSize = GetIndexedXImageSize(screenWidth, screenHeight);
+		uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
+		if (native == NULL)
+		{
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			Free(output);
+			Free(buffer);
+			return false;
+		}
+		if (!ConvertIndexedToIndexedX(output, screenWidth, screenHeight, native, nativeSize))
+		{
+			Free(native);
+			Free(output);
+			Free(buffer);
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
 		if (fadeIn)
 		{
 			for (int n = 0; n < 16; n++) 
@@ -593,7 +704,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			VID_VSync();
 		}
 
-		ModeX_BlitLinearPicture(output, screenWidth, 0, 0, screenWidth, screenHeight);
+		ModeX_BlitNativePicture(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
 		
 		if (fadeIn)
 		{
@@ -606,6 +717,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 				VID_SetPaletteColor(n, r, g, b);
 			}
 		}
+		Free(native);
 	}
 
 	Free(output);
@@ -782,12 +894,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		if (!VID_GetExternalPictureFileName(picno, pictureFileName, sizeof(pictureFileName)))
 			return;
 
-		pcxPictureSize = (uint32_t)DMG_MAX_IMAGE_WIDTH * (uint32_t)DMG_MAX_IMAGE_HEIGHT;
-		pcxPictureData = Allocate<uint8_t>("PCX picture", pcxPictureSize);
-		if (pcxPictureData == NULL)
-			return;
-
-		if (!DMG_DecompressPCX(pictureFileName, pcxPictureData, &pcxPictureSize, &pcxPictureWidth, &pcxPictureHeight, pcxPalette))
+		if (!LoadNativePCXData(pictureFileName, &pcxPictureData, &pcxPictureSize, &pcxPictureWidth, &pcxPictureHeight, pcxPalette))
 			FreeBufferedPCXPicture();
 		return;
 	}
@@ -802,22 +909,9 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 
 	bufferedEntry = entry;
 	bufferedEntryIndex = picno;
-	bufferedPictureIndexed = false;
 	pictureData = DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == NULL)
-	{
-		pictureData = DMG_GetEntryData(dmg, picno, ImageMode_Indexed);
-		if (pictureData != NULL)
-		{
-			DMG_SetError(DMG_ERROR_NONE);
-			bufferedPictureIndexed = true;
-		}
-		else
-		{
-			bufferedEntry = NULL;
-			bufferedPictureIndexed = false;
-		}
-	}
+		bufferedEntry = NULL;
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -868,12 +962,12 @@ void VID_Quit ()
 
 void VID_RestoreScreen ()
 {
-	ModeX_RestoreScreen();
+	VID_CommonRestoreScreen();
 }
 
 void VID_SaveScreen ()
 {
-	ModeX_SaveScreen();
+	VID_CommonSaveScreen();
 }
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
@@ -884,17 +978,17 @@ void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
 	(void)op;
-	ModeX_SetActiveBuffer(front);
+	VID_CommonSetActiveBuffer(front);
 }
 
 void VID_ClearBuffer (bool front)
 {
-	ModeX_ClearBuffer(front, 0);
+	VID_CommonClearBuffer(front, 0);
 }
 
 void VID_SwapScreen ()
 {
-	ModeX_SwapBuffers();
+	VID_CommonSwapBuffers();
 }
 
 void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))

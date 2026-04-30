@@ -100,11 +100,7 @@ uint32_t DMG_GetMinimumImageBufferSize(DMG* d, DMG_ImageMode mode)
 	{
 		case ImageMode_Packed:
 			return (pixels + 1) >> 1;
-		case ImageMode_PackedNative:
-			#if defined(_DOS)
-			if (d != 0 && d->version != DMG_Version5 && d->version != DMG_Version1_PCW)
-				return (pixels + 1) >> 1;
-			#endif
+		case ImageMode_IndexedX:
 			return ((width + 3u) & ~3u) * height;
 		case ImageMode_RGBA32:
 			return pixels * 4u;
@@ -1833,7 +1829,7 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
             }
 			return width * height / 2;
 
-		case ImageMode_PackedNative:
+		case ImageMode_IndexedX:
 			return ((width + 3u) & ~3u) * height;
 
 		case ImageMode_Planar:

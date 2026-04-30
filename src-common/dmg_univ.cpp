@@ -32,7 +32,7 @@ static bool DMG_RangesOverlap(const uint8_t* a, uint32_t aSize, const uint8_t* b
 	return a != 0 && b != 0 && aSize != 0 && bSize != 0 && a < b + bSize && b < a + aSize;
 }
 
-static bool DMG_ConvertIndexedToModeXNative(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, uint8_t* scratch, uint32_t scratchSize)
+static bool DMG_ConvertIndexedToIndexedX(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, uint8_t* scratch, uint32_t scratchSize)
 {
 	uint32_t bands = ((uint32_t)width + 3u) >> 2;
 	uint32_t rowStride = bands * 4u;
@@ -80,7 +80,7 @@ static bool DMG_ConvertIndexedToModeXNative(const uint8_t* input, uint16_t width
 	return true;
 }
 
-static bool DMG_ConvertPackedToModeXNative(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, const uint8_t* paletteMap, uint8_t* scratch, uint32_t scratchSize)
+static bool DMG_ConvertPackedToIndexedX(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, const uint8_t* paletteMap, uint8_t* scratch, uint32_t scratchSize)
 {
 	uint32_t bands = ((uint32_t)width + 3u) >> 2;
 	uint32_t rowStride = bands * 4u;
@@ -160,61 +160,37 @@ static bool DMG_ConvertPackedToModeXNative(const uint8_t* input, uint16_t width,
 }
 
 #if defined(_DOS)
-static bool DMG_RequiresNativeModeXLayout(const DMG* dmg)
-{
-	if (dmg == 0)
-		return false;
-	return dmg->version != DMG_Version1_PCW;
-}
-
-static bool DMG_CanConvertPackedToModeXNative(const DMG* dmg)
+static bool DMG_CanConvertPackedToIndexedX(const DMG* dmg)
 {
 	if (dmg == 0)
 		return false;
 	return dmg->version != DMG_Version5 && dmg->version != DMG_Version1_PCW;
 }
 
-static uint8_t* DMG_GetEntryDataPackedNative(DMG* dmg, uint8_t index)
+static uint8_t* DMG_GetEntryDataIndexedX(DMG* dmg, uint8_t index)
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
 	if (entry == 0 || entry->type == DMGEntry_Empty)
 		return 0;
-	if (entry->type == DMGEntry_Audio || !DMG_RequiresNativeModeXLayout(dmg))
-		return DMG_GetEntryData(dmg, index, ImageMode_Packed);
+	if (entry->type == DMGEntry_Audio)
+		return DMG_GetEntryData(dmg, index, ImageMode_Audio);
 
-	uint32_t nativeSize = DMG_CalculateRequiredSize(entry, ImageMode_PackedNative);
+	uint32_t nativeSize = DMG_CalculateRequiredSize(entry, ImageMode_IndexedX);
 	DMG_Cache* cache = DMG_GetImageCache(dmg, index, entry, nativeSize);
-	uint8_t* output = cache != 0 ? (uint8_t*)(cache + 1) : 0;
-	if (cache != 0 && cache->populated && cache->imageMode == ImageMode_PackedNative)
+	uint8_t* output = cache != 0 ? (uint8_t*)(cache + 1) : DMG_GetTemporaryBuffer(ImageMode_IndexedX);
+	uint32_t outputSize = cache != 0 ? cache->size : DMG_GetTemporaryBufferSize();
+	if (cache != 0 && cache->populated && cache->imageMode == ImageMode_IndexedX)
 		return output;
-
-	if (DMG_CanConvertPackedToModeXNative(dmg))
+	if (output == 0 || outputSize < nativeSize)
 	{
-		if ((entry->flags & DMG_FLAG_FIXED) != 0)
-		{
-			uint8_t* indexedData = DMG_GetEntryData(dmg, index, ImageMode_Indexed);
-			if (indexedData == 0)
-			{
-				if (cache != 0)
-					cache->populated = false;
-				return 0;
-			}
-			if (output == 0)
-			{
-				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
-				return 0;
-			}
-			uint8_t* scratch = DMG_GetScratchBuffer(dmg, entry->width);
-			uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
-			if (!DMG_ConvertIndexedToModeXNative(indexedData, entry->width, entry->height, output, nativeSize, scratch, scratchSize))
-			{
-				if (cache != 0)
-					cache->populated = false;
-				return 0;
-			}
-		}
-		else
-		{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		if (cache != 0)
+			cache->populated = false;
+		return 0;
+	}
+
+	if (DMG_CanConvertPackedToIndexedX(dmg) && (entry->flags & DMG_FLAG_FIXED) == 0)
+	{
 		DMG_ColorPaletteMode paletteMode = ColorPaletteMode_Native;
 		const uint8_t* paletteMap = 0;
 		if (dmg->screenMode == ScreenMode_CGA || dmg->colorMode == DAT5_COLORMODE_CGA)
@@ -240,19 +216,14 @@ static uint8_t* DMG_GetEntryDataPackedNative(DMG* dmg, uint8_t index)
 				cache->populated = false;
 			return 0;
 		}
-		if (output == 0)
-		{
-			DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
-			return 0;
-		}
+
 		uint8_t* scratch = DMG_GetScratchBuffer(dmg, ((uint32_t)entry->width + 1u) >> 1);
 		uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
-		if (!DMG_ConvertPackedToModeXNative(packedData, entry->width, entry->height, output, nativeSize, paletteMap, scratch, scratchSize))
+		if (!DMG_ConvertPackedToIndexedX(packedData, entry->width, entry->height, output, nativeSize, paletteMap, scratch, scratchSize))
 		{
 			if (cache != 0)
 				cache->populated = false;
 			return 0;
-		}
 		}
 	}
 	else
@@ -264,19 +235,9 @@ static uint8_t* DMG_GetEntryDataPackedNative(DMG* dmg, uint8_t index)
 				cache->populated = false;
 			return 0;
 		}
-		if (output == 0)
-		{
-			uint32_t indexedSize = DMG_CalculateRequiredSize(entry, ImageMode_Indexed);
-			if (nativeSize > indexedSize)
-			{
-				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
-				return 0;
-			}
-			output = indexedData;
-		}
 		uint8_t* scratch = DMG_GetScratchBuffer(dmg, entry->width);
 		uint32_t scratchSize = DMG_GetScratchBufferSize(dmg);
-		if (!DMG_ConvertIndexedToModeXNative(indexedData, entry->width, entry->height, output, nativeSize, scratch, scratchSize))
+		if (!DMG_ConvertIndexedToIndexedX(indexedData, entry->width, entry->height, output, nativeSize, scratch, scratchSize))
 		{
 			if (cache != 0)
 				cache->populated = false;
@@ -286,7 +247,7 @@ static uint8_t* DMG_GetEntryDataPackedNative(DMG* dmg, uint8_t index)
 
 	if (cache != 0)
 	{
-		cache->imageMode = ImageMode_PackedNative;
+		cache->imageMode = ImageMode_IndexedX;
 		cache->populated = true;
 	}
 
@@ -959,7 +920,7 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 	#elif defined(_ATARIST)
 	return DMG_GetEntryData(dmg, index, screenMode);
 	#elif defined(_DOS)
-	return DMG_GetEntryDataPackedNative(dmg, index);
+	return DMG_GetEntryDataIndexedX(dmg, index);
 	#else
 	return DMG_GetEntryData(dmg, index, DMG_NATIVE_IMAGE_MODE);
 	#endif

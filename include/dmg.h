@@ -37,7 +37,7 @@ enum DMG_Error
 enum DMG_ImageMode
 {
 	ImageMode_Packed            = 0x00,		// Packed indexed pixels, 2 colors per byte
-	ImageMode_PackedNative      = 0x01,		// Packed native blit format, palette conversion already applied
+	ImageMode_IndexedX          = 0x01,		// Indexed pixels arranged in Mode X band/plane order
 	ImageMode_RGBA32            = 0x10,		// 4 bytes per pixel, native-endian 0xAARRGGBB
 	ImageMode_PlanarST          = 0x20,     // Atari ST interleaved words (P0P0P1P1P2P2P3P3)
     ImageMode_Planar            = 0x24,     // One complete bitmap per plane
@@ -83,7 +83,7 @@ enum DMG_ImageMode;
 extern DMG_ImageMode screenMode;
 #define DMG_NATIVE_IMAGE_MODE screenMode
 #elif defined(_DOS)
-#define DMG_NATIVE_IMAGE_MODE ImageMode_PackedNative
+#define DMG_NATIVE_IMAGE_MODE ImageMode_IndexedX
 #else
 #define DMG_NATIVE_IMAGE_MODE ImageMode_Indexed
 #endif

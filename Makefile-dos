@@ -95,6 +95,7 @@ OBJS = 		      &
 	dma.obj       &
 	files.obj     &
 	mixer.obj     &
+	vid_common.obj &
 	vid_modex.obj &
 	video.obj     &
 	sb.obj        &

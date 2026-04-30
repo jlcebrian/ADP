@@ -337,6 +337,8 @@ static DDB_ScreenMode GetPreferredIntroScreenMode(DDB_ScreenMode resolvedMode)
 {
 	if (startupScreenModeOverride != ScreenMode_Default)
 		return startupScreenModeOverride;
+	if (startupConfig.hasVideoMode && startupConfig.videoMode == resolvedMode)
+		return resolvedMode;
 	if (startupVideoModePolicy == DDB_StartupVideoModePolicy_OverrideOrHighest)
 		return resolvedMode;
 	return ScreenMode_Default;
