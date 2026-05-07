@@ -3,6 +3,7 @@
 #include <ddb_pal.h>
 #include <ddb_scr.h>
 #include <ddb_vid.h>
+#include <vid_screen.h>
 #include <ddb_xmsg.h>
 #include <dmg.h>
 #include <dmg_font.h>
@@ -141,6 +142,7 @@ uint8_t*   textBuffer;
 
 uint8_t*   frontBuffer = NULL;
 uint8_t*   backBuffer = NULL;
+static VID_ScreenAdapter screenAdapter;
 uint8_t*   pictureData;
 static uint8_t charset16[256 * 32];
 static bool charset16Available = false;
@@ -178,6 +180,66 @@ int        xCoordMultiplier = 1;
 int        yCoordMultiplier = 1;
 static bool screen2XMode = false;
 static DDB_Version screenVersion = DDB_VERSION_1;
+
+static void VID_BlitScreenIndexedImage(const uint8_t* pixels, int srcW, int x, int y, int w, int h)
+{
+	if (pixels == 0 || graphicsBuffer == 0 || srcW <= 0)
+		return;
+
+	if (x < 0)
+	{
+		pixels -= x;
+		w += x;
+		x = 0;
+	}
+	if (y < 0)
+	{
+		pixels -= y * srcW;
+		h += y;
+		y = 0;
+	}
+	if (x >= screenWidth || y >= screenHeight || w <= 0 || h <= 0)
+		return;
+	if (x + w > screenWidth)
+		w = screenWidth - x;
+	if (y + h > screenHeight)
+		h = screenHeight - y;
+	if (w <= 0 || h <= 0)
+		return;
+
+	for (int row = 0; row < h; row++)
+		memcpy(graphicsBuffer + (y + row) * screenWidth + x, pixels + row * srcW, w);
+}
+
+static void VID_BlitScreenNativeImage(const uint8_t* pixels, int srcW, int srcH, int x, int y, int w, int h)
+{
+	if (srcH > 0 && h > srcH)
+		h = srcH;
+	VID_BlitScreenIndexedImage(pixels, srcW, x, y, w, h);
+}
+
+static void VID_RegisterScreenAdapter()
+{
+	screenAdapter.info.width = screenWidth;
+	screenAdapter.info.height = screenHeight;
+	screenAdapter.info.cellWidth = columnWidth;
+	screenAdapter.info.cellHeight = lineHeight;
+	screenAdapter.info.colorDepth = 8;
+	screenAdapter.info.paletteSize = 256;
+	screenAdapter.info.nativeImageMode = ImageMode_Indexed;
+	screenAdapter.info.alignmentPixels = 1;
+	screenAdapter.ops.clear = VID_Clear;
+	screenAdapter.ops.scroll = VID_Scroll;
+	screenAdapter.ops.drawTextSpan = VID_DrawTextSpan;
+	screenAdapter.ops.blitNativeImage = VID_BlitScreenNativeImage;
+	screenAdapter.ops.blitIndexedImage = VID_BlitScreenIndexedImage;
+	screenAdapter.ops.clearBuffer = VID_ClearBuffer;
+	screenAdapter.ops.saveScreen = VID_SaveScreen;
+	screenAdapter.ops.restoreScreen = VID_RestoreScreen;
+	screenAdapter.ops.setTarget = VID_SetOpBuffer;
+	screenAdapter.ops.swapScreen = VID_SwapScreen;
+	VID_ScreenRegisterAdapter(&screenAdapter);
+}
 
 static bool PaletteMatches(const uint32_t* candidate, int paletteCount, int firstColor, bool clearOutside)
 {
@@ -1512,6 +1574,7 @@ void VID_Finish()
 		DebugPrintf("Closing video subsystem\n");
 		videoInitialized = false;
 	}
+	VID_ScreenRegisterAdapter(0);
 	if (window != NULL)
 	{
 		SDL_DestroyWindow(window);
@@ -2303,6 +2366,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 		charWidth[n] = defaultCharWidth;
 
 	memcpy (palette, DefaultPalette, sizeof(DefaultPalette));
+	VID_RegisterScreenAdapter();
 
 	frontBuffer   = Allocate<uint8_t>("Graphics front buffer", screenWidth * screenHeight);
 	backBuffer    = Allocate<uint8_t>("Graphics back buffer", screenWidth * screenHeight);

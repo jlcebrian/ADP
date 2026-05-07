@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "vid_common.h"
 
 enum VideoMode
 {
@@ -13,7 +14,4 @@ enum VideoMode
 };
 
 void ModeX_SetVideoMode(int mode);
-void ModeX_BlitNativePicture(const uint8_t* input, int inputWidth, int inputHeight, int x, int y, int w, int h);
-void ModeX_ClearRect(int x, int y, int width, int height, uint8_t color);
-void ModeX_DrawCharacter(int x, int y, uint8_t c, uint8_t ink, uint8_t paper);
-void ModeX_Scroll(int x, int y, int w, int h, int lines, uint8_t paper);
+const VID_Adapter* ModeX_GetAdapter();

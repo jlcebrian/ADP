@@ -2,6 +2,7 @@
 #include <ddb_scr.h>
 #include <ddb_pal.h>
 #include <ddb_vid.h>
+#include <vid_screen.h>
 #include <ddb_xmsg.h>
 #include <dmg.h>
 #include <dmg_font.h>
@@ -149,7 +150,9 @@ void VID_SetWindowIcon(const char* fileName)
 bool supportsOpenFileDialog = false;
 
 DDB_Machine screenMachine = DDB_MACHINE_ATARIST;
-DMG_ImageMode screenMode = ImageMode_PlanarST;		// or ImageMode_PlanarFalcon
+DMG_ImageMode screenMode = ImageMode_PlanarST;	
+	// or ImageMode_PlanarFalcon
+static DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
 
 #ifndef MAX_PATH
 #define MAX_PATH 256
@@ -166,6 +169,9 @@ static uint16_t* backBuffer = 0;
 static uint8_t*  backBufferMemory = 0;
 static uint32_t  backBufferAllocationSize = 0;
 static bool      backBufferEnabled = false;
+
+static VID_ScreenAdapter screenAdapter;
+
 static STPaletteState frontPaletteState;
 static STPaletteState backPaletteState;
 
@@ -546,6 +552,41 @@ static void VID_Blit(uint16_t* dstBase, const uint16_t* srcBase, uint32_t srcStr
 		VID_BlitFalcon(dstBase, srcBase, srcStride, x, y, w, h);
 }
 
+static void VID_BlitScreenNativeImage(const uint8_t* pixels, int srcW, int srcH, int x, int y, int w, int h)
+{
+	if (pixels == 0 || screen == 0 || srcW <= 0 || srcH <= 0)
+		return;
+	if (w > srcW)
+		w = srcW;
+	if (h > srcH)
+		h = srcH;
+	uint32_t stride = (screenMode == ImageMode_PlanarFalcon ? 8u : 4u) * ((srcW + 15u) / 16u);
+	VID_Blit(screen, (const uint16_t*)pixels, stride, x, y, w, h);
+}
+
+static void VID_RegisterScreenAdapter()
+{
+	screenAdapter.info.width = screenWidth;
+	screenAdapter.info.height = screenHeight;
+	screenAdapter.info.cellWidth = columnWidth;
+	screenAdapter.info.cellHeight = lineHeight;
+	screenAdapter.info.colorDepth = screenMode == ImageMode_PlanarFalcon ? 8 : 4;
+	screenAdapter.info.paletteSize = VID_GetActivePaletteSize();
+	screenAdapter.info.nativeImageMode = screenMode;
+	screenAdapter.info.alignmentPixels = 1;
+	screenAdapter.ops.clear = VID_Clear;
+	screenAdapter.ops.scroll = VID_Scroll;
+	screenAdapter.ops.drawTextSpan = VID_DrawTextSpan;
+	screenAdapter.ops.blitNativeImage = VID_BlitScreenNativeImage;
+	screenAdapter.ops.blitIndexedImage = 0;
+	screenAdapter.ops.clearBuffer = VID_ClearBuffer;
+	screenAdapter.ops.saveScreen = VID_SaveScreen;
+	screenAdapter.ops.restoreScreen = VID_RestoreScreen;
+	screenAdapter.ops.setTarget = VID_SetOpBuffer;
+	screenAdapter.ops.swapScreen = VID_SwapScreen;
+	VID_ScreenRegisterAdapter(&screenAdapter);
+}
+
 static bool IsFalconRawScreenFile(const char* fileName)
 {
 	File* file = File_Open(fileName, ReadOnly);
@@ -828,11 +869,11 @@ bool VID_LoadDataFile (const char* fileName)
 		DMG_ReserveTemporaryBuffer(screenBufferSize);
 
 	char resolvedDataFile[FILE_MAX_PATH];
-	DDB_ScreenMode resolvedDataMode = screenMode;
-	if (DDB_ResolveDataFile(fileName, screenMachine, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0))
+	DDB_ScreenMode resolvedDataMode = selectedScreenMode;
+	if (DDB_ResolveDataFile(fileName, screenMachine, selectedScreenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedDataMode, 0))
 	{
 		dmg = DMG_Open(resolvedDataFile, true);
-		screenMode = resolvedDataMode;
+		selectedScreenMode = resolvedDataMode;
 	}
 	if (dmg == 0)
 	{
@@ -938,6 +979,7 @@ void VID_ClearBuffer (bool front)
 
 void VID_Finish ()
 {
+	VID_ScreenRegisterAdapter(0);
 	VID_FinishTextDraw();
 	ShowCursor();
 	VBL_Remove();
@@ -1534,6 +1576,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode sel
 	VBL_Install();
 
 	hasFalconVideo = HasFalconVideo();
+	selectedScreenMode = selectedMode;
 	screenMode = VID_UseFalconMode(selectedMode) ? ImageMode_PlanarFalcon : ImageMode_PlanarST;
 	VID_UpdateLayoutFromMode();
 	if (!VID_ApplyHardwareMode(selectedMode))
@@ -1547,6 +1590,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode sel
 	screenHeight = 200;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = 6;
+	VID_RegisterScreenAdapter();
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);

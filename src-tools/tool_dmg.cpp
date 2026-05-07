@@ -477,7 +477,7 @@ static void PrintHelp()
 	printf("Common add/create/update options:\n\n");
     printf("   -format <id>       Container format: dat5, dat2, dat1, ega, cga, pcw\n");
     printf("   -mode <id>         DAT5 mode: cga, ega, planar4, planar5, planar8,\n");
-    printf("                      planar4st, planar8st, ehb6, ham6\n");
+    printf("                      planar4st, planar8st, ehb6, ham6, indexedx\n");
     printf("   -type <id>         Alias for -mode\n");
     printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
     printf("   -2x <0|1>          Set DAT5 2X UI flag when creating or updating DAT5\n");
@@ -530,7 +530,8 @@ static int GetPaletteLimit(DMG_DAT5ColorMode mode)
         case DMG_DAT5_COLORMODE_EHB6: return 32;
         case DMG_DAT5_COLORMODE_HAM6: return 16;
         case DMG_DAT5_COLORMODE_PLANAR8:
-        case DMG_DAT5_COLORMODE_PLANAR8ST: return 256;
+        case DMG_DAT5_COLORMODE_PLANAR8ST:
+        case DMG_DAT5_COLORMODE_INDEXEDX: return 256;
         default: return 16;
     }
 }
@@ -541,6 +542,7 @@ static uint8_t GetBitDepthForMode(DMG_DAT5ColorMode mode)
     {
         case DMG_DAT5_COLORMODE_CGA: return 0;
         case DMG_DAT5_COLORMODE_EGA: return 0;
+        case DMG_DAT5_COLORMODE_INDEXEDX: return 8;
         default: return DMG_DAT5ModePlaneCount(mode);
     }
 }
@@ -556,6 +558,7 @@ static bool ParseDAT5Mode(const char* value, DMG_DAT5ColorMode* mode)
     else if (stricmp(value, "planar8st") == 0 || stricmp(value, "falcon") == 0) *mode = DMG_DAT5_COLORMODE_PLANAR8ST;
     else if (stricmp(value, "ehb6") == 0 || stricmp(value, "ehb") == 0) *mode = DMG_DAT5_COLORMODE_EHB6;
     else if (stricmp(value, "ham6") == 0 || stricmp(value, "ham") == 0) *mode = DMG_DAT5_COLORMODE_HAM6;
+    else if (stricmp(value, "indexedx") == 0 || stricmp(value, "modex") == 0 || stricmp(value, "pc") == 0) *mode = DMG_DAT5_COLORMODE_INDEXEDX;
     else return false;
     return true;
 }
@@ -1320,6 +1323,25 @@ static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint
         case DMG_DAT5_COLORMODE_PLANAR8ST:
             *outputSize = ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
             return DMG_PackBitplaneWords(indexed, width, height, 8, output);
+        case DMG_DAT5_COLORMODE_INDEXEDX:
+        {
+            uint32_t bands = ((uint32_t)width + 3u) >> 2;
+            uint32_t rowStride = bands * 4u;
+            *outputSize = rowStride * height;
+            MemClear(output, *outputSize);
+            for (uint16_t y = 0; y < height; y++)
+            {
+                const uint8_t* srcRow = indexed + (uint32_t)y * width;
+                uint8_t* dstRow = output + (uint32_t)y * rowStride;
+                for (uint16_t x = 0; x < width; x++)
+                {
+                    uint32_t band = x >> 2;
+                    uint32_t plane = x & 3u;
+                    dstRow[band + bands * plane] = srcRow[x];
+                }
+            }
+            return true;
+        }
         default:
             return false;
     }
@@ -1344,6 +1366,8 @@ static uint32_t GetDAT5EncodedSize(DMG_DAT5ColorMode mode, uint16_t width, uint1
         case DMG_DAT5_COLORMODE_PLANAR8:
         case DMG_DAT5_COLORMODE_PLANAR8ST:
             return ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
+        case DMG_DAT5_COLORMODE_INDEXEDX:
+            return (((uint32_t)width + 3u) & ~3u) * height;
         default:
             return 0;
     }
@@ -2514,6 +2538,7 @@ static const char* DescribeDAT5ColorMode(uint8_t mode)
         case DMG_DAT5_COLORMODE_PLANAR8ST: return "Planar8ST";
         case DMG_DAT5_COLORMODE_EHB6:      return "EHB6";
         case DMG_DAT5_COLORMODE_HAM6:      return "HAM6";
+        case DMG_DAT5_COLORMODE_INDEXEDX:  return "IndexedX";
         default:                           return "Unknown";
     }
 }
@@ -5492,7 +5517,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 
     if (outputIsDAT5 && outputColorMode == DMG_DAT5_COLORMODE_NONE)
     {
-        fprintf(stderr, "Error: DAT5 rebuild requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st>\n");
+        fprintf(stderr, "Error: DAT5 rebuild requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st|indexedx>\n");
         return false;
     }
 

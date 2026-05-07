@@ -37,6 +37,7 @@
                             7                   Planar8ST:  Falcon interleaved words with palette
                             8                   EHB6:       Amiga 6-plane EHB bitplanes with palette
                             9                   HAM6:       Amiga 6-plane HAM bitplanes with palette
+                            10                  IndexedX:   PC Mode X indexed pixels with palette
 
     0x000F      1           File Flags
 
@@ -78,8 +79,8 @@
     0x001A		4			Reserved (must be zero)
     0x001E      2           CRC value (naive XOR of data & palette info)
 
-    For palette-based planar modes (Planar4, Planar5, Planar8,
-    Planar4ST, Planar8ST, EHB6 and HAM6), the entry payload
+    For palette-based modes (Planar4, Planar5, Planar8,
+    Planar4ST, Planar8ST, EHB6, HAM6 and IndexedX), the entry payload
     begins with palette data stored as a sequence of RGB byte triplets.
     The number of palette entries is equal to last-first+1 according
     to the entry header, so the palette prefix size is:
@@ -90,9 +91,9 @@
 
         palette prefix + image data
 
-    Palettes are only present for palette-based planar modes.
-    CGA and EGA modes use their fixed hardware
-    palettes, so their payload does not contain a palette prefix.
+    Palettes are only present for palette-based modes. CGA and EGA modes
+    use their fixed hardware palettes, so their payload does not contain
+    a palette prefix.
 
     If the file is CGA or EGA specific, palette data is not present,
     bit depth is 0, and the graphic data is a single ZX0 or binary
@@ -119,6 +120,22 @@
     EHB6 and HAM6 use the same plane-major payload layout as the other
     Amiga-oriented planar modes. The difference between them is only in
     how the Amiga interpreter programs the display hardware.
+
+    If the file uses IndexedX mode, bit depth is 8 and the palette
+    prefix is stored first. The graphic data that follows it is stored
+    in PC VGA Mode X display order. Each row is divided into 4-pixel
+    bands and then stored by plane within that row:
+
+        rowStride = ceil(width / 4) * 4
+        bands     = ceil(width / 4)
+
+        Plane 0 bytes for pixels x = 0, 4, 8, ...
+        Plane 1 bytes for pixels x = 1, 5, 9, ...
+        Plane 2 bytes for pixels x = 2, 6, 10, ...
+        Plane 3 bytes for pixels x = 3, 7, 11, ...
+
+    The stored image data size is rowStride * height. Padding pixels in
+    the final band of odd-width images are stored as zero.
 
     The image encoding mode describes how image data is stored, not how
     many palette entries are present. The palette range still comes from
@@ -229,4 +246,7 @@
 
      7) Atari Falcon-specific files, with Planar8ST graphics and
          up to 256 colors.
+
+     8) PC Mode X-specific files, with IndexedX graphics and up to
+         256 colors.
        

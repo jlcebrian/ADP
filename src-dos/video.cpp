@@ -1,6 +1,7 @@
 #ifdef _DOS
 
 #include <ddb_vid.h>
+#include <vid_screen.h>
 #include <ddb_data.h>
 #include <ddb_scr.h>
 #include <ddb_xmsg.h>
@@ -34,6 +35,7 @@ static uint32_t   pcxPalette[256];
 static uint8_t*   audioData = 0;
 static DMG_Entry* bufferedEntry;
 static int        bufferedEntryIndex;
+static bool       bufferedPictureIndexed = false;
 static bool       initialized = false;
 static bool       quit;
 static uint8_t    defaultCharWidth = 6;
@@ -272,12 +274,7 @@ static bool LoadNativePCXData(const char* fileName, uint8_t** output, uint32_t* 
 
 static bool RequireAlignedPictureX(int x)
 {
-	if ((x & 3) == 0)
-		return true;
-
-	DebugPrintf("FATAL: Mode X picture draw requires 4-pixel aligned X, got %d\n", x);
-	Abort();
-	return false;
+	return VID_ScreenRequireAlignedX(x);
 }
 
 // ----------------------------------------------------------------------------
@@ -476,9 +473,10 @@ static void ApplyPalette256(const uint32_t* colors)
 bool VID_LoadDataFile (const char* fileName)
 {
 	#if HAS_PCX
-	FreeBufferedPCXPicture();
-	VID_SetExternalPictureBase(0);
+		FreeBufferedPCXPicture();
+		VID_SetExternalPictureBase(0);
 	#endif
+	bufferedPictureIndexed = false;
 
 	columnWidth = 6;
 	for (int n = 0; n < 256; n++)
@@ -569,8 +567,7 @@ void VID_EnableBackBuffer()
 
 void VID_Clear (int x, int y, int width, int height, uint8_t color, VID_ClearMode mode)
 {
-	(void)mode;
-	ModeX_ClearRect(x, y, width, height, color);
+	VID_CommonClear(x, y, width, height, color, mode);
 }
 
 void VID_Finish()
@@ -606,7 +603,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			w = pcxPictureWidth;
 		if (h > pcxPictureHeight)
 			h = pcxPictureHeight;
-		ModeX_BlitNativePicture(pcxPictureData, pcxPictureWidth, pcxPictureHeight, x, y, w, h);
+		VID_CommonBlitNativeImage(pcxPictureData, pcxPictureWidth, pcxPictureHeight, x, y, w, h);
 		ApplyPalette256(pcxPalette);
 		return;
 	}
@@ -619,7 +616,10 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
 	bool useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
 
-	ModeX_BlitNativePicture(pictureData, entry->width, entry->height, x, y, w, h);
+	if (bufferedPictureIndexed)
+		VID_CommonBlitIndexedImage(pictureData, entry->width, x, y, w, h);
+	else
+		VID_CommonBlitNativeImage(pictureData, entry->width, entry->height, x, y, w, h);
 
 	if (updatePalette)
 	{
@@ -653,7 +653,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			return false;
 		}
 
-		ModeX_BlitNativePicture(output, width, height, 0, 0, width, height);
+		VID_CommonBlitNativeImage(output, width, height, 0, 0, width, height);
 		ApplyPalette256(pcxPalette);
 		Free(output);
 		return true;
@@ -676,10 +676,18 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 		return false;
 	}
 
-	if (SCR_GetScreen(fileName, target, buffer, 32768, output, 
-			screenWidth, screenHeight, palette))
+	bool decoded = SCR_GetScreen(fileName, target, buffer, 32768, output,
+			screenWidth, screenHeight, palette);
+	if (decoded)
 	{
-		uint32_t nativeSize = GetIndexedXImageSize(screenWidth, screenHeight);
+		uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+		if (nativeSize == 0)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			Free(output);
+			Free(buffer);
+			return false;
+		}
 		uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
 		if (native == NULL)
 		{
@@ -704,7 +712,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			VID_VSync();
 		}
 
-		ModeX_BlitNativePicture(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+		VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
 		
 		if (fadeIn)
 		{
@@ -722,12 +730,22 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 
 	Free(output);
 	Free(buffer);
-	return true;
+	return decoded;
 }
 
 void VID_DrawCharacter (int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 {
-	ModeX_DrawCharacter(x, y, c, ink, paper);
+	VID_CommonDrawTextSpan(x, y, &c, 1, ink, paper);
+}
+
+void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
+{
+	VID_CommonDrawTextSpan(x, y, text, length, ink, paper);
+}
+
+void VID_DrawText(int x, int y, const char* text, uint8_t ink, uint8_t paper)
+{
+	VID_DrawTextSpan(x, y, (const uint8_t*)text, (uint16_t)StrLen(text), ink, paper);
 }
 
 void VID_GetKey (uint8_t* key, uint8_t* ext, uint8_t* modifiers)
@@ -796,7 +814,8 @@ void VID_GetMilliseconds (uint32_t* time)
 
 uint16_t VID_GetPaletteSize()
 {
-	return 256;
+	const VID_ScreenAdapterInfo* info = VID_ScreenGetInfo();
+	return info != 0 ? info->paletteSize : 0;
 }
 
 void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
@@ -887,6 +906,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	FreeBufferedPCXPicture();
 	bufferedEntry = NULL;
 	pictureData = NULL;
+	bufferedPictureIndexed = false;
 
 	if (dmg == NULL)
 	{
@@ -909,9 +929,22 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 
 	bufferedEntry = entry;
 	bufferedEntryIndex = picno;
+	bufferedPictureIndexed = false;
 	pictureData = DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == NULL)
-		bufferedEntry = NULL;
+	{
+		pictureData = DMG_GetEntryData(dmg, picno, ImageMode_Indexed);
+		if (pictureData != NULL)
+		{
+			DMG_SetError(DMG_ERROR_NONE);
+			bufferedPictureIndexed = true;
+		}
+		else
+		{
+			bufferedEntry = NULL;
+			bufferedPictureIndexed = false;
+		}
+	}
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -972,13 +1005,12 @@ void VID_SaveScreen ()
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 {
-	ModeX_Scroll(x, y, w, h, lines, paper);
+	VID_CommonScroll(x, y, w, h, lines, paper);
 }
 
 void VID_SetOpBuffer (SCR_Operation op, bool front)
 {
-	(void)op;
-	VID_CommonSetActiveBuffer(front);
+	VID_CommonSetTarget(op, front);
 }
 
 void VID_ClearBuffer (bool front)
@@ -1060,19 +1092,17 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 
 	Timer_Start();
 
-	screenWidth   = 320;
-	screenHeight  = 200;
-	lineHeight    = 8;
-	columnWidth   = 6;
-	defaultCharWidth = 6;
-	screenWidth   = 320;
-	screenHeight  = 200;
-	for (int n = 0; n < 256; n++)
-		charWidth[n] = 6;
-
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
 	ModeX_SetVideoMode(MODE_320x200);
+	const VID_AdapterInfo* info = VID_CommonGetInfo();
+	screenWidth = info != 0 ? info->width : 320;
+	screenHeight = info != 0 ? info->height : 200;
+	lineHeight = info != 0 ? info->cellHeight : 8;
+	columnWidth = info != 0 ? info->cellWidth : 6;
+	defaultCharWidth = columnWidth;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = columnWidth;
 
 	initialized = true;
 	return true;

@@ -168,6 +168,7 @@ typedef enum
     DMG_DAT5_COLORMODE_PLANAR8ST = 7,
     DMG_DAT5_COLORMODE_EHB6      = 8,
     DMG_DAT5_COLORMODE_HAM6      = 9,
+    DMG_DAT5_COLORMODE_INDEXEDX  = 10,
 
     DMG_DAT5_COLORMODE_I16  = DMG_DAT5_COLORMODE_PLANAR4,
     DMG_DAT5_COLORMODE_I32  = DMG_DAT5_COLORMODE_PLANAR5,
@@ -192,10 +193,16 @@ static inline bool DMG_DAT5ModeUsesPalette(uint8_t mode)
 		case DMG_DAT5_COLORMODE_PLANAR8ST:
 		case DMG_DAT5_COLORMODE_EHB6:
 		case DMG_DAT5_COLORMODE_HAM6:
+		case DMG_DAT5_COLORMODE_INDEXEDX:
 			return true;
 		default:
 			return false;
 	}
+}
+
+static inline bool DMG_DAT5ModeIsIndexedX(uint8_t mode)
+{
+	return (DMG_DAT5ColorMode)mode == DMG_DAT5_COLORMODE_INDEXEDX;
 }
 
 static inline bool DMG_DAT5ModeIsPlaneMajor(uint8_t mode)
@@ -256,6 +263,7 @@ static inline uint8_t DMG_DAT5ModePlaneCount(uint8_t mode)
 			return 6;
 		case DMG_DAT5_COLORMODE_PLANAR8:
 		case DMG_DAT5_COLORMODE_PLANAR8ST:
+		case DMG_DAT5_COLORMODE_INDEXEDX:
 			return 8;
 		default:
 			return 0;
@@ -278,6 +286,8 @@ static inline uint32_t DMG_DAT5StoredImageSize(uint8_t mode, uint16_t width, uin
 		case DMG_DAT5_COLORMODE_EHB6:
 		case DMG_DAT5_COLORMODE_HAM6:
 			return (((uint32_t)width + 15) >> 4) * height * DMG_DAT5ModePlaneCount(mode) * 2u;
+		case DMG_DAT5_COLORMODE_INDEXEDX:
+			return (((uint32_t)width + 3) & ~3u) * height;
 		default:
 			return 0;
 	}

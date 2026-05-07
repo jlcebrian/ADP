@@ -802,7 +802,7 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
 		dmg->screenMode =
 			(dmg->colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
 			(dmg->colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
-			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8) ? ScreenMode_VGA :
+			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8 || DMG_DAT5ModeIsIndexedX(dmg->colorMode)) ? ScreenMode_VGA :
 			ScreenMode_VGA16;
 	else if (dmg->targetWidth == 640 && dmg->targetHeight == 200)
 		dmg->screenMode = ScreenMode_HiRes;
@@ -1807,6 +1807,9 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 	{
 		if (dmg != 0 && dmg->version == DMG_Version5)
 		{
+			uint32_t storedSize = DMG_DAT5StoredImageSize(dmg->colorMode, width, height);
+			if (storedSize != 0)
+				return storedSize;
 			if (entry->bitDepth <= 4)
 				return (width * height + 1) / 2;
 			return width * height;
@@ -1815,7 +1818,7 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 			return ((width + 7) >> 3) * height;
 		if (dmg != 0 && dmg->version == DMG_Version1_CGA)
 			return width * height / 4;
-		return width * height / 2;
+		return ((uint32_t)width * (uint32_t)height + 1u) >> 1;
 	}
 
 	switch (mode)
@@ -1823,11 +1826,13 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 		case ImageMode_Packed:
             if (dmg != 0 && dmg->version == DMG_Version5)
             {
+				if (DMG_DAT5ModeIsIndexedX(dmg->colorMode))
+					return DMG_DAT5StoredImageSize(dmg->colorMode, width, height);
                 if (entry->bitDepth <= 4)
                     return (width * height + 1) / 2;
                 return width * height;
             }
-			return width * height / 2;
+			return ((uint32_t)width * (uint32_t)height + 1u) >> 1;
 
 		case ImageMode_IndexedX:
 			return ((width + 3u) & ~3u) * height;

@@ -1,5 +1,6 @@
 #include <ddb_vid.h>
 #include <ddb_pal.h>
+#include <vid_screen.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <dmg.h>
@@ -17,6 +18,122 @@ uint8_t 	screenCellWidth = 8;
 uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
+
+static const VID_ScreenAdapter* activeScreenAdapter = 0;
+
+void VID_ScreenRegisterAdapter(const VID_ScreenAdapter* adapter)
+{
+	activeScreenAdapter = adapter;
+}
+
+const VID_ScreenAdapter* VID_ScreenGetAdapter()
+{
+	return activeScreenAdapter;
+}
+
+const VID_ScreenAdapterInfo* VID_ScreenGetInfo()
+{
+	return activeScreenAdapter != 0 ? &activeScreenAdapter->info : 0;
+}
+
+uint32_t VID_ScreenGetNativeImageSize(int width, int height)
+{
+	const VID_ScreenAdapterInfo* info = VID_ScreenGetInfo();
+	if (info == 0 || width <= 0 || height <= 0)
+		return 0;
+
+	switch (info->nativeImageMode)
+	{
+		case ImageMode_IndexedX:
+			return ((uint32_t)(width + 3) & ~3u) * (uint32_t)height;
+
+		case ImageMode_Indexed:
+			return (uint32_t)width * (uint32_t)height;
+
+		case ImageMode_Packed:
+			return ((uint32_t)width * (uint32_t)height + 1u) >> 1;
+
+		case ImageMode_PlanarST:
+		case ImageMode_Planar:
+		case ImageMode_PlanarFalcon:
+			return (((uint32_t)(width + 15) & ~15u) >> 3) * (uint32_t)height * info->colorDepth;
+
+		default:
+			return 0;
+	}
+}
+
+bool VID_ScreenRequireAlignedX(int x)
+{
+	const VID_ScreenAdapterInfo* info = VID_ScreenGetInfo();
+	uint8_t alignment = info != 0 ? info->alignmentPixels : 1;
+	if (alignment <= 1 || (x % alignment) == 0)
+		return true;
+
+	DebugPrintf("FATAL: native picture draw requires %u-pixel aligned X, got %d\n", (unsigned)alignment, x);
+	Abort();
+	return false;
+}
+
+void VID_ScreenClear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.clear != 0)
+		activeScreenAdapter->ops.clear(x, y, w, h, color, mode);
+}
+
+void VID_ScreenScroll(int x, int y, int w, int h, int lines, uint8_t paper)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.scroll != 0)
+		activeScreenAdapter->ops.scroll(x, y, w, h, lines, paper);
+}
+
+void VID_ScreenDrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.drawTextSpan != 0)
+		activeScreenAdapter->ops.drawTextSpan(x, y, text, length, ink, paper);
+}
+
+void VID_ScreenBlitNativeImage(const uint8_t* pixels, int srcW, int srcH, int x, int y, int w, int h)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.blitNativeImage != 0)
+		activeScreenAdapter->ops.blitNativeImage(pixels, srcW, srcH, x, y, w, h);
+}
+
+void VID_ScreenBlitIndexedImage(const uint8_t* pixels, int srcW, int x, int y, int w, int h)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.blitIndexedImage != 0)
+		activeScreenAdapter->ops.blitIndexedImage(pixels, srcW, x, y, w, h);
+}
+
+void VID_ScreenClearBuffer(bool front)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.clearBuffer != 0)
+		activeScreenAdapter->ops.clearBuffer(front);
+}
+
+void VID_ScreenSaveScreen()
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.saveScreen != 0)
+		activeScreenAdapter->ops.saveScreen();
+}
+
+void VID_ScreenRestoreScreen()
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.restoreScreen != 0)
+		activeScreenAdapter->ops.restoreScreen();
+}
+
+void VID_ScreenSetTarget(SCR_Operation op, bool front)
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.setTarget != 0)
+		activeScreenAdapter->ops.setTarget(op, front);
+}
+
+void VID_ScreenSwapScreen()
+{
+	if (activeScreenAdapter != 0 && activeScreenAdapter->ops.swapScreen != 0)
+		activeScreenAdapter->ops.swapScreen();
+}
 
 void VID_ResetDisplay()
 {
@@ -288,7 +405,7 @@ void VID_ShowProgressBar(uint16_t amount)
 	#endif
 }
 
-#if !defined(HAS_DRAWTEXT) && !defined(_AMIGA)
+#if !defined(HAS_DRAWTEXT) && !defined(_AMIGA) && !defined(_DOS)
 
 void VID_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
 {

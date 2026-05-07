@@ -4,6 +4,7 @@
 
 #include <ddb_scr.h>
 #include <ddb_vid.h>
+#include <vid_screen.h>
 #include <ddb_pal.h>
 #include <ddb_data.h>
 #include <ddb_xmsg.h>
@@ -51,6 +52,7 @@ extern LONG os_totalAllocated;
 
 bool	 supportsOpenFileDialog = false;
 DDB_Machine screenMachine = DDB_MACHINE_IBMPC;
+static DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
 
 bool     isPAL = false;
 static bool isAGA = false;
@@ -72,6 +74,7 @@ uint8_t*    		backPlane[MAX_PLANES];
 static bool         backBufferEnabled = false;
 static uint8_t* 	scratchDisplayBuffer = 0;
 static uint8_t* 	scratchDisplayPlane[MAX_PLANES];
+static VID_ScreenAdapter screenAdapter;
 static uint8_t  	displayPlanes = TEXT_PLANES;
 static uint8_t  	requestedDisplayPlanes = TEXT_PLANES;
 static uint8_t       displayColorMode = DMG_DAT5_COLORMODE_PLANAR4;
@@ -146,6 +149,7 @@ static inline uint16_t* BeginCopperBuild();
 static inline void CommitCopperBuild(uint16_t* program, uint16_t* end);
 static void UpdateDrawPlanes();
 static void SetPlanePointers(uint8_t* buffer, uint8_t** out);
+static void VID_RegisterScreenAdapter();
 static void RefreshBackPlanePointers();
 static void ProgramDisplay();
 static void InitializePaletteEncodeTables();
@@ -590,6 +594,51 @@ static void RefreshBackPlanePointers()
 		SetPlanePointers(frontBuffer, backPlane);
 }
 
+static void VID_BlitScreenNativeImage(const uint8_t* pixels, int srcW, int srcH, int x, int y, int w, int h)
+{
+	if (pixels == 0 || srcW <= 0 || srcH <= 0)
+		return;
+	if (w > srcW)
+		w = srcW;
+	if (h > srcH)
+		h = srcH;
+	if (w <= 0 || h <= 0)
+		return;
+
+	uint16_t srcStride = (uint16_t)(((srcW + 15) & ~15) >> 3);
+	uint32_t srcPlaneBytes = (uint32_t)srcStride * (uint32_t)srcH;
+	for (uint8_t p = 0; p < displayPlanes; p++)
+	{
+		if (plane[p] != 0)
+			BlitterCopyStride((uint8_t*)pixels + srcPlaneBytes * p, srcStride, 0, 0,
+				plane[p], SCR_STRIDEB, (uint16_t)x, (uint16_t)y, (uint16_t)w, (uint16_t)h, true);
+	}
+	WaitBlit();
+}
+
+static void VID_RegisterScreenAdapter()
+{
+	screenAdapter.info.width = screenWidth;
+	screenAdapter.info.height = screenHeight;
+	screenAdapter.info.cellWidth = columnWidth;
+	screenAdapter.info.cellHeight = lineHeight;
+	screenAdapter.info.colorDepth = displayPlanes;
+	screenAdapter.info.paletteSize = VID_GetPaletteSize();
+	screenAdapter.info.nativeImageMode = ImageMode_Planar;
+	screenAdapter.info.alignmentPixels = 1;
+	screenAdapter.ops.clear = VID_Clear;
+	screenAdapter.ops.scroll = VID_Scroll;
+	screenAdapter.ops.drawTextSpan = VID_DrawTextSpan;
+	screenAdapter.ops.blitNativeImage = VID_BlitScreenNativeImage;
+	screenAdapter.ops.blitIndexedImage = 0;
+	screenAdapter.ops.clearBuffer = VID_ClearBuffer;
+	screenAdapter.ops.saveScreen = VID_SaveScreen;
+	screenAdapter.ops.restoreScreen = VID_RestoreScreen;
+	screenAdapter.ops.setTarget = VID_SetOpBuffer;
+	screenAdapter.ops.swapScreen = VID_SwapScreen;
+	VID_ScreenRegisterAdapter(&screenAdapter);
+}
+
 static void UploadAGAPalette(uint16_t count)
 {
 	if (activePaletteAGAHigh == 0 || activePaletteAGALow == 0)
@@ -907,7 +956,10 @@ static bool ConfigureDisplayPlanes(uint8_t planes)
 	if (planes < TEXT_PLANES || planes > MAX_PLANES)
 		return false;
 	if (displayPlanes == planes && frontBuffer != 0)
+	{
+		VID_RegisterScreenAdapter();
 		return true;
+	}
 
 	uint32_t bytesPerPlane = SCR_STRIDEB * SCR_HEIGHTPX;
 	uint32_t allocate = bytesPerPlane * planes;
@@ -962,6 +1014,7 @@ static bool ConfigureDisplayPlanes(uint8_t planes)
 		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
 	UpdateDrawPlanes();
 	ProgramDisplay();
+	VID_RegisterScreenAdapter();
 
 	if (oldFront != 0)
 		Free(oldFront);
@@ -1317,8 +1370,12 @@ bool VID_LoadDataFile (const char* fileName)
 
 	char resolvedDataFile[FILE_MAX_PATH];
 	const char* loadedName = ChangeExtension(fileName, ".dat");
-	if (DDB_ResolveDataFile(fileName, screenMachine, screenMode, resolvedDataFile, sizeof(resolvedDataFile), &screenMode, 0))
+	DDB_ScreenMode resolvedScreenMode = selectedScreenMode;
+	if (DDB_ResolveDataFile(fileName, screenMachine, selectedScreenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedScreenMode, 0))
+	{
 		loadedName = resolvedDataFile;
+		selectedScreenMode = resolvedScreenMode;
+	}
 	uint32_t tOpen = GetMilliseconds();
 	dmg = DMG_Open(loadedName, true);
 	if (dmg == 0)
@@ -2309,6 +2366,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 	isAGA = VID_IsAGAAvailable();
 	copperListBytes = isAGA ? 4096 : 1024;
 	screenMachine = machine;
+	selectedScreenMode = screenMode;
 	DebugPrintf("Video: %s %u plane%s%s\n",
 		DescribeScreenMode(screenMode),
 		(unsigned)requestedDisplayPlanes,
@@ -2359,6 +2417,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode scr
 		VID_Finish();
 		return false;
 	}
+	VID_RegisterScreenAdapter();
 
 	VID_SetDefaultPalette();
 	VID_ActivatePalette();
@@ -2371,6 +2430,7 @@ void VID_Finish ()
 	if (!initialized)
 		return;
 	initialized = false;
+	VID_ScreenRegisterAdapter(0);
 
 	FreeSystem();
 	OpenWorkBench();

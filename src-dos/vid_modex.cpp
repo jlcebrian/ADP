@@ -165,6 +165,45 @@ static dos_ptr8 ModeX_GetPagePtr(unsigned page);
 static void ModeX_PresentPage(unsigned page);
 static void ModeX_CopyPage(unsigned srcPage, unsigned dstPage);
 static void ModeX_ClearPage(unsigned page, uint8_t color);
+static void ModeX_SetTarget(SCR_Operation op, bool front);
+static void ModeX_Clear(int x, int y, int width, int height, uint8_t color, VID_ClearMode mode);
+static void ModeX_BlitNativePicture(const uint8_t* input, int inputWidth, int inputHeight, int x, int y, int w, int h);
+static void ModeX_BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y, int w, int h);
+static void ModeX_ClearRect(int x, int y, int width, int height, uint8_t color);
+static void ModeX_DrawCharacter(int x, int y, uint8_t c, uint8_t ink, uint8_t paper);
+static void ModeX_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper);
+static void ModeX_Scroll(int x, int y, int w, int h, int lines, uint8_t paper);
+
+static VID_Adapter modeXAdapter =
+{
+	{
+		320,
+		200,
+		6,
+		8,
+		8,
+		256,
+		ImageMode_IndexedX,
+		4
+	},
+	{
+		ModeX_GetPagePtr,
+		ModeX_PresentPage,
+		ModeX_CopyPage,
+		ModeX_ClearPage,
+		ModeX_SetTarget,
+		ModeX_Clear,
+		ModeX_Scroll,
+		ModeX_DrawTextSpan,
+		ModeX_BlitNativePicture,
+		ModeX_BlitLinearPicture
+	}
+};
+
+const VID_Adapter* ModeX_GetAdapter()
+{
+	return &modeXAdapter;
+}
 
 static void SetBIOSMode(int mode)
 {
@@ -253,15 +292,17 @@ void ModeX_SetVideoMode(int mode)
 	modeXPageSize = (width * height) >> 2;
 	unsigned pageCount = 65536 / modeXPageSize;
 
-	static const VID_CommonOps commonOps =
-	{
-		ModeX_GetPagePtr,
-		ModeX_PresentPage,
-		ModeX_CopyPage,
-		ModeX_ClearPage
-	};
-	VID_CommonInit(width, height, modeXPageSize, width >> 2, pageCount,
-		pageCount > 2 ? 2 : VID_INVALID_PAGE, &commonOps);
+	modeXAdapter.info.width = (uint16_t)width;
+	modeXAdapter.info.height = (uint16_t)height;
+	modeXAdapter.info.cellWidth = 6;
+	modeXAdapter.info.cellHeight = 8;
+	modeXAdapter.info.colorDepth = 8;
+	modeXAdapter.info.paletteSize = 256;
+	modeXAdapter.info.nativeImageMode = ImageMode_IndexedX;
+	modeXAdapter.info.alignmentPixels = 4;
+
+	VID_CommonInit(&modeXAdapter, modeXPageSize, width >> 2, pageCount,
+		pageCount > 2 ? 2 : VID_INVALID_PAGE);
 }
 
 static dos_ptr8 ModeX_GetPagePtr(unsigned page)
@@ -332,9 +373,77 @@ static void ModeX_ClearPage(unsigned page, uint8_t color)
 	memset32(top, color32, (int32_t)(modeXPageSize >> 2));
 }
 
+static void ModeX_SetTarget(SCR_Operation op, bool front)
+{
+	(void)op;
+	VID_CommonSetActiveBuffer(front);
+}
+
+static void ModeX_Clear(int x, int y, int width, int height, uint8_t color, VID_ClearMode mode)
+{
+	(void)mode;
+	ModeX_ClearRect(x, y, width, height, color);
+}
+
 static void ModeX_BlitNativeColumns(const uint8_t* input, dos_ptr8 out, int srcPlane, int srcBand, int dstPlane, int width, int rows, int bands, int rowStride, uint16_t localLineSize);
 
-void ModeX_BlitNativePicture(const uint8_t* input, int inputWidth, int inputHeight, int x, int y, int w, int h)
+static void ModeX_BlitLinearPicture(const uint8_t* input, int inputWidth, int x, int y, int w, int h)
+{
+	if (input == NULL || inputWidth <= 0)
+		return;
+	VID_CommonState* state = VID_CommonGetState();
+	const uint16_t localLineSize = (uint16_t)state->lineSize;
+
+	if (x < state->minx)
+	{
+		int skip = state->minx - x;
+		input += skip;
+		w -= skip;
+		x = state->minx;
+	}
+	if (y < state->miny)
+	{
+		int skip = state->miny - y;
+		input += skip * inputWidth;
+		h -= skip;
+		y = state->miny;
+	}
+	if (x + w > state->maxx + 1)
+		w = state->maxx - x + 1;
+	if (y + h > state->maxy + 1)
+		h = state->maxy - y + 1;
+	if (w <= 0 || h <= 0)
+		return;
+
+	const uint8_t* src = input;
+	dos_ptr8 dst = state->offset + y * localLineSize + (x >> 2);
+	int mask = 1 << (x & 3);
+
+	outp(0x3C4, 0x02);
+
+	for (int dx = 0; dx < w; dx++)
+	{
+		const uint8_t* column = src;
+		dos_ptr8 out = dst;
+
+		outp(0x3C5, mask);
+
+		for (int dy = 0; dy < h; dy++)
+		{
+			*out = *column;
+			column += inputWidth;
+			out += localLineSize;
+		}
+
+		src++;
+		mask <<= 1;
+		dst += (mask >> 4);
+		mask |= (mask >> 4);
+		mask &= 0x0F;
+	}
+}
+
+static void ModeX_BlitNativePicture(const uint8_t* input, int inputWidth, int inputHeight, int x, int y, int w, int h)
 {
 	if (input == NULL || inputWidth <= 0 || inputHeight <= 0)
 		return;
@@ -420,7 +529,7 @@ void ModeX_BlitNativePicture(const uint8_t* input, int inputWidth, int inputHeig
 	}
 }
 
-void ModeX_ClearRect(int x, int y, int width, int height, uint8_t color)
+static void ModeX_ClearRect(int x, int y, int width, int height, uint8_t color)
 {
 	VID_CommonState* state = VID_CommonGetState();
 	int32_t i;
@@ -515,7 +624,7 @@ void ModeX_ClearRect(int x, int y, int width, int height, uint8_t color)
 	}
 }
 
-void ModeX_DrawCharacter(int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
+static void ModeX_DrawCharacter(int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 {
 	VID_CommonState* state = VID_CommonGetState();
 	const uint16_t localLineSize = (uint16_t)state->lineSize;
@@ -587,6 +696,16 @@ void ModeX_DrawCharacter(int x, int y, uint8_t c, uint8_t ink, uint8_t paper)
 		pixel >>= 1;
 	}
 	while (--x);
+}
+
+static void ModeX_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
+{
+	for (uint16_t n = 0; n < length && x < (int)modeXAdapter.info.width; n++)
+	{
+		uint8_t ch = text[n];
+		ModeX_DrawCharacter(x, y, ch, ink, paper);
+		x += charWidth[ch];
+	}
 }
 
 static void ModeX_CopyColumnsUp(dos_cptr8 in, dos_ptr8 out, int startPlane, int width, int rows, uint16_t localLineSize)
@@ -724,7 +843,7 @@ static void ModeX_BlitNativeColumns(const uint8_t* input, dos_ptr8 out, int srcP
 	while (--width);
 }
 
-void ModeX_Scroll(int x, int y, int w, int h, int lines, uint8_t paper)
+static void ModeX_Scroll(int x, int y, int w, int h, int lines, uint8_t paper)
 {
 	VID_CommonState* state = VID_CommonGetState();
 	const uint16_t localLineSize = (uint16_t)state->lineSize;

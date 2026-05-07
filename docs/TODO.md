@@ -43,6 +43,7 @@
 [x] Amiga/ST: Ask for disk # when there are multiple DDB files but no corresponding DATs
 [ ] DOS: use fast VRAM copy in scroll
 [x] DOS: faster DISPLAY implementation using page 3 as buffer
+[ ] DOS: add fast direct IndexedX conversion/decompression paths for old graphics
 [ ] Fix LOAD/SAVE flow & make a compatible .SAV file format
 
 # Tools
