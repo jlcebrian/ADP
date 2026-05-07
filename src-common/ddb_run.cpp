@@ -3413,7 +3413,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->doallOffset = offset + params + 1;
 				UpdatePos(i, process, entry, offset + params + 1);
 				if (!DoAll(i, param0, true))
-					goto case_DONE;
+				{
+					// Not sure: check with AO
+					if (i->ddb->version == DDB_VERSION_1)
+						goto case_DONE;
+
+					DDB_NewText(i);
+					goto case_NOTDONE;
+				}
 				break;
 
 			// Graphics and window management condacts
