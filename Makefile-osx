@@ -53,8 +53,10 @@ CPPFLAGS += -DTRACE_DEBUG -DTRACE_ON
 endif
 
 CPPFLAGS += $(OPTIM)
-CPPFLAGS += `libpng-config --cflags`
-LDFLAGS += `libpng-config --ldflags`
+PNG_CFLAGS ?= -Ilib/libpng
+PNG_LIBS ?= lib/osx/libpng.a lib/osx/libz.a
+CPPFLAGS += $(PNG_CFLAGS)
+LDFLAGS += $(PNG_LIBS)
 
 DIRS := src-common/ lib-src/salvador/
 VPATH := $(DIRS) src-sdl/ src-unix/ src-tools/
