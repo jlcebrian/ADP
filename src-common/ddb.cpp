@@ -115,6 +115,13 @@ static uint32_t DDB_NormalizeDeclaredSize(const DDB* ddb, uint16_t declaredSize)
 	return declaredSize;
 }
 
+static uint32_t DDB_GetLogicalSizeForHeaderGuess(const DDB* ddb, uint16_t declaredSize)
+{
+	if (declaredSize == 0)
+		return ddb->dataSize;
+	return DDB_NormalizeDeclaredSize(ddb, declaredSize);
+}
+
 static bool DDB_HasOnlyPaddingBytes(const uint8_t* data, uint32_t dataSize, uint32_t logicalSize)
 {
 	if (logicalSize > dataSize)
@@ -130,7 +137,7 @@ static bool DDB_HasOnlyPaddingBytes(const uint8_t* data, uint32_t dataSize, uint
 
 static bool DDB_IsPlausibleHeaderLayout(const DDB* ddb, bool littleEndian, uint16_t declaredSize)
 {
-	uint32_t logicalSize = DDB_NormalizeDeclaredSize(ddb, declaredSize);
+	uint32_t logicalSize = DDB_GetLogicalSizeForHeaderGuess(ddb, declaredSize);
 	uint32_t minimumHeaderSize = DDB_GetMinimumHeaderSize(ddb->version);
 	if (logicalSize < minimumHeaderSize || logicalSize > ddb->dataSize)
 		return false;
@@ -184,8 +191,8 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 
 	uint16_t declaredSizeBE = read16(data + (ddb->version == 1 ? 30 : 32), false);
 	uint16_t declaredSizeLE = read16(data + (ddb->version == 1 ? 30 : 32), true);
-	uint32_t declaredLogicalSizeBE = DDB_NormalizeDeclaredSize(ddb, declaredSizeBE);
-	uint32_t declaredLogicalSizeLE = DDB_NormalizeDeclaredSize(ddb, declaredSizeLE);
+	uint32_t declaredLogicalSizeBE = DDB_GetLogicalSizeForHeaderGuess(ddb, declaredSizeBE);
+	uint32_t declaredLogicalSizeLE = DDB_GetLogicalSizeForHeaderGuess(ddb, declaredSizeLE);
 	bool bigEndianValid = DDB_IsPlausibleHeaderLayout(ddb, false, declaredSizeBE);
 	bool littleEndianValid = DDB_IsPlausibleHeaderLayout(ddb, true, declaredSizeLE);
 	bool bigEndianMatch = bigEndianValid && declaredLogicalSizeBE == ddb->dataSize;
@@ -345,6 +352,8 @@ static bool DDB_ValidateOffsetTablePrefix(const DDB* ddb, const uint8_t* data, u
 	if (entries == 0)
 		return true;
 
+	uint32_t minimumHeaderSize = DDB_GetMinimumHeaderSize(ddb->version);
+
 	uint32_t offset = 0;
 	if (!DDB_DecodeStoredOffset(ddb, tableOffset, ddb->dataSize, false, &offset))
 	{
@@ -369,7 +378,7 @@ static bool DDB_ValidateOffsetTablePrefix(const DDB* ddb, const uint8_t* data, u
 			return false;
 		}
 
-		if (relativeOffset >= ddb->dataSize || relativeOffset < 32)
+		if (relativeOffset >= ddb->dataSize || relativeOffset < minimumHeaderSize)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
 			DDB_Warning("Invalid internal offset 0x%04X (entry %d in %s)", relativeOffset, n, tableName);
@@ -811,6 +820,7 @@ const char* DDB_GetMessage (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buf
 void DDB_FixOffsets (DDB* ddb)
 {
 	int n;
+	uint32_t minimumHeaderSize = DDB_GetMinimumHeaderSize(ddb->version);
 
 #ifndef _WEB
 #ifdef _BIG_ENDIAN
@@ -860,7 +870,7 @@ void DDB_FixOffsets (DDB* ddb)
 		{
 			uint16_t rawOffset = read16((uint8_t*)table + m * 2, ddb->littleEndian);
 			uint32_t offset = 0;
-			if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, false, &offset) || offset < 32)
+			if (!DDB_DecodeStoredOffset(ddb, rawOffset, ddb->dataSize, false, &offset) || offset < minimumHeaderSize)
 			{
 				DDB_Warning("Invalid internal offset 0x%04X (entry %d in %s)", offset, m, tableName[n]);
 				ddbError = DDB_ERROR_INVALID_FILE;
@@ -897,7 +907,7 @@ void DDB_FixOffsets (DDB* ddb)
 			#endif
 
 			uint32_t entryOffset = 0;
-			if (!DDB_DecodeStoredOffset(ddb, read16(entry + 2, ddb->littleEndian), ddb->dataSize, false, &entryOffset) || entryOffset < 32)
+			if (!DDB_DecodeStoredOffset(ddb, read16(entry + 2, ddb->littleEndian), ddb->dataSize, false, &entryOffset) || entryOffset < minimumHeaderSize)
 			{
 				DDB_Warning("Invalid entry %d offset 0x%04X in process %d", entryIndex, entryOffset, n);
 				ddbError = DDB_ERROR_INVALID_FILE;

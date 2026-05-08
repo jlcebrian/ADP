@@ -441,6 +441,12 @@ static inline bool DDB_Is16Bits(DDB_Machine m)
 		   m == DDB_MACHINE_AMIGA;
 }
 
+static inline bool DDB_IsAmigaOrAtari(DDB_Machine m)
+{
+	return m == DDB_MACHINE_IBMPC ||
+	       m == DDB_MACHINE_ATARIST ;
+}
+
 enum DDB_Language
 {
 	DDB_ENGLISH = 0,

@@ -1814,7 +1814,7 @@ static bool ShouldCheckSpanishPronouns (DDB_Interpreter* i, int code)
 	return false;
 }
 
-static bool EndsWithSpanishPronoun (const char* word, int len)
+static bool EndsWithSpanishPronoun (const char* word, int len, int version)
 {
 	// Short verbs are ignored. This is probably wrong, but it is what PAWS does, and
 	// fixes some words such as SOLO being used as verbs in the default database.
@@ -1824,12 +1824,17 @@ static bool EndsWithSpanishPronoun (const char* word, int len)
 	if (ToUpper(word[len-2]) == 'L' && (ToUpper(word[len-1]) == 'A' || ToUpper(word[len-1]) == 'O'))
 	{
 		// This hack prevents the parser from wrongly recognizing
-		// pronouns in words like HABLA or AFILA
+		// pronouns in words like HABLA or AFILA. This hack has been
+		// removed for moden versions since they offer better control.
 
-		if (len > 2 && (ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I'))
-			return false;
+		if (version < DDB_VERSION_3)
+		{
+			if (len > 2 && (ToUpper(word[len-3]) == 'B' || ToUpper(word[len-3]) == 'I'))
+				return false;
+		}
 		return true;
 	}
+
 	if (len < 3 || ToUpper(word[len-1]) != 'S')
 		return false;
 	if (ToUpper(word[len-3]) == 'L' && (ToUpper(word[len-2]) == 'A' || ToUpper(word[len-2]) == 'O'))
@@ -1940,7 +1945,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 						if (i->flags[Flag_Noun1] == 255 && 
 							i->flags[Flag_CPNoun] != 255 &&
 							ShouldCheckSpanishPronouns(i, code) &&
-							EndsWithSpanishPronoun((const char*)word, ptr - word))
+							EndsWithSpanishPronoun((const char*)word, ptr - word, i->ddb->version))
 						{
 							i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 							i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
@@ -1955,9 +1960,6 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 				case WordType_Pronoun:
 					if (i->flags[Flag_Noun1] == 255 && i->flags[Flag_CPNoun] != 255)
 					{
-						if (lastWordType == WordType_Preposition)
-							i->flags[Flag_ListFlags] |= ListFlag_Preposition;
-
 						i->flags[Flag_Noun1] = i->flags[Flag_CPNoun];
 						i->flags[Flag_Adjective1] = i->flags[Flag_CPAdjective];
 					}
@@ -1980,6 +1982,10 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 						i->flags[Flag_Adjective2] = code;
 					break;
 				case WordType_Preposition:
+					// If no noun yet, mark the preposition prefix flag
+					// to enable the game to check for early prepositions
+					if (i->flags[Flag_Noun1] == 255)
+						i->flags[Flag_ListFlags] |= ListFlag_Preposition;
 					if (i->flags[Flag_Preposition] == 255)
 						i->flags[Flag_Preposition] = code;
 					break;
@@ -2915,7 +2921,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					TRACE("_    ");
 				else
 					TraceVocabularyWord(i->ddb, WordType_Noun, param1);
-				if (i->ddb->version >= DDB_VERSION_3 || DDB_Is16Bits(i->ddb->machine))
+				if (i->ddb->version < DDB_VERSION_3 && !DDB_IsAmigaOrAtari(i->ddb->machine))
 					i->done = true;
 				break;
 
