@@ -2000,7 +2000,7 @@ static bool Parse (DDB_Interpreter* i, bool quoted)
 		}
 		else
 		{
-			if (lastWordType == WordType_Verb)
+			if (i->flags[Flag_Verb] != 255)
 				i->flags[Flag_ListFlags] |= ListFlag_UnknownWord;
 
 			lastWordType = WordType_Unknown;
