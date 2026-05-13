@@ -1600,8 +1600,7 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 	if (fullScreenClear && IsVisiblePlaneTarget() && scratchDisplayBuffer != 0)
 	{
 		ClearScratchDisplayBuffer(color);
-		CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
-		PresentScratchDisplayBuffer();
+		PresentScratchDisplayPlanesOnly();
 		return;
 	}
 		
@@ -1753,7 +1752,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	{
 		paletteChangeNeeded = PaletteStoreNeedsUpdate(targetPaletteStore, palette, paletteSize, paletteFirst, clearOutside);
 		visibleTarget = IsVisiblePlaneTarget();
-		presentingScratch = visibleTarget && paletteChangeNeeded;
+		presentingScratch = visibleTarget && scratchDisplayBuffer != 0;
 		if (presentingScratch)
 		{
 			CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
@@ -1904,6 +1903,15 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
+	pictureOrigin = 0;
+	pictureEntry = 0;
+	pictureIndex = 0;
+	pictureData = 0;
+	pictureStride = 0;
+	picturePlaneStride = 0;
+	picturePlanes = TEXT_PLANES;
+	picturePlaneMajor = false;
+	
 	if (dmg == 0) 
 	{
 		#if DEBUG_AMIGA_PICTURE_IO
@@ -1939,13 +1947,6 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 		(unsigned)screenMode);
 	#endif
 
-	pictureOrigin = 0;
-	pictureEntry = 0;
-	pictureIndex = 0;
-	pictureData = 0;
-	pictureStride = 0;
-	picturePlaneStride = 0;
-	picturePlaneMajor = false;
 	picturePlanes = entry->bitDepth ? entry->bitDepth : TEXT_PLANES;
 	uint32_t widthWords = (uint32_t)(entry->width + 15) >> 4;
 	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);

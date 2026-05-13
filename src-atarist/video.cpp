@@ -1303,13 +1303,25 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	(void)mode;
 	if (dmg == 0) 
 	{
+		pictureOrigin = 0;
+		pictureEntry = 0;
+		pictureIndex = 0;
+		pictureStride = 0;
+		pictureData = 0;
 		VID_ShowError("Driver has no DMG");
 		return;
 	}
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == 0 || entry->type != DMGEntry_Image)
+	{
+		pictureOrigin = 0;
+		pictureEntry = 0;
+		pictureIndex = 0;
+		pictureStride = 0;
+		pictureData = 0;
 		return;
+	}
 
 	pictureOrigin = dmg;
 	pictureEntry  = entry;
@@ -1321,6 +1333,8 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		VID_ShowError(DMG_GetErrorString());
 		pictureEntry = 0;
 		pictureOrigin = 0;
+		pictureIndex = 0;
+		pictureStride = 0;
 	}
 }
 

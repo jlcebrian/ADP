@@ -3532,6 +3532,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 							ok = true;
 							i->currentPicture = param0;
 						}
+						TRACE("(Picture %s)", ok ? "found" : "not found");
 					}
 					repeatingDisplay = false;
 				}

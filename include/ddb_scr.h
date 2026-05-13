@@ -92,7 +92,7 @@ static inline bool SCR_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 {
 	VID_LoadPicture(picno, screenMode);
 	bool fixed;
-	int16_t x, y, w, h;
+	int16_t x = 0, y = 0, w = 0, h = 0;
 	VID_GetPictureInfo(&fixed, &x, &y, &w, &h);
 	return w > 0 && h > 0;
 }
