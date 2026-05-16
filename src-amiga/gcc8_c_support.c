@@ -110,23 +110,82 @@ void* memmove(void *dest, const void *src, unsigned long len) {
 void KPutCharX();
 void PutChar();
 
+static bool CanUseUaeDbgLog()
+{
+	#if _DEBUGPRINT
+	long(*UaeDbgLog)(long mode, const char* string) = (long(*)(long, const char*))0xf0ff60;
+	return *((UWORD *)UaeDbgLog) == 0x4eb9 || *((UWORD *)UaeDbgLog) == 0xa00e;
+	#else
+	return false;
+	#endif
+}
+
+static void WriteDebuggerLine(const char* text)
+{
+	#if _DEBUGPRINT
+	long(*UaeDbgLog)(long mode, const char* string) = (long(*)(long, const char*))0xf0ff60;
+	if (CanUseUaeDbgLog())
+		UaeDbgLog(86, text);
+	#else
+	(void)text;
+	#endif
+}
+
 #if _DEBUGPRINT
 __attribute__((noinline)) __attribute__((optimize("O1")))
 void KPrintF(const char* fmt, ...) {
 	va_list vl;
 	va_start(vl, fmt);
 	char temp[128];
-	int ln = vsnprintf_(temp, 128, fmt, vl);
+	vsnprintf_(temp, 128, fmt, vl);
+	va_end(vl);
 
-	long(*UaeDbgLog)(long mode, const char* string) = (long(*)(long, const char*))0xf0ff60;
-	if(*((UWORD *)UaeDbgLog) == 0x4eb9 || *((UWORD *)UaeDbgLog) == 0xa00e) {
-		UaeDbgLog(86, temp);
+	if (CanUseUaeDbgLog()) {
+		WriteDebuggerLine(temp);
 	} else {
 		// Do not use Write since we take over the system
-		// Write(Output(), (APTR)temp, ln);
+		// Write(Output(), (APTR)temp, strlen(temp));
 	}
 }
 #endif
+
+__attribute__((noinline)) __attribute__((optimize("O1")))
+void TracePrintf(const char* fmt, ...)
+{
+	#if _DEBUGPRINT
+	static char traceLine[256];
+	static unsigned int traceLineLength = 0;
+	char temp[128];
+	va_list vl;
+
+	va_start(vl, fmt);
+	vsnprintf_(temp, sizeof(temp), fmt, vl);
+	va_end(vl);
+
+	for (const char* ptr = temp; *ptr != 0; ptr++)
+	{
+		char ch = *ptr;
+		if (ch == '\r')
+			continue;
+		if (ch == '\n')
+		{
+			traceLine[traceLineLength] = 0;
+			WriteDebuggerLine(traceLine);
+			traceLineLength = 0;
+			continue;
+		}
+		if (traceLineLength >= sizeof(traceLine) - 1)
+		{
+			traceLine[traceLineLength] = 0;
+			WriteDebuggerLine(traceLine);
+			traceLineLength = 0;
+		}
+		traceLine[traceLineLength++] = ch;
+	}
+	#else
+	(void)fmt;
+	#endif
+}
 
 int main();
 

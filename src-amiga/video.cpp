@@ -1475,6 +1475,7 @@ bool VID_LoadDataFile (const char* fileName)
 
 	if (scratchDisplayBuffer != 0)
 		DMG_SetZX0ScratchBuffer(dmg, scratchDisplayBuffer, screenAllocate, false);
+
 	uint32_t requiredImageCache = 0;
 	if (dmg->version == DMG_Version5)
 		requiredImageCache = GetRecommendedDAT5ImageCacheSize(dmg);

@@ -11,7 +11,13 @@
 #if TRACE_DEBUG
 #define TRACE DebugPrintf
 #elif TRACE_ON
+#  ifdef __cplusplus
+extern "C" {
+#  endif
 extern void TracePrintf(const char* format, ...);
+#  ifdef __cplusplus
+}
+#  endif
 #define TRACE TracePrintf
 #else
 #define TRACE(...)
