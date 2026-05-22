@@ -119,6 +119,12 @@ endif
 	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
 	@cp "$(OUT).exe" "$(CANONICAL_PLAYER)"
 
+$(DSK):
+	$(MAKE) -f Makefile-linux $@
+
+$(FLOPPY_DIR):
+	mkdir -p "$@"
+
 $(ADF_STAGE_DIR):
 	mkdir -p "$(ADF_STAGE_DIR)/S"
 
@@ -128,7 +134,7 @@ $(ADF_STAGE_DIR)/S/Startup-Sequence: $(STARTUP_SEQUENCE) | $(ADF_STAGE_DIR)
 $(ADF_STAGE_DIR)/ADP.EXE: $(OUT).exe | $(ADF_STAGE_DIR)
 	cp "$(OUT).exe" "$@"
 
-$(ADF): $(OUT).exe $(BOOTBLOCK) $(STARTUP_SEQUENCE) $(DSK) $(ADF_STAGE_DIR)/S/Startup-Sequence $(ADF_STAGE_DIR)/ADP.EXE
+$(ADF): $(OUT).exe $(BOOTBLOCK) $(STARTUP_SEQUENCE) $(DSK) $(FLOPPY_DIR) $(ADF_STAGE_DIR)/S/Startup-Sequence $(ADF_STAGE_DIR)/ADP.EXE
 	$(info Building $(ADF))
 	$(DSK) mkdisk $@ $(ADF_FORMAT)
 	$(DSK) $@ setboot $(BOOTBLOCK)
