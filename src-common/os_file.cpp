@@ -429,6 +429,257 @@ const char* File_GetErrorString()
 
 #elif _STDCLIB
 
+#ifdef _DOS
+
+#include <dos.h>
+#include <io.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
+static FileError fileError = FileError_None;
+static char fileErrorString[256];
+
+struct DosFileHandle
+{
+	int handle;
+};
+
+static void File_ClearErrorState()
+{
+	fileError = FileError_None;
+	fileErrorString[0] = 0;
+}
+
+static void File_SetErrorState(FileError error, const char* detail)
+{
+	fileError = error;
+	if (detail == 0)
+	{
+		fileErrorString[0] = 0;
+		return;
+	}
+	StrCopy(fileErrorString, sizeof(fileErrorString), detail);
+}
+
+static void File_SetDosErrorState(unsigned dosError, FileError defaultError)
+{
+	FileError mapped = defaultError;
+	switch (dosError)
+	{
+		case 2:
+		case 3:
+			mapped = FileError_FileNotFound;
+			break;
+		case 5:
+		case 6:
+			mapped = defaultError == FileError_NotReadable ? FileError_NotReadable : FileError_NotWritable;
+			break;
+		default:
+			break;
+	}
+
+	(void)dosError;
+	File_SetErrorState(mapped, "DOS I/O error");
+}
+
+static bool Dos_SeekHandle(int handle, uint32_t position, uint32_t* newPosition)
+{
+	long outPos = lseek(handle, (long)position, SEEK_SET);
+	if (outPos < 0)
+		return false;
+	if (newPosition != 0)
+		*newPosition = (uint32_t)outPos;
+	return true;
+}
+
+File *File_Open(const char *file, FileOpenMode mode)
+{
+	DosFileHandle* f = Allocate<DosFileHandle>("DOS File", 1);
+	if (f == 0)
+	{
+		File_SetErrorState(FileError_OutOfMemory, "Out of memory");
+		return 0;
+	}
+
+	int handle = 0;
+	unsigned result = _dos_open(file, mode == ReadOnly ? 0 : 2, &handle);
+	if (result != 0)
+	{
+		Free(f);
+		File_SetDosErrorState(result, mode == ReadOnly ? FileError_NotReadable : FileError_NotWritable);
+		return 0;
+	}
+
+	f->handle = handle;
+	File_ClearErrorState();
+	return (File*)f;
+}
+
+File *File_Create(const char *file)
+{
+	DosFileHandle* f = Allocate<DosFileHandle>("DOS File", 1);
+	if (f == 0)
+	{
+		File_SetErrorState(FileError_OutOfMemory, "Out of memory");
+		return 0;
+	}
+
+	int handle = 0;
+	unsigned result = _dos_creat(file, 0, &handle);
+	if (result != 0)
+	{
+		Free(f);
+		File_SetDosErrorState(result, FileError_NotWritable);
+		return 0;
+	}
+
+	f->handle = handle;
+	File_ClearErrorState();
+	return (File*)f;
+}
+
+uint64_t File_GetSizeByName(const char* file)
+{
+	File* f = File_Open(file, ReadOnly);
+	if (f == 0)
+		return 0;
+	uint64_t size = File_GetSize(f);
+	File_Close(f);
+	return size;
+}
+
+uint64_t File_GetPosition(File *file)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	long outPos = lseek(f->handle, 0L, SEEK_CUR);
+	if (outPos < 0)
+		return 0;
+	return (uint64_t)(uint32_t)outPos;
+}
+
+bool File_Truncate(File *file, uint64_t size)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	if (size > 0xFFFFFFFFULL)
+		return false;
+	if (!Dos_SeekHandle(f->handle, (uint32_t)size, 0))
+		return false;
+	unsigned written = 0;
+	unsigned result = _dos_write(f->handle, "", 0, &written);
+	if (result != 0)
+		return false;
+	return true;
+}
+
+void File_Close(File *file)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	_dos_close((unsigned)f->handle);
+	Free(f);
+}
+
+uint64_t File_GetSize(File *file)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	long pos = 0;
+	long end = 0;
+	pos = lseek(f->handle, 0L, SEEK_CUR);
+	if (pos < 0)
+		return 0;
+	end = lseek(f->handle, 0L, SEEK_END);
+	if (end < 0)
+		return 0;
+	lseek(f->handle, pos, SEEK_SET);
+	return (uint64_t)(uint32_t)end;
+}
+
+uint64_t File_Read(File *file, void *buffer, uint64_t bytes)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	uint8_t* out = (uint8_t*)buffer;
+	uint64_t total = 0;
+	while (bytes > 0)
+	{
+		unsigned chunk = bytes > 0x7FFFu ? 0x7FFFu : (unsigned)bytes;
+		unsigned got = 0;
+		unsigned result = _dos_read(f->handle, out, chunk, &got);
+		if (result != 0)
+		{
+			if (total == 0)
+				File_SetDosErrorState(result, FileError_ReadError);
+			break;
+		}
+		total += got;
+		if (got < chunk)
+			break;
+		out += got;
+		bytes -= got;
+	}
+	return total;
+}
+
+uint64_t File_Write(File *file, const void *buffer, uint64_t bytes)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	const uint8_t* in = (const uint8_t*)buffer;
+	uint64_t total = 0;
+	while (bytes > 0)
+	{
+		unsigned chunk = bytes > 0x7FFFu ? 0x7FFFu : (unsigned)bytes;
+		unsigned wrote = 0;
+		unsigned result = _dos_write(f->handle, in, chunk, &wrote);
+		if (result != 0)
+		{
+			if (total == 0)
+				File_SetDosErrorState(result, FileError_WriteError);
+			break;
+		}
+		total += wrote;
+		if (wrote < chunk)
+			break;
+		in += wrote;
+		bytes -= wrote;
+	}
+	return total;
+}
+
+bool File_Seek(File *file, uint64_t position)
+{
+	DosFileHandle* f = (DosFileHandle*)file;
+	if (position > 0xFFFFFFFFULL)
+		return false;
+	if (!Dos_SeekHandle(f->handle, (uint32_t)position, 0))
+		return false;
+	return true;
+}
+
+FileError File_GetError()
+{
+	return fileError;
+}
+
+const char* File_GetErrorString()
+{
+	if (fileErrorString[0] != 0)
+		return fileErrorString;
+
+	switch (fileError)
+	{
+		case FileError_None: return "No error";
+		case FileError_OutOfMemory: return "Out of memory";
+		case FileError_FileNotFound: return "File not found";
+		case FileError_NotWritable: return "File is not writable";
+		case FileError_NotReadable: return "File is not readable";
+		case FileError_NotSupported: return "Operation not supported";
+		case FileError_ReadError: return "Read error";
+		case FileError_WriteError: return "Write error";
+		case FileError_OutOfBounds: return "Out of bounds";
+		default: return "Unknown file error";
+	}
+}
+
+#else
+
 #ifdef _UNIX
 #  include <unistd.h>
 #  include <fcntl.h>
@@ -597,5 +848,7 @@ const char* File_GetErrorString()
 		default: return "Unknown file error";
 	}
 }
+
+#endif
 
 #endif

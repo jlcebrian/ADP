@@ -231,22 +231,25 @@ extern void DOS_GetStackWatermark(uint32_t* usedBytes, uint32_t* totalBytes);
 
 static bool LoadCharset (uint8_t* ptr, const char* filename)
 {
-	FILE* file = fopen(filename, "rb");
+	File* file = File_Open(filename, ReadOnly);
 	if (file == NULL)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
 		return false;
 	}
-	fseek(file, 0, SEEK_END);
-	if (ftell(file) != 2176)
+	if (File_GetSize(file) != 2176)
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		fclose(file);
+		File_Close(file);
 		return false;
 	}
-	fseek(file, 128, SEEK_SET);
-	fread(ptr, 1, 2048, file);
-	fclose(file);
+	if (!File_Seek(file, 128) || File_Read(file, ptr, 2048) != 2048)
+	{
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		File_Close(file);
+		return false;
+	}
+	File_Close(file);
 	return true;
 }
 
