@@ -305,6 +305,11 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 			(unsigned long)requiredSize);
 		#endif
 
+		#if DEBUG_ZX0
+		uint32_t t0;
+		VID_GetMilliseconds(&t0);
+		#endif
+
 		if (!DMG_DecompressZX0(payloadData + paletteBytes, imageDataLength, buffer, requiredSize))
 		{
 			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
@@ -316,6 +321,15 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 			DMG_SetError(DMG_ERROR_CORRUPTED_DATA_STREAM);
 			return 0;
 		}
+		#if DEBUG_ZX0
+		uint32_t t1;
+		VID_GetMilliseconds(&t1);
+		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): ZX0 decode %lu -> %lu bytes in %lu ms\n",
+			(unsigned)index,
+			(unsigned long)imageDataLength,
+			(unsigned long)requiredSize,
+			(unsigned long)(t1 - t0));
+		#endif
 		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
 		DebugPrintf("DMG_GetEntryDataPlanarV5(%u): ZX0 decode returned buffer=%p\n",
 			(unsigned)index,

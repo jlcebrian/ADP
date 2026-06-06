@@ -38,6 +38,7 @@
                             8                   EHB6:       Amiga 6-plane EHB bitplanes with palette
                             9                   HAM6:       Amiga 6-plane HAM bitplanes with palette
                             10                  IndexedX:   PC Mode X indexed pixels with palette
+                            11                  Indexed:    Linear indexed pixels with palette
 
     0x000F      1           File Flags
 
@@ -80,8 +81,9 @@
     0x001E      2           CRC value (naive XOR of data & palette info)
 
     For palette-based modes (Planar4, Planar5, Planar8,
-    Planar4ST, Planar8ST, EHB6, HAM6 and IndexedX), the entry payload
-    begins with palette data stored as a sequence of RGB byte triplets.
+    Planar4ST, Planar8ST, EHB6, HAM6, IndexedX and Indexed), the entry
+    payload begins with palette data stored as a sequence of RGB byte
+    triplets.
     The number of palette entries is equal to last-first+1 according
     to the entry header, so the palette prefix size is:
 
@@ -136,6 +138,17 @@
 
     The stored image data size is rowStride * height. Padding pixels in
     the final band of odd-width images are stored as zero.
+
+    If the file uses Indexed mode, bit depth is 8 and the palette prefix
+    is stored first. The graphic data that follows it is stored as one
+    byte per pixel in linear row-major order:
+
+        byteOffset = y * width + x
+
+    The stored image data size is width * height. This mode is intended
+    for PC SVGA/VESA targets and other chunky 256-color renderers that
+    can use direct indexed pixels without a Mode X or bitplane
+    reshuffle.
 
     The image encoding mode describes how image data is stored, not how
     many palette entries are present. The palette range still comes from
@@ -248,5 +261,8 @@
          up to 256 colors.
 
      8) PC Mode X-specific files, with IndexedX graphics and up to
+         256 colors.
+
+     9) PC SVGA/VESA-specific files, with Indexed graphics and up to
          256 colors.
        

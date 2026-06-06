@@ -707,6 +707,78 @@ bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t heigh
 
     const uint32_t wordsPerRow = (width + 15) >> 4;
     const uint32_t planeStride = wordsPerRow * height * 2;
+
+	if (bitsPerPixel == 8)
+	{
+		const uint32_t fullWordsPerRow = width >> 4;
+		const uint8_t tailBits = (uint8_t)(width & 15u);
+
+		for (uint16_t y = 0; y < height; y++)
+		{
+			uint8_t* dst = output + (uint32_t)y * width;
+			uint32_t rowOffset = (uint32_t)y * wordsPerRow * 2;
+
+			for (uint32_t wordIndex = 0; wordIndex < fullWordsPerRow; wordIndex++)
+			{
+				uint32_t wordOffset = rowOffset + wordIndex * 2;
+				uint16_t p0 = (uint16_t)(data[planeStride * 0u + wordOffset + 0u] << 8) | data[planeStride * 0u + wordOffset + 1u];
+				uint16_t p1 = (uint16_t)(data[planeStride * 1u + wordOffset + 0u] << 8) | data[planeStride * 1u + wordOffset + 1u];
+				uint16_t p2 = (uint16_t)(data[planeStride * 2u + wordOffset + 0u] << 8) | data[planeStride * 2u + wordOffset + 1u];
+				uint16_t p3 = (uint16_t)(data[planeStride * 3u + wordOffset + 0u] << 8) | data[planeStride * 3u + wordOffset + 1u];
+				uint16_t p4 = (uint16_t)(data[planeStride * 4u + wordOffset + 0u] << 8) | data[planeStride * 4u + wordOffset + 1u];
+				uint16_t p5 = (uint16_t)(data[planeStride * 5u + wordOffset + 0u] << 8) | data[planeStride * 5u + wordOffset + 1u];
+				uint16_t p6 = (uint16_t)(data[planeStride * 6u + wordOffset + 0u] << 8) | data[planeStride * 6u + wordOffset + 1u];
+				uint16_t p7 = (uint16_t)(data[planeStride * 7u + wordOffset + 0u] << 8) | data[planeStride * 7u + wordOffset + 1u];
+
+				uint8_t* out = dst + (wordIndex << 4);
+				for (uint8_t bit = 0; bit < 16; bit++)
+				{
+					uint16_t mask = (uint16_t)(0x8000u >> bit);
+					out[bit] =
+						((p0 & mask) ? 0x01u : 0u) |
+						((p1 & mask) ? 0x02u : 0u) |
+						((p2 & mask) ? 0x04u : 0u) |
+						((p3 & mask) ? 0x08u : 0u) |
+						((p4 & mask) ? 0x10u : 0u) |
+						((p5 & mask) ? 0x20u : 0u) |
+						((p6 & mask) ? 0x40u : 0u) |
+						((p7 & mask) ? 0x80u : 0u);
+				}
+			}
+
+			if (tailBits != 0)
+			{
+				uint32_t wordOffset = rowOffset + fullWordsPerRow * 2;
+				uint16_t p0 = (uint16_t)(data[planeStride * 0u + wordOffset + 0u] << 8) | data[planeStride * 0u + wordOffset + 1u];
+				uint16_t p1 = (uint16_t)(data[planeStride * 1u + wordOffset + 0u] << 8) | data[planeStride * 1u + wordOffset + 1u];
+				uint16_t p2 = (uint16_t)(data[planeStride * 2u + wordOffset + 0u] << 8) | data[planeStride * 2u + wordOffset + 1u];
+				uint16_t p3 = (uint16_t)(data[planeStride * 3u + wordOffset + 0u] << 8) | data[planeStride * 3u + wordOffset + 1u];
+				uint16_t p4 = (uint16_t)(data[planeStride * 4u + wordOffset + 0u] << 8) | data[planeStride * 4u + wordOffset + 1u];
+				uint16_t p5 = (uint16_t)(data[planeStride * 5u + wordOffset + 0u] << 8) | data[planeStride * 5u + wordOffset + 1u];
+				uint16_t p6 = (uint16_t)(data[planeStride * 6u + wordOffset + 0u] << 8) | data[planeStride * 6u + wordOffset + 1u];
+				uint16_t p7 = (uint16_t)(data[planeStride * 7u + wordOffset + 0u] << 8) | data[planeStride * 7u + wordOffset + 1u];
+
+				uint8_t* out = dst + (fullWordsPerRow << 4);
+				for (uint8_t bit = 0; bit < tailBits; bit++)
+				{
+					uint16_t mask = (uint16_t)(0x8000u >> bit);
+					out[bit] =
+						((p0 & mask) ? 0x01u : 0u) |
+						((p1 & mask) ? 0x02u : 0u) |
+						((p2 & mask) ? 0x04u : 0u) |
+						((p3 & mask) ? 0x08u : 0u) |
+						((p4 & mask) ? 0x10u : 0u) |
+						((p5 & mask) ? 0x20u : 0u) |
+						((p6 & mask) ? 0x40u : 0u) |
+						((p7 & mask) ? 0x80u : 0u);
+				}
+			}
+		}
+		return true;
+	}
+
+	const uint32_t fullWordsPerRow = width >> 4;
+	const uint8_t tailBits = (uint8_t)(width & 15u);
     MemClear(output, (uint32_t)width * height);
 
     for (uint8_t plane = 0; plane < bitsPerPixel; plane++)
@@ -717,18 +789,38 @@ bool DMG_UnpackBitplaneBytes(const uint8_t* data, uint16_t width, uint16_t heigh
         {
             const uint8_t* rowPtr = planePtr + y * wordsPerRow * 2;
             uint8_t* dst = output + y * width;
-            for (uint32_t wordIndex = 0; wordIndex < wordsPerRow; wordIndex++)
+			for (uint32_t wordIndex = 0; wordIndex < fullWordsPerRow; wordIndex++)
             {
                 const uint8_t* src = rowPtr + wordIndex * 2;
                 uint16_t value = (uint16_t)(src[0] << 8) | src[1];
-                uint16_t baseX = (uint16_t)(wordIndex << 4);
-                for (int bit = 15; bit >= 0; bit--)
-                {
-                    uint16_t x = (uint16_t)(baseX + (15 - bit));
-                    if (x >= width)
-                        break;
-                    if ((value >> bit) & 1)
-                        dst[x] |= planeMask;
+				uint8_t* out = dst + (wordIndex << 4);
+				out[0]  |= (value & 0x8000u) ? planeMask : 0;
+				out[1]  |= (value & 0x4000u) ? planeMask : 0;
+				out[2]  |= (value & 0x2000u) ? planeMask : 0;
+				out[3]  |= (value & 0x1000u) ? planeMask : 0;
+				out[4]  |= (value & 0x0800u) ? planeMask : 0;
+				out[5]  |= (value & 0x0400u) ? planeMask : 0;
+				out[6]  |= (value & 0x0200u) ? planeMask : 0;
+				out[7]  |= (value & 0x0100u) ? planeMask : 0;
+				out[8]  |= (value & 0x0080u) ? planeMask : 0;
+				out[9]  |= (value & 0x0040u) ? planeMask : 0;
+				out[10] |= (value & 0x0020u) ? planeMask : 0;
+				out[11] |= (value & 0x0010u) ? planeMask : 0;
+				out[12] |= (value & 0x0008u) ? planeMask : 0;
+				out[13] |= (value & 0x0004u) ? planeMask : 0;
+				out[14] |= (value & 0x0002u) ? planeMask : 0;
+				out[15] |= (value & 0x0001u) ? planeMask : 0;
+			}
+
+			if (tailBits != 0)
+			{
+				const uint8_t* src = rowPtr + fullWordsPerRow * 2;
+				uint16_t value = (uint16_t)(src[0] << 8) | src[1];
+				uint8_t* out = dst + (fullWordsPerRow << 4);
+				for (uint8_t bit = 0; bit < tailBits; bit++)
+				{
+					if (value & (uint16_t)(0x8000u >> bit))
+						out[bit] |= planeMask;
 				}
 			}
 		}
@@ -804,7 +896,7 @@ static bool DMG_ReadDAT5Entries(DMG* dmg)
 		dmg->screenMode =
 			(dmg->colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
 			(dmg->colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
-			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8 || DMG_DAT5ModeIsIndexedX(dmg->colorMode)) ? ScreenMode_VGA :
+			(DMG_DAT5ModePlaneCount(dmg->colorMode) >= 8 || DMG_DAT5ModeIsIndexedX(dmg->colorMode) || DMG_DAT5ModeIsIndexed(dmg->colorMode)) ? ScreenMode_VGA :
 			ScreenMode_VGA16;
 	else if (dmg->targetWidth == 640 && dmg->targetHeight == 200)
 		dmg->screenMode = ScreenMode_HiRes;
@@ -1723,7 +1815,7 @@ void DMG_Close(DMG* d)
 	if (d == 0)
 		return;
 
-	#ifdef DEBUG_ZX0
+	#if DEBUG_ZX0
 	if (d->zx0ProfileCount != 0)
 	{
 		uint32_t averageMs = d->zx0ProfileTotalMs / d->zx0ProfileCount;
@@ -1829,6 +1921,8 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
             if (dmg != 0 && dmg->version == DMG_Version5)
             {
 				if (DMG_DAT5ModeIsIndexedX(dmg->colorMode))
+					return DMG_DAT5StoredImageSize(dmg->colorMode, width, height);
+				if (DMG_DAT5ModeIsIndexed(dmg->colorMode))
 					return DMG_DAT5StoredImageSize(dmg->colorMode, width, height);
                 if (entry->bitDepth <= 4)
                     return (width * height + 1) / 2;

@@ -10,6 +10,14 @@
 #define DMG_MAX_IMAGE_HEIGHT	999
 #define DMG_CACHE_BLOCKS	    128
 
+#ifndef DEBUG_ZX0
+	#if defined(_DOS) && defined(_DEBUGPRINT)
+		#define DEBUG_ZX0 1
+	#else
+		#define DEBUG_ZX0 0
+	#endif
+#endif
+
 enum DMG_Error
 {
 	DMG_ERROR_NONE,
@@ -170,10 +178,12 @@ typedef enum
     DMG_DAT5_COLORMODE_EHB6      = 8,
     DMG_DAT5_COLORMODE_HAM6      = 9,
     DMG_DAT5_COLORMODE_INDEXEDX  = 10,
+    DMG_DAT5_COLORMODE_INDEXED   = 11,
 
     DMG_DAT5_COLORMODE_I16  = DMG_DAT5_COLORMODE_PLANAR4,
     DMG_DAT5_COLORMODE_I32  = DMG_DAT5_COLORMODE_PLANAR5,
     DMG_DAT5_COLORMODE_I256 = DMG_DAT5_COLORMODE_PLANAR8,
+    DMG_DAT5_COLORMODE_VESA = DMG_DAT5_COLORMODE_INDEXED,
 }
 DMG_DAT5ColorMode;
 
@@ -195,10 +205,16 @@ static inline bool DMG_DAT5ModeUsesPalette(uint8_t mode)
 		case DMG_DAT5_COLORMODE_EHB6:
 		case DMG_DAT5_COLORMODE_HAM6:
 		case DMG_DAT5_COLORMODE_INDEXEDX:
+		case DMG_DAT5_COLORMODE_INDEXED:
 			return true;
 		default:
 			return false;
 	}
+}
+
+static inline bool DMG_DAT5ModeIsIndexed(uint8_t mode)
+{
+	return (DMG_DAT5ColorMode)mode == DMG_DAT5_COLORMODE_INDEXED;
 }
 
 static inline bool DMG_DAT5ModeIsIndexedX(uint8_t mode)
@@ -265,6 +281,7 @@ static inline uint8_t DMG_DAT5ModePlaneCount(uint8_t mode)
 		case DMG_DAT5_COLORMODE_PLANAR8:
 		case DMG_DAT5_COLORMODE_PLANAR8ST:
 		case DMG_DAT5_COLORMODE_INDEXEDX:
+		case DMG_DAT5_COLORMODE_INDEXED:
 			return 8;
 		default:
 			return 0;
@@ -289,6 +306,8 @@ static inline uint32_t DMG_DAT5StoredImageSize(uint8_t mode, uint16_t width, uin
 			return (((uint32_t)width + 15) >> 4) * height * DMG_DAT5ModePlaneCount(mode) * 2u;
 		case DMG_DAT5_COLORMODE_INDEXEDX:
 			return (((uint32_t)width + 3) & ~3u) * height;
+		case DMG_DAT5_COLORMODE_INDEXED:
+			return (uint32_t)width * height;
 		default:
 			return 0;
 	}

@@ -1175,7 +1175,7 @@ DMG* DMG_CreateDAT5(const char* filename, DMG_DAT5ColorMode colorMode, uint16_t 
         (width == 640 && height == 200) ? ScreenMode_HiRes :
 		(colorMode == DMG_DAT5_COLORMODE_CGA) ? ScreenMode_CGA :
 		(colorMode == DMG_DAT5_COLORMODE_EGA) ? ScreenMode_EGA :
-		(DMG_DAT5ModePlaneCount(colorMode) >= 8) ? ScreenMode_VGA :
+		(DMG_DAT5ModePlaneCount(colorMode) >= 8 || DMG_DAT5ModeIsIndexed(colorMode)) ? ScreenMode_VGA :
 		ScreenMode_VGA16;
 
     dmg->entryBlock = Allocate<DMG_Entry>("DAT5 entries", entryCount);

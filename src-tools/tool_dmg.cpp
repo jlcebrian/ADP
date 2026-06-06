@@ -3,6 +3,7 @@
 #include <img.h>
 #include <cli_parser.h>
 #include <ddb.h>
+#include <ddb_pal.h>
 #include <os_lib.h>
 #include <os_mem.h>
 #include <os_file.h>
@@ -115,6 +116,7 @@ static uint8_t createDAT5Flags = 0;
 static bool createDAT5FlagsExplicit = false;
 static uint16_t createDAT5Width = 320;
 static uint16_t createDAT5Height = 200;
+static bool createDAT5SizeExplicit = false;
 static bool createImportWidthExplicit = false;
 static bool createImportHeightExplicit = false;
 static uint16_t createImportWidth = 0;
@@ -281,6 +283,7 @@ static void ResetCreateSettings()
     createDAT5FlagsExplicit = false;
     createDAT5Width = 320;
     createDAT5Height = 200;
+    createDAT5SizeExplicit = false;
     createImportWidthExplicit = false;
     createImportHeightExplicit = false;
     createImportWidth = 0;
@@ -477,7 +480,7 @@ static void PrintHelp()
 	printf("Common add/create/update options:\n\n");
     printf("   -format <id>       Container format: dat5, dat2, dat1, ega, cga, pcw\n");
     printf("   -mode <id>         DAT5 mode: cga, ega, planar4, planar5, planar8,\n");
-    printf("                      planar4st, planar8st, ehb6, ham6, indexedx\n");
+    printf("                      planar4st, planar8st, ehb6, ham6, indexedx, indexed\n");
     printf("   -type <id>         Alias for -mode\n");
     printf("   -screen <WxH>      DAT5 screen size: 320x200, 640x200, 640x400\n");
     printf("   -2x <0|1>          Set DAT5 2X UI flag when creating or updating DAT5\n");
@@ -531,7 +534,8 @@ static int GetPaletteLimit(DMG_DAT5ColorMode mode)
         case DMG_DAT5_COLORMODE_HAM6: return 16;
         case DMG_DAT5_COLORMODE_PLANAR8:
         case DMG_DAT5_COLORMODE_PLANAR8ST:
-        case DMG_DAT5_COLORMODE_INDEXEDX: return 256;
+        case DMG_DAT5_COLORMODE_INDEXEDX:
+        case DMG_DAT5_COLORMODE_INDEXED: return 256;
         default: return 16;
     }
 }
@@ -543,6 +547,7 @@ static uint8_t GetBitDepthForMode(DMG_DAT5ColorMode mode)
         case DMG_DAT5_COLORMODE_CGA: return 0;
         case DMG_DAT5_COLORMODE_EGA: return 0;
         case DMG_DAT5_COLORMODE_INDEXEDX: return 8;
+        case DMG_DAT5_COLORMODE_INDEXED: return 8;
         default: return DMG_DAT5ModePlaneCount(mode);
     }
 }
@@ -559,6 +564,7 @@ static bool ParseDAT5Mode(const char* value, DMG_DAT5ColorMode* mode)
     else if (stricmp(value, "ehb6") == 0 || stricmp(value, "ehb") == 0) *mode = DMG_DAT5_COLORMODE_EHB6;
     else if (stricmp(value, "ham6") == 0 || stricmp(value, "ham") == 0) *mode = DMG_DAT5_COLORMODE_HAM6;
     else if (stricmp(value, "indexedx") == 0 || stricmp(value, "modex") == 0 || stricmp(value, "pc") == 0) *mode = DMG_DAT5_COLORMODE_INDEXEDX;
+    else if (stricmp(value, "indexed") == 0 || stricmp(value, "linear") == 0 || stricmp(value, "vesa") == 0) *mode = DMG_DAT5_COLORMODE_INDEXED;
     else return false;
     return true;
 }
@@ -804,7 +810,7 @@ typedef struct
 DMGCacheHeader;
 
 #define DMG_CACHE_MAGIC 0x444D4743u
-#define DMG_CACHE_VERSION_MULTI 3u
+#define DMG_CACHE_VERSION_MULTI 4u
 
 typedef struct
 {
@@ -1342,6 +1348,10 @@ static bool EncodeDAT5Image(DMG_DAT5ColorMode mode, const uint8_t* indexed, uint
             }
             return true;
         }
+        case DMG_DAT5_COLORMODE_INDEXED:
+            *outputSize = (uint32_t)width * height;
+            MemCopy(output, indexed, *outputSize);
+            return true;
         default:
             return false;
     }
@@ -1368,6 +1378,8 @@ static uint32_t GetDAT5EncodedSize(DMG_DAT5ColorMode mode, uint16_t width, uint1
             return ((uint32_t)(width + 15) >> 4) * height * 8 * 2;
         case DMG_DAT5_COLORMODE_INDEXEDX:
             return (((uint32_t)width + 3u) & ~3u) * height;
+        case DMG_DAT5_COLORMODE_INDEXED:
+            return (uint32_t)width * height;
         default:
             return 0;
     }
@@ -2463,6 +2475,8 @@ static void PrepareIndexedExportPalette(DMG* dmg, const DMG_Entry* entry, uint32
         return;
 
     MemClear(expandedPalette, sizeof(uint32_t) * 256);
+    for (int i = 0; i < 16 && i < modePaletteSize; i++)
+        expandedPalette[i] = DefaultPalette[i];
     int copyCount = paletteSize;
     if (copyCount > modePaletteSize - entry->firstColor)
         copyCount = modePaletteSize - entry->firstColor;
@@ -2539,6 +2553,7 @@ static const char* DescribeDAT5ColorMode(uint8_t mode)
         case DMG_DAT5_COLORMODE_EHB6:      return "EHB6";
         case DMG_DAT5_COLORMODE_HAM6:      return "HAM6";
         case DMG_DAT5_COLORMODE_INDEXEDX:  return "IndexedX";
+        case DMG_DAT5_COLORMODE_INDEXED:   return "Indexed";
         default:                           return "Unknown";
     }
 }
@@ -2561,6 +2576,8 @@ static uint32_t GetCompressedImageBaseline(DMG_Entry* entry)
             case DMG_DAT5_COLORMODE_PLANAR8ST:
             case DMG_DAT5_COLORMODE_EHB6:
             case DMG_DAT5_COLORMODE_HAM6:
+            case DMG_DAT5_COLORMODE_INDEXEDX:
+            case DMG_DAT5_COLORMODE_INDEXED:
                 return DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
             default:
                 break;
@@ -4229,7 +4246,7 @@ static DDB_ScreenMode GetDAT5ScreenModeForSettings(DMG_DAT5ColorMode colorMode, 
         return ScreenMode_CGA;
     if (colorMode == DMG_DAT5_COLORMODE_EGA)
         return ScreenMode_EGA;
-    if (DMG_DAT5ModePlaneCount(colorMode) >= 8)
+    if (DMG_DAT5ModePlaneCount(colorMode) >= 8 || DMG_DAT5ModeIsIndexed(colorMode))
         return ScreenMode_VGA;
     return ScreenMode_VGA16;
 }
@@ -5507,8 +5524,11 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 
     if (createDAT5)
     {
-        outputWidth = createDAT5Width;
-        outputHeight = createDAT5Height;
+        if (createDAT5SizeExplicit)
+        {
+            outputWidth = createDAT5Width;
+            outputHeight = createDAT5Height;
+        }
         if (createDAT5Mode != DMG_DAT5_COLORMODE_NONE)
             outputColorMode = createDAT5Mode;
         if (createDAT5FlagsExplicit)
@@ -5517,7 +5537,7 @@ bool RebuildDAT(DMG* dmg, const char* outputFileName)
 
     if (outputIsDAT5 && outputColorMode == DMG_DAT5_COLORMODE_NONE)
     {
-        fprintf(stderr, "Error: DAT5 rebuild requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st|indexedx>\n");
+        fprintf(stderr, "Error: DAT5 rebuild requires mode:<cga|ega|planar4|planar5|planar8|planar4st|planar8st|indexedx|indexed>\n");
         return false;
     }
 
@@ -5854,6 +5874,7 @@ static bool ParseCreateArguments(int tokenCount, const char* tokens[])
         else if (strnicmp(tokens[i], "screen:", 7) == 0)
         {
             createDAT5 = true;
+            createDAT5SizeExplicit = true;
             if (!ParseDAT5Size(tokens[i] + 7, &createDAT5Width, &createDAT5Height))
             {
                 fprintf(stderr, "Error: Invalid DAT5 screen size: \"%s\"\n", tokens[i] + 7);

@@ -265,6 +265,23 @@ static DDB_ScreenMode ChooseHighestScreenModeForMask(uint32_t modeMask, DDB_Scre
 	return fallback;
 }
 
+static bool IsKnownScreenMode(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_Default:
+		case ScreenMode_CGA:
+		case ScreenMode_EGA:
+		case ScreenMode_VGA16:
+		case ScreenMode_VGA:
+		case ScreenMode_HiRes:
+		case ScreenMode_SHiRes:
+			return true;
+		default:
+			return false;
+	}
+}
+
 void DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy policy)
 {
 	startupVideoModePolicy = policy;
@@ -1120,6 +1137,19 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 	if (!GetDDBMetadata(fileName, &resolvedMachine, &resolvedLanguage, &resolvedVersion))
 		return false;
 
+#ifdef _DOS
+	if (resolvedMachine != DDB_MACHINE_IBMPC)
+	{
+		DebugPrintf("ResolveDDBVideoConfig: overriding machine %s -> IBM PC for DOS renderer\n",
+			DDB_DescribeMachine(resolvedMachine));
+		resolvedMachine = DDB_MACHINE_IBMPC;
+	}
+#endif
+	DebugPrintf("ResolveDDBVideoConfig: %s machine=%s version=%s\n",
+		fileName,
+		DDB_DescribeMachine(resolvedMachine),
+		DDB_DescribeVersion(resolvedVersion));
+
 	if (machine)
 		*machine = resolvedMachine;
 	if (language)
@@ -1132,6 +1162,12 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 	uint32_t supportedModes = DDB_GetDataFileModes(fileName, resolvedMachine);
 	if (supportedModes != 0)
 	{
+		if (!IsKnownScreenMode(startupScreenModeOverride))
+		{
+			DebugPrintf("Ignoring invalid startup override mode value %u\n", (unsigned)startupScreenModeOverride);
+			startupScreenModeOverride = ScreenMode_Default;
+		}
+
 		DDB_ScreenMode selectedMode = startupVideoModePolicy == DDB_StartupVideoModePolicy_OverrideOrHighest ?
 			ChooseHighestScreenModeForMask(supportedModes, resolvedScreenMode) :
 			ChooseDefaultScreenModeForMask(supportedModes, resolvedScreenMode);
@@ -1139,10 +1175,15 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 		{
 			if ((supportedModes & GetScreenModeFlag(startupScreenModeOverride)) == 0)
 			{
-				DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
-				return false;
+				DebugPrintf("Ignoring startup override %s: unsupported by data file (mask=0x%08lX)\n",
+					DescribeScreenMode(startupScreenModeOverride),
+					(unsigned long)supportedModes);
+				startupScreenModeOverride = ScreenMode_Default;
 			}
-			selectedMode = startupScreenModeOverride;
+			else
+			{
+				selectedMode = startupScreenModeOverride;
+			}
 		}
 		else if (startupVideoModePolicy == DDB_StartupVideoModePolicy_Configurable &&
 			startupConfig.hasVideoMode && (supportedModes & GetScreenModeFlag(startupConfig.videoMode)) != 0)
@@ -1168,6 +1209,10 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 		*screenMode = resolvedScreenMode;
 	if (displayPlanes)
 		*displayPlanes = resolvedPlanes;
+
+	DebugPrintf("ResolveDDBVideoConfig: resolved mode=%s planes=%u\n",
+		DescribeScreenMode(resolvedScreenMode),
+		(unsigned)resolvedPlanes);
 
 	return true;
 }
@@ -1989,6 +2034,7 @@ bool DDB_RunPlayer()
 	}
 
 	StrCopy(ddbFileName, FILE_MAX_PATH, GetDDBFile(0));
+	DebugPrintf("DDB_RunPlayer: selected DDB %s\n", ddbFileName);
 	uint8_t displayPlanes = 4;
 
 	if (!ResolveDDBVideoConfig(ddbFileName, &machine, &language, &version, &screenMode, &displayPlanes))

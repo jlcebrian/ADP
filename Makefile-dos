@@ -102,6 +102,7 @@ OBJS = 		      &
 	video.obj     &
 	sb.obj        &
 	timer.obj     &
+	vid_vesa.obj  &
 	player.obj
 
 Debug : all .SYMBOLIC

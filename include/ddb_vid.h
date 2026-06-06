@@ -12,6 +12,7 @@
 
 extern bool         exitGame;
 extern DDB_Machine  screenMachine;
+extern DDB_ScreenMode screenMode;
 
 enum VID_ClearMode
 {
@@ -55,6 +56,7 @@ extern void   VID_SetTextInputMode    (bool enabled);
 extern void   VID_VSync               ();
 extern void   VID_WaitForKey          ();		// Not suported in all platforms
 extern void   VID_ShowError           (const char* msg);
+extern const char* VID_DescribeVideoModeError(DDB_Error error, DDB_ScreenMode mode);
 extern void   VID_ActivatePalette     ();
 extern void   VID_SetFadeEnabled      (bool enabled);
 extern bool   VID_IsFadeEnabled       ();

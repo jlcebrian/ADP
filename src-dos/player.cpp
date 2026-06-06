@@ -13,7 +13,28 @@ extern void DOS_InitStackWatermark();
 
 static void error(const char* message)
 {
+	DDB_Error errorCode = DDB_GetError();
+	DebugPrintf("PLAYER: fatal error code=%d screenMode=%u message=%s\n",
+		(int)errorCode,
+		(unsigned)screenMode,
+		message != 0 ? message : "(null)");
 	VID_Finish();
+
+	if (errorCode == DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED || errorCode == DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED)
+	{
+		const char* videoMessage = VID_DescribeVideoModeError(errorCode, screenMode);
+		if (videoMessage != 0)
+		{
+			cputs("Error: ");
+			cputs(videoMessage);
+			cputs("\r\n");
+			exit(1);
+		}
+
+		cputs("Error: Unsupported video mode");
+		cputs("\r\n");
+		exit(1);
+	}
 
 	cputs("Error: ");
 	cputs(message);
@@ -66,26 +87,35 @@ static bool ChangeToGamePath(const char* path)
 extern "C" int main (int argc, char**argv)
 {
 	const char* gamePath = 0;
+	DebugPrintf("PLAYER: startup build=%s %s argc=%d\n", __DATE__, __TIME__, argc);
 	DOS_InitStackWatermark();
 	DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy_Configurable);
 	DDB_ClearStartupScreenModeOverride();
 	for (int i = 1; i < argc; i++)
 	{
+		DebugPrintf("PLAYER: argv[%d]=%s\n", i, argv[i] != 0 ? argv[i] : "(null)");
 		DDB_ScreenMode mode = ParseScreenModeArgument(argv[i]);
 		if (mode != ScreenMode_Default)
 		{
+			DebugPrintf("PLAYER: startup video override=%u\n", (unsigned)mode);
 			DDB_SetStartupScreenModeOverride(mode);
 			continue;
 		}
 		if (gamePath == 0)
 			gamePath = argv[i];
 	}
+	DebugPrintf("PLAYER: gamePath=%s\n", gamePath != 0 ? gamePath : "(none)");
 
 	if (gamePath != 0 && !ChangeToGamePath(gamePath))
+	{
+		DebugPrintf("PLAYER: ChangeToGamePath failed for %s\n", gamePath);
 		cputs("Warning: unable to change directory\r\n");
+	}
 
+	DebugPrintf("PLAYER: invoking DDB_RunPlayer\n");
 	if (!DDB_RunPlayer())
 		error(DDB_GetErrorString());
+	DebugPrintf("PLAYER: DDB_RunPlayer returned success\n");
 	return 1;
 }
 

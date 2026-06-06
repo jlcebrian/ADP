@@ -18,6 +18,7 @@
 #include "vid_common.h"
 #include "vid_ega.h"
 #include "vid_modex.h"
+#include "vid_vesa.h"
 
 #include <i86.h>
 #include <conio.h>
@@ -41,6 +42,10 @@ static bool       bufferedPictureIndexed = false;
 static bool       initialized = false;
 static bool       quit;
 static uint8_t    defaultCharWidth = 6;
+static bool       screen2XMode = false;
+static DDB_Version screenVersion = DDB_VERSION_1;
+static uint16_t   pictureLoadTraceCount = 0;
+static uint16_t   pictureDisplayTraceCount = 0;
 
 DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
@@ -48,21 +53,68 @@ DDB_ScreenMode screenMode = ScreenMode_VGA16;
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
 
+static uint32_t DebugChecksumBytes(const uint8_t* data, uint32_t size)
+{
+	uint32_t sum = 0;
+	if (data == 0)
+		return 0;
+	for (uint32_t n = 0; n < size; n++)
+		sum = (sum * 33u) ^ data[n];
+	return sum;
+}
+
+const char* VID_DescribeVideoModeError(DDB_Error error, DDB_ScreenMode mode)
+{
+	if (error == DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED)
+	{
+		switch (mode)
+		{
+			case ScreenMode_CGA:    return "No CGA card found";
+			case ScreenMode_EGA:    return "No EGA card found";
+			case ScreenMode_VGA16:
+			case ScreenMode_VGA:    return "No VGA card found";
+			case ScreenMode_SHiRes: return "No VESA SVGA adapter found";
+			default:                return "No compatible video card found";
+		}
+	}
+
+	if (error == DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED)
+	{
+		switch (mode)
+		{
+			case ScreenMode_HiRes:  return "640x200 mode not supported";
+			case ScreenMode_SHiRes: return "640x400 mode not supported";
+			case ScreenMode_CGA:    return "CGA mode not supported";
+			case ScreenMode_EGA:    return "EGA mode not supported";
+			case ScreenMode_VGA16:  return "VGA mode not supported";
+			case ScreenMode_VGA:    return "SVGA mode not supported";
+			default:                return "Selected video mode not supported";
+		}
+	}
+
+	return 0;
+}
+
 static bool SetDOSVideoMode(DDB_ScreenMode mode)
 {
+	DebugPrintf("DOSVID: SetDOSVideoMode(mode=%u)\n", (unsigned)mode);
 	switch (mode)
 	{
 		case ScreenMode_CGA:
+			DebugPrintf("DOSVID: trying CGA\n");
 			if (!CGA_IsAvailable())
 			{
+				DebugPrintf("DOSVID: CGA not available\n");
 				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
 				return false;
 			}
 			return CGA_SetVideoMode(mode);
 
 		case ScreenMode_EGA:
+			DebugPrintf("DOSVID: trying EGA\n");
 			if (!EGA_IsAvailable())
 			{
+				DebugPrintf("DOSVID: EGA not available\n");
 				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
 				return false;
 			}
@@ -70,8 +122,26 @@ static bool SetDOSVideoMode(DDB_ScreenMode mode)
 
 		case ScreenMode_VGA16:
 		case ScreenMode_VGA:
+			DebugPrintf("DOSVID: trying ModeX/VGA path\n");
 			ModeX_SetVideoMode(MODE_320x200);
 			return VID_CommonGetInfo() != 0;
+
+		case ScreenMode_SHiRes:
+			DebugPrintf("DOSVID: trying SHiRes/VESA path\n");
+#if !defined(__386__)
+			DebugPrintf("DOSVID: SHiRes rejected on non-386 build\n");
+			DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
+			return false;
+#else
+			if (!VESA_SetVideoMode())
+			{
+				DebugPrintf("DOSVID: VESA_SetVideoMode() returned false\n");
+				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+				return false;
+			}
+			DebugPrintf("DOSVID: SHiRes/VESA mode activated\n");
+			return true;
+#endif
 
 		default:
 			DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
@@ -81,7 +151,19 @@ static bool SetDOSVideoMode(DDB_ScreenMode mode)
 
 static bool IsVGAMode()
 {
-	return screenMode == ScreenMode_VGA16 || screenMode == ScreenMode_VGA;
+	return screenMode == ScreenMode_VGA16 || screenMode == ScreenMode_VGA || screenMode == ScreenMode_SHiRes;
+}
+
+static void ApplyIBMPCTextMetrics(bool enable2X)
+{
+	uint8_t baseColumnWidth = (screenVersion == DDB_VERSION_PAWS || screenMachine == DDB_MACHINE_PCW) ? 8 : 6;
+	lineHeight = enable2X ? 16 : 8;
+	screenCellWidth = enable2X ? 16 : 8;
+	columnWidth = enable2X ? (uint8_t)(baseColumnWidth * 2) : baseColumnWidth;
+	defaultCharWidth = columnWidth;
+	screen2XMode = enable2X;
+	for (int n = 0; n < 256; n++)
+		charWidth[n] = defaultCharWidth;
 }
 
 static bool TryDisplayDOSNativeSCRExact(const char* fileName, DDB_Machine target, bool* handled)
@@ -475,6 +557,16 @@ static bool LoadNativePCXData(const char* fileName, uint8_t** output, uint32_t* 
 		return false;
 	}
 
+	const VID_AdapterInfo* info = VID_CommonGetInfo();
+	if (info != NULL && info->nativeImageMode == ImageMode_Indexed)
+	{
+		*output = indexed;
+		*outputSize = indexedSize;
+		*width = indexedWidth;
+		*height = indexedHeight;
+		return true;
+	}
+
 	uint32_t nativeSize = GetIndexedXImageSize(indexedWidth, indexedHeight);
 	uint8_t* native = Allocate<uint8_t>("PCX IndexedX picture", nativeSize);
 	if (native == NULL)
@@ -711,6 +803,9 @@ bool VID_LoadDataFile (const char* fileName)
 	bufferedPictureIndexed = false;
 
 	columnWidth = 6;
+	lineHeight = 8;
+	screenCellWidth = 8;
+	screen2XMode = false;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
 	memcpy(charset, DefaultCharset, 1024);
@@ -731,7 +826,17 @@ bool VID_LoadDataFile (const char* fileName)
 	{
 		dmg = DMG_Open(resolvedDataFile, true);
 		if (dmg != NULL)
+		{
 			dmg->screenMode = resolvedDataMode;
+			DebugPrintf("DOSVID: loaded data file %s version=%u colorMode=%u size=%ux%u flags=0x%02X resolvedMode=%u\n",
+				resolvedDataFile,
+				(unsigned)dmg->version,
+				(unsigned)dmg->colorMode,
+				(unsigned)dmg->targetWidth,
+				(unsigned)dmg->targetHeight,
+				(unsigned)dmg->dat5Flags,
+				(unsigned)resolvedDataMode);
+		}
 		if (resolvedDataMode != screenMode)
 		{
 			if (!SetDOSVideoMode(resolvedDataMode))
@@ -747,6 +852,15 @@ bool VID_LoadDataFile (const char* fileName)
 			defaultCharWidth = columnWidth;
 		}
 		screenMode = resolvedDataMode;
+	}
+
+	if (dmg != NULL && screenMachine == DDB_MACHINE_IBMPC)
+	{
+		ApplyIBMPCTextMetrics(
+			dmg->version == DMG_Version5 &&
+			dmg->targetWidth == 640 &&
+			dmg->targetHeight == 400 &&
+			(dmg->dat5Flags & DMG_DAT5_FLAG_2X) != 0);
 	}
 	if (dmg == NULL)
 	{
@@ -838,9 +952,28 @@ void VID_Finish()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {	
+	uint16_t traceIndex = pictureDisplayTraceCount;
+	bool traceThisPicture = traceIndex < 96;
+	uint32_t tDisplayStart = 0;
+	uint32_t tAfterBlit = 0;
+	uint32_t tAfterPalette = 0;
+	uint32_t tDisplayEnd = 0;
+
+	if (traceThisPicture)
+		VID_GetMilliseconds(&tDisplayStart);
+
+	if (traceThisPicture)
+		DebugPrintf("DOSVID: DisplayPicture(x=%d y=%d w=%d h=%d mode=%u indexed=%u)\n",
+			x, y, w, h, (unsigned)screenMode, bufferedPictureIndexed ? 1u : 0u);
+	pictureDisplayTraceCount++;
+
 	(void)screenMode;
 	if (!RequireAlignedPictureX(x))
+	{
+		if (traceThisPicture)
+			DebugPrintf("DOSVID: DisplayPicture skipped due to X alignment (x=%d)\n", x);
 		return;
+	}
 
 	#if HAS_PCX
 	if (pcxPictureData != NULL)
@@ -857,6 +990,23 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	DMG_Entry* entry = bufferedEntry;
 	if (entry == NULL)
+	{
+		if (traceThisPicture)
+			DebugPrintf("DOSVID: DisplayPicture skipped (no buffered entry)\n");
+		return;
+	}
+	if (pictureData == NULL)
+	{
+		if (traceThisPicture)
+			DebugPrintf("DOSVID: DisplayPicture skipped (pictureData is NULL for pic %u)\n", (unsigned)bufferedEntryIndex);
+		return;
+	}
+
+	if (w > entry->width)
+		w = entry->width;
+	if (h > entry->height)
+		h = entry->height;
+	if (w <= 0 || h <= 0)
 		return;
 
 	if (screenMode == ScreenMode_CGA)
@@ -866,9 +1016,66 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	bool useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
 
 	if (bufferedPictureIndexed)
-		VID_CommonBlitIndexedImage(pictureData, entry->width, x, y, w, h);
+	{
+		int srcX = 0;
+		int srcY = 0;
+
+		if (x < 0)
+		{
+			srcX = -x;
+			w += x;
+			x = 0;
+		}
+		if (y < 0)
+		{
+			srcY = -y;
+			h += y;
+			y = 0;
+		}
+		if (x >= screenWidth || y >= screenHeight || w <= 0 || h <= 0)
+			return;
+
+		if (w > entry->width - srcX)
+			w = entry->width - srcX;
+		if (h > entry->height - srcY)
+			h = entry->height - srcY;
+		if (w > screenWidth - x)
+			w = screenWidth - x;
+		if (h > screenHeight - y)
+			h = screenHeight - y;
+		if (w <= 0 || h <= 0)
+			return;
+
+		const uint8_t* src = pictureData + (uint32_t)srcY * entry->width + srcX;
+		if (traceThisPicture)
+		{
+			uint32_t pixelBytes = (uint32_t)entry->width * (uint32_t)entry->height;
+			DebugPrintf("DOSVID: DisplayPicture indexed blit src=(%d,%d) size=%dx%d entry=%dx%d\n",
+				srcX, srcY, w, h, entry->width, entry->height);
+			DebugPrintf("DOSVID: DisplayPicture indexed data ptr=%p checksum=0x%08lX srcFirst=%02X %02X %02X %02X %02X %02X %02X %02X\n",
+				pictureData,
+				(unsigned long)DebugChecksumBytes(pictureData, pixelBytes),
+				w > 0 ? src[0] : 0,
+				w > 1 ? src[1] : 0,
+				w > 2 ? src[2] : 0,
+				w > 3 ? src[3] : 0,
+				w > 4 ? src[4] : 0,
+				w > 5 ? src[5] : 0,
+				w > 6 ? src[6] : 0,
+				w > 7 ? src[7] : 0);
+		}
+		VID_CommonBlitIndexedImage(src, entry->width, x, y, w, h);
+	}
 	else
+	{
+		if (traceThisPicture)
+			DebugPrintf("DOSVID: DisplayPicture native blit size=%dx%d entry=%dx%d\n",
+				w, h, entry->width, entry->height);
 		VID_CommonBlitNativeImage(pictureData, entry->width, entry->height, x, y, w, h);
+	}
+
+	if (traceThisPicture)
+		VID_GetMilliseconds(&tAfterBlit);
 
 	if (updatePalette)
 	{
@@ -877,18 +1084,42 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			palette[15] = 0xFFFFFFFF;
 		if (IsVGAMode())
 		{
-			VID_VSync();
-			for (int n = 0; n < 16; n++) {
-				uint8_t r = (palette[n] >> 16) & 0xFF;
-				uint8_t g = (palette[n] >>  8) & 0xFF;
-				uint8_t b = (palette[n] >>  0) & 0xFF;
-				VID_SetPaletteColor(n, r, g, b);
-			}
+			int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedEntryIndex);
+			int firstColor = DMG_GetEntryFirstColor(dmg, bufferedEntryIndex);
+			if (paletteCount < 0)
+				paletteCount = 0;
+			if (firstColor < 0)
+				firstColor = 0;
+			if (firstColor > 255)
+				firstColor = 255;
+			if (paletteCount > 256 - firstColor)
+				paletteCount = 256 - firstColor;
+
+			if (traceThisPicture)
+				DebugPrintf("DOSVID: DisplayPicture applying palette count=%d first=%d\n", paletteCount, firstColor);
+
+			if (useScratchPresentation)
+				VID_VSync();
+			VID_SetPaletteEntries(palette, (uint16_t)paletteCount, (uint16_t)firstColor, firstColor == 0, !useScratchPresentation);
 		}
 	}
 
+	if (traceThisPicture)
+		VID_GetMilliseconds(&tAfterPalette);
+
 	if (useScratchPresentation)
 		VID_CommonEndFixedPicturePresentation();
+
+	if (traceThisPicture)
+	{
+		VID_GetMilliseconds(&tDisplayEnd);
+		DebugPrintf("DOSVID: DisplayPicture timing blit=%lu ms palette=%lu ms tail=%lu ms total=%lu ms fixed=%u\n",
+			(unsigned long)(tAfterBlit - tDisplayStart),
+			(unsigned long)(tAfterPalette - tAfterBlit),
+			(unsigned long)(tDisplayEnd - tAfterPalette),
+			(unsigned long)(tDisplayEnd - tDisplayStart),
+			updatePalette ? 1u : 0u);
+	}
 }
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
@@ -997,58 +1228,58 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
 			Free(native);
 		}
-		else if (!IsVGAMode())
+			else if (info != NULL && info->nativeImageMode == ImageMode_IndexedX)
+			{
+				uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+				if (nativeSize == 0)
+				{
+					DDB_SetError(DDB_ERROR_INVALID_FILE);
+					Free(output);
+					Free(buffer);
+					return false;
+				}
+				uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
+				if (native == NULL)
+				{
+					DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+					Free(output);
+					Free(buffer);
+					return false;
+				}
+				if (!ConvertIndexedToIndexedX(output, screenWidth, screenHeight, native, nativeSize))
+				{
+					Free(native);
+					Free(output);
+					Free(buffer);
+					DDB_SetError(DDB_ERROR_INVALID_FILE);
+					return false;
+				}
+
+				if (fadeIn)
+				{
+					for (int n = 0; n < 16; n++)
+						VID_SetPaletteColor(n, 0, 0, 0);
+					VID_VSync();
+				}
+
+				VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+
+				if (fadeIn)
+				{
+					VID_VSync();
+					for (int n = 0; n < 16; n++)
+					{
+						uint8_t r = (palette[n] >> 16) & 0xFF;
+						uint8_t g = (palette[n] >>  8) & 0xFF;
+						uint8_t b = (palette[n] >>  0) & 0xFF;
+						VID_SetPaletteColor(n, r, g, b);
+					}
+				}
+				Free(native);
+			}
+			else
 		{
 			VID_CommonBlitIndexedImage(output, screenWidth, 0, 0, screenWidth, screenHeight);
-		}
-		else
-		{
-			uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
-			if (nativeSize == 0)
-			{
-				DDB_SetError(DDB_ERROR_INVALID_FILE);
-				Free(output);
-				Free(buffer);
-				return false;
-			}
-			uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
-			if (native == NULL)
-			{
-				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
-				Free(output);
-				Free(buffer);
-				return false;
-			}
-			if (!ConvertIndexedToIndexedX(output, screenWidth, screenHeight, native, nativeSize))
-			{
-				Free(native);
-				Free(output);
-				Free(buffer);
-				DDB_SetError(DDB_ERROR_INVALID_FILE);
-				return false;
-			}
-
-			if (fadeIn)
-			{
-				for (int n = 0; n < 16; n++) 
-					VID_SetPaletteColor(n, 0, 0, 0);
-				VID_VSync();
-			}
-
-			VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
-		
-			if (fadeIn)
-			{
-				VID_VSync();
-				for (int n = 0; n < 16; n++) 
-				{
-					uint8_t r = (palette[n] >> 16) & 0xFF;
-					uint8_t g = (palette[n] >>  8) & 0xFF;
-					uint8_t b = (palette[n] >>  0) & 0xFF;
-					VID_SetPaletteColor(n, r, g, b);
-				}
-			}
-			Free(native);
 		}
 	}
 
@@ -1233,6 +1464,16 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 {
+	uint16_t traceIndex = pictureLoadTraceCount;
+	bool traceThisPicture = traceIndex < 96;
+	uint32_t tLoadStart = 0;
+	if (traceThisPicture)
+		VID_GetMilliseconds(&tLoadStart);
+
+	if (traceThisPicture)
+		DebugPrintf("DOSVID: LoadPicture(pic=%u mode=%u)\n", (unsigned)picno, (unsigned)mode);
+	pictureLoadTraceCount++;
+
 	#if HAS_PCX
 	FreeBufferedPCXPicture();
 	bufferedEntry = NULL;
@@ -1256,15 +1497,85 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == NULL || entry->type != DMGEntry_Image)
+	{
+		if (traceThisPicture)
+		{
+			uint32_t tLoadEnd;
+			VID_GetMilliseconds(&tLoadEnd);
+			DebugPrintf("DOSVID: LoadPicture entry missing or not image (pic=%u)\n", (unsigned)picno);
+			DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=missing\n", (unsigned long)(tLoadEnd - tLoadStart));
+		}
 		return;
+	}
 
 	bufferedEntry = entry;
 	bufferedEntryIndex = picno;
+	const VID_AdapterInfo* info = VID_CommonGetInfo();
+	if (info != NULL && info->nativeImageMode == ImageMode_Indexed)
+	{
+		pictureData = DMG_GetEntryData(dmg, picno, ImageMode_Indexed);
+		if (pictureData != NULL)
+		{
+			bufferedPictureIndexed = true;
+			DMG_SetError(DMG_ERROR_NONE);
+			if (traceThisPicture)
+			{
+				uint32_t tLoadEnd;
+				VID_GetMilliseconds(&tLoadEnd);
+				uint32_t pixelBytes = (uint32_t)entry->width * (uint32_t)entry->height;
+				DebugPrintf("DOSVID: LoadPicture indexed decode OK (%dx%d fixed=%u)\n",
+					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
+				DebugPrintf("DOSVID: LoadPicture indexed data ptr=%p bytes=%lu checksum=0x%08lX first=%02X %02X %02X %02X %02X %02X %02X %02X\n",
+					pictureData,
+					(unsigned long)pixelBytes,
+					(unsigned long)DebugChecksumBytes(pictureData, pixelBytes),
+					pixelBytes > 0 ? pictureData[0] : 0,
+					pixelBytes > 1 ? pictureData[1] : 0,
+					pixelBytes > 2 ? pictureData[2] : 0,
+					pixelBytes > 3 ? pictureData[3] : 0,
+					pixelBytes > 4 ? pictureData[4] : 0,
+					pixelBytes > 5 ? pictureData[5] : 0,
+					pixelBytes > 6 ? pictureData[6] : 0,
+					pixelBytes > 7 ? pictureData[7] : 0);
+				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed\n", (unsigned long)(tLoadEnd - tLoadStart));
+			}
+			return;
+		}
+
+		// Keep compatibility with assets that only decode through native mode.
+		pictureData = DMG_GetEntryDataNative(dmg, picno);
+		if (pictureData != NULL)
+		{
+			bufferedPictureIndexed = false;
+			DMG_SetError(DMG_ERROR_NONE);
+			if (traceThisPicture)
+			{
+				uint32_t tLoadEnd;
+				VID_GetMilliseconds(&tLoadEnd);
+				DebugPrintf("DOSVID: LoadPicture native fallback decode OK (%dx%d fixed=%u)\n",
+					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
+				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=native-fallback\n", (unsigned long)(tLoadEnd - tLoadStart));
+			}
+			return;
+		}
+
+		bufferedEntry = NULL;
+		bufferedPictureIndexed = false;
+		if (traceThisPicture)
+		{
+			uint32_t tLoadEnd;
+			VID_GetMilliseconds(&tLoadEnd);
+			DebugPrintf("DOSVID: LoadPicture decode failed in indexed adapter path (pic=%u err=%d)\n",
+				(unsigned)picno, (int)DDB_GetError());
+			DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed-fail\n", (unsigned long)(tLoadEnd - tLoadStart));
+		}
+		return;
+	}
+
 	bufferedPictureIndexed = false;
 	pictureData = DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == NULL)
 	{
-		const VID_AdapterInfo* info = VID_CommonGetInfo();
 		if (info != NULL && (info->nativeImageMode == ImageMode_CGA || info->nativeImageMode == ImageMode_Planar))
 		{
 			bufferedEntry = NULL;
@@ -1276,12 +1587,35 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		{
 			DMG_SetError(DMG_ERROR_NONE);
 			bufferedPictureIndexed = true;
+			if (traceThisPicture)
+			{
+				uint32_t tLoadEnd;
+				VID_GetMilliseconds(&tLoadEnd);
+				DebugPrintf("DOSVID: LoadPicture indexed fallback decode OK (%dx%d fixed=%u)\n",
+					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
+				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed-fallback\n", (unsigned long)(tLoadEnd - tLoadStart));
+			}
 		}
 		else
 		{
 			bufferedEntry = NULL;
 			bufferedPictureIndexed = false;
+			if (traceThisPicture)
+			{
+				uint32_t tLoadEnd;
+				VID_GetMilliseconds(&tLoadEnd);
+				DebugPrintf("DOSVID: LoadPicture decode failed (pic=%u err=%d)\n", (unsigned)picno, (int)DDB_GetError());
+				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=decode-fail\n", (unsigned long)(tLoadEnd - tLoadStart));
+			}
 		}
+	}
+	else if (traceThisPicture)
+	{
+		uint32_t tLoadEnd;
+		VID_GetMilliseconds(&tLoadEnd);
+		DebugPrintf("DOSVID: LoadPicture native decode OK (%dx%d fixed=%u)\n",
+			entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
+		DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=native\n", (unsigned long)(tLoadEnd - tLoadStart));
 	}
 }
 
@@ -1389,16 +1723,18 @@ void VID_MainLoop (DDB_Interpreter* i, void (*callback)(int elapsed))
 
 bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode)
 {
-	(void)version;
+	DebugPrintf("DOSVID: VID_Initialize(machine=%u mode=%u)\n", (unsigned)machine, (unsigned)mode);
 
 	if (initialized)
 		return false;
 
 	screenMachine = machine;
 	screenMode = mode;
+	screenVersion = version;
 
-	if (machine != DDB_MACHINE_IBMPC)
+	if (machine != DDB_MACHINE_IBMPC && machine != DDB_MACHINE_ATARIST)
 	{
+		DebugPrintf("DOSVID: rejecting unsupported machine=%u\n", (unsigned)machine);
 		DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
 		return false;
 	}
@@ -1406,14 +1742,17 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 	if (mode != ScreenMode_CGA &&
 		mode != ScreenMode_EGA &&
 		mode != ScreenMode_VGA16 &&
-		mode != ScreenMode_VGA)
+		mode != ScreenMode_VGA &&
+		mode != ScreenMode_SHiRes)
 	{
+		DebugPrintf("DOSVID: rejecting unsupported mode value=%u\n", (unsigned)mode);
 		DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
 		return false;
 	}
 
-	if (mode == ScreenMode_VGA16 || mode == ScreenMode_VGA)
+	if (mode == ScreenMode_VGA16 || mode == ScreenMode_VGA || mode == ScreenMode_SHiRes)
 	{
+		DebugPrintf("DOSVID: VGA BIOS presence check for mode %u\n", (unsigned)mode);
 		union REGS regs;
 		regs.w.ax = 0x1A00;
 #if defined(__386__)
@@ -1421,8 +1760,10 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 #else
 		int86(0x10, &regs, &regs);
 #endif
+		DebugPrintf("DOSVID: INT10h AX=1A00 returned AL=0x%02X\n", (unsigned)regs.h.al);
 		if (regs.h.al != 0x1A)
 		{
+			DebugPrintf("DOSVID: VGA BIOS presence check failed\n");
 			DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
 			return false;
 		}
@@ -1435,16 +1776,20 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
+	DebugPrintf("DOSVID: calling SetDOSVideoMode from VID_Init with mode=%u\n", (unsigned)mode);
 	if (!SetDOSVideoMode(mode))
+	{
+		DebugPrintf("DOSVID: SetDOSVideoMode failed, error=%d\n", (int)DDB_GetError());
 		return false;
+	}
 	const VID_AdapterInfo* info = VID_CommonGetInfo();
 	screenWidth = info != 0 ? info->width : 320;
 	screenHeight = info != 0 ? info->height : 200;
-	lineHeight = info != 0 ? info->cellHeight : 8;
-	columnWidth = info != 0 ? info->cellWidth : 6;
-	defaultCharWidth = columnWidth;
-	for (int n = 0; n < 256; n++)
-		charWidth[n] = columnWidth;
+	ApplyIBMPCTextMetrics(mode == ScreenMode_SHiRes);
+
+	// Ensure DAC state is initialized when entering 256-color modes (e.g. VESA SHiRes).
+	VID_SetDefaultPalette();
+	VID_ActivatePalette();
 
 	initialized = true;
 	return true;
