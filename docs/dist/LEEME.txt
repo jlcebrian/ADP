@@ -117,9 +117,9 @@ de gráficos incluidas, se puede ejecutar como PLAYER CGA o
 PLAYER EGA para forzar la versión del juego que se muestra. 
 Por defecto se mostrará la versión VGA.
 
-Incluso ejecutando una versión CGA o EGA de un juego,
-por ahora el intérprete sigue requiriendo tarjeta VGA,
-simplemente mostrará gráficos con menos colores.
+Al ejecutar una versión CGA o EGA de un juego con PLAYER CGA
+o PLAYER EGA, el intérprete usará el modo nativo de la tarjeta
+correspondiente.
 
 ### AMIGA / ATARI ST
 

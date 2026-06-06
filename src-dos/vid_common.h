@@ -44,6 +44,7 @@ struct VID_CommonState
 {
 	dos_ptr8 offset;
 	unsigned activePage;
+	bool opFront[2];
 	unsigned frontPage;
 	unsigned backPage;
 	unsigned scratchPage;

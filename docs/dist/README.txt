@@ -79,8 +79,9 @@ is whitelisted in their databases.
 ### MS-DOS
 
 This version requires a 386 processor or better, 2MB of RAM,
-and an VGA card. Although EGA/CGA games are playable, they
-will always run in VGA mode.
+and a CGA, EGA or VGA card matching the selected graphics
+version. EGA/CGA games use native EGA/CGA display modes when
+PLAYER EGA or PLAYER CGA is selected.
 
 A SoundBlaster card is supported and, if present, will be
 user to play digital samples in games which feature them.

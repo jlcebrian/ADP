@@ -5,6 +5,27 @@
 static VID_CommonState state;
 static VID_ScreenAdapter screenAdapter;
 
+static void VID_CommonSelectOpBuffer(SCR_Operation op)
+{
+	if (state.ops == 0 || state.ops->getPagePtr == 0)
+		return;
+
+	// Fixed picture presentation temporarily redirects rendering to the
+	// scratch page. Keep that target until VID_CommonEndFixedPicturePresentation.
+	if (state.activePage == state.scratchPage)
+		return;
+
+	unsigned target = state.activePage;
+	if (op == SCR_OP_DRAWTEXT || op == SCR_OP_DRAWPICTURE)
+		target = state.opFront[op] ? state.frontPage : state.backPage;
+
+	if (target != state.activePage)
+	{
+		state.activePage = target;
+		state.offset = state.ops->getPagePtr(state.activePage);
+	}
+}
+
 static void VID_CommonScreenClear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
 	VID_CommonClear(x, y, w, h, color, mode);
@@ -64,6 +85,8 @@ void VID_CommonInit(const VID_Adapter* adapter, unsigned pageSize, unsigned line
 	state.pageSize = pageSize;
 	state.lineSize = lineSize;
 	state.pageCount = pageCount;
+	state.opFront[SCR_OP_DRAWTEXT] = true;
+	state.opFront[SCR_OP_DRAWPICTURE] = true;
 	state.frontPage = 0;
 	state.backPage = pageCount > 1 ? 1 : 0;
 	state.scratchPage = scratchPage;
@@ -179,10 +202,14 @@ void VID_CommonSetActiveBuffer(bool front)
 
 void VID_CommonSetTarget(SCR_Operation op, bool front)
 {
+	if (op == SCR_OP_DRAWTEXT || op == SCR_OP_DRAWPICTURE)
+	{
+		state.opFront[op] = front;
+		return;
+	}
+
 	if (state.ops != 0 && state.ops->setTarget != 0)
 		state.ops->setTarget(op, front);
-	else
-		VID_CommonSetActiveBuffer(front);
 }
 
 void VID_CommonClearBuffer(bool front, uint8_t color)
@@ -213,30 +240,40 @@ void VID_CommonSwapBuffers()
 
 void VID_CommonClear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
+	VID_CommonSelectOpBuffer(SCR_OP_DRAWTEXT);
+
 	if (state.ops != 0 && state.ops->clear != 0)
 		state.ops->clear(x, y, w, h, color, mode);
 }
 
 void VID_CommonScroll(int x, int y, int w, int h, int lines, uint8_t paper)
 {
+	VID_CommonSelectOpBuffer(SCR_OP_DRAWTEXT);
+
 	if (state.ops != 0 && state.ops->scroll != 0)
 		state.ops->scroll(x, y, w, h, lines, paper);
 }
 
 void VID_CommonDrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
 {
+	VID_CommonSelectOpBuffer(SCR_OP_DRAWTEXT);
+
 	if (state.ops != 0 && state.ops->drawTextSpan != 0)
 		state.ops->drawTextSpan(x, y, text, length, ink, paper);
 }
 
 void VID_CommonBlitNativeImage(const uint8_t* pixels, int srcW, int srcH, int x, int y, int w, int h)
 {
+	VID_CommonSelectOpBuffer(SCR_OP_DRAWPICTURE);
+
 	if (state.ops != 0 && state.ops->blitNativeImage != 0)
 		state.ops->blitNativeImage(pixels, srcW, srcH, x, y, w, h);
 }
 
 void VID_CommonBlitIndexedImage(const uint8_t* pixels, int srcW, int x, int y, int w, int h)
 {
+	VID_CommonSelectOpBuffer(SCR_OP_DRAWPICTURE);
+
 	if (state.ops != 0 && state.ops->blitIndexedImage != 0)
 		state.ops->blitIndexedImage(pixels, srcW, x, y, w, h);
 }

@@ -97,6 +97,7 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 
 	uint64_t size = File_GetSize(file);
+	#if HAS_SPECTRUM
 	if (target == DDB_MACHINE_SPECTRUM)
 	{
 		if (size < 6912 || size > 7040)
@@ -107,6 +108,9 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		}
 	}
 	else if (size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
+	#else
+	if (size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
+	#endif
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
 		File_Close(file);
@@ -123,6 +127,7 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	File_Read(file, buffer, size);
 	File_Close(file);
 
+	#if HAS_SPECTRUM
 	if (target == DDB_MACHINE_SPECTRUM)
 	{
 		uint64_t logicalSize = size;
@@ -159,6 +164,7 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 		}
 		return true;
 	}
+	#endif
 
 	if (SCR_HasPI1Header(buffer, size))
 	{

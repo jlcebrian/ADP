@@ -9,7 +9,9 @@
 #include <os_lib.h>
 #include <os_mem.h>
 
-#if defined(_STDCLIB) && !defined(NO_PRINTF)
+#if defined(_DOS)
+#include <conio.h>
+#elif defined(_STDCLIB) && !defined(NO_PRINTF)
 #include <stdio.h>
 #endif
 
@@ -268,7 +270,7 @@ void DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy policy)
 	startupVideoModePolicy = policy;
 }
 
-#if defined(_STDCLIB) && !defined(NO_PRINTF)
+#if defined(_DOS) || (defined(_STDCLIB) && !defined(NO_PRINTF))
 static bool PromptForVideoMode(const char* ddbFile, uint32_t modeMask, DDB_ScreenMode* selectedMode)
 {
 	struct ModeOption
@@ -289,19 +291,39 @@ static bool PromptForVideoMode(const char* ddbFile, uint32_t modeMask, DDB_Scree
 	ModeOption options[6];
 	int optionCount = 0;
 
+	#if defined(_DOS)
+	cputs("\r\nSelect video mode for ");
+	cputs(ddbFile);
+	cputs(":\r\n");
+	#else
 	printf("\nSelect video mode for %s:\n", ddbFile);
+	#endif
 	for (unsigned i = 0; i < sizeof(order) / sizeof(order[0]); i++)
 	{
 		if ((modeMask & GetScreenModeFlag(order[i])) == 0)
 			continue;
 		options[optionCount].key = (char)('1' + optionCount);
 		options[optionCount].mode = order[i];
+		#if defined(_DOS)
+		cputs("  ");
+		putch(options[optionCount].key);
+		cputs(". ");
+		cputs(DescribeScreenMode(order[i]));
+		cputs("\r\n");
+		#else
 		printf("  %c. %s\n", options[optionCount].key, DescribeScreenMode(order[i]));
+		#endif
 		optionCount++;
 	}
 
 	for (;;)
 	{
+		#if defined(_DOS)
+		cputs("Choice: ");
+		int ch = getch();
+		putch(ch);
+		cputs("\r\n");
+		#else
 		printf("Choice: ");
 		fflush(stdout);
 
@@ -318,6 +340,7 @@ static bool PromptForVideoMode(const char* ddbFile, uint32_t modeMask, DDB_Scree
 		int discard = ch;
 		while (discard != '\n' && discard != '\r' && discard != EOF)
 			discard = getchar();
+		#endif
 
 		for (int i = 0; i < optionCount; i++)
 		{
@@ -328,7 +351,11 @@ static bool PromptForVideoMode(const char* ddbFile, uint32_t modeMask, DDB_Scree
 			}
 		}
 
+		#if defined(_DOS)
+		cputs("Invalid choice.\r\n");
+		#else
 		printf("Invalid choice.\n");
+		#endif
 	}
 }
 #endif
@@ -1630,7 +1657,6 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 				GetModeSpecificIntroScreen(startupScreenModeOverride, &preferredIntro))
 			{
 				scrCount = 1;
-				screenMode = startupScreenModeOverride;
 				scrExtension =
 					startupScreenModeOverride == ScreenMode_CGA ? ".cgs" :
 					startupScreenModeOverride == ScreenMode_VGA16 ? ".vgs" : ".egs";
@@ -1638,17 +1664,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 			else if ((scrCount = CountFiles(".egs")) > 0)
 			{
 				scrExtension = ".egs";
-				screenMode = ScreenMode_EGA;
 			}
 			else if ((scrCount = CountFiles(".cgs")) > 0)
 			{
 				scrExtension = ".cgs";
-				screenMode = ScreenMode_CGA;
 			}
 			else if ((scrCount = CountFiles(".vgs")) > 0)
 			{
 				scrExtension = ".vgs";
-				screenMode = ScreenMode_VGA16;
 			}
 		}
 		DebugPrintf("Found %d DDBs, %d snapshots and %d screens\n", ddbCount, snapshotCount, scrCount);
@@ -1884,10 +1907,7 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	if (preferredMode != ScreenMode_Default)
 	{
 		if (GetModeSpecificIntroScreen(preferredMode, introScreen))
-		{
-			*screenMode = preferredMode;
 			return;
-		}
 	}
 
 	scrCount = CountFiles(".scr");
@@ -1909,21 +1929,18 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	{
 		if (preferredMode != ScreenMode_Default)
 			return;
-		*screenMode = ScreenMode_EGA;
 		*introScreen = GetFile(".egs", 0);
 	}
 	else if ((scrCount = CountFiles(".cgs")) > 0)
 	{
 		if (preferredMode != ScreenMode_Default)
 			return;
-		*screenMode = ScreenMode_CGA;
 		*introScreen = GetFile(".cgs", 0);
 	}
 	else if ((scrCount = CountFiles(".vgs")) > 0)
 	{
 		if (preferredMode != ScreenMode_Default)
 			return;
-		*screenMode = ScreenMode_VGA16;
 		*introScreen = GetFile(".vgs", 0);
 	}
 	else

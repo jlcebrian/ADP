@@ -27,23 +27,31 @@ bool DMG_ConvertPlanarSTToPlanar(const DMG_Entry* entry, uint8_t* data, uint32_t
 
 	uint32_t widthWords = (uint32_t)(entry->width + 15) >> 4;
 	uint32_t planeStrideWords = widthWords * entry->height;
+	uint32_t planeStrideBytes = planeStrideWords * sizeof(uint16_t);
 	uint32_t totalWords = planeStrideWords * 4;
 	uint32_t totalBytes = totalWords * sizeof(uint16_t);
 	if (totalBytes == 0 || totalBytes > dataSize || totalBytes > scratchSize)
 		return false;
 
-	uint16_t* src = (uint16_t*)data;
-	uint16_t* dst0 = (uint16_t*)scratch;
-	uint16_t* dst1 = dst0 + planeStrideWords;
-	uint16_t* dst2 = dst1 + planeStrideWords;
-	uint16_t* dst3 = dst2 + planeStrideWords;
+	const uint32_t* src = (const uint32_t*)data;
+	uint8_t* dst0 = scratch;
+	uint8_t* dst1 = dst0 + planeStrideBytes;
+	uint8_t* dst2 = dst1 + planeStrideBytes;
+	uint8_t* dst3 = dst2 + planeStrideBytes;
 
 	for (uint32_t n = 0; n < planeStrideWords; n++)
 	{
-		*dst0++ = *src++;
-		*dst1++ = *src++;
-		*dst2++ = *src++;
-		*dst3++ = *src++;
+		uint32_t p0p1 = *src++;
+		uint32_t p2p3 = *src++;
+		uint32_t dstOffset = n << 1;
+		dst0[dstOffset + 0] = (uint8_t)(p0p1 >> 24);
+		dst0[dstOffset + 1] = (uint8_t)(p0p1 >> 16);
+		dst1[dstOffset + 0] = (uint8_t)(p0p1 >> 8);
+		dst1[dstOffset + 1] = (uint8_t)p0p1;
+		dst2[dstOffset + 0] = (uint8_t)(p2p3 >> 24);
+		dst2[dstOffset + 1] = (uint8_t)(p2p3 >> 16);
+		dst3[dstOffset + 0] = (uint8_t)(p2p3 >> 8);
+		dst3[dstOffset + 1] = (uint8_t)p2p3;
 	}
 
 	MemCopy(data, scratch, totalBytes);
@@ -99,6 +107,49 @@ bool DMG_ConvertPlanar8ToPlanar(const DMG_Entry* entry, const uint8_t* data,
 				dst2[dstOffset + 1] = 0;
 				dst3[dstOffset + 1] = 0;
 			}
+		}
+	}
+
+	return true;
+}
+
+static bool DMG_ConvertPackedToPlanar(const DMG_Entry* entry, const uint8_t* data,
+	uint32_t packedSize, uint8_t* output, uint32_t outputSize, const uint8_t* paletteMap)
+{
+	if (entry == 0 || data == 0 || output == 0)
+		return false;
+	if (entry->bitDepth != 0 && entry->bitDepth != 4)
+		return false;
+
+	uint32_t width = entry->width;
+	uint32_t height = entry->height;
+	uint32_t expectedPackedSize = ((uint32_t)width * height + 1u) >> 1;
+	uint32_t stride = ((width + 15u) >> 4) * 2u;
+	uint32_t planeSize = stride * height;
+	uint32_t totalBytes = planeSize * 4u;
+	if (packedSize != expectedPackedSize || totalBytes == 0 || totalBytes > outputSize)
+		return false;
+
+	MemClear(output, totalBytes);
+	for (uint32_t y = 0; y < height; y++)
+	{
+		uint8_t* dst0 = output + planeSize * 0u + y * stride;
+		uint8_t* dst1 = output + planeSize * 1u + y * stride;
+		uint8_t* dst2 = output + planeSize * 2u + y * stride;
+		uint8_t* dst3 = output + planeSize * 3u + y * stride;
+		for (uint32_t x = 0; x < width; x++)
+		{
+			uint32_t pixel = y * width + x;
+			uint8_t packed = data[pixel >> 1];
+			uint8_t color = (pixel & 1u) == 0 ? (packed >> 4) : (packed & 0x0F);
+			if (paletteMap != 0)
+				color = paletteMap[color & 0x0F];
+			uint8_t mask = (uint8_t)(0x80 >> (x & 7u));
+			uint32_t byteX = x >> 3;
+			if ((color & 0x01) != 0) dst0[byteX] |= mask;
+			if ((color & 0x02) != 0) dst1[byteX] |= mask;
+			if ((color & 0x04) != 0) dst2[byteX] |= mask;
+			if ((color & 0x08) != 0) dst3[byteX] |= mask;
 		}
 	}
 
@@ -525,10 +576,14 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	bool destinationIsImageCache = false;
 	bool fileDataSharesOutputBuffer = false;
 
+	#if defined(_AMIGA) || defined(_DOS)
+	DMG_ImageMode nativePlanarMode = ImageMode_Planar;
+	#else
 	DMG_ImageMode nativePlanarMode =
 		(dmg != 0 && dmg->version == DMG_Version5 && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ?
 		ImageMode_Planar :
 		ImageMode_PlanarST;
+	#endif
 	unsigned requiredSize = DMG_CalculateRequiredSize(entry, nativePlanarMode);
 	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
 	DebugPrintf("DMG_GetEntryDataPlanar(%u): required=%u mode=%u version=%u colorMode=%u\n",
@@ -705,8 +760,14 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 				VID_GetMilliseconds(&t0);
 				#endif
 
+				#if defined(_DOS)
+				success = DMG_DecompressNewRLE(fileData+2, mask,
+					entry->length-2, buffer, entry->width * entry->height, dmg->littleEndian);
+				outputMode = ImageMode_Packed;
+				#else
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
 					entry->length-2, buffer, entry->width, dmg->littleEndian);
+				#endif
 				
 				#ifdef DEBUG_RLE
 				VID_GetMilliseconds(&t1);
@@ -722,7 +783,8 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 				#endif
 
 				success = DMG_DecompressNewRLE(fileData+2, mask, 
-					entry->length-2, buffer, requiredSize*2, dmg->littleEndian);
+					entry->length-2, buffer, entry->width * entry->height, dmg->littleEndian);
+				outputMode = ImageMode_Packed;
 
 				#ifdef DEBUG_RLE
 				VID_GetMilliseconds(&t1);
@@ -794,8 +856,30 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			VID_GetMilliseconds(&t0);
 			#endif
 
+			#if defined(_DOS)
+			uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
+			uint8_t* packedScratch = DMG_GetScratchBuffer(dmg, packedSize);
+			if (packedScratch == 0 || DMG_GetScratchBufferSize(dmg) < packedSize)
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				if (cache != 0)
+					cache->populated = false;
+				return 0;
+			}
+			MemCopy(packedScratch, buffer, packedSize);
+			if (!DMG_ConvertPackedToPlanar(entry, packedScratch, packedSize, buffer,
+				requiredSize, DMG_GetEntryEGAPalette(entry)))
+			{
+				DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+				if (cache != 0)
+					cache->populated = false;
+				return 0;
+			}
+			outputMode = ImageMode_Planar;
+			#else
 			DMG_ConvertPackedToPlanarST(buffer, requiredSize, entry->width);
 			outputMode = ImageMode_PlanarST;
+			#endif
 			
 			#ifdef DEBUG_RLE
 			VID_GetMilliseconds(&t1);
@@ -804,7 +888,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			#endif
 		}
 
-		#ifdef _AMIGA
+		#if defined(_AMIGA) || defined(_DOS)
 		if (outputMode == ImageMode_PlanarST)
 		{
 			uint32_t t0, t1;

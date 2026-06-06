@@ -102,6 +102,8 @@ uint32_t DMG_GetMinimumImageBufferSize(DMG* d, DMG_ImageMode mode)
 			return (pixels + 1) >> 1;
 		case ImageMode_IndexedX:
 			return ((width + 3u) & ~3u) * height;
+		case ImageMode_CGA:
+			return ((width + 3u) >> 2) * height;
 		case ImageMode_RGBA32:
 			return pixels * 4u;
 		case ImageMode_Planar:
@@ -1836,6 +1838,9 @@ uint32_t DMG_CalculateRequiredSize (DMG_Entry* entry, DMG_ImageMode mode)
 
 		case ImageMode_IndexedX:
 			return ((width + 3u) & ~3u) * height;
+
+		case ImageMode_CGA:
+			return (((uint32_t)width + 3u) >> 2) * (uint32_t)height;
 
 		case ImageMode_Planar:
 			if (dmg != 0 && dmg->version == DMG_Version5 && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode))

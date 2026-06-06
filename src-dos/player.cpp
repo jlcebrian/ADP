@@ -5,7 +5,7 @@
 #include <os_lib.h>
 #include <os_mem.h>
 
-#include <stdio.h>
+#include <conio.h>
 #include <direct.h>
 #include <string.h>
 
@@ -15,7 +15,9 @@ static void error(const char* message)
 {
 	VID_Finish();
 
-	printf("Error: %s\n", message);
+	cputs("Error: ");
+	cputs(message);
+	cputs("\r\n");
 	exit(1);
 }
 

@@ -13,6 +13,8 @@ EXE = adp$(MODE).exe
 OBJDIR = obj/dos$(MODE)
 OUTDIR = out
 
+all : Release .SYMBOLIC
+
 Debug : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
 	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 DEBUG=1 all
@@ -20,8 +22,6 @@ Debug : .SYMBOLIC
 Release : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
 	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 all
-
-all : Release .SYMBOLIC
 
 clean : .SYMBOLIC
 	@if exist $(OBJDIR)/*.obj      @rm $(OBJDIR)/*.obj
@@ -39,7 +39,7 @@ VERSION_DEF = -DVERSION=\"$(VERSION)\"
 CC    = wpp386
 CL    = wcl386
 OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
-OPTS += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DHAS_PSG -DNO_BUFFERING
+OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING -DHAS_PSG
 OPTIM = -osexanuc -zc -3 -r
 LOPTS = -l=CAUSEWAY
 UPX   = upx
@@ -50,7 +50,7 @@ UPX   = upx
 CC     = wpp
 CL     = wcl
 OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm $(VERSION_DEF)
-OPTS  += -D_STDCLIB -DHAS_PCX -DHAS_SPECTRUM -DHAS_XMSG -DHAS_PSG -DNO_BUFFERING
+OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING
 OPTIM  = -osexanuc
 UPX    = upx
 
@@ -95,7 +95,9 @@ OBJS = 		      &
 	dma.obj       &
 	files.obj     &
 	mixer.obj     &
+	vid_cga.obj   &
 	vid_common.obj &
+	vid_ega.obj   &
 	vid_modex.obj &
 	video.obj     &
 	sb.obj        &

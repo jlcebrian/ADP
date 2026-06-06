@@ -7,15 +7,14 @@
 #include <os_lib.h>
 #include <os_bito.h>
 
-static bool DMG_CacheImagesInNativeFormatOnly(const DMG_Entry* entry)
+static DMG_ImageMode DMG_GetActiveNativeImageMode()
 {
-	if (entry == 0 || entry->type != DMGEntry_Image)
-		return false;
-	#if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
-	return true;
-	#else
-	return false;
+	#if defined(_DOS) || defined(_AMIGA)
+	const VID_ScreenAdapterInfo* info = VID_ScreenGetInfo();
+	if (info != 0)
+		return info->nativeImageMode;
 	#endif
+	return DMG_NATIVE_IMAGE_MODE;
 }
 
 static void DMG_AbortOnInvalidCachedImageMode(uint8_t index, DMG_ImageMode cachedMode, DMG_ImageMode requestedMode)
@@ -24,7 +23,7 @@ static void DMG_AbortOnInvalidCachedImageMode(uint8_t index, DMG_ImageMode cache
 		(unsigned)index,
 		(int)cachedMode,
 		(int)requestedMode,
-		(int)DMG_NATIVE_IMAGE_MODE);
+		(int)DMG_GetActiveNativeImageMode());
 	Abort();
 }
 
@@ -76,6 +75,87 @@ static bool DMG_ConvertIndexedToIndexedX(const uint8_t* input, uint16_t width, u
 			dstRow[band + bands * 1u] = p1;
 			dstRow[band + bands * 2u] = p2;
 			dstRow[band + bands * 3u] = p3;
+		}
+	}
+
+	return true;
+}
+
+static bool DMG_ConvertIndexedToCGA(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t rowBytes = ((uint32_t)width + 3u) >> 2;
+	uint32_t requiredSize = rowBytes * (uint32_t)height;
+	if (input == 0 || output == 0 || outputSize < requiredSize)
+		return false;
+
+	for (int32_t row = (int32_t)height - 1; row >= 0; row--)
+	{
+		const uint8_t* src = input + (uint32_t)row * width;
+		uint8_t* dst = output + (uint32_t)row * rowBytes;
+		for (int32_t byte = (int32_t)rowBytes - 1; byte >= 0; byte--)
+		{
+			uint32_t x = (uint32_t)byte << 2;
+			uint8_t p0 = src[x] & 0x03;
+			uint8_t p1 = x + 1u < width ? src[x + 1u] & 0x03 : 0;
+			uint8_t p2 = x + 2u < width ? src[x + 2u] & 0x03 : 0;
+			uint8_t p3 = x + 3u < width ? src[x + 3u] & 0x03 : 0;
+			dst[byte] = (uint8_t)((p0 << 6) | (p1 << 4) | (p2 << 2) | p3);
+		}
+	}
+
+	return true;
+}
+
+static bool DMG_ConvertPackedToCGA(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize, const uint8_t* paletteMap)
+{
+	uint32_t rowBytes = ((uint32_t)width + 3u) >> 2;
+	uint32_t packedRowBytes = (((uint32_t)width + 1u) >> 1);
+	uint32_t requiredSize = rowBytes * (uint32_t)height;
+	if (input == 0 || output == 0 || outputSize < requiredSize)
+		return false;
+
+	for (int32_t row = (int32_t)height - 1; row >= 0; row--)
+	{
+		const uint8_t* srcRow = input + (uint32_t)row * packedRowBytes;
+		uint8_t* dst = output + (uint32_t)row * rowBytes;
+		for (uint32_t byte = 0; byte < rowBytes; byte++)
+		{
+			uint32_t x = byte << 2;
+			uint8_t p0 = 0;
+			uint8_t p1 = 0;
+			uint8_t p2 = 0;
+			uint8_t p3 = 0;
+
+			if (x + 0u < width)
+			{
+				uint8_t v = srcRow[(x + 0u) >> 1];
+				p0 = ((x + 0u) & 1u) == 0 ? (v >> 4) : (v & 0x0F);
+				if (paletteMap != 0)
+					p0 = paletteMap[p0 & 0x0F];
+			}
+			if (x + 1u < width)
+			{
+				uint8_t v = srcRow[(x + 1u) >> 1];
+				p1 = ((x + 1u) & 1u) == 0 ? (v >> 4) : (v & 0x0F);
+				if (paletteMap != 0)
+					p1 = paletteMap[p1 & 0x0F];
+			}
+			if (x + 2u < width)
+			{
+				uint8_t v = srcRow[(x + 2u) >> 1];
+				p2 = ((x + 2u) & 1u) == 0 ? (v >> 4) : (v & 0x0F);
+				if (paletteMap != 0)
+					p2 = paletteMap[p2 & 0x0F];
+			}
+			if (x + 3u < width)
+			{
+				uint8_t v = srcRow[(x + 3u) >> 1];
+				p3 = ((x + 3u) & 1u) == 0 ? (v >> 4) : (v & 0x0F);
+				if (paletteMap != 0)
+					p3 = paletteMap[p3 & 0x0F];
+			}
+
+			dst[byte] = (uint8_t)(((p0 & 0x03) << 6) | ((p1 & 0x03) << 4) | ((p2 & 0x03) << 2) | (p3 & 0x03));
 		}
 	}
 
@@ -234,6 +314,77 @@ static bool DMG_CanConvertPackedToIndexedX(const DMG* dmg)
 	return dmg->version != DMG_Version5 && dmg->version != DMG_Version1_PCW;
 }
 
+static uint8_t* DMG_GetEntryDataCGA(DMG* dmg, uint8_t index)
+{
+	DMG_Entry* entry = DMG_GetEntry(dmg, index);
+	if (entry == 0 || entry->type == DMGEntry_Empty)
+		return 0;
+	if (entry->type == DMGEntry_Audio)
+		return DMG_GetEntryData(dmg, index, ImageMode_Audio);
+	if (dmg != 0 && dmg->version == DMG_Version5 && dmg->colorMode == DMG_DAT5_COLORMODE_CGA)
+		return DMG_GetEntryData(dmg, index, ImageMode_CGA);
+
+	bool cacheNativeOnly = entry->type == DMGEntry_Image;
+	DMG_ImageMode nativeImageMode = DMG_GetActiveNativeImageMode();
+	bool allowCache = !cacheNativeOnly || nativeImageMode == ImageMode_CGA;
+	uint32_t nativeSize = DMG_CalculateRequiredSize(entry, ImageMode_CGA);
+	DMG_Cache* cache = allowCache ? DMG_GetImageCache(dmg, index, entry, nativeSize) : 0;
+	uint8_t* output = cache != 0 ? (uint8_t*)(cache + 1) : DMG_GetTemporaryBuffer(ImageMode_CGA);
+	uint32_t outputSize = cache != 0 ? cache->size : DMG_GetTemporaryBufferSize();
+	if (cache != 0 && cache->populated && cache->imageMode == ImageMode_CGA)
+		return output;
+	if (output == 0 || outputSize < nativeSize)
+	{
+		DMG_SetError(DMG_ERROR_BUFFER_TOO_SMALL);
+		if (cache != 0)
+			cache->populated = false;
+		return 0;
+	}
+
+	const uint8_t* cgaPalette = DMG_GetEntryCGAPalette(entry);
+	if (cgaPalette != 0)
+	{
+		uint8_t* packedData = DMG_GetEntryData(dmg, index, ImageMode_Packed);
+		if (packedData != 0 && DMG_ConvertPackedToCGA(packedData, entry->width, entry->height, output, outputSize, cgaPalette))
+		{
+			if (cache != 0)
+			{
+				cache->imageMode = ImageMode_CGA;
+				cache->populated = true;
+			}
+			return output;
+		}
+		if (DMG_GetError() != DMG_ERROR_NONE)
+		{
+			if (cache != 0)
+				cache->populated = false;
+			return 0;
+		}
+	}
+
+	uint8_t* indexedData = DMG_GetEntryData(dmg, index, ImageMode_Indexed);
+	if (indexedData == 0)
+	{
+		if (cache != 0)
+			cache->populated = false;
+		return 0;
+	}
+	if (!DMG_ConvertIndexedToCGA(indexedData, entry->width, entry->height, output, outputSize))
+	{
+		if (cache != 0)
+			cache->populated = false;
+		DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+		return 0;
+	}
+
+	if (cache != 0)
+	{
+		cache->imageMode = ImageMode_CGA;
+		cache->populated = true;
+	}
+	return output;
+}
+
 static uint8_t* DMG_GetEntryDataIndexedX(DMG* dmg, uint8_t index)
 {
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
@@ -244,8 +395,11 @@ static uint8_t* DMG_GetEntryDataIndexedX(DMG* dmg, uint8_t index)
 	if (dmg != 0 && dmg->version == DMG_Version5 && DMG_DAT5ModeIsIndexedX(dmg->colorMode))
 		return DMG_GetEntryData(dmg, index, ImageMode_IndexedX);
 
+	bool cacheNativeOnly = entry->type == DMGEntry_Image;
+	DMG_ImageMode nativeImageMode = DMG_GetActiveNativeImageMode();
+	bool allowCache = !cacheNativeOnly || nativeImageMode == ImageMode_IndexedX;
 	uint32_t nativeSize = DMG_CalculateRequiredSize(entry, ImageMode_IndexedX);
-	DMG_Cache* cache = DMG_GetImageCache(dmg, index, entry, nativeSize);
+	DMG_Cache* cache = allowCache ? DMG_GetImageCache(dmg, index, entry, nativeSize) : 0;
 	uint8_t* output = cache != 0 ? (uint8_t*)(cache + 1) : DMG_GetTemporaryBuffer(ImageMode_IndexedX);
 	uint32_t outputSize = cache != 0 ? cache->size : DMG_GetTemporaryBufferSize();
 	if (cache != 0 && cache->populated && cache->imageMode == ImageMode_IndexedX)
@@ -416,6 +570,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		}
 
 		bool directOutput =
+			(mode == ImageMode_CGA && dmg->colorMode == DMG_DAT5_COLORMODE_CGA) ||
 			(mode == ImageMode_IndexedX && DMG_DAT5ModeIsIndexedX(dmg->colorMode)) ||
 			(mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
 			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
@@ -580,6 +735,15 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 	}
 
 	if (mode == ImageMode_IndexedX && DMG_DAT5ModeIsIndexedX(dmg->colorMode))
+	{
+		if (fileData != buffer)
+			MemMove(buffer, fileData, imageDataLength);
+		if (tempFileData)
+			Free(tempFileData);
+		return buffer;
+	}
+
+	if (mode == ImageMode_CGA && dmg->colorMode == DMG_DAT5_COLORMODE_CGA)
 	{
 		if (fileData != buffer)
 			MemMove(buffer, fileData, imageDataLength);
@@ -764,15 +928,16 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 	uint8_t* buffer = 0;
 	uint8_t* fileData;
 	uint32_t bufferSize = 0;
-	bool cacheNativeOnly = DMG_CacheImagesInNativeFormatOnly(entry);
-	bool allowCache = !cacheNativeOnly || mode == DMG_NATIVE_IMAGE_MODE;
+	bool cacheNativeOnly = entry->type == DMGEntry_Image;
+	DMG_ImageMode nativeImageMode = DMG_GetActiveNativeImageMode();
+	bool allowCache = !cacheNativeOnly || mode == nativeImageMode;
 
 	uint32_t requiredSize = DMG_CalculateRequiredSize(entry, mode);
 
 	DMG_Cache* cache = allowCache ? DMG_GetImageCache(dmg, index, entry, requiredSize) : 0;
 	if (cache)
 	{
-		if (cacheNativeOnly && cache->populated && cache->imageMode != DMG_NATIVE_IMAGE_MODE)
+		if (cacheNativeOnly && cache->populated && cache->imageMode != nativeImageMode)
 			DMG_AbortOnInvalidCachedImageMode(index, (DMG_ImageMode)cache->imageMode, mode);
 		buffer = (uint8_t*)(cache + 1);
 		if (cache->populated && cache->imageMode == mode)
@@ -818,7 +983,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		uint8_t* result = DMG_GetEntryDataV5(dmg, index, mode, entry, buffer, bufferSize);
 		if (cache != 0)
 		{
-			if (cacheNativeOnly && mode != DMG_NATIVE_IMAGE_MODE)
+			if (cacheNativeOnly && mode != nativeImageMode)
 				DMG_AbortOnInvalidCachedImageMode(index, mode, mode);
 			cache->populated = result != 0;
 			if (result != 0)
@@ -975,6 +1140,9 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 			case ImageMode_IndexedX:
 				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 				break;
+			case ImageMode_CGA:
+				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				break;
 			case ImageMode_RGBA32:
 			{
 				if (bufferSize < requiredSize * 8)
@@ -1026,6 +1194,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 			{
 				const uint8_t* cgaPalette = DMG_GetEntryCGAPalette(entry);
 				const uint8_t* egaPalette = DMG_GetEntryEGAPalette(entry);
+				uint32_t pixelCount = (uint32_t)entry->width * (uint32_t)entry->height;
 				if ((paletteMode == ColorPaletteMode_CGA && cgaPalette == 0) ||
 					(paletteMode == ColorPaletteMode_EGA && egaPalette == 0))
 				{
@@ -1034,7 +1203,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 					DMG_SetError(DMG_ERROR_INVALID_IMAGE);
 					return 0;
 				}
-				n = requiredSize;
+				n = pixelCount;
 				if ((n & 1u) != 0)
 				{
 					uint32_t pixel = n - 1;
@@ -1090,7 +1259,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 
 	if (cache != 0)
 	{
-		if (cacheNativeOnly && mode != DMG_NATIVE_IMAGE_MODE)
+		if (cacheNativeOnly && mode != nativeImageMode)
 			DMG_AbortOnInvalidCachedImageMode(index, mode, mode);
 		cache->imageMode = mode;
 		cache->populated = true;
@@ -1105,8 +1274,12 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 	if (info != 0)
 	{
 		#if defined(_DOS)
+		if (info->nativeImageMode == ImageMode_CGA)
+			return DMG_GetEntryDataCGA(dmg, index);
 		if (info->nativeImageMode == ImageMode_IndexedX)
 			return DMG_GetEntryDataIndexedX(dmg, index);
+		if (info->nativeImageMode == ImageMode_Planar)
+			return DMG_GetEntryDataPlanar(dmg, index);
 		#endif
 		#if defined(_AMIGA)
 		if (info->nativeImageMode == ImageMode_Planar)

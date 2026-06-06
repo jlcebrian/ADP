@@ -47,6 +47,9 @@ uint32_t VID_ScreenGetNativeImageSize(int width, int height)
 		case ImageMode_IndexedX:
 			return ((uint32_t)(width + 3) & ~3u) * (uint32_t)height;
 
+		case ImageMode_CGA:
+			return (((uint32_t)width + 3u) >> 2) * (uint32_t)height;
+
 		case ImageMode_Indexed:
 			return (uint32_t)width * (uint32_t)height;
 

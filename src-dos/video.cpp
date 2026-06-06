@@ -14,7 +14,9 @@
 #include "sb.h"
 #include "mixer.h"
 #include "timer.h"
+#include "vid_cga.h"
 #include "vid_common.h"
+#include "vid_ega.h"
 #include "vid_modex.h"
 
 #include <i86.h>
@@ -45,6 +47,165 @@ DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
+
+static bool SetDOSVideoMode(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_CGA:
+			if (!CGA_IsAvailable())
+			{
+				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+				return false;
+			}
+			return CGA_SetVideoMode(mode);
+
+		case ScreenMode_EGA:
+			if (!EGA_IsAvailable())
+			{
+				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+				return false;
+			}
+			return EGA_SetVideoMode();
+
+		case ScreenMode_VGA16:
+		case ScreenMode_VGA:
+			ModeX_SetVideoMode(MODE_320x200);
+			return VID_CommonGetInfo() != 0;
+
+		default:
+			DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
+			return false;
+	}
+}
+
+static bool IsVGAMode()
+{
+	return screenMode == ScreenMode_VGA16 || screenMode == ScreenMode_VGA;
+}
+
+static bool TryDisplayDOSNativeSCRExact(const char* fileName, DDB_Machine target, bool* handled)
+{
+	*handled = false;
+	if (target != DDB_MACHINE_IBMPC)
+		return true;
+	if (screenMode != ScreenMode_CGA && screenMode != ScreenMode_EGA)
+		return true;
+
+	const VID_AdapterInfo* info = VID_CommonGetInfo();
+	if (info == NULL)
+		return true;
+	if (info->nativeImageMode != ImageMode_CGA && info->nativeImageMode != ImageMode_Planar)
+		return true;
+
+	File* file = File_Open(fileName, ReadOnly);
+	if (file == NULL)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+		return false;
+	}
+
+	uint64_t size = File_GetSize(file);
+	bool isCGAFile = size <= 16384;
+	bool isEGAFile = size > 16384 && size <= 32048;
+
+	if (info->nativeImageMode == ImageMode_CGA)
+	{
+		if (!isCGAFile)
+		{
+			File_Close(file);
+			return true;
+		}
+
+		if (size < 16000)
+		{
+			File_Close(file);
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
+		uint8_t* fileData = Allocate<uint8_t>("Temporary CGA SCR file", (uint32_t)size);
+		if (fileData == NULL)
+		{
+			File_Close(file);
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+
+		if (File_Read(file, fileData, size) != size)
+		{
+			File_Close(file);
+			Free(fileData);
+			DDB_SetError(DDB_ERROR_READING_FILE);
+			return false;
+		}
+		File_Close(file);
+
+		uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+		if (nativeSize == 0)
+		{
+			Free(fileData);
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+
+		uint8_t* native = Allocate<uint8_t>("Temporary CGA native SCR", nativeSize);
+		if (native == NULL)
+		{
+			Free(fileData);
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+
+		for (int y = 0; y < screenHeight; y++)
+		{
+			const uint8_t* srcRow = fileData + (uint32_t)(80 * (y >> 1) + 8192 * (y & 1));
+			uint8_t* dstRow = native + (uint32_t)y * 80;
+			MemCopy(dstRow, srcRow, 80);
+		}
+
+		VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+		Free(native);
+		Free(fileData);
+		*handled = true;
+		return true;
+	}
+
+	if (!isEGAFile)
+	{
+		File_Close(file);
+		return true;
+	}
+
+	if (size < 32001)
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	uint8_t* fileData = Allocate<uint8_t>("Temporary EGA SCR file", (uint32_t)size);
+	if (fileData == NULL)
+	{
+		File_Close(file);
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	if (File_Read(file, fileData, size) != size)
+	{
+		File_Close(file);
+		Free(fileData);
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+	File_Close(file);
+
+	VID_CommonBlitNativeImage(fileData + 1, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+	Free(fileData);
+	*handled = true;
+	return true;
+}
 
 void VID_SetWindowTitle(const char* title)
 {
@@ -207,6 +368,71 @@ static bool ConvertIndexedToIndexedX(const uint8_t* input, int width, int height
 			dstRow[band + bands * 1u] = pixelBase + 1u < (uint32_t)width ? srcRow[pixelBase + 1u] : 0;
 			dstRow[band + bands * 2u] = pixelBase + 2u < (uint32_t)width ? srcRow[pixelBase + 2u] : 0;
 			dstRow[band + bands * 3u] = pixelBase + 3u < (uint32_t)width ? srcRow[pixelBase + 3u] : 0;
+		}
+	}
+
+	return true;
+}
+
+static uint32_t GetCGAImageSize(int width, int height)
+{
+	if (width <= 0 || height <= 0)
+		return 0;
+	return (((uint32_t)width + 3u) >> 2) * (uint32_t)height;
+}
+
+static bool ConvertIndexedToCGA(const uint8_t* input, int width, int height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t requiredSize = GetCGAImageSize(width, height);
+	if (input == NULL || output == NULL || outputSize < requiredSize || width <= 0 || height <= 0)
+		return false;
+
+	uint32_t dstStride = ((uint32_t)width + 3u) >> 2;
+	for (int y = 0; y < height; y++)
+	{
+		const uint8_t* srcRow = input + (uint32_t)y * (uint32_t)width;
+		uint8_t* dstRow = output + (uint32_t)y * dstStride;
+		for (uint32_t x = 0, byteX = 0; x < (uint32_t)width; x += 4u, byteX++)
+		{
+			uint8_t c0 = srcRow[x] & 0x03;
+			uint8_t c1 = x + 1u < (uint32_t)width ? (srcRow[x + 1u] & 0x03) : 0;
+			uint8_t c2 = x + 2u < (uint32_t)width ? (srcRow[x + 2u] & 0x03) : 0;
+			uint8_t c3 = x + 3u < (uint32_t)width ? (srcRow[x + 3u] & 0x03) : 0;
+			dstRow[byteX] = (uint8_t)((c0 << 6) | (c1 << 4) | (c2 << 2) | c3);
+		}
+	}
+
+	return true;
+}
+
+static uint32_t GetPlanar4ImageSize(int width, int height)
+{
+	if (width <= 0 || height <= 0)
+		return 0;
+	return (((uint32_t)width + 15u) >> 4) * 2u * (uint32_t)height * 4u;
+}
+
+static bool ConvertIndexedToPlanar4(const uint8_t* input, int width, int height, uint8_t* output, uint32_t outputSize)
+{
+	uint32_t requiredSize = GetPlanar4ImageSize(width, height);
+	if (input == NULL || output == NULL || outputSize < requiredSize || width <= 0 || height <= 0)
+		return false;
+
+	MemClear(output, requiredSize);
+	uint32_t stride = (((uint32_t)width + 15u) >> 4) * 2u;
+	uint32_t planeSize = stride * (uint32_t)height;
+	for (int y = 0; y < height; y++)
+	{
+		const uint8_t* srcRow = input + (uint32_t)y * (uint32_t)width;
+		for (int plane = 0; plane < 4; plane++)
+		{
+			uint8_t* dstRow = output + planeSize * (uint32_t)plane + (uint32_t)y * stride;
+			uint8_t planeBit = (uint8_t)(1 << plane);
+			for (int x = 0; x < width; x++)
+			{
+				if ((srcRow[x] & planeBit) != 0)
+					dstRow[x >> 3] |= (uint8_t)(0x80 >> (x & 7));
+			}
 		}
 	}
 
@@ -439,11 +665,14 @@ void VID_SetPaletteColor (uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 	paletteR[index] = r;
 	paletteG[index] = g;
 	paletteB[index] = b;
-	SetHardwarePaletteColor(index, r, g, b);
+	if (IsVGAMode())
+		SetHardwarePaletteColor(index, r, g, b);
 }
 
 void VID_ActivatePalette()
 {
+	if (!IsVGAMode())
+		return;
 	for (int n = 0; n < 256; n++)
 		SetHardwarePaletteColor((uint8_t)n, paletteR[n], paletteG[n], paletteB[n]);
 }
@@ -500,6 +729,20 @@ bool VID_LoadDataFile (const char* fileName)
 		dmg = DMG_Open(resolvedDataFile, true);
 		if (dmg != NULL)
 			dmg->screenMode = resolvedDataMode;
+		if (resolvedDataMode != screenMode)
+		{
+			if (!SetDOSVideoMode(resolvedDataMode))
+			{
+				VID_Finish();
+				return false;
+			}
+			const VID_AdapterInfo* info = VID_CommonGetInfo();
+			screenWidth = info != 0 ? info->width : 320;
+			screenHeight = info != 0 ? info->height : 200;
+			lineHeight = info != 0 ? info->cellHeight : 8;
+			columnWidth = info != 0 ? info->cellWidth : defaultCharWidth;
+			defaultCharWidth = columnWidth;
+		}
 		screenMode = resolvedDataMode;
 	}
 	if (dmg == NULL)
@@ -612,6 +855,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	DMG_Entry* entry = bufferedEntry;
 	if (entry == NULL)
 		return;
+
+	if (screenMode == ScreenMode_CGA)
+		CGA_SetPaletteRed(DMG_GetCGAMode(entry) == CGA_Red);
 		
 	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
 	bool useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
@@ -626,12 +872,15 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
 		if (dmg->version == DMG_Version1)
 			palette[15] = 0xFFFFFFFF;
-		VID_VSync();
-		for (int n = 0; n < 16; n++) {
-			uint8_t r = (palette[n] >> 16) & 0xFF;
-			uint8_t g = (palette[n] >>  8) & 0xFF;
-			uint8_t b = (palette[n] >>  0) & 0xFF;
-			VID_SetPaletteColor(n, r, g, b);
+		if (IsVGAMode())
+		{
+			VID_VSync();
+			for (int n = 0; n < 16; n++) {
+				uint8_t r = (palette[n] >> 16) & 0xFF;
+				uint8_t g = (palette[n] >>  8) & 0xFF;
+				uint8_t b = (palette[n] >>  0) & 0xFF;
+				VID_SetPaletteColor(n, r, g, b);
+			}
 		}
 	}
 
@@ -641,6 +890,12 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
+	bool handledNative = false;
+	if (!TryDisplayDOSNativeSCRExact(fileName, target, &handledNative))
+		return false;
+	if (handledNative)
+		return true;
+
 	#if HAS_PCX
 	if (IsPCXScreenFile(fileName))
 	{
@@ -680,52 +935,118 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 			screenWidth, screenHeight, palette);
 	if (decoded)
 	{
-		uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
-		if (nativeSize == 0)
+		const VID_AdapterInfo* info = VID_CommonGetInfo();
+		if (info != NULL && info->nativeImageMode == ImageMode_CGA)
 		{
-			DDB_SetError(DDB_ERROR_INVALID_FILE);
-			Free(output);
-			Free(buffer);
-			return false;
-		}
-		uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
-		if (native == NULL)
-		{
-			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
-			Free(output);
-			Free(buffer);
-			return false;
-		}
-		if (!ConvertIndexedToIndexedX(output, screenWidth, screenHeight, native, nativeSize))
-		{
-			Free(native);
-			Free(output);
-			Free(buffer);
-			DDB_SetError(DDB_ERROR_INVALID_FILE);
-			return false;
-		}
-
-		if (fadeIn)
-		{
-			for (int n = 0; n < 16; n++) 
-				VID_SetPaletteColor(n, 0, 0, 0);
-			VID_VSync();
-		}
-
-		VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
-		
-		if (fadeIn)
-		{
-			VID_VSync();
-			for (int n = 0; n < 16; n++) 
+			uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+			if (nativeSize == 0)
 			{
-				uint8_t r = (palette[n] >> 16) & 0xFF;
-				uint8_t g = (palette[n] >>  8) & 0xFF;
-				uint8_t b = (palette[n] >>  0) & 0xFF;
-				VID_SetPaletteColor(n, r, g, b);
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				Free(output);
+				Free(buffer);
+				return false;
 			}
+			uint8_t* native = Allocate<uint8_t>("Temporary CGA SCR buffer", nativeSize);
+			if (native == NULL)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				Free(output);
+				Free(buffer);
+				return false;
+			}
+			if (!ConvertIndexedToCGA(output, screenWidth, screenHeight, native, nativeSize))
+			{
+				Free(native);
+				Free(output);
+				Free(buffer);
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return false;
+			}
+			VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+			Free(native);
 		}
-		Free(native);
+		else if (info != NULL && info->nativeImageMode == ImageMode_Planar)
+		{
+			uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+			if (nativeSize == 0)
+			{
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				Free(output);
+				Free(buffer);
+				return false;
+			}
+			uint8_t* native = Allocate<uint8_t>("Temporary EGA SCR buffer", nativeSize);
+			if (native == NULL)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				Free(output);
+				Free(buffer);
+				return false;
+			}
+			if (!ConvertIndexedToPlanar4(output, screenWidth, screenHeight, native, nativeSize))
+			{
+				Free(native);
+				Free(output);
+				Free(buffer);
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return false;
+			}
+			VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+			Free(native);
+		}
+		else if (!IsVGAMode())
+		{
+			VID_CommonBlitIndexedImage(output, screenWidth, 0, 0, screenWidth, screenHeight);
+		}
+		else
+		{
+			uint32_t nativeSize = VID_CommonGetNativeImageSize(screenWidth, screenHeight);
+			if (nativeSize == 0)
+			{
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				Free(output);
+				Free(buffer);
+				return false;
+			}
+			uint8_t* native = Allocate<uint8_t>("Temporary IndexedX SCR buffer", nativeSize);
+			if (native == NULL)
+			{
+				DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+				Free(output);
+				Free(buffer);
+				return false;
+			}
+			if (!ConvertIndexedToIndexedX(output, screenWidth, screenHeight, native, nativeSize))
+			{
+				Free(native);
+				Free(output);
+				Free(buffer);
+				DDB_SetError(DDB_ERROR_INVALID_FILE);
+				return false;
+			}
+
+			if (fadeIn)
+			{
+				for (int n = 0; n < 16; n++) 
+					VID_SetPaletteColor(n, 0, 0, 0);
+				VID_VSync();
+			}
+
+			VID_CommonBlitNativeImage(native, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight);
+		
+			if (fadeIn)
+			{
+				VID_VSync();
+				for (int n = 0; n < 16; n++) 
+				{
+					uint8_t r = (palette[n] >> 16) & 0xFF;
+					uint8_t g = (palette[n] >>  8) & 0xFF;
+					uint8_t b = (palette[n] >>  0) & 0xFF;
+					VID_SetPaletteColor(n, r, g, b);
+				}
+			}
+			Free(native);
+		}
 	}
 
 	Free(output);
@@ -820,6 +1141,13 @@ uint16_t VID_GetPaletteSize()
 
 void VID_GetPaletteColor (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 {
+	if (!IsVGAMode())
+	{
+		if (r != NULL) *r = paletteR[color];
+		if (g != NULL) *g = paletteG[color];
+		if (b != NULL) *b = paletteB[color];
+		return;
+	}
 	outp(0x3C7, color);
 
 	if (r != NULL)
@@ -933,6 +1261,13 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	pictureData = DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == NULL)
 	{
+		const VID_AdapterInfo* info = VID_CommonGetInfo();
+		if (info != NULL && (info->nativeImageMode == ImageMode_CGA || info->nativeImageMode == ImageMode_Planar))
+		{
+			bufferedEntry = NULL;
+			bufferedPictureIndexed = false;
+			return;
+		}
 		pictureData = DMG_GetEntryData(dmg, picno, ImageMode_Indexed);
 		if (pictureData != NULL)
 		{
@@ -1074,17 +1409,20 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 		return false;
 	}
 
-	union REGS regs;
-	regs.w.ax = 0x1A00;
-#if defined(__386__)
-	int386(0x10, &regs, &regs);
-#else
-	int86(0x10, &regs, &regs);
-#endif
-	if (regs.h.al != 0x1A)
+	if (mode == ScreenMode_VGA16 || mode == ScreenMode_VGA)
 	{
-		DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
-		return false;
+		union REGS regs;
+		regs.w.ax = 0x1A00;
+#if defined(__386__)
+		int386(0x10, &regs, &regs);
+#else
+		int86(0x10, &regs, &regs);
+#endif
+		if (regs.h.al != 0x1A)
+		{
+			DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+			return false;
+		}
 	}
 
 	if (SB_Init(0, 30000))
@@ -1094,7 +1432,8 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 
 	memcpy(charset, DefaultCharset, 1024);
 	memcpy(charset + 1024, DefaultCharset, 1024);
-	ModeX_SetVideoMode(MODE_320x200);
+	if (!SetDOSVideoMode(mode))
+		return false;
 	const VID_AdapterInfo* info = VID_CommonGetInfo();
 	screenWidth = info != 0 ? info->width : 320;
 	screenHeight = info != 0 ? info->height : 200;

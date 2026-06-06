@@ -1,13 +1,16 @@
 #include <ddb_pal.h>
 
-uint32_t ZXSpectrumPalette[16] = 
+#if HAS_SPECTRUM
+uint32_t ZXSpectrumPalette[16] =
 {
 	0xFF000000, 0xFF0000d8, 0xFFd80000, 0xFFd800d8,
 	0xFF00d800, 0xFF00d8d8, 0xFFd8d800, 0xFFd8d8d8,
 	0xFF000000, 0xFF0000FF, 0xFFFF0000, 0xFFFF00FF,
 	0xFF00FF00, 0xFF00FFFF, 0xFFFFFF00, 0xFFFFFFFF,
 };
+#endif
 
+#if HAS_SNAPSHOTS
 uint32_t MSXPalette[16] =
 {
 	0xFF000000, 0xFF010101, 0xFF3EB849, 0xFF74D07D,
@@ -28,6 +31,7 @@ uint32_t CPCPalette[4] =
 {
 	0xFF000000, 0xFFFFFFFF, 0xFF000080, 0xFF808000,
 };
+#endif
 
 uint32_t EGAPalette[16] = 
 {

@@ -1,6 +1,7 @@
 #include <dmg.h>
 #include <os_mem.h>
 #include <os_lib.h>
+#include <vid_screen.h>
 
 #ifndef DEBUG_IMAGE_CACHE
 #define DEBUG_IMAGE_CACHE 0
@@ -21,15 +22,12 @@ static uint32_t DMG_GetCacheItemAllocationSize(uint32_t payloadSize)
 	return ((payloadSize + 63u) & ~31u) + sizeof(DMG_Cache);
 }
 
-static bool DMG_CacheImagesInNativeFormatOnly(const DMG_Entry* entry)
+static DMG_ImageMode DMG_GetActiveNativeImageModeForCache()
 {
-	if (entry == 0 || entry->type != DMGEntry_Image)
-		return false;
-	#if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
-	return true;
-	#else
-	return false;
-	#endif
+	const VID_ScreenAdapterInfo* info = VID_ScreenGetInfo();
+	if (info != 0)
+		return info->nativeImageMode;
+	return DMG_NATIVE_IMAGE_MODE;
 }
 
 void DMG_SetupFileCache (DMG* dmg, uint32_t freeMemory, void(*progressFunction)(uint16_t))
@@ -373,12 +371,13 @@ DMG_Cache* DMG_GetImageCache (DMG* dmg, uint8_t index, DMG_Entry* entry, uint32_
 		{
 			if (item->index == index)
 			{
-				if (DMG_CacheImagesInNativeFormatOnly(entry) && item->populated && item->imageMode != DMG_NATIVE_IMAGE_MODE)
+				DMG_ImageMode nativeImageMode = DMG_GetActiveNativeImageModeForCache();
+				if (entry != 0 && entry->type == DMGEntry_Image && item->populated && item->imageMode != nativeImageMode)
 				{
 					DebugPrintf("FATAL: image cache contains non-native image data for entry %u (cached=%d native=%d)\n",
 						(unsigned)index,
 						(int)item->imageMode,
-						(int)DMG_NATIVE_IMAGE_MODE);
+						(int)nativeImageMode);
 					Abort();
 				}
 				if (item->size < size)

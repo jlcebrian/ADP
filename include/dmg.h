@@ -38,6 +38,7 @@ enum DMG_ImageMode
 {
 	ImageMode_Packed            = 0x00,		// Packed indexed pixels, 2 colors per byte
 	ImageMode_IndexedX          = 0x01,		// Indexed pixels arranged in Mode X band/plane order
+	ImageMode_CGA               = 0x02,		// CGA packed pixels, 4 colors per byte
 	ImageMode_RGBA32            = 0x10,		// 4 bytes per pixel, native-endian 0xAARRGGBB
 	ImageMode_PlanarST          = 0x20,     // Atari ST interleaved words (P0P0P1P1P2P2P3P3)
     ImageMode_Planar            = 0x24,     // One complete bitmap per plane
@@ -448,7 +449,7 @@ uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint8_t*    DMG_GetEntryDataNative (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
 
-#if defined(_AMIGA) || defined(_ATARIST)
+#if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
 uint8_t*    DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index);
 #endif
 
