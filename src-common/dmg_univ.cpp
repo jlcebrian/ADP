@@ -586,14 +586,20 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		{
 			case DMG_DAT5_COLORMODE_CGA:
 			case DMG_DAT5_COLORMODE_EGA:
+			#if DMG_SUPPORT_DAT5_PLANAR_SOURCES
 			case DMG_DAT5_COLORMODE_PLANAR4:
 			case DMG_DAT5_COLORMODE_PLANAR5:
 			case DMG_DAT5_COLORMODE_PLANAR8:
-			case DMG_DAT5_COLORMODE_PLANAR4ST:
-			case DMG_DAT5_COLORMODE_PLANAR8ST:
 			case DMG_DAT5_COLORMODE_EHB6:
 			case DMG_DAT5_COLORMODE_HAM6:
+			#endif
+			#if DMG_SUPPORT_DAT5_ST_SOURCES
+			case DMG_DAT5_COLORMODE_PLANAR4ST:
+			case DMG_DAT5_COLORMODE_PLANAR8ST:
+			#endif
+			#if DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
 			case DMG_DAT5_COLORMODE_INDEXEDX:
+			#endif
 			case DMG_DAT5_COLORMODE_INDEXED:
 				decompressedSize = DMG_DAT5StoredImageSize(dmg->colorMode, entry->width, entry->height);
 				break;
@@ -605,10 +611,17 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		bool directOutput =
 			(mode == ImageMode_CGA && dmg->colorMode == DMG_DAT5_COLORMODE_CGA) ||
 			(mode == ImageMode_Indexed && DMG_DAT5ModeIsIndexed(dmg->colorMode)) ||
+			#if DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
 			(mode == ImageMode_IndexedX && DMG_DAT5ModeIsIndexedX(dmg->colorMode)) ||
+			#endif
+			#if DMG_SUPPORT_DAT5_PLANAR_SOURCES
 			(mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+			#endif
+			#if DMG_SUPPORT_DAT5_ST_SOURCES
 			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
-			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8);
+			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8) ||
+			#endif
+			false;
 
 		if (directOutput && decompressedSize > bufferSize)
 		{
@@ -744,7 +757,9 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 	{
 		const uint8_t* storedData = DMG_GetEntryStoredData(dmg, index);
 		if (imageDataLength > bufferSize ||
+			#if DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
 			(DMG_DAT5ModeIsIndexedX(dmg->colorMode) && mode != ImageMode_IndexedX) ||
+			#endif
 			(DMG_DAT5ModeIsIndexed(dmg->colorMode) && mode != ImageMode_Indexed))
 		{
 			tempFileData = Allocate<uint8_t>("DAT5 image", imageDataLength, false);
@@ -779,9 +794,15 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 
 	if (mode == ImageMode_Planar || mode == ImageMode_PlanarST || mode == ImageMode_PlanarFalcon)
 	{
-		if ((mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+		if (
+			#if DMG_SUPPORT_DAT5_PLANAR_SOURCES
+			(mode == ImageMode_Planar && DMG_DAT5ModeIsPlaneMajor(dmg->colorMode)) ||
+			#endif
+			#if DMG_SUPPORT_DAT5_ST_SOURCES
 			(mode == ImageMode_PlanarST && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth <= 4) ||
-			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8))
+			(mode == ImageMode_PlanarFalcon && DMG_DAT5ModeIsSTInterleaved(dmg->colorMode) && entry->bitDepth == 8) ||
+			#endif
+			false)
 		{
 			if (fileData != buffer)
 				MemMove(buffer, fileData, imageDataLength);
@@ -791,6 +812,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 		}
 	}
 
+	#if DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
 	if (mode == ImageMode_IndexedX && DMG_DAT5ModeIsIndexedX(dmg->colorMode))
 	{
 		if (fileData != buffer)
@@ -799,6 +821,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			Free(tempFileData);
 		return buffer;
 	}
+	#endif
 
 	if (mode == ImageMode_Indexed && DMG_DAT5ModeIsIndexed(dmg->colorMode))
 	{
@@ -856,6 +879,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 			paletteMode = ColorPaletteMode_EGA;
 			break;
 
+		#if DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
 		case DMG_DAT5_COLORMODE_INDEXEDX:
 			if (!DMG_ConvertIndexedXToIndexed(fileData, entry->width, entry->height, buffer, bufferSize))
 			{
@@ -865,6 +889,7 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 				return 0;
 			}
 			break;
+		#endif
 
 		case DMG_DAT5_COLORMODE_INDEXED:
 			if (imageDataLength > bufferSize)
@@ -878,11 +903,12 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 				MemMove(buffer, fileData, imageDataLength);
 			break;
 
-			case DMG_DAT5_COLORMODE_PLANAR4:
-			case DMG_DAT5_COLORMODE_PLANAR5:
-			case DMG_DAT5_COLORMODE_PLANAR8:
-			case DMG_DAT5_COLORMODE_EHB6:
-			case DMG_DAT5_COLORMODE_HAM6:
+		#if DMG_SUPPORT_DAT5_PLANAR_SOURCES
+		case DMG_DAT5_COLORMODE_PLANAR4:
+		case DMG_DAT5_COLORMODE_PLANAR5:
+		case DMG_DAT5_COLORMODE_PLANAR8:
+		case DMG_DAT5_COLORMODE_EHB6:
+		case DMG_DAT5_COLORMODE_HAM6:
 			if (!DMG_UnpackBitplaneBytes(fileData, entry->width, entry->height, entry->bitDepth, buffer))
 			{
 				if (tempFileData)
@@ -891,17 +917,20 @@ static uint8_t* DMG_GetEntryDataV5(DMG* dmg, uint8_t index, DMG_ImageMode mode, 
 				return 0;
 			}
 			break;
+		#endif
 
-			case DMG_DAT5_COLORMODE_PLANAR4ST:
-			case DMG_DAT5_COLORMODE_PLANAR8ST:
-				if (!DMG_UnpackBitplaneWords(fileData, entry->width, entry->height, entry->bitDepth, buffer))
-				{
-					if (tempFileData)
-						Free(tempFileData);
-					DMG_SetError(DMG_ERROR_INVALID_IMAGE);
-					return 0;
-				}
-				break;
+		#if DMG_SUPPORT_DAT5_ST_SOURCES
+		case DMG_DAT5_COLORMODE_PLANAR4ST:
+		case DMG_DAT5_COLORMODE_PLANAR8ST:
+			if (!DMG_UnpackBitplaneWords(fileData, entry->width, entry->height, entry->bitDepth, buffer))
+			{
+				if (tempFileData)
+					Free(tempFileData);
+				DMG_SetError(DMG_ERROR_INVALID_IMAGE);
+				return 0;
+			}
+			break;
+		#endif
 
 		default:
 			if (tempFileData)

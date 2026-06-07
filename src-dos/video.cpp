@@ -44,24 +44,19 @@ static bool       quit;
 static uint8_t    defaultCharWidth = 6;
 static bool       screen2XMode = false;
 static DDB_Version screenVersion = DDB_VERSION_1;
+#ifndef DEBUG_DOS_PICTURE_TIMINGS
+#define DEBUG_DOS_PICTURE_TIMINGS 0
+#endif
+#if DEBUG_DOS_PICTURE_TIMINGS
 static uint16_t   pictureLoadTraceCount = 0;
 static uint16_t   pictureDisplayTraceCount = 0;
+#endif
 
 DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
 bool exitGame = false;
 bool supportsOpenFileDialog = false;
-
-static uint32_t DebugChecksumBytes(const uint8_t* data, uint32_t size)
-{
-	uint32_t sum = 0;
-	if (data == 0)
-		return 0;
-	for (uint32_t n = 0; n < size; n++)
-		sum = (sum * 33u) ^ data[n];
-	return sum;
-}
 
 const char* VID_DescribeVideoModeError(DDB_Error error, DDB_ScreenMode mode)
 {
@@ -147,6 +142,53 @@ static bool SetDOSVideoMode(DDB_ScreenMode mode)
 			DDB_SetError(DDB_ERROR_VIDEO_MODE_NOT_SUPPORTED);
 			return false;
 	}
+}
+
+static bool DOS_HasVGABIOS()
+{
+	union REGS regs;
+	regs.w.ax = 0x1A00;
+#if defined(__386__)
+	int386(0x10, &regs, &regs);
+#else
+	int86(0x10, &regs, &regs);
+#endif
+	return regs.h.al == 0x1A;
+}
+
+static uint32_t DOS_DataFileModeFlag(DDB_ScreenMode mode)
+{
+	switch (mode)
+	{
+		case ScreenMode_CGA:    return DDB_DataFileMode_CGA;
+		case ScreenMode_EGA:    return DDB_DataFileMode_EGA;
+		case ScreenMode_VGA16:  return DDB_DataFileMode_VGA16;
+		case ScreenMode_VGA:    return DDB_DataFileMode_VGA;
+		case ScreenMode_HiRes:  return DDB_DataFileMode_HiRes;
+		case ScreenMode_SHiRes: return DDB_DataFileMode_SHiRes;
+		default:                return 0;
+	}
+}
+
+uint32_t VID_GetSupportedDataFileModes()
+{
+	uint32_t mask = 0;
+
+	if (CGA_IsAvailable())
+		mask |= DOS_DataFileModeFlag(ScreenMode_CGA);
+	if (EGA_IsAvailable())
+		mask |= DOS_DataFileModeFlag(ScreenMode_EGA);
+	if (DOS_HasVGABIOS())
+	{
+		mask |= DOS_DataFileModeFlag(ScreenMode_VGA16);
+		mask |= DOS_DataFileModeFlag(ScreenMode_VGA);
+	#if defined(__386__)
+		if (VESA_IsAvailable())
+			mask |= DOS_DataFileModeFlag(ScreenMode_SHiRes);
+	#endif
+	}
+
+	return mask;
 }
 
 static bool IsVGAMode()
@@ -952,6 +994,7 @@ void VID_Finish()
 
 void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 {	
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	uint16_t traceIndex = pictureDisplayTraceCount;
 	bool traceThisPicture = traceIndex < 96;
 	uint32_t tDisplayStart = 0;
@@ -966,12 +1009,15 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		DebugPrintf("DOSVID: DisplayPicture(x=%d y=%d w=%d h=%d mode=%u indexed=%u)\n",
 			x, y, w, h, (unsigned)screenMode, bufferedPictureIndexed ? 1u : 0u);
 	pictureDisplayTraceCount++;
+	#endif
 
 	(void)screenMode;
 	if (!RequireAlignedPictureX(x))
 	{
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 			DebugPrintf("DOSVID: DisplayPicture skipped due to X alignment (x=%d)\n", x);
+		#endif
 		return;
 	}
 
@@ -991,14 +1037,18 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	DMG_Entry* entry = bufferedEntry;
 	if (entry == NULL)
 	{
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 			DebugPrintf("DOSVID: DisplayPicture skipped (no buffered entry)\n");
+		#endif
 		return;
 	}
 	if (pictureData == NULL)
 	{
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 			DebugPrintf("DOSVID: DisplayPicture skipped (pictureData is NULL for pic %u)\n", (unsigned)bufferedEntryIndex);
+		#endif
 		return;
 	}
 
@@ -1047,35 +1097,22 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			return;
 
 		const uint8_t* src = pictureData + (uint32_t)srcY * entry->width + srcX;
-		if (traceThisPicture)
-		{
-			uint32_t pixelBytes = (uint32_t)entry->width * (uint32_t)entry->height;
-			DebugPrintf("DOSVID: DisplayPicture indexed blit src=(%d,%d) size=%dx%d entry=%dx%d\n",
-				srcX, srcY, w, h, entry->width, entry->height);
-			DebugPrintf("DOSVID: DisplayPicture indexed data ptr=%p checksum=0x%08lX srcFirst=%02X %02X %02X %02X %02X %02X %02X %02X\n",
-				pictureData,
-				(unsigned long)DebugChecksumBytes(pictureData, pixelBytes),
-				w > 0 ? src[0] : 0,
-				w > 1 ? src[1] : 0,
-				w > 2 ? src[2] : 0,
-				w > 3 ? src[3] : 0,
-				w > 4 ? src[4] : 0,
-				w > 5 ? src[5] : 0,
-				w > 6 ? src[6] : 0,
-				w > 7 ? src[7] : 0);
-		}
 		VID_CommonBlitIndexedImage(src, entry->width, x, y, w, h);
 	}
 	else
 	{
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 			DebugPrintf("DOSVID: DisplayPicture native blit size=%dx%d entry=%dx%d\n",
 				w, h, entry->width, entry->height);
+		#endif
 		VID_CommonBlitNativeImage(pictureData, entry->width, entry->height, x, y, w, h);
 	}
 
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	if (traceThisPicture)
 		VID_GetMilliseconds(&tAfterBlit);
+	#endif
 
 	if (updatePalette)
 	{
@@ -1095,21 +1132,21 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			if (paletteCount > 256 - firstColor)
 				paletteCount = 256 - firstColor;
 
-			if (traceThisPicture)
-				DebugPrintf("DOSVID: DisplayPicture applying palette count=%d first=%d\n", paletteCount, firstColor);
-
 			if (useScratchPresentation)
 				VID_VSync();
 			VID_SetPaletteEntries(palette, (uint16_t)paletteCount, (uint16_t)firstColor, firstColor == 0, !useScratchPresentation);
 		}
 	}
 
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	if (traceThisPicture)
 		VID_GetMilliseconds(&tAfterPalette);
+	#endif
 
 	if (useScratchPresentation)
 		VID_CommonEndFixedPicturePresentation();
 
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	if (traceThisPicture)
 	{
 		VID_GetMilliseconds(&tDisplayEnd);
@@ -1120,6 +1157,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			(unsigned long)(tDisplayEnd - tDisplayStart),
 			updatePalette ? 1u : 0u);
 	}
+	#endif
 }
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
@@ -1464,6 +1502,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 {
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	uint16_t traceIndex = pictureLoadTraceCount;
 	bool traceThisPicture = traceIndex < 96;
 	uint32_t tLoadStart = 0;
@@ -1473,6 +1512,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	if (traceThisPicture)
 		DebugPrintf("DOSVID: LoadPicture(pic=%u mode=%u)\n", (unsigned)picno, (unsigned)mode);
 	pictureLoadTraceCount++;
+	#endif
 
 	#if HAS_PCX
 	FreeBufferedPCXPicture();
@@ -1498,13 +1538,14 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
 	if (entry == NULL || entry->type != DMGEntry_Image)
 	{
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 		{
 			uint32_t tLoadEnd;
 			VID_GetMilliseconds(&tLoadEnd);
-			DebugPrintf("DOSVID: LoadPicture entry missing or not image (pic=%u)\n", (unsigned)picno);
 			DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=missing\n", (unsigned long)(tLoadEnd - tLoadStart));
 		}
+		#endif
 		return;
 	}
 
@@ -1518,27 +1559,14 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		{
 			bufferedPictureIndexed = true;
 			DMG_SetError(DMG_ERROR_NONE);
+			#if DEBUG_DOS_PICTURE_TIMINGS
 			if (traceThisPicture)
 			{
 				uint32_t tLoadEnd;
 				VID_GetMilliseconds(&tLoadEnd);
-				uint32_t pixelBytes = (uint32_t)entry->width * (uint32_t)entry->height;
-				DebugPrintf("DOSVID: LoadPicture indexed decode OK (%dx%d fixed=%u)\n",
-					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
-				DebugPrintf("DOSVID: LoadPicture indexed data ptr=%p bytes=%lu checksum=0x%08lX first=%02X %02X %02X %02X %02X %02X %02X %02X\n",
-					pictureData,
-					(unsigned long)pixelBytes,
-					(unsigned long)DebugChecksumBytes(pictureData, pixelBytes),
-					pixelBytes > 0 ? pictureData[0] : 0,
-					pixelBytes > 1 ? pictureData[1] : 0,
-					pixelBytes > 2 ? pictureData[2] : 0,
-					pixelBytes > 3 ? pictureData[3] : 0,
-					pixelBytes > 4 ? pictureData[4] : 0,
-					pixelBytes > 5 ? pictureData[5] : 0,
-					pixelBytes > 6 ? pictureData[6] : 0,
-					pixelBytes > 7 ? pictureData[7] : 0);
 				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed\n", (unsigned long)(tLoadEnd - tLoadStart));
 			}
+			#endif
 			return;
 		}
 
@@ -1548,27 +1576,27 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		{
 			bufferedPictureIndexed = false;
 			DMG_SetError(DMG_ERROR_NONE);
+			#if DEBUG_DOS_PICTURE_TIMINGS
 			if (traceThisPicture)
 			{
 				uint32_t tLoadEnd;
 				VID_GetMilliseconds(&tLoadEnd);
-				DebugPrintf("DOSVID: LoadPicture native fallback decode OK (%dx%d fixed=%u)\n",
-					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
 				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=native-fallback\n", (unsigned long)(tLoadEnd - tLoadStart));
 			}
+			#endif
 			return;
 		}
 
 		bufferedEntry = NULL;
 		bufferedPictureIndexed = false;
+		#if DEBUG_DOS_PICTURE_TIMINGS
 		if (traceThisPicture)
 		{
 			uint32_t tLoadEnd;
 			VID_GetMilliseconds(&tLoadEnd);
-			DebugPrintf("DOSVID: LoadPicture decode failed in indexed adapter path (pic=%u err=%d)\n",
-				(unsigned)picno, (int)DDB_GetError());
 			DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed-fail\n", (unsigned long)(tLoadEnd - tLoadStart));
 		}
+		#endif
 		return;
 	}
 
@@ -1587,36 +1615,37 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 		{
 			DMG_SetError(DMG_ERROR_NONE);
 			bufferedPictureIndexed = true;
+			#if DEBUG_DOS_PICTURE_TIMINGS
 			if (traceThisPicture)
 			{
 				uint32_t tLoadEnd;
 				VID_GetMilliseconds(&tLoadEnd);
-				DebugPrintf("DOSVID: LoadPicture indexed fallback decode OK (%dx%d fixed=%u)\n",
-					entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
 				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=indexed-fallback\n", (unsigned long)(tLoadEnd - tLoadStart));
 			}
+			#endif
 		}
 		else
 		{
 			bufferedEntry = NULL;
 			bufferedPictureIndexed = false;
+			#if DEBUG_DOS_PICTURE_TIMINGS
 			if (traceThisPicture)
 			{
 				uint32_t tLoadEnd;
 				VID_GetMilliseconds(&tLoadEnd);
-				DebugPrintf("DOSVID: LoadPicture decode failed (pic=%u err=%d)\n", (unsigned)picno, (int)DDB_GetError());
 				DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=decode-fail\n", (unsigned long)(tLoadEnd - tLoadStart));
 			}
+			#endif
 		}
 	}
+	#if DEBUG_DOS_PICTURE_TIMINGS
 	else if (traceThisPicture)
 	{
 		uint32_t tLoadEnd;
 		VID_GetMilliseconds(&tLoadEnd);
-		DebugPrintf("DOSVID: LoadPicture native decode OK (%dx%d fixed=%u)\n",
-			entry->width, entry->height, (entry->flags & DMG_FLAG_FIXED) ? 1u : 0u);
 		DebugPrintf("DOSVID: LoadPicture timing total=%lu ms stage=native\n", (unsigned long)(tLoadEnd - tLoadStart));
 	}
+	#endif
 }
 
 void VID_OpenFileDialog (bool existing, char* filename, size_t bufferSize)
@@ -1753,15 +1782,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 	if (mode == ScreenMode_VGA16 || mode == ScreenMode_VGA || mode == ScreenMode_SHiRes)
 	{
 		DebugPrintf("DOSVID: VGA BIOS presence check for mode %u\n", (unsigned)mode);
-		union REGS regs;
-		regs.w.ax = 0x1A00;
-#if defined(__386__)
-		int386(0x10, &regs, &regs);
-#else
-		int86(0x10, &regs, &regs);
-#endif
-		DebugPrintf("DOSVID: INT10h AX=1A00 returned AL=0x%02X\n", (unsigned)regs.h.al);
-		if (regs.h.al != 0x1A)
+		if (!DOS_HasVGABIOS())
 		{
 			DebugPrintf("DOSVID: VGA BIOS presence check failed\n");
 			DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);

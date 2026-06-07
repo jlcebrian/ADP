@@ -17,11 +17,11 @@ all : Release .SYMBOLIC
 
 Debug : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 DEBUG=1 all
+	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 DOS_DEBUG_BUILD=1 all
 
 Release : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 all
+	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 all
 
 clean : .SYMBOLIC
 	@if exist $(OBJDIR)/*.obj      @rm $(OBJDIR)/*.obj
@@ -39,10 +39,9 @@ VERSION_DEF = -DVERSION=\"$(VERSION)\"
 CC    = wpp386
 CL    = wcl386
 OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
-OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING -DHAS_PSG
+OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING
 OPTIM = -osexanuc -zc -3 -r
 LOPTS = -l=CAUSEWAY
-UPX   = upx
 #OPTIM=-onatx -oh -ei -zp8 -3
 
 !else
@@ -50,13 +49,12 @@ UPX   = upx
 CC     = wpp
 CL     = wcl
 OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm $(VERSION_DEF)
-OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_PCX -DHAS_XMSG -DNO_BUFFERING
+OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING
 OPTIM  = -osexanuc
-UPX    = upx
 
 !endif
 
-!ifdef DEBUG
+!ifdef DOS_DEBUG_BUILD
 OPTS  += -D_DEBUGPRINT -DDEBUG_ALLOCS
 #OPTS  += -DDEBUG_IMAGE_CACHE
 OPTIM += -d1
@@ -71,11 +69,9 @@ OBJS = 		      &
 	ddb.obj       &
 	ddb_pal.obj   &
 	ddb_play.obj  &
-	ddb_psg.obj   &
 	ddb_xmsg.obj  &
 	dmg.obj       &
 	dmg_font.obj  &
-	dmg_pcx.obj   &
 	dmg_cga.obj   &
 	dmg_ega.obj   &
 	dmg_cach.obj  &
@@ -121,8 +117,8 @@ $(ROOT)/out/$(EXE): $(OBJS)
 	@echo OPTION STACK=12K >> objs.lnk
 	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
 	$(CL) $(OPTS) $(OPTIM) $(LOPTS) -fe=$@ @objs.lnk
-!ifdef UPX
-	$(UPX) $@ >/dev/null
+!ifndef DOS_DEBUG_BUILD
+	upx $@ >/dev/null
 !endif
 	@find $(ROOT)/tests/dos/ -type d -exec echo cp $@ {} \;
 	@find $(ROOT)/tests/dos/ -type d -exec cp $@ {} \;

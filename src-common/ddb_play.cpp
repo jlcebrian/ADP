@@ -918,9 +918,9 @@ static uint16_t Read16BE(const uint8_t* ptr)
 	return (uint16_t)(((uint16_t)ptr[0] << 8) | ptr[1]);
 }
 
-static bool ProbeDAT5Header(const char* fileName, uint16_t* width, uint16_t* height, uint8_t* colorMode)
+static bool ProbeDAT5HeaderExact(const char* datFileName, uint16_t* width, uint16_t* height, uint8_t* colorMode)
 {
-	File* dat = File_Open(ChangeExtension(fileName, ".dat"), ReadOnly);
+	File* dat = File_Open(datFileName, ReadOnly);
 	if (dat == 0)
 		return false;
 
@@ -940,6 +940,13 @@ static bool ProbeDAT5Header(const char* fileName, uint16_t* width, uint16_t* hei
 	return true;
 }
 
+static bool ProbeDAT5Header(const char* fileName, uint16_t* width, uint16_t* height, uint8_t* colorMode)
+{
+	if (ProbeDAT5HeaderExact(ChangeExtension(fileName, ".dat"), width, height, colorMode))
+		return true;
+	return ProbeDAT5HeaderExact(ChangeExtension(fileName, ".DAT"), width, height, colorMode);
+}
+
 #ifdef _AMIGA
 static uint8_t GetAmigaDisplayColorModeHint(const char* fileName)
 {
@@ -952,6 +959,23 @@ static uint8_t GetAmigaDisplayColorModeHint(const char* fileName)
 
 static bool ValidateResolvedVideoConfig(const char* fileName, DDB_Machine machine, DDB_ScreenMode screenMode, uint8_t planes)
 {
+#ifdef _DOS
+	uint16_t width = 0;
+	uint16_t height = 0;
+	uint8_t colorMode = 0;
+	if (ProbeDAT5Header(fileName, &width, &height, &colorMode) && !DMG_DAT5ModeIsDOSSupported(colorMode))
+	{
+		DebugPrintf("Rejecting unsupported DAT5 during DOS initial probe (mode=%u size=%ux%u planes=%u screen=%u)\n",
+			(unsigned)colorMode,
+			(unsigned)width,
+			(unsigned)height,
+			(unsigned)planes,
+			(unsigned)screenMode);
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+#endif
+
 #ifdef _AMIGA
 	if (planes >= 8 && !VID_IsAGAAvailable())
 	{
@@ -1138,6 +1162,15 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 		return false;
 
 #ifdef _DOS
+	if (resolvedMachine != DDB_MACHINE_IBMPC &&
+		resolvedMachine != DDB_MACHINE_AMIGA &&
+		resolvedMachine != DDB_MACHINE_ATARIST)
+	{
+		DebugPrintf("ResolveDDBVideoConfig: rejecting unsupported %s DDB on DOS renderer\n",
+			DDB_DescribeMachine(resolvedMachine));
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
 	if (resolvedMachine != DDB_MACHINE_IBMPC)
 	{
 		DebugPrintf("ResolveDDBVideoConfig: overriding machine %s -> IBM PC for DOS renderer\n",
@@ -1168,6 +1201,17 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 			startupScreenModeOverride = ScreenMode_Default;
 		}
 
+		#ifdef _DOS
+		uint32_t playableModes = supportedModes & VID_GetSupportedDataFileModes();
+		if (playableModes == 0 && startupScreenModeOverride == ScreenMode_Default)
+		{
+			DebugPrintf("No DOS-playable data file mode found (data=0x%08lX)\n",
+				(unsigned long)supportedModes);
+			DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+			return false;
+		}
+		#endif
+
 		DDB_ScreenMode selectedMode = startupVideoModePolicy == DDB_StartupVideoModePolicy_OverrideOrHighest ?
 			ChooseHighestScreenModeForMask(supportedModes, resolvedScreenMode) :
 			ChooseDefaultScreenModeForMask(supportedModes, resolvedScreenMode);
@@ -1185,6 +1229,23 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 				selectedMode = startupScreenModeOverride;
 			}
 		}
+		#ifdef _DOS
+		if (startupScreenModeOverride == ScreenMode_Default)
+		{
+			if (playableModes == 0)
+			{
+				DebugPrintf("No DOS-playable data file mode found after override validation (data=0x%08lX)\n",
+					(unsigned long)supportedModes);
+				DDB_SetError(DDB_ERROR_VIDEO_HARDWARE_NOT_SUPPORTED);
+				return false;
+			}
+			if (startupVideoModePolicy == DDB_StartupVideoModePolicy_Configurable &&
+				startupConfig.hasVideoMode && (playableModes & GetScreenModeFlag(startupConfig.videoMode)) != 0)
+				selectedMode = startupConfig.videoMode;
+			else
+				selectedMode = ChooseHighestScreenModeForMask(playableModes, resolvedScreenMode);
+		}
+		#else
 		else if (startupVideoModePolicy == DDB_StartupVideoModePolicy_Configurable &&
 			startupConfig.hasVideoMode && (supportedModes & GetScreenModeFlag(startupConfig.videoMode)) != 0)
 			selectedMode = startupConfig.videoMode;
@@ -1195,6 +1256,7 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 					SaveStartupVideoMode(fileName, selectedMode);
 			#endif
 		}
+		#endif
 
 		if (!DDB_ResolveDataFile(fileName, resolvedMachine, selectedMode, 0, 0, &resolvedScreenMode, &resolvedPlanes))
 		{

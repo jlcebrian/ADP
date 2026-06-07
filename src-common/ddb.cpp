@@ -1022,25 +1022,22 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 	uint32_t mask = 0;
 	const char* extension = StrRChr(path, '.');
 
-	if (extension != 0)
-	{
-		if (StrIComp(extension, ".cga") == 0)
-		{
-			mode = ScreenMode_CGA;
-			mask = DDB_DataFileMode_CGA;
-		}
-		else if (StrIComp(extension, ".ega") == 0)
-		{
-			mode = ScreenMode_EGA;
-			mask = DDB_DataFileMode_EGA;
-		}
-	}
-
-	if (mask == 0 && header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
+	if (header[0] == 'D' && header[1] == 'A' && header[2] == 'T' && header[3] == 0 && header[4] == 0 && header[5] == 5)
 	{
 		uint16_t width = read16BE(header + 0x06);
 		uint16_t height = read16BE(header + 0x08);
 		uint8_t colorMode = header[0x0E];
+		#ifdef _DOS
+		if (!DMG_DAT5ModeIsDOSSupported(colorMode))
+		{
+			DebugPrintf("DDB_ProbeDataFile: rejecting DOS-unsupported DAT5 %s colorMode=%u size=%ux%u\n",
+				path,
+				(unsigned)colorMode,
+				(unsigned)width,
+				(unsigned)height);
+			return false;
+		}
+		#endif
 		planes = DMG_DAT5ModePlaneCount(colorMode);
 		if (planes == 0)
 			planes = 4;
@@ -1067,6 +1064,19 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 			(unsigned)mode,
 			(unsigned)planes,
 			(unsigned long)mask);
+	}
+	else if (extension != 0)
+	{
+		if (StrIComp(extension, ".cga") == 0)
+		{
+			mode = ScreenMode_CGA;
+			mask = DDB_DataFileMode_CGA;
+		}
+		else if (StrIComp(extension, ".ega") == 0)
+		{
+			mode = ScreenMode_EGA;
+			mask = DDB_DataFileMode_EGA;
+		}
 	}
 	else if (mask == 0)
 	{
@@ -1130,8 +1140,8 @@ uint32_t DDB_GetDataFileModes(const char* fileName, DDB_Machine target)
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".CGA"), target, ScreenMode_CGA, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".vga"), target, ScreenMode_VGA16, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".VGA"), target, ScreenMode_VGA16, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".sga"), target, ScreenMode_VGA, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".SGA"), target, ScreenMode_VGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".sga"), target, ScreenMode_SHiRes, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".SGA"), target, ScreenMode_SHiRes, &mask, 0, 0);
 	return mask;
 }
 
@@ -1153,8 +1163,8 @@ bool DDB_ResolveDataFile(const char* fileName, DDB_Machine target, DDB_ScreenMod
 		{ ".CGA", ScreenMode_CGA },
 		{ ".vga", ScreenMode_VGA16 },
 		{ ".VGA", ScreenMode_VGA16 },
-		{ ".sga", ScreenMode_VGA },
-		{ ".SGA", ScreenMode_VGA },
+		{ ".sga", ScreenMode_SHiRes },
+		{ ".SGA", ScreenMode_SHiRes },
 		{ 0, ScreenMode_Default },
 	};
 

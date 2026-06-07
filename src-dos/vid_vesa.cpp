@@ -304,16 +304,6 @@ static uint32_t VESA_Offset(unsigned page, int x, int y)
 	return vesaPageOffset[page] + (uint32_t)y * vesaLineSize + (uint32_t)x;
 }
 
-static uint32_t VESA_DebugChecksumBytes(const uint8_t* data, uint32_t size)
-{
-	uint32_t sum = 0;
-	if (data == 0)
-		return 0;
-	for (uint32_t n = 0; n < size; n++)
-		sum = (sum * 33u) ^ data[n];
-	return sum;
-}
-
 static bool VESA_IsPowerOfTwo(uint32_t value)
 {
 	return value != 0 && (value & (value - 1)) == 0;
@@ -1374,7 +1364,6 @@ static void VESA_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length
 
 static void VESA_BlitIndexedImage(const uint8_t* pixels, int srcW, int x, int y, int w, int h)
 {
-	static uint16_t debugBlitCount = 0;
 	VID_CommonState* state = VID_CommonGetState();
 	unsigned page = state->activePage;
 	if (pixels == 0 || srcW <= 0 || page >= vesaPageCount)
@@ -1387,45 +1376,11 @@ static void VESA_BlitIndexedImage(const uint8_t* pixels, int srcW, int x, int y,
 
 	uint32_t dst = VESA_Offset(page, x, y);
 	const uint8_t* src = pixels + (uint32_t)sy * srcW + sx;
-	const uint8_t* srcStart = src;
-	uint32_t dstStart = dst;
-	uint32_t srcChecksum = 0;
-	uint32_t vramChecksum = 0;
-	bool debugThisBlit = debugBlitCount < 16;
 	for (int row = 0; row < h; row++)
 	{
-		if (debugThisBlit)
-			srcChecksum ^= VESA_DebugChecksumBytes(src, (uint32_t)w) + (uint32_t)row * 0x9E3779B9UL;
 		VESA_WriteSpan(dst, src, w);
 		dst += vesaLineSize;
 		src += srcW;
-	}
-	if (debugThisBlit)
-	{
-		uint8_t temp[640];
-		uint32_t readOffset = dstStart;
-		for (int row = 0; row < h; row++)
-		{
-			VESA_ReadSpan(temp, readOffset, w);
-			vramChecksum ^= VESA_DebugChecksumBytes(temp, (uint32_t)w) + (uint32_t)row * 0x9E3779B9UL;
-			readOffset += vesaLineSize;
-		}
-		DebugPrintf("VESA: BlitIndexed page=%u dst=%lu src=%p srcW=%d x=%d y=%d w=%d h=%d srcSum=0x%08lX vramSum=0x%08lX first=%02X %02X %02X %02X\n",
-			page,
-			(unsigned long)dstStart,
-			srcStart,
-			srcW,
-			x,
-			y,
-			w,
-			h,
-			(unsigned long)srcChecksum,
-			(unsigned long)vramChecksum,
-			w > 0 ? srcStart[0] : 0,
-			w > 1 ? srcStart[1] : 0,
-			w > 2 ? srcStart[2] : 0,
-			w > 3 ? srcStart[3] : 0);
-		debugBlitCount++;
 	}
 	VESA_PresentActiveRectIfFront(x, y, w, h);
 }

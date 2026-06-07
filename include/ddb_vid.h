@@ -21,6 +21,7 @@ enum VID_ClearMode
 };
 
 extern bool   VID_Initialize          (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mode);
+extern uint32_t VID_GetSupportedDataFileModes();
 extern void   VID_SetDisplayPlanesHint(uint8_t planes);
 extern void   VID_Finish              ();
 

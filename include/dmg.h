@@ -11,11 +11,7 @@
 #define DMG_CACHE_BLOCKS	    128
 
 #ifndef DEBUG_ZX0
-	#if defined(_DOS) && defined(_DEBUGPRINT)
-		#define DEBUG_ZX0 1
-	#else
-		#define DEBUG_ZX0 0
-	#endif
+	#define DEBUG_ZX0 0
 #endif
 
 enum DMG_Error
@@ -132,6 +128,30 @@ extern DMG_ImageMode screenMode;
 #define DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES 0
 #endif
 
+#ifndef DMG_SUPPORT_DAT5_PLANAR_SOURCES
+#if defined(_DOS)
+#define DMG_SUPPORT_DAT5_PLANAR_SOURCES 0
+#else
+#define DMG_SUPPORT_DAT5_PLANAR_SOURCES 1
+#endif
+#endif
+
+#ifndef DMG_SUPPORT_DAT5_ST_SOURCES
+#if defined(_DOS)
+#define DMG_SUPPORT_DAT5_ST_SOURCES 0
+#else
+#define DMG_SUPPORT_DAT5_ST_SOURCES 1
+#endif
+#endif
+
+#ifndef DMG_SUPPORT_DAT5_INDEXEDX_SOURCES
+#if defined(_DOS)
+#define DMG_SUPPORT_DAT5_INDEXEDX_SOURCES 0
+#else
+#define DMG_SUPPORT_DAT5_INDEXEDX_SOURCES 1
+#endif
+#endif
+
 #ifndef DMG_SUPPORT_CROSS_ENDIAN_SOURCES
 #if defined(_AMIGA) || defined(_ATARIST)
 #define DMG_SUPPORT_CROSS_ENDIAN_SOURCES 0
@@ -220,6 +240,19 @@ static inline bool DMG_DAT5ModeIsIndexed(uint8_t mode)
 static inline bool DMG_DAT5ModeIsIndexedX(uint8_t mode)
 {
 	return (DMG_DAT5ColorMode)mode == DMG_DAT5_COLORMODE_INDEXEDX;
+}
+
+static inline bool DMG_DAT5ModeIsDOSSupported(uint8_t mode)
+{
+	switch ((DMG_DAT5ColorMode)mode)
+	{
+		case DMG_DAT5_COLORMODE_CGA:
+		case DMG_DAT5_COLORMODE_EGA:
+		case DMG_DAT5_COLORMODE_INDEXED:
+			return true;
+		default:
+			return false;
+	}
 }
 
 static inline bool DMG_DAT5ModeIsPlaneMajor(uint8_t mode)
