@@ -27,6 +27,8 @@ struct DC_Text
 	char*  data;
 	size_t size;
 	size_t capacity;
+	const char* sourceFile;
+	int sourceLine;
 };
 
 struct DC_Define
@@ -474,10 +476,20 @@ static bool TextEndsWithBreak(DC_Text* text)
 	return text->size >= 2 && text->data[text->size - 2] == '\\' && text->data[text->size - 1] == 'n';
 }
 
+static void CaptureTextOrigin(DC_Context* ctx, DC_Text* text)
+{
+	if (text->sourceLine == 0)
+	{
+		text->sourceFile = ctx->currentSourceFile;
+		text->sourceLine = ctx->currentSourceLine;
+	}
+}
+
 static bool AppendTextLine(DC_Context* ctx, DC_Text* text, DC_String line)
 {
 	if (StringEmpty(line))
 		return true;
+	CaptureTextOrigin(ctx, text);
 	if (text->size != 0 && !TextEndsWithBreak(text))
 	{
 		uint8_t space = ' ';
@@ -490,6 +502,7 @@ static bool AppendTextLine(DC_Context* ctx, DC_Text* text, DC_String line)
 static bool AppendTextBreak(DC_Context* ctx, DC_Text* text)
 {
 	static const uint8_t lineBreak[] = { '\\', 'n' };
+	CaptureTextOrigin(ctx, text);
 	return AppendTextBytes(ctx, text, lineBreak, 2);
 }
 
@@ -1142,14 +1155,58 @@ static bool PreprocessFile(DC_Context* ctx, const char* path, DC_SourceLine** li
 	return true;
 }
 
-static uint8_t EncodeCodepointToDAAD(uint32_t codepoint)
+static bool TryEncodeCodepointToDAADText(DC_Context* ctx, uint32_t codepoint, uint8_t* value)
 {
+	for (size_t i = ctx->opts.translationCount; i > 0; i--)
+	{
+		const DC_CharTranslation* tr = &ctx->opts.translations[i - 1];
+		if (tr->unicode == codepoint)
+		{
+			*value = tr->code;
+			return true;
+		}
+	}
+
 	if (codepoint < 0x80)
-		return (uint8_t)codepoint;
-	uint8_t daadCode = '?';
-	if (!DC_ConvertUnicodeToDAAD((int)codepoint, &daadCode))
-		daadCode = '?';
-	return daadCode;
+	{
+		*value = (uint8_t)codepoint;
+		return true;
+	}
+
+	// DDB text charset supports ASCII plus these Spanish characters in 0x10..0x1F.
+	switch (codepoint)
+	{
+		case 0x00AA: *value = 0x10; return true; // ª
+		case 0x00A1: *value = 0x11; return true; // ¡
+		case 0x00BF: *value = 0x12; return true; // ¿
+		case 0x00AB: *value = 0x13; return true; // «
+		case 0x00BB: *value = 0x14; return true; // »
+		case 0x00E1: *value = 0x15; return true; // á
+		case 0x00E9: *value = 0x16; return true; // é
+		case 0x00ED: *value = 0x17; return true; // í
+		case 0x00F3: *value = 0x18; return true; // ó
+		case 0x00FA: *value = 0x19; return true; // ú
+		case 0x00F1: *value = 0x1A; return true; // ñ
+		case 0x00D1: *value = 0x1B; return true; // Ñ
+		case 0x00E7: *value = 0x1C; return true; // ç
+		case 0x00C7: *value = 0x1D; return true; // Ç
+		case 0x00FC: *value = 0x1E; return true; // ü
+		case 0x00DC: *value = 0x1F; return true; // Ü
+		case 0x00A0: *value = 0x7F; return true; // non-breakable space
+		default: break;
+	}
+
+	return false;
+}
+
+static void SetUnsupportedCodepointFailure(DC_Context* ctx, uint32_t codepoint)
+{
+	char message[96];
+	if (codepoint <= 0xFFFF)
+		snprintf(message, sizeof(message), "Unsupported UTF-8 character U+%04X for DDB text encoding", (unsigned)codepoint);
+	else
+		snprintf(message, sizeof(message), "Unsupported UTF-8 character U+%06X for DDB text encoding", (unsigned)codepoint);
+	SetFailure(ctx, DCError_Unsupported, message);
 }
 
 static bool MapLegacySourceControl(uint32_t codepoint, uint8_t* value)
@@ -1254,8 +1311,17 @@ static bool AppendEncodedPlain(DC_Context* ctx, DC_BufferBuilder* out, DC_String
 		}
 		uint32_t codepoint = 0;
 		if (!DecodeUTF8Codepoint(text, &i, &codepoint))
-			codepoint = '?';
-		if (!AppendByte(ctx, out, EncodeCodepointToDAAD(codepoint)))
+		{
+			SetFailure(ctx, DCError_SyntaxError, "Malformed UTF-8 sequence");
+			return false;
+		}
+		uint8_t encoded = 0;
+		if (!TryEncodeCodepointToDAADText(ctx, codepoint, &encoded))
+		{
+			SetUnsupportedCodepointFailure(ctx, codepoint);
+			return false;
+		}
+		if (!AppendByte(ctx, out, encoded))
 			return false;
 	}
 	return true;
@@ -1323,7 +1389,10 @@ static bool AppendMessagePlainBytes(DC_Context* ctx, DC_BufferBuilder* out, DC_S
 		}
 		uint32_t codepoint = 0;
 		if (!DecodeUTF8Codepoint(text, &i, &codepoint))
-			codepoint = '?';
+		{
+			SetFailure(ctx, DCError_SyntaxError, "Malformed UTF-8 sequence");
+			return false;
+		}
 		uint8_t legacyControl = 0;
 		if (MapLegacySourceControl(codepoint, &legacyControl))
 		{
@@ -1331,8 +1400,66 @@ static bool AppendMessagePlainBytes(DC_Context* ctx, DC_BufferBuilder* out, DC_S
 				return false;
 			continue;
 		}
-		if (!AppendByte(ctx, out, EncodeCodepointToDAAD(codepoint)))
+		uint8_t encoded = 0;
+		if (!TryEncodeCodepointToDAADText(ctx, codepoint, &encoded))
+		{
+			SetUnsupportedCodepointFailure(ctx, codepoint);
 			return false;
+		}
+		if (!AppendByte(ctx, out, encoded))
+			return false;
+	}
+	return true;
+}
+
+static bool ValidateTextLineEncoding(DC_Context* ctx, DC_String text, bool allowMessageControls)
+{
+	size_t size = (size_t)(text.end - text.ptr);
+	for (size_t i = 0; i < size;)
+	{
+		uint8_t escaped = 0;
+		if (TryParseEscape(text, &i, allowMessageControls, &escaped))
+			continue;
+
+		if (text.ptr[i] == '{')
+		{
+			size_t start = i + 1;
+			size_t end = start;
+			while (end < size && text.ptr[end] != '}')
+				end++;
+			if (end < size && end > start)
+			{
+				bool digits = true;
+				for (size_t n = start; n < end; n++)
+					digits = digits && IsDigit(text.ptr[n]);
+				if (digits)
+				{
+					i = end + 1;
+					continue;
+				}
+			}
+		}
+
+		uint32_t codepoint = 0;
+		if (!DecodeUTF8Codepoint(text, &i, &codepoint))
+		{
+			SetFailure(ctx, DCError_SyntaxError, "Malformed UTF-8 sequence");
+			return false;
+		}
+
+		uint8_t encoded = 0;
+		if (allowMessageControls)
+		{
+			uint8_t legacyControl = 0;
+			if (MapLegacySourceControl(codepoint, &legacyControl))
+				continue;
+		}
+
+		if (!TryEncodeCodepointToDAADText(ctx, codepoint, &encoded))
+		{
+			SetUnsupportedCodepointFailure(ctx, codepoint);
+			return false;
+		}
 	}
 	return true;
 }
@@ -2068,6 +2195,7 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 				DC_Text* token = AppendArray(ctx->arena, &model->tokens, &model->tokenCount, &model->tokenCapacity);
 				if (token == 0)
 					return false;
+				CaptureTextOrigin(ctx, token);
 				for (const uint8_t* p = trimmed.ptr; p < trimmed.end; p++)
 				{
 					uint8_t c = *p == (uint8_t)ctx->currentNullWordChar ? ' ' : *p;
@@ -2090,6 +2218,8 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 					SetFailure(ctx, DCError_SyntaxError, "Text outside item");
 					break;
 				}
+				if (!ValidateTextLineEncoding(ctx, line, true))
+					return false;
 				AppendTextLine(ctx, &currentTextTable[currentIndex], line);
 				break;
 			case Section_CON:
@@ -2197,16 +2327,28 @@ static uint16_t AppendMessageTable(DC_Context* ctx, DC_BufferBuilder* data, DC_T
 		return 0;
 	for (size_t i = 0; i < count; i++)
 	{
+		ctx->currentSourceFile = table[i].sourceFile;
+		ctx->currentSourceLine = table[i].sourceLine;
 		messageOffsets[i] = (uint16_t)data->size;
 		if (table[i].data != 0)
-			AppendMessage(ctx, data, MakeString(table[i].data), tokens, tokenCount, compress);
+		{
+			if (!AppendMessage(ctx, data, MakeString(table[i].data), tokens, tokenCount, compress))
+				return 0;
+		}
 		else
-			AppendByte(ctx, data, 0x0A ^ 0xFF);
+		{
+			if (!AppendByte(ctx, data, 0x0A ^ 0xFF))
+				return 0;
+		}
 	}
 	if ((data->size & 1) != 0)
-		AppendByte(ctx, data, 0);
+	{
+		if (!AppendByte(ctx, data, 0))
+			return 0;
+	}
 	uint16_t tableOffset = (uint16_t)data->size;
-	ResizeBytes(ctx, data, data->size + count * 2);
+	if (!ResizeBytes(ctx, data, data->size + count * 2))
+		return 0;
 	for (size_t i = 0; i < count; i++)
 		Write16(data->data, tableOffset + i * 2, messageOffsets[i], littleEndian);
 	return tableOffset;
@@ -2442,11 +2584,20 @@ static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* 
 	if (model->tokenCount != 0)
 	{
 		tokensOffset = (uint16_t)data.size;
-		AppendByte(ctx, &data, 0xFF);
+		if (!AppendByte(ctx, &data, 0xFF))
+			return false;
 		for (size_t i = 0; i < model->tokenCount; i++)
-			AppendToken(ctx, &data, MakeString(model->tokens[i].data != 0 ? model->tokens[i].data : ""));
+		{
+			ctx->currentSourceFile = model->tokens[i].sourceFile;
+			ctx->currentSourceLine = model->tokens[i].sourceLine;
+			if (!AppendToken(ctx, &data, MakeString(model->tokens[i].data != 0 ? model->tokens[i].data : "")))
+				return false;
+		}
 		if (model->tokenCount < 128)
-			AppendByte(ctx, &data, 0);
+		{
+			if (!AppendByte(ctx, &data, 0))
+				return false;
+		}
 	}
 
 	if (model->connectionCount < model->locationTextCount &&
@@ -2459,6 +2610,15 @@ static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* 
 	uint16_t msgTableOffset = AppendMessageTable(ctx, &data, model->messages, model->messageCount, littleEndian, model->tokens, model->tokenCount, false);
 	uint16_t objTableOffset = AppendMessageTable(ctx, &data, model->objectTexts, model->objectTextCount, littleEndian, model->tokens, model->tokenCount, false);
 	uint16_t locTableOffset = AppendMessageTable(ctx, &data, model->locationTexts, model->locationTextCount, littleEndian, model->tokens, model->tokenCount, true);
+	if ((model->systemMessageCount != 0 && sysTableOffset == 0) ||
+		(model->messageCount != 0 && msgTableOffset == 0) ||
+		(model->objectTextCount != 0 && objTableOffset == 0) ||
+		(model->locationTextCount != 0 && locTableOffset == 0))
+	{
+		if (DC_GetError() == DCError_None)
+			SetFailure(ctx, DCError_OutOfMemory, "Failed to build message tables");
+		return false;
+	}
 	uint16_t conTableOffset = AppendConnections(ctx, &data, model->connections, model->locationTextCount, littleEndian);
 	uint16_t objWordsOffset = AppendObjectWords(ctx, &data, model->objects, model->objectCount);
 	uint16_t objAttrOffset = AppendObjectAttributes(ctx, &data, model->objects, model->objectCount);

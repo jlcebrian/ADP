@@ -66,6 +66,12 @@ enum DC_Charset
 	DCCharset_CP437
 };
 
+struct DC_CharTranslation
+{
+	uint32_t unicode;
+	uint8_t  code;
+};
+
 struct DC_CompilerOptions
 {
 	DDB_Version  version;
@@ -77,6 +83,8 @@ struct DC_CompilerOptions
 	size_t       includePathCount;
 	const char** defines;
 	size_t       defineCount;
+	const DC_CharTranslation* translations;
+	size_t       translationCount;
 
 	bool         dumpPreprocessed;
 	bool         strict;

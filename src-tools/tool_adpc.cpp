@@ -5,12 +5,21 @@
 #include <os_mem.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char* kADPCVersion = VERSION_STR;
 
 struct ADPC_ArgList
 {
 	const char** items;
+	size_t count;
+	size_t capacity;
+};
+
+struct ADPC_TranslationList
+{
+	DC_CharTranslation* items;
 	size_t count;
 	size_t capacity;
 };
@@ -43,6 +52,118 @@ static void FreeArgList(ADPC_ArgList* list)
 	list->capacity = 0;
 }
 
+static bool AddTranslation(ADPC_TranslationList* list, const DC_CharTranslation* value)
+{
+	if (list->count == list->capacity)
+	{
+		size_t newCapacity = list->capacity == 0 ? 8 : list->capacity * 2;
+		DC_CharTranslation* items = Allocate<DC_CharTranslation>("adpc translations", (unsigned)newCapacity, false);
+		if (items == 0)
+			return false;
+		if (list->items != 0 && list->count != 0)
+			MemCopy(items, list->items, sizeof(DC_CharTranslation) * list->count);
+		if (list->items != 0)
+			Free(list->items);
+		list->items = items;
+		list->capacity = newCapacity;
+	}
+	list->items[list->count++] = *value;
+	return true;
+}
+
+static void FreeTranslationList(ADPC_TranslationList* list)
+{
+	if (list->items != 0)
+		Free(list->items);
+	list->items = 0;
+	list->count = 0;
+	list->capacity = 0;
+}
+
+static bool DecodeSingleUTF8(const char* text, size_t len, uint32_t* codepoint)
+{
+	if (text == 0 || len == 0 || codepoint == 0)
+		return false;
+	const uint8_t* s = (const uint8_t*)text;
+	if (s[0] < 0x80)
+	{
+		if (len != 1)
+			return false;
+		*codepoint = s[0];
+		return true;
+	}
+	if ((s[0] & 0xE0) == 0xC0)
+	{
+		if (len != 2 || (s[1] & 0xC0) != 0x80)
+			return false;
+		*codepoint = ((uint32_t)(s[0] & 0x1F) << 6) | (uint32_t)(s[1] & 0x3F);
+		return true;
+	}
+	if ((s[0] & 0xF0) == 0xE0)
+	{
+		if (len != 3 || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80)
+			return false;
+		*codepoint = ((uint32_t)(s[0] & 0x0F) << 12) | ((uint32_t)(s[1] & 0x3F) << 6) | (uint32_t)(s[2] & 0x3F);
+		return true;
+	}
+	if ((s[0] & 0xF8) == 0xF0)
+	{
+		if (len != 4 || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80 || (s[3] & 0xC0) != 0x80)
+			return false;
+		*codepoint = ((uint32_t)(s[0] & 0x07) << 18) | ((uint32_t)(s[1] & 0x3F) << 12) | ((uint32_t)(s[2] & 0x3F) << 6) | (uint32_t)(s[3] & 0x3F);
+		return true;
+	}
+	return false;
+}
+
+static bool ParseTranslation(const char* spec, DC_CharTranslation* translation)
+{
+	if (spec == 0 || translation == 0)
+		return false;
+	const char* equal = strchr(spec, '=');
+	if (equal == 0 || equal == spec || equal[1] == 0)
+		return false;
+	size_t leftLen = (size_t)(equal - spec);
+	uint32_t codepoint = 0;
+	if (!DecodeSingleUTF8(spec, leftLen, &codepoint))
+		return false;
+
+	char* end = 0;
+	long value = strtol(equal + 1, &end, 0);
+	if (end == equal + 1 || *end != 0 || value < 0 || value > 127)
+		return false;
+
+	translation->unicode = codepoint;
+	translation->code = (uint8_t)value;
+	return true;
+}
+
+static const char* NormalizeSingleLineError(const char* details)
+{
+	if (details == 0)
+		return "";
+	const char* firstColon = strchr(details, ':');
+	if (firstColon == 0)
+		return details;
+	const char* secondColon = strchr(firstColon + 1, ':');
+	if (secondColon == 0)
+		return details;
+	const char* message = secondColon + 1;
+	while (*message == ' ' || *message == '\t')
+		message++;
+	if (message == secondColon + 1)
+		return details;
+
+	static char normalized[32768];
+	size_t prefixLen = (size_t)(secondColon - details + 1);
+	if (prefixLen >= sizeof(normalized))
+		prefixLen = sizeof(normalized) - 1;
+	MemCopy(normalized, details, prefixLen);
+	normalized[prefixLen] = 0;
+	StrCat(normalized, sizeof(normalized), message);
+	return normalized;
+}
+
 static void ShowHelp()
 {
 	printf("ADP Compiler %s\n\n", kADPCVersion);
@@ -55,6 +176,7 @@ static void ShowHelp()
 	printf("  --language <lang>      english or spanish\n");
 	printf("  --charset <mode>       auto, utf8, cp437\n");
 	printf("  -DNAME[=VALUE]         Predefine a symbol for preprocessing\n");
+	printf("  --tr C=NN              Translate UTF-8 character C to DDB code NN (0..127), can be repeated\n");
 	printf("  -I <path>              Add include search path\n");
 	printf("  --dump-preprocessed    Print preprocessed source to stdout\n");
 	printf("  --strict               Treat unsupported directives as errors\n");
@@ -130,6 +252,7 @@ int main(int argc, char* argv[])
 
 	ADPC_ArgList includePaths = {};
 	ADPC_ArgList defines = {};
+	ADPC_TranslationList translations = {};
 	const char* inputFileName = 0;
 	const char* outputFileName = 0;
 
@@ -141,6 +264,7 @@ int main(int argc, char* argv[])
 			ShowHelp();
 			FreeArgList(&includePaths);
 			FreeArgList(&defines);
+			FreeTranslationList(&translations);
 			return 0;
 		}
 		if (StrComp(arg, "--dump-preprocessed") == 0)
@@ -194,6 +318,20 @@ int main(int argc, char* argv[])
 			AddArg(&includePaths, argv[++i]);
 			continue;
 		}
+		if (StrComp(arg, "--tr") == 0 && i + 1 < argc)
+		{
+			DC_CharTranslation translation = {};
+			const char* value = argv[++i];
+			if (!ParseTranslation(value, &translation) || !AddTranslation(&translations, &translation))
+			{
+				fprintf(stderr, "Invalid translation: %s\n", value);
+				FreeArgList(&includePaths);
+				FreeArgList(&defines);
+				FreeTranslationList(&translations);
+				return 1;
+			}
+			continue;
+		}
 		if (StartsWithText(arg, "-D"))
 		{
 			AddArg(&defines, arg + 2);
@@ -225,6 +363,8 @@ int main(int argc, char* argv[])
 	opts.includePathCount = includePaths.count;
 	opts.defines = defines.items;
 	opts.defineCount = defines.count;
+	opts.translations = translations.items;
+	opts.translationCount = translations.count;
 
 	const DC_Compilation* compilation = DC_Compile(inputFileName, &opts);
 	if (compilation == 0)
@@ -236,12 +376,13 @@ int main(int argc, char* argv[])
 			if (errorCount > 1)
 				fprintf(stderr, "Compilation failed with %d errors:\n%s\n", errorCount, details);
 			else
-				fprintf(stderr, "%s: %s\n", DC_GetErrorString(), details);
+				fprintf(stderr, "%s\n", NormalizeSingleLineError(details));
 		}
 		else
-			fprintf(stderr, "%s: %s\n", inputFileName, DC_GetErrorString());
+			fprintf(stderr, "%s:%s\n", inputFileName, DC_GetErrorString());
 		FreeArgList(&includePaths);
 		FreeArgList(&defines);
+		FreeTranslationList(&translations);
 		return 1;
 	}
 
@@ -251,6 +392,7 @@ int main(int argc, char* argv[])
 		DC_FreeCompilation(compilation);
 		FreeArgList(&includePaths);
 		FreeArgList(&defines);
+		FreeTranslationList(&translations);
 		return 1;
 	}
 
@@ -258,5 +400,6 @@ int main(int argc, char* argv[])
 	DC_FreeCompilation(compilation);
 	FreeArgList(&includePaths);
 	FreeArgList(&defines);
+	FreeTranslationList(&translations);
 	return 0;
 }

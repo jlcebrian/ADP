@@ -1030,11 +1030,11 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 		#ifdef _DOS
 		if (!DMG_DAT5ModeIsDOSSupported(colorMode))
 		{
-			DebugPrintf("DDB_ProbeDataFile: rejecting DOS-unsupported DAT5 %s colorMode=%u size=%ux%u\n",
-				path,
-				(unsigned)colorMode,
-				(unsigned)width,
-				(unsigned)height);
+			// DebugPrintf("DDB_ProbeDataFile: rejecting DOS-unsupported DAT5 %s colorMode=%u size=%ux%u\n",
+			// 	path,
+			// 	(unsigned)colorMode,
+			// 	(unsigned)width,
+			// 	(unsigned)height);
 			return false;
 		}
 		#endif
@@ -1056,14 +1056,14 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 			mode = ScreenMode_SHiRes;
 
 		mask = DDB_GetDataFileModeFlag(mode);
-		DebugPrintf("DDB_ProbeDataFile: %s DAT5 colorMode=%u size=%ux%u screen=%u planes=%u mask=0x%08lX\n",
-			path,
-			(unsigned)colorMode,
-			(unsigned)width,
-			(unsigned)height,
-			(unsigned)mode,
-			(unsigned)planes,
-			(unsigned long)mask);
+		// DebugPrintf("DDB_ProbeDataFile: %s DAT5 colorMode=%u size=%ux%u screen=%u planes=%u mask=0x%08lX\n",
+		// 	path,
+		// 	(unsigned)colorMode,
+		// 	(unsigned)width,
+		// 	(unsigned)height,
+		// 	(unsigned)mode,
+		// 	(unsigned)planes,
+		// 	(unsigned long)mask);
 	}
 	else if (extension != 0)
 	{
@@ -1192,12 +1192,12 @@ bool DDB_ResolveDataFile(const char* fileName, DDB_Machine target, DDB_ScreenMod
 		}
 		if (planes)
 			*planes = nativePlanes;
-		DebugPrintf("DDB_ResolveDataFile: selected %s requested=%u native=%u planes=%u mask=0x%08lX\n",
-			path,
-			(unsigned)requestedMode,
-			(unsigned)nativeMode,
-			(unsigned)nativePlanes,
-			(unsigned long)mask);
+		// DebugPrintf("DDB_ResolveDataFile: selected %s requested=%u native=%u planes=%u mask=0x%08lX\n",
+		// 	path,
+		// 	(unsigned)requestedMode,
+		// 	(unsigned)nativeMode,
+		// 	(unsigned)nativePlanes,
+		// 	(unsigned long)mask);
 		return true;
 	}
 
