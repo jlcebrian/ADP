@@ -51,6 +51,8 @@ static DDB_ScreenMode ParseScreenModeArgument(const char* arg)
 	if (StrIComp(arg, "ega") == 0)
 		return ScreenMode_EGA;
 	if (StrIComp(arg, "vga") == 0)
+		return ScreenMode_VGA;
+	if (StrIComp(arg, "vga16") == 0)
 		return ScreenMode_VGA16;
 	if (StrIComp(arg, "svga") == 0 || StrIComp(arg, "sga") == 0)
 		return ScreenMode_VGA;

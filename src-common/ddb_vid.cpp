@@ -337,6 +337,9 @@ void VID_SetDefaultPalette()
 
 void VID_ShowError(const char* msg)
 {
+	if (msg == 0)
+		return;
+
 	int bg = 0, cr = 0;
 	for (int n = 0; n < 16; n++)
 	{
@@ -349,11 +352,39 @@ void VID_ShowError(const char* msg)
 		}
 	}
 
-	VID_Clear(0, 0, 320, 10, bg);
-	
-	uint16_t x = 160 - StrLen(msg)*3;
-	for (int n = 0; msg[n]; n++, x+= 6)
-		VID_DrawCharacter(x, 1, msg[n], 0, 255);
+	// It may be the case globals such as screenWidth has not been initialized yet
+
+	int viewportWidth = screenWidth > 0 ? screenWidth : 320;
+	int textHeight = lineHeight > 0 ? lineHeight : 8;
+	int boxHeight = textHeight + 2;
+	if (boxHeight < 10)
+		boxHeight = 10;
+
+	VID_Clear(0, 0, viewportWidth, boxHeight, bg);
+
+	int textWidth = 0;
+	for (int n = 0; msg[n] != 0; n++)
+	{
+		uint8_t ch = (uint8_t)msg[n];
+		int width = charWidth[ch];
+		if (width <= 0)
+			width = columnWidth > 0 ? columnWidth : 6;
+		textWidth += width;
+	}
+
+	int x = (viewportWidth - textWidth) / 2;
+	if (x < 0)
+		x = 0;
+
+	for (int n = 0; msg[n] != 0; n++)
+	{
+		uint8_t ch = (uint8_t)msg[n];
+		int width = charWidth[ch];
+		if (width <= 0)
+			width = columnWidth > 0 ? columnWidth : 6;
+		VID_DrawCharacter(x, 1, ch, 0, 255);
+		x += width;
+	}
 
 	VID_WaitForKey();
 }

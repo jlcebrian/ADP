@@ -163,9 +163,10 @@ static bool GetModeSpecificIntroScreen(DDB_ScreenMode mode, const char** introSc
 	const char* extension = 0;
 	switch (mode)
 	{
-		case ScreenMode_EGA:   extension = ".egs"; break;
-		case ScreenMode_CGA:   extension = ".cgs"; break;
-		case ScreenMode_VGA16: extension = ".vgs"; break;
+		case ScreenMode_EGA:    extension = ".egs"; break;
+		case ScreenMode_CGA:    extension = ".cgs"; break;
+		case ScreenMode_VGA16:  extension = ".vgs"; break;
+		case ScreenMode_SHiRes: extension = ".scx"; break;
 		default: break;
 	}
 
@@ -1473,6 +1474,39 @@ static void DrawPromptBox(const char* const* lines, int lineCount, uint8_t ink)
 	int promptHeight = lineCount * lineHeight;
 	int promptX = startupConfig.hasBoxX ? startupConfig.boxX : (screenWidth - promptWidth) / 2;
 	int promptY = startupConfig.hasBoxY ? startupConfig.boxY : (screenHeight - promptHeight) / 2;
+	if (startupConfig.hasBoxY && lineHeight >= 16)
+		promptY <<= 1;
+
+	if (startupConfig.hasBoxX && (promptX < 0 || promptX + promptWidth > (int)screenWidth))
+	{
+		int scaledX = promptX >> 1;
+		if (scaledX >= 0 && scaledX + promptWidth <= (int)screenWidth)
+			promptX = scaledX;
+	}
+	if (startupConfig.hasBoxY && (promptY < 0 || promptY + promptHeight > (int)screenHeight))
+	{
+		int scaledY = promptY >> 1;
+		if (scaledY >= 0 && scaledY + promptHeight <= (int)screenHeight)
+			promptY = scaledY;
+	}
+
+	int minX = columnWidth;
+	int minY = lineHeight;
+	int maxX = (int)screenWidth - promptWidth - columnWidth;
+	int maxY = (int)screenHeight - promptHeight - lineHeight;
+	if (maxX < minX)
+		maxX = minX;
+	if (maxY < minY)
+		maxY = minY;
+	if (promptX < minX)
+		promptX = minX;
+	else if (promptX > maxX)
+		promptX = maxX;
+	if (promptY < minY)
+		promptY = minY;
+	else if (promptY > maxY)
+		promptY = maxY;
+
 	VID_Clear(promptX - columnWidth, promptY - lineHeight,
 		promptWidth + columnWidth * 2, promptHeight + lineHeight * 2, 0);
 
@@ -1483,6 +1517,25 @@ static void DrawPromptBox(const char* const* lines, int lineCount, uint8_t ink)
 			VID_DrawCharacter(promptX + x * columnWidth, promptY + y * lineHeight, lines[y][x], ink, 0);
 		}
 	}
+}
+
+static uint8_t GetAutoPromptInk()
+{
+	uint8_t best = 15;
+	int bestScore = -1;
+	for (int n = 1; n < 16; n++)
+	{
+		uint8_t r = 0, g = 0, b = 0;
+		VID_GetPaletteColor((uint8_t)n, &r, &g, &b);
+		int score = (int)r + (int)g + (int)b;
+		if (score > bestScore)
+		{
+			bestScore = score;
+			best = (uint8_t)n;
+		}
+	}
+
+	return best;
 }
 
 static void BuildPromptLine(char* output, size_t outputSize, const char* templateText, int value)
@@ -1519,7 +1572,8 @@ static void ShowLoaderPrompt(int parts, DDB_Language language)
 	}
 	lines[0] = line0;
 	lines[1] = line1;
-	DrawPromptBox(lines, 2, (uint8_t)startupConfig.ink);
+	uint8_t ink = startupConfig.hasInk ? (uint8_t)startupConfig.ink : GetAutoPromptInk();
+	DrawPromptBox(lines, 2, ink);
 }
 
 static void ShowDiskPrompt(int diskNumber, DDB_Language language)
@@ -1539,7 +1593,8 @@ static void ShowDiskPrompt(int diskNumber, DDB_Language language)
 	}
 	lines[0] = line0;
 	lines[1] = line1;
-	DrawPromptBox(lines, 2, (uint8_t)startupConfig.ink);
+	uint8_t ink = startupConfig.hasInk ? (uint8_t)startupConfig.ink : GetAutoPromptInk();
+	DrawPromptBox(lines, 2, ink);
 }
 
 static void LoaderScreenUpdate(int elapsed)
@@ -2015,6 +2070,13 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 	{
 		if (GetModeSpecificIntroScreen(preferredMode, introScreen))
 			return;
+	}
+
+	if ((preferredMode == ScreenMode_SHiRes || (preferredMode == ScreenMode_Default && *screenMode == ScreenMode_SHiRes)) &&
+		(scrCount = CountFiles(".scx")) > 0)
+	{
+		*introScreen = GetFile(".scx", 0);
+		return;
 	}
 
 	scrCount = CountFiles(".scr");

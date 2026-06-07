@@ -39,9 +39,9 @@ VERSION_DEF = -DVERSION=\"$(VERSION)\"
 CC    = wpp386
 CL    = wcl386
 OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
-OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING
+OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING -DHAS_PCX
 OPTIM = -osexanuc -zc -3 -r
-LOPTS = -l=CAUSEWAY
+LOPTS = -l=PMODEW
 #OPTIM=-onatx -oh -ei -zp8 -3
 
 !else
@@ -49,7 +49,7 @@ LOPTS = -l=CAUSEWAY
 CC     = wpp
 CL     = wcl
 OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm $(VERSION_DEF)
-OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING
+OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING -DHAS_PCX
 OPTIM  = -osexanuc
 
 !endif
@@ -71,6 +71,7 @@ OBJS = 		      &
 	ddb_play.obj  &
 	ddb_xmsg.obj  &
 	dmg.obj       &
+	dmg_pcx.obj   &
 	dmg_font.obj  &
 	dmg_cga.obj   &
 	dmg_ega.obj   &

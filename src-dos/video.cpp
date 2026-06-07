@@ -52,6 +52,10 @@ static uint16_t   pictureLoadTraceCount = 0;
 static uint16_t   pictureDisplayTraceCount = 0;
 #endif
 
+#if HAS_PCX
+static bool IsPCXScreenFile(const char* fileName);
+#endif
+
 DDB_Machine    screenMachine = DDB_MACHINE_IBMPC;
 DDB_ScreenMode screenMode = ScreenMode_VGA16;
 
@@ -211,6 +215,13 @@ static void ApplyIBMPCTextMetrics(bool enable2X)
 static bool TryDisplayDOSNativeSCRExact(const char* fileName, DDB_Machine target, bool* handled)
 {
 	*handled = false;
+	#if HAS_PCX
+	// Some games store PCX data in files using .SCR names.
+	// Let VID_DisplaySCRFile route those through the PCX path.
+	if (IsPCXScreenFile(fileName))
+		return true;
+	#endif
+
 	if (target != DDB_MACHINE_IBMPC)
 		return true;
 	if (screenMode != ScreenMode_CGA && screenMode != ScreenMode_EGA)
