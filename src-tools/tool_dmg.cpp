@@ -4689,7 +4689,8 @@ static bool ApplyCloneToEntry(DMG* dmg, int targetIndex, int cloneSource, const 
 {
     if (!DMG_ReuseEntryData(dmg, (uint8_t)targetIndex, (uint8_t)cloneSource))
     {
-        fprintf(stderr, "Error: Unable to clone entry %d into %d: %s\n", cloneSource, targetIndex, DMG_GetErrorString());
+        if (DMG_GetError() != DMG_ERROR_ENTRY_IS_EMPTY)
+            fprintf(stderr, "Error: Unable to clone entry %d into %d: %s\n", cloneSource, targetIndex, DMG_GetErrorString());
         return false;
     }
 
@@ -4720,7 +4721,107 @@ static bool ApplyCloneToEntry(DMG* dmg, int targetIndex, int cloneSource, const 
     return true;
 }
 
-static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+typedef struct
+{
+    bool pending;
+    int cloneSource;
+    PendingInputOptions options;
+}
+PendingCloneRequest;
+
+static void ClearPendingCloneRequest(PendingCloneRequest* pendingClones, int targetIndex)
+{
+    if (pendingClones == 0 || targetIndex < 0 || targetIndex > 255)
+        return;
+
+    pendingClones[targetIndex].pending = false;
+}
+
+static bool QueueCloneRequest(PendingCloneRequest* pendingClones, int targetIndex, int cloneSource, const PendingInputOptions* options)
+{
+    if (pendingClones == 0 || options == 0)
+        return false;
+    if (targetIndex < 0 || targetIndex > 255 || cloneSource < 0 || cloneSource > 255)
+    {
+        fprintf(stderr, "Error: Invalid clone source/target (%d -> %d)\n", cloneSource, targetIndex);
+        return false;
+    }
+
+    pendingClones[targetIndex].pending = true;
+    pendingClones[targetIndex].cloneSource = cloneSource;
+    pendingClones[targetIndex].options = *options;
+    return true;
+}
+
+static bool ResolvePendingCloneRequests(DMG* dmg, PendingCloneRequest* pendingClones)
+{
+    bool anyPending = false;
+    for (int i = 0; i < 256; i++)
+    {
+        if (pendingClones[i].pending)
+        {
+            anyPending = true;
+            break;
+        }
+    }
+    if (!anyPending)
+        return true;
+
+    while (true)
+    {
+        bool progress = false;
+        bool stillPending = false;
+
+        for (int target = 0; target < 256; target++)
+        {
+            if (!pendingClones[target].pending)
+                continue;
+
+            stillPending = true;
+            int cloneSource = pendingClones[target].cloneSource;
+            if (cloneSource < 0 || cloneSource > 255)
+            {
+                fprintf(stderr, "Error: Invalid clone source %d for target %d\n", cloneSource, target);
+                return false;
+            }
+
+            if (ApplyCloneToEntry(dmg, target, cloneSource, &pendingClones[target].options))
+            {
+                pendingClones[target].pending = false;
+                progress = true;
+                continue;
+            }
+
+            if (DMG_GetError() != DMG_ERROR_ENTRY_IS_EMPTY)
+                return false;
+        }
+
+        if (!stillPending)
+            return true;
+        if (progress)
+            continue;
+
+        for (int target = 0; target < 256; target++)
+        {
+            if (!pendingClones[target].pending)
+                continue;
+            int cloneSource = pendingClones[target].cloneSource;
+            if (cloneSource >= 0 && cloneSource <= 255)
+            {
+                DMG_Entry* source = DMG_GetEntry(dmg, (uint8_t)cloneSource);
+                if (source == 0 || source->type == DMGEntry_Empty)
+                {
+                    fprintf(stderr, "Error: Unable to resolve clone entry %03d: source %03d is not present in the DAT\n", target, cloneSource);
+                    return false;
+                }
+            }
+            fprintf(stderr, "Error: Unable to resolve clone entry %03d from source %03d\n", target, cloneSource);
+            return false;
+        }
+    }
+}
+
+static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved, PendingCloneRequest* pendingClones)
 {
     int cloneSource = 0;
     int selectionCount = CountSelectedEntries(currentSelection);
@@ -4751,6 +4852,12 @@ static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection,
         return false;
     }
 
+    if (cloneSource < 0 || cloneSource > 255)
+    {
+        fprintf(stderr, "Error: Invalid clone source: %d\n", cloneSource);
+        return false;
+    }
+
     if (*explicitSelection && selectionCount > 0)
     {
         int lastTarget = -1;
@@ -4759,7 +4866,15 @@ static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection,
             if (!currentSelection[i])
                 continue;
             if (!ApplyCloneToEntry(dmg, i, cloneSource, &effectiveOptions))
-                return false;
+            {
+                if (DMG_GetError() != DMG_ERROR_ENTRY_IS_EMPTY || !QueueCloneRequest(pendingClones, i, cloneSource, &effectiveOptions))
+                    return false;
+                printf("%03d: Deferred clone entry %03d\n", i, cloneSource);
+            }
+            else
+            {
+                ClearPendingCloneRequest(pendingClones, i);
+            }
             lastTarget = i;
         }
 
@@ -4786,7 +4901,15 @@ static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection,
     }
 
     if (!ApplyCloneToEntry(dmg, targetIndex, cloneSource, &effectiveOptions))
-        return false;
+    {
+        if (DMG_GetError() != DMG_ERROR_ENTRY_IS_EMPTY || !QueueCloneRequest(pendingClones, targetIndex, cloneSource, &effectiveOptions))
+            return false;
+        printf("%03d: Deferred clone entry %03d\n", targetIndex, cloneSource);
+    }
+    else
+    {
+        ClearPendingCloneRequest(pendingClones, targetIndex);
+    }
 
     SelectSingleEntry(currentSelection, targetIndex);
     *explicitSelection = false;
@@ -4796,7 +4919,7 @@ static bool ApplyCloneToken(DMG* dmg, const char* token, bool* currentSelection,
     return true;
 }
 
-static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved, PendingCloneRequest* pendingClones)
 {
     const char* path = token;
     const char* colon = strchr(token, ':');
@@ -4884,7 +5007,15 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     if (effectiveOptions.hasClone)
     {
         if (!ApplyCloneToEntry(dmg, targetIndex, effectiveOptions.cloneSource, &effectiveOptions))
-            return false;
+        {
+            if (DMG_GetError() != DMG_ERROR_ENTRY_IS_EMPTY || !QueueCloneRequest(pendingClones, targetIndex, effectiveOptions.cloneSource, &effectiveOptions))
+                return false;
+            printf("%03d: Deferred clone entry %03d\n", targetIndex, effectiveOptions.cloneSource);
+        }
+        else
+        {
+            ClearPendingCloneRequest(pendingClones, targetIndex);
+        }
         SelectSingleEntry(currentSelection, targetIndex);
         *explicitSelection = false;
         *currentIndex = targetIndex;
@@ -4892,6 +5023,8 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         ResetPendingInputOptions();
         return true;
     }
+
+    ClearPendingCloneRequest(pendingClones, targetIndex);
 
     if (bufferSize < LOAD_BUFFER_SIZE)
     {
@@ -5223,7 +5356,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
     return true;
 }
 
-static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved, PendingCloneRequest* pendingClones)
 {
     const char* path = token;
     const char* colon = strchr(token, ':');
@@ -5325,6 +5458,8 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
         DMG_UpdateEntry(dmg, (uint8_t)targetIndex);
     }
 
+    ClearPendingCloneRequest(pendingClones, targetIndex);
+
     printf("%03d: Added audio %s (%u bytes, %s)\n", targetIndex, path, sampleSize, DMG_DescribeFreq(sampleRate));
 
     SelectSingleEntry(currentSelection, targetIndex);
@@ -5335,10 +5470,10 @@ static bool ApplyAudioToken(DMG* dmg, const char* token, bool* currentSelection,
     return true;
 }
 
-static bool ApplyFileToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved)
+static bool ApplyFileToken(DMG* dmg, const char* token, bool* currentSelection, bool* explicitSelection, int* currentIndex, bool* currentFileSaved, PendingCloneRequest* pendingClones)
 {
     if (IsCloneToken(token))
-        return ApplyCloneToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved);
+        return ApplyCloneToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved, pendingClones);
 
     const char* path = token;
     const char* colon = strchr(token, ':');
@@ -5346,8 +5481,8 @@ static bool ApplyFileToken(DMG* dmg, const char* token, bool* currentSelection, 
         path = colon + 1;
 
     if (IsAudioToken(path))
-        return ApplyAudioToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved);
-    return ApplyImageToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved);
+        return ApplyAudioToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved, pendingClones);
+    return ApplyImageToken(dmg, token, currentSelection, explicitSelection, currentIndex, currentFileSaved, pendingClones);
 }
 
 static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
@@ -5357,7 +5492,9 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
     bool pendingInputRequiresFile = false;
     bool currentSelection[256];
     bool explicitSelection = false;
+    PendingCloneRequest pendingClones[256];
     ClearSelection(currentSelection);
+    MemClear(pendingClones, sizeof(pendingClones));
     ResetPendingInputOptions();
 
     for (int i = 0; i < tokenCount; i++)
@@ -5483,7 +5620,7 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
 
         if (IsCloneToken(token) || IsTargetedFileToken(token) || IsImageToken(token) || IsAudioToken(token))
         {
-            if (!ApplyFileToken(dmg, token, currentSelection, &explicitSelection, &currentIndex, &currentFileSaved))
+            if (!ApplyFileToken(dmg, token, currentSelection, &explicitSelection, &currentIndex, &currentFileSaved, pendingClones))
                 return false;
             pendingInputRequiresFile = false;
             continue;
@@ -5506,6 +5643,9 @@ static bool ParseEntryChanges(DMG* dmg, int tokenCount, const char* tokens[])
             fprintf(stderr, "Error: Option requires a following compatible input file\n");
         return false;
     }
+
+    if (!ResolvePendingCloneRequests(dmg, pendingClones))
+        return false;
 
     return true;
 }
