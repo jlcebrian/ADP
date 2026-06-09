@@ -1239,12 +1239,12 @@ static bool TryParseEscape(DC_String text, size_t* index, bool allowMessageContr
 	{
 		case 's': *value = ' '; *index += 2; return true;
 		case '\\': *value = '\\'; *index += 2; return true;
+		case 'f': *value = 0x7F; *index += 2; return true;
 		case 'b': if (allowMessageControls) { *value = 0x0B; *index += 2; return true; } break;
 		case 'k': if (allowMessageControls) { *value = 0x0C; *index += 2; return true; } break;
 		case 'n': if (allowMessageControls) { *value = 0x0D; *index += 2; return true; } break;
 		case 'g': if (allowMessageControls) { *value = 0x0E; *index += 2; return true; } break;
 		case 't': if (allowMessageControls) { *value = 0x0F; *index += 2; return true; } break;
-		case 'f': if (allowMessageControls) { *value = 0x7F; *index += 2; return true; } break;
 		default: break;
 	}
 	return false;

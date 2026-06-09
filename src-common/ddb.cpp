@@ -1078,7 +1078,7 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 			mask = DDB_DataFileMode_EGA;
 		}
 	}
-	else if (mask == 0)
+	if (mask == 0)
 	{
 		uint16_t signature = read16BE(header);
 		if (DDB_IsClassicDATSignature(signature))

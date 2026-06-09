@@ -15,6 +15,7 @@
 static bool trace = false;
 static bool force = false;
 static bool showMemoryMap = false;
+static bool dumpMessageSamples = true;
 
 static void PrintWarning(const char* message);
 
@@ -26,6 +27,7 @@ typedef enum
 	CLI_OPTION_TRANSCRIPT,
 	CLI_OPTION_INPUT,
 	CLI_OPTION_SCREEN,
+	CLI_OPTION_NO_MESSAGE_SAMPLES,
 	CLI_OPTION_HELP,
 }
 DDB_CLIOption;
@@ -379,7 +381,9 @@ void ShowHelp()
 	printf("\nOptions:\n\n");
 	printf("   -v, --trace             Show a trace of the program's execution\n");
     printf("   -f, --force             Force overwrite of output files\n");
-	printf("   -m, --memory-map        Show a DDB memory map in list mode\n");
+    printf("   -m, --memory-map        Show a DDB memory map in list mode\n");
+    printf("       --no-message-samples\n");
+    printf("                           Do not show message samples beside process code in dump mode\n");
     printf("   -o, --transcript FILE   Use FILE as transcript output file when running\n");
     printf("   -i, --input FILE        Use FILE as scripted input when running\n");
     printf("   -s, --screen MODE       Select screen mode for run/test: cga, ega, vga\n");
@@ -658,6 +662,8 @@ int main (int argc, char *argv[])
 		{ 'o', "transcript", CLI_OPTION_TRANSCRIPT, CLI_OPTION_REQUIRED_VALUE },
 		{ 'i', "input", CLI_OPTION_INPUT, CLI_OPTION_REQUIRED_VALUE },
 		{ 's', "screen", CLI_OPTION_SCREEN, CLI_OPTION_REQUIRED_VALUE },
+		{ 'S', "no-message-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
+		{ 'S', "no-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
 		{ 'h', "help", CLI_OPTION_HELP, CLI_OPTION_NONE },
 		{ 0, 0, 0, CLI_OPTION_NONE }
 	};
@@ -680,6 +686,7 @@ int main (int argc, char *argv[])
 	trace = CLI_HasOption(&commandLine, CLI_OPTION_TRACE);
 	force = CLI_HasOption(&commandLine, CLI_OPTION_FORCE);
 	showMemoryMap = CLI_HasOption(&commandLine, CLI_OPTION_MEMORY_MAP);
+	dumpMessageSamples = !CLI_HasOption(&commandLine, CLI_OPTION_NO_MESSAGE_SAMPLES);
 
 	if (action == ACTION_HELP || CLI_HasOption(&commandLine, CLI_OPTION_HELP))
 	{
@@ -702,6 +709,11 @@ int main (int argc, char *argv[])
 	if (showMemoryMap && action != ACTION_LIST)
 	{
 		fprintf(stderr, "Error: --memory-map is only valid with the list action\n");
+		return 1;
+	}
+	if (!dumpMessageSamples && action != ACTION_DUMP)
+	{
+		fprintf(stderr, "Error: --no-message-samples is only valid with the dump action\n");
 		return 1;
 	}
 	if ((transcriptFileName != 0 || scriptedInputFileName != 0 || screenOption != 0) &&
@@ -741,7 +753,9 @@ int main (int argc, char *argv[])
 
 	if (action == ACTION_DUMP)
 	{
-		DDB_Dump(ddb, printf);
+		DDB_DumpOptions dumpOptions;
+		dumpOptions.includeMessageSamples = dumpMessageSamples;
+		DDB_DumpWithOptions(ddb, printf, &dumpOptions);
 		DDB_Close(ddb);
 		if (mountedDiskImage)
 			File_UnmountDisk();

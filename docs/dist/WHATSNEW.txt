@@ -4,7 +4,7 @@
 
 ### All versions
 
-* **NEW:** Added a new DAT5 graphics database format, which adds support for 32 and 256 color modes.
+* **NEW:** Added a new DAT5 graphics database format, which adds support for new color modes and resolutions.
 * **NEW:** Added support for proportional SINTAC fonts.
 
 ### Desktop & web versions

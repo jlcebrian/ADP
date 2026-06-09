@@ -10,6 +10,27 @@ static uint8_t DDB_GetNullWordChar(DDB* ddb)
 	return ddb->nullWordChar == 0 ? '_' : ddb->nullWordChar;
 }
 
+static DDB_DumpOptions DDB_GetEffectiveDumpOptions(const DDB_DumpOptions* options)
+{
+	DDB_DumpOptions effectiveOptions;
+	effectiveOptions.includeMessageSamples = true;
+	if (options != 0)
+		effectiveOptions = *options;
+	return effectiveOptions;
+}
+
+static void DDB_DumpTextChar(uint8_t ch, DDB_PrintFunc print)
+{
+	if (ch == 0x7F)
+		print("\\f");
+	else
+	{
+		const char* utf8 = DDB_CharToUTF8(ch);
+		if (utf8 != 0)
+			print("%s", utf8);
+	}
+}
+
 const char* DDB_GetCondactName(DDB_Condact condact)
 {
 	static char error[32];
@@ -176,11 +197,7 @@ void DDB_DumpVocabularyWord (DDB* ddb, uint8_t type, uint8_t index, DDB_PrintFun
 		if (ptr[5] == index && ptr[6] == type)
 		{
 			for (int n = 0; n < 5; n++)
-			{
-				const char* utf8 = DDB_CharToUTF8((ptr[n] ^ 0xFF) & 0x7F);
-				if (utf8 != 0)
-					print("%s", utf8);
-			}
+				DDB_DumpTextChar((ptr[n] ^ 0xFF) & 0x7F, print);
 			return;
 		}
 		ptr += 7;
@@ -197,62 +214,146 @@ void DDB_DumpVocabularyWord (DDB* ddb, uint8_t type, uint8_t index, DDB_PrintFun
 	print("%-5d", index);
 }
 
+static void DDB_DumpMessageChar(uint8_t ch, DDB_PrintFunc print, bool preserveLayout)
+{
+	if (ch == 7 && preserveLayout)
+		print("\n");
+	else if (ch == ' ' && preserveLayout)
+		print(" ");
+	else if (ch == 0x0B)
+		print("\\b");
+	else if (ch == 0x0C)
+		print("\\k");
+	else if (ch == '\r')
+	{
+		if (preserveLayout)
+			print("\n\n");
+		else
+			print("\\n");
+	}
+	else if (ch == 0x0E)
+		print("\\g");
+	else if (ch == 0x0F)
+		print("\\t");
+	else if (ch == 0x7F)
+		print("\\f");
+	else if (ch == '\\')
+		print("\\\\");
+	else if (ch == '{' || ch == '}')
+		print("%c", ch);
+	else if (ch >= 16)
+	{
+		const char* utf8 = DDB_CharToUTF8(ch);
+		if (utf8 != 0)
+			print("%s", utf8);
+		else
+			print("{%d}", ch);
+	}
+	else
+		print("{%d}", ch);
+}
+
+static uint8_t* DDB_DumpGetMessagePtr(DDB* ddb, DDB_MsgType type, uint8_t n)
+{
+	switch (type)
+	{
+		case DDB_MSG:
+			if (n >= ddb->numMessages)
+				return 0;
+			return ddb->messages[n];
+		case DDB_SYSMSG:
+			if (n >= ddb->numSystemMessages)
+				return 0;
+			return ddb->data + ddb->sysMsgTable[n];
+		case DDB_OBJNAME:
+			if (n >= ddb->numObjects)
+				return 0;
+			return ddb->data + ddb->objNamTable[n];
+		case DDB_LOCDESC:
+			if (n >= ddb->numLocations)
+				return 0;
+			return ddb->locDescriptions[n];
+		default:
+			return 0;
+	}
+}
+
+static bool DDB_DumpMessageByte(uint8_t ch, DDB_PrintFunc print, int* maxLength, bool preserveLayout, bool atLineStart, bool atLineEnd)
+{
+	if (*maxLength > 0)
+	{
+		if (--(*maxLength) == 0)
+		{
+			print("...");
+			return false;
+		}
+		preserveLayout = false;
+	}
+
+	if (ch == ' ' && preserveLayout)
+	{
+		if (atLineStart || atLineEnd)
+			print("\\s");
+		else
+			print(" ");
+	}
+	else
+		DDB_DumpMessageChar(ch, print, preserveLayout);
+	return true;
+}
+
 static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc print, int maxLength)
 {
-	const void* end = DDB_GetMessage(ddb, type, n, (char *)buffer, sizeof(buffer));
-	if (buffer[0] == 0) return false;
-	for (const unsigned char* ptr = buffer; ptr < end; ptr++)
+	uint8_t* ptr = DDB_DumpGetMessagePtr(ddb, type, n);
+	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
+		return false;
+
+	uint8_t endMarker = ddb->version == DDB_VERSION_PAWS ? 0x1F : 0x0A;
+	uint8_t* out = buffer;
+	uint8_t* outEnd = buffer + sizeof(buffer);
+
+	while (ptr < ddb->data + ddb->dataSize)
 	{
-		if (maxLength > 0)
+		uint8_t c = *ptr++ ^ 0xFF;
+		if (c == endMarker)
+			break;
+
+		if (c >= ddb->firstToken)
 		{
-			if (--maxLength == 0)
+			if (!ddb->hasTokens)
 			{
-				print("...");
-				break;
+				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
+				continue;
 			}
+			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
+			if (token == 0)
+			{
+				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
+				continue;
+			}
+			while (token < ddb->data + ddb->dataSize && out < outEnd)
+			{
+				uint8_t tokenByte = *token++;
+				*out++ = tokenByte & 0x7F;
+				if ((tokenByte & 0x80) != 0)
+					break;
+			}
+			continue;
 		}
-		if (*ptr == 7 && maxLength == 0)
-			print("\n");
-		else if (*ptr == ' ' && maxLength == 0)
-		{
-			bool atLineStart = (ptr == buffer || ptr[-1] == '\r');
-			bool atLineEnd = (ptr + 1 == end || ptr[1] == '\r');
-			if (atLineStart || atLineEnd)
-				print("\\s");
-			else
-				print(" ");
-		}
-		else if (*ptr == 0x0B)
-			print("\\b");
-		else if (*ptr == 0x0C)
-			print("\\k");
-		else if (*ptr == '\r')
-		{
-			if (maxLength == 0)
-				print("\n\n");
-			else
-				print("\\n");
-		}
-		else if (*ptr == 0x0E)
-			print("\\g");
-		else if (*ptr == 0x0F)
-			print("\\t");
-		else if (*ptr == 0x7F)
-			print("\\f");
-		else if (*ptr == '\\')
-			print("\\\\");
-		else if (*ptr == '{' || *ptr == '}')
-			print("%c", *ptr);
-		else if (*ptr >= 16)
-		{
-			const char* utf8 = DDB_CharToUTF8(*ptr);
-			if (utf8 != 0)
-				print("%s", utf8);
-			else
-				print("%c", *ptr);
-		}
-		else
-			print("%c", *ptr);
+
+		if (out < outEnd)
+			*out++ = c;
+	}
+
+	if (out == buffer)
+		return false;
+
+	for (uint8_t* ch = buffer; ch < out; ch++)
+	{
+		bool atLineStart = ch == buffer || ch[-1] == '\r';
+		bool atLineEnd = ch + 1 == out || ch[1] == '\r';
+		if (!DDB_DumpMessageByte(*ch, print, &maxLength, maxLength == 0, atLineStart, atLineEnd))
+			break;
 	}
 	return true;
 }
@@ -278,8 +379,10 @@ void DDB_DumpMessageTable (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print)
 	}
 }
 
-void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
+void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, const DDB_DumpOptions* options)
 {
+	DDB_DumpOptions effectiveOptions = DDB_GetEffectiveDumpOptions(options);
+
 	print("\n/PRO %d\n\n", index);
 
 	if (index >= ddb->numProcesses || ddb->processTable[index] == 0)
@@ -289,6 +392,9 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 	while (entry < ddb->data + ddb->dataSize)
 	{
 		if (*entry == 0)
+			break;
+
+		if (entry + 4 > ddb->data + ddb->dataSize)
 			break;
 
 		uint8_t  verb   = entry[0];
@@ -312,13 +418,15 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 		print("       ");
 
 		bool first = true;
-		while (*code != 0xFF)
+		while (code < ddb->data + ddb->dataSize && *code != 0xFF)
 		{
 			uint8_t condactIndex = *code & 0x7F;
 			bool indirection = (*code & 0x80) != 0;
 			int parameters = ddb->condactMap[condactIndex].parameters;
 			uint8_t condact = ddb->condactMap[condactIndex].condact;
 			code++;
+			if (code + parameters > ddb->data + ddb->dataSize)
+				break;
 
 			if (!first)
 				print("                        ");
@@ -334,7 +442,7 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 				if (parameters > 2)
 					print(" %d", *code++);
 			}
-			if (!indirection)
+			if (!indirection && effectiveOptions.includeMessageSamples)
 			{
 				if (condact == CONDACT_MES || condact == CONDACT_MESSAGE)
 				{
@@ -363,8 +471,15 @@ void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 	print("\n");
 }
 
-void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
+void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
 {
+	DDB_DumpProcessWithOptions(ddb, index, print, 0);
+}
+
+void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* options)
+{
+	DDB_DumpOptions effectiveOptions = DDB_GetEffectiveDumpOptions(options);
+
 	print("\n/CTL\n%c\n\n", DDB_GetNullWordChar(ddb));
 
 	if (ddb->hasTokens)
@@ -375,16 +490,12 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 			uint8_t* ptr = ddb->tokensPtr[n];
 			if (ptr != 0)
 			{
-				for (;; ptr++)
+				for (; ptr < ddb->data + ddb->dataSize; ptr++)
 				{
 					if ((*ptr & 0x7F) == ' ')
 						print("%c", DDB_GetNullWordChar(ddb));
 					else
-					{
-						const char* utf8 = DDB_CharToUTF8(*ptr & 0x7F);
-						if (utf8 != 0)
-							print("%s", utf8);
-					}
+						DDB_DumpTextChar(*ptr & 0x7F, print);
 					if (*ptr & 0x80)
 						break;
 				}
@@ -398,11 +509,7 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 	for (uint8_t* ptr = ddb->vocabulary; *ptr; ptr += 7)
 	{
 		for (int n = 0; n < 5; n++)
-		{
-			const char* utf8 = DDB_CharToUTF8((ptr[n] ^ 0xFF) & 0x7F);
-			if (utf8 != 0)
-				print("%s", utf8);
-		}
+			DDB_DumpTextChar((ptr[n] ^ 0xFF) & 0x7F, print);
 		print("       %3d    ", ptr[5]);
 		switch (ptr[6])
 		{
@@ -494,7 +601,12 @@ void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
 	print("\n");
 
 	for (int n = 0; n < ddb->numProcesses; n++)
-		DDB_DumpProcess(ddb, n, print);
+		DDB_DumpProcessWithOptions(ddb, n, print, &effectiveOptions);
+}
+
+void DDB_Dump (DDB* ddb, DDB_PrintFunc print)
+{
+	DDB_DumpWithOptions(ddb, print, 0);
 }
 
 int DDB_DumpMessageMetrics (DDB* ddb, uint8_t** pointers, const char* name, DDB_PrintFunc print)

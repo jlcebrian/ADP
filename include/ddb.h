@@ -770,6 +770,12 @@ extern DDB_Interpreter* interpreter;
 
 typedef int (*DDB_PrintFunc)(const char* format, ...);
 
+typedef struct
+{
+	bool includeMessageSamples;
+}
+DDB_DumpOptions;
+
 extern DDB*				DDB_Load				 (const char* filename);
 extern bool             DDB_Check                (const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version);
 extern bool             DDB_RequiresBackBuffer   (DDB* ddb);
@@ -792,8 +798,10 @@ extern void             DDB_RenderPSGTicks       (DDB_PSGState* state, uint8_t* 
 extern bool             DDB_PlayExternalPSG      (DDB* ddb, uint8_t soundIndex);
 extern const char*		DDB_GetMessage 			 (DDB* ddb, DDB_MsgType type, uint8_t msgId, char* buffer, size_t bufferSize);
 extern void				DDB_Dump				 (DDB* ddb, DDB_PrintFunc print);
+extern void				DDB_DumpWithOptions		 (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* options);
 extern void				DDB_DumpMetrics			 (DDB* ddb, DDB_PrintFunc print);
 extern void 			DDB_DumpProcess			 (DDB* ddb, uint8_t process, DDB_PrintFunc print);
+extern void 			DDB_DumpProcessWithOptions(DDB* ddb, uint8_t process, DDB_PrintFunc print, const DDB_DumpOptions* options);
 extern void				DDB_Close				 (DDB* ddb);
 
 extern DDB_Interpreter* DDB_CreateInterpreter	 (DDB* ddb, DDB_ScreenMode mode);

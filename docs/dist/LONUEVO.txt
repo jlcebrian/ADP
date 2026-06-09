@@ -7,7 +7,7 @@ incluyendo un nuevo formato de fichero .DAT (DAT5) exclusivo de ADP.
 
 ### Todas las versiones
 
-* **NUEVO:** Nuevo formato de base de datos gráfica DAT5, con nuevos modos gráficos.
+* **NUEVO:** Nuevo formato de base de datos gráfica DAT5, con nuevos modos gráficos y resoluciones.
 * **NUEVO:** Soporte para fuentes proporcionales SINTAC.
 * **NUEVO:** Soporte DAAD V3 incluyendo fichero de mensajes externo XMESS y soporte de nuevos flags y condactos.
 
@@ -21,8 +21,9 @@ incluyendo un nuevo formato de fichero .DAT (DAT5) exclusivo de ADP.
 
 Las siguientes características son experimentales y no se recomienda su uso aún.
 
-* **NUEVO:** Soporte experimental para bases de datos PAWS. Advertencia: la compatibilidad es baja
+* **NUEVO:** Soporte experimental para bases de datos PAWS. Advertencia: la compatibilidad es aún muy baja.
 * **NUEVO:** Soporte experimental para bases de datos y snapshots de 8 bits, incluyendo juegos de Spectrum, CPC, MSX y C64.
+* **NUEVO:** Soporte experimental para bases de datos e imágenes de disco de Amstrad PCW.
 * **NUEVO:** Soporte para gráficos vectoriales / imágenes DRAWSTRING en bases de datos de 8 bits.
 
 ### Amiga
@@ -36,13 +37,27 @@ Las siguientes características son experimentales y no se recomienda su uso aú
 
 * **NUEVO:** Soporte de efectos de sonido PSG (Aventura Espacial)
 * **NUEVO:** Soporte de paletas de color de más de 512 colores (require Atari STE o Falcon)
-* **NUEVO:** Soporte de modo de 256 colores (sólo en Falcon)
+* **NUEVO:** Soporte de modo de 256 colores (requiere Atari Falcon)
 * Mejorada la estabilidad y el rendimiento.
+
+Los efectos de sonido PSG se reproducirán también en los intérpretes de escritorio cuando se ejecute una aventura de Atari ST que los use (Aventura Espacial).
 
 ### MS-DOS
 
-* La versión DOS de ADP es ahora un ejecutable de 16 bits que funciona en cualquier PC y no requiere 386 o superior
+* **NUEVO:** Se incluye una versión DOS de ADP para 16 bits que funciona en cualquier PC y no requiere 386 o superior
 * **NUEVO:** Soporte de modo de 256 colores
+* **NUEVO:** Soporte nativo de tarjetas CGA y EGA
+* **NUEVO:** Soporte nativo de tarjetas Super-VGA para aventuras a 640x400 (require versión de 32 bits)
+
+### Herramientas
+
+Las herramientas de línea de comandos incluídas con ADP son todavía experimentales. Su uso cambiará en el futuro.
+
+* **NUEVO:** Añadido el compilador ADPC que permite compilar fuentes .SCE (incluyendo las fuentes preservadas de Aventuras AD) a ficheros .DDB versión 1 ó 2
+* El extractor/compilador de juegos de caracteres CHR soporta ahora tipos de letra SINTAC proporcionales
+* Numerosas mejoras en DMG, para editar y crear bases de datos gráficas, que ahora soporta el nuevo formato de fichero .DAT5
+* Numerosas mejoras y correcciones en DSK, para editar y crear imágenes de disco para los ordenadores compatibles
+* Incluidos ficheros de soporte específicos para DAAD Ready
 
 ## ADP 0.2
 

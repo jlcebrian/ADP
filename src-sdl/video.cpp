@@ -1796,7 +1796,8 @@ void VID_SaveDebugBitmap()
 
 	char name[64];
 	snprintf(name, 63, "debug%04d.bmp", n++);
-	printf("\nSaving debug bitmap: %s\n", name);
+	
+	DebugPrintf("Saving debug bitmap: %s", name);
 
 	SDL_Color colors[16];
 	for (int n = 0; n < 16; n++)
@@ -2395,11 +2396,15 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 #else
 	int options = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
+
+	int initialWindowWidth = displayWidth * scale + InitialWindowBorderWidth;
+	int initialWindowHeight = displayHeight * scale + InitialWindowBorderHeight;
+	DebugPrintf("Creating window with size %d x %d (display aspect %d x %d, scale %d)\n", initialWindowWidth, initialWindowHeight, displayWidth, displayHeight, scale);
 	window = SDL_CreateWindow(configuredWindowTitle[0] != 0 ? configuredWindowTitle : DefaultWindowTitle,
 		SDL_WINDOWPOS_UNDEFINED,
 		SDL_WINDOWPOS_UNDEFINED,
-		displayWidth * scale + InitialWindowBorderWidth,
-		displayHeight * scale + InitialWindowBorderHeight,
+		initialWindowWidth,
+		initialWindowHeight,
 		options);
 	if (window == NULL)
 	{
@@ -2417,6 +2422,9 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 
 	int w, h;
 	SDL_GetWindowSize(window, &w, &h);
+	DebugPrintf("Resulting window size: %d x %d\n", w, h);
+	SDL_SetWindowSize(window, initialWindowWidth, initialWindowHeight);
+	SDL_SetWindowMinimumSize(window, displayWidth + InitialWindowBorderWidth, displayHeight + InitialWindowBorderHeight);
 	return true;
 }
 
