@@ -10,6 +10,8 @@
 static void FadeInPalette(const uint32_t* targetPalette, uint16_t count);
 
 static const uint32_t IFF_AMIGA_VIEWMODE_HAM = 0x00000800u;
+static uint32_t ilbmTargetPalette[256];
+static uint32_t fadeInPaletteBuffer[256];
 
 static uint16_t ReadBE16(const uint8_t* ptr)
 {
@@ -133,10 +135,10 @@ static bool DisplayAmigaILBMFile(const uint8_t* data, uint32_t fileSize, bool fa
 	uint8_t ilbmCompression = 0;
 	uint32_t camg = 0;
 	bool hasCAMG = false;
-	uint32_t targetPalette[256] = { 0 };
 	uint16_t colors = 0;
 	bool ok = true;
 	uint8_t** scratchPlanes = VID_GetIntroScratchPlanes();
+	MemClear(ilbmTargetPalette, sizeof(ilbmTargetPalette));
 
 	while (ptr + 8 <= end)
 	{
@@ -176,7 +178,7 @@ static bool DisplayAmigaILBMFile(const uint8_t* data, uint32_t fileSize, bool fa
 			}
 			for (uint16_t i = 0; i < colors; i++)
 			{
-				targetPalette[i] =
+				ilbmTargetPalette[i] =
 					((uint32_t)chunkData[i * 3 + 0] << 16) |
 					((uint32_t)chunkData[i * 3 + 1] << 8) |
 					(uint32_t)chunkData[i * 3 + 2];
@@ -230,9 +232,9 @@ static bool DisplayAmigaILBMFile(const uint8_t* data, uint32_t fileSize, bool fa
 		return false;
 	}
 
-	VID_PresentIntroScreen(targetPalette, colors, doFadeIn);
+	VID_PresentIntroScreen(ilbmTargetPalette, colors, doFadeIn);
 	if (doFadeIn)
-		FadeInPalette(targetPalette, colors);
+		FadeInPalette(ilbmTargetPalette, colors);
 
 	return true;
 }
@@ -242,7 +244,6 @@ static const uint16_t fadeScale[fadeSteps] = { 256, 219, 183, 146, 110, 73, 37, 
 
 static void FadeInPalette(const uint32_t* targetPalette, uint16_t count)
 {
-	uint32_t palette[256];
 	for (int frame = 1; frame < fadeSteps; frame++)
 	{
 		uint16_t scale = fadeScale[fadeSteps - 1 - frame];
@@ -250,9 +251,9 @@ static void FadeInPalette(const uint32_t* targetPalette, uint16_t count)
 		{
 			uint32_t v0 = ((targetPalette[n] & 0xFF00FFUL) * scale) >> 8;
 			uint32_t v1 = ((targetPalette[n] & 0x00FF00UL) * scale) >> 8;
-			palette[n] = (v0 & 0xFF00FFUL) | (v1 & 0x00FF00UL);
+			fadeInPaletteBuffer[n] = (v0 & 0xFF00FFUL) | (v1 & 0x00FF00UL);
 		}
-		VID_SetPaletteEntries(palette, count, 0, false, true);
+		VID_SetPaletteEntries(fadeInPaletteBuffer, count, 0, false, true);
 	}
 	VID_SetPaletteEntries(targetPalette, count, 0, false, true);
 }

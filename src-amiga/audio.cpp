@@ -120,6 +120,19 @@ void StopSample()
 	}
 }
 
+void StopSampleIfOverlaps(const void* buffer, uint32_t length)
+{
+	if (!soundOpen || !playing)
+		return;
+
+	size_t start = (size_t)buffer;
+	size_t end = start + length;
+	size_t sample = (size_t)req->ioa_Data;
+	size_t sampleEnd = sample + req->ioa_Length;
+	if (sample < end && sampleEnd > start)
+		StopSample();
+}
+
 void CloseAudio()
 {
 	if (soundOpen)

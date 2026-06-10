@@ -1,6 +1,7 @@
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_char.h>
+#include <os_mem.h>
 
 #ifdef _AMIGA
 
@@ -12,6 +13,12 @@
 #ifndef DEBUG_FILE_IO
 #define DEBUG_FILE_IO 0
 #endif
+
+struct File
+{
+	BPTR handle;
+};
+
 
 struct FindFileInternal
 {
@@ -32,7 +39,16 @@ File* File_Open(const char *file, FileOpenMode mode)
 	uint32_t t0 = GetMilliseconds();
 #endif
 	CallingDOS();
-	File* result = (File*)Open(file, mode == ReadOnly ? MODE_OLDFILE : MODE_READWRITE);
+	File* result = 0;
+	BPTR handle = Open(file, mode == ReadOnly ? MODE_OLDFILE : MODE_READWRITE);
+	if (handle != 0)
+	{
+		result = Allocate<File>("File", 1, true);
+		if (result != 0)
+			result->handle = handle;
+		else
+			Close(handle);
+	}
 	AfterCallingDOS();
 #if DEBUG_FILE_IO
 	DebugPrintf("File_Open(%s,%s) => %p in %lu ms\n",
@@ -50,9 +66,30 @@ File* File_Open(const char *file, FileOpenMode mode)
 File* File_Create(const char *file)
 {
 	CallingDOS();
-	File* result = (File*)Open(file, MODE_NEWFILE);
+	File* result = 0;
+	BPTR handle = Open(file, MODE_NEWFILE);
+	if (handle != 0)
+	{
+		result = Allocate<File>("File", 1, true);
+		if (result != 0)
+			result->handle = handle;
+		else
+			Close(handle);
+	}
 	AfterCallingDOS();
 	return result;
+}
+
+static FileInfoBlock* GetStaticFileInfoBlock()
+{
+	static uint8_t fib[sizeof(FileInfoBlock) + 16];
+
+	// Ensure proper alignment to 8 bytes
+	uint8_t* addr = (uint8_t*)fib;
+	if ((((uint32_t)addr) & 7) != 0)
+		addr += 8 - ((uint32_t)addr & 7);
+
+	return (FileInfoBlock*)addr;
 }
 
 uint64_t File_GetSizeByName(const char* file)
@@ -66,9 +103,13 @@ uint64_t File_GetSizeByName(const char* file)
 	}
 
 	uint64_t size = 0;
-	FileInfoBlock fib;
-	if (Examine(lock, &fib))
-		size = fib.fib_Size;
+
+	FileInfoBlock* fib = GetStaticFileInfoBlock();
+	if (fib != 0)
+	{
+		if (Examine(lock, fib))
+			size = fib->fib_Size;
+	}
 
 	UnLock(lock);
 	AfterCallingDOS();
@@ -81,7 +122,7 @@ uint64_t File_Read(File* file, void* buffer, uint64_t size)
 	uint32_t t0 = GetMilliseconds();
 #endif
 	CallingDOS();
-	uint64_t result = Read((BPTR)file, buffer, size);
+	uint64_t result = Read(file->handle, buffer, size);
 	AfterCallingDOS();
 #if DEBUG_FILE_IO
 	DebugPrintf("File_Read(%p,%lu) => %lu in %lu ms\n",
@@ -96,7 +137,7 @@ uint64_t File_Read(File* file, void* buffer, uint64_t size)
 uint64_t File_Write(File* file, const void* buffer, uint64_t size)
 {
 	CallingDOS();
-	uint64_t result = Write((BPTR)file, (APTR)buffer, size);
+	uint64_t result = Write(file->handle, (APTR)buffer, size);
 	AfterCallingDOS();
 	return result;
 }
@@ -107,7 +148,7 @@ bool File_Seek(File* file, uint64_t offset)
 	uint32_t t0 = GetMilliseconds();
 #endif
 	CallingDOS();
-	LONG result = Seek((BPTR)file, offset, OFFSET_BEGINNING);
+	LONG result = Seek(file->handle, offset, OFFSET_BEGINNING);
 	AfterCallingDOS();
 #if DEBUG_FILE_IO
 	DebugPrintf("File_Seek(%p,%lu) => %ld in %lu ms\n",
@@ -130,17 +171,18 @@ uint64_t File_GetSize(File* file)
 	// Use it only when the DOS library is new enough, otherwise fall back to Seek().
 	if (DOSBase != 0 && DOSBase->dl_lib.lib_Version >= 36)
 	{
-		FileInfoBlock fib;
-		if (ExamineFH((BPTR)file, &fib))
-			size = fib.fib_Size;
+		FileInfoBlock* fib = GetStaticFileInfoBlock();
+		MemClear(fib, sizeof(*fib));
+		if (ExamineFH(file->handle, fib))
+			size = fib->fib_Size;
 	}
 
 	if (size < 0)
 	{
-		LONG pos = Seek((BPTR)file, 0, OFFSET_CURRENT);
-		Seek((BPTR)file, 0, OFFSET_END);
-		size = Seek((BPTR)file, 0, OFFSET_CURRENT);
-		Seek((BPTR)file, pos, OFFSET_BEGINNING);
+		LONG pos = Seek(file->handle, 0, OFFSET_CURRENT);
+		Seek(file->handle, 0, OFFSET_END);
+		size = Seek(file->handle, 0, OFFSET_CURRENT);
+		Seek(file->handle, pos, OFFSET_BEGINNING);
 	}
 	AfterCallingDOS();
 #if DEBUG_FILE_IO
@@ -154,14 +196,17 @@ uint64_t File_GetSize(File* file)
 
 uint64_t File_GetPosition(File* file)
 {
-	return Seek((BPTR)file, 0, OFFSET_CURRENT);
+	return Seek(file->handle, 0, OFFSET_CURRENT);
 }
 
 void File_Close(File* file)
 {
-	Close((BPTR)file);
 	if (file != 0)
+	{
+		Close(file->handle);
+		Free(file);
 		filesOpen--;
+	}
 }
 
 static void FillFindResults(FindFileResults* info)

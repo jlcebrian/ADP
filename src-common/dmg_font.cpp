@@ -1,6 +1,7 @@
 #include <dmg_font.h>
 #include <os_file.h>
 #include <os_lib.h>
+#include <os_mem.h>
 
 static const uint8_t SintacFontHeaderV3[16] = {
 	'J', 'S', 'J', ' ', 'S', 'I', 'N', 'T', 'A', 'C', ' ', 'F', 'N', 'T', '3', 0
@@ -98,15 +99,22 @@ bool DMG_ReadSINTACFont(const char* fileName, DMG_Font* font)
 	}
 	else if (MemComp(header, (void*)SintacFontHeaderV3, sizeof(header)) == 0 && fileSize == SintacFontV3Size)
 	{
-		uint8_t width8x16[256];
-		uint8_t bitmap8x16[256 * 16];
+		uint8_t* legacyBuffer = Allocate<uint8_t>("SINTAC v3 font", 256 + 256 * 16, false);
+		if (legacyBuffer == 0)
+		{
+			File_Close(file);
+			return false;
+		}
+		uint8_t* width8x16 = legacyBuffer;
+		uint8_t* bitmap8x16 = legacyBuffer + 256;
 		ok =
-			ReadExact(file, width8x16, sizeof(width8x16)) &&
-			ReadExact(file, bitmap8x16, sizeof(bitmap8x16)) &&
+			ReadExact(file, width8x16, 256) &&
+			ReadExact(file, bitmap8x16, 256 * 16) &&
 			ReadExact(file, font->width8, sizeof(font->width8)) &&
 			ReadExact(file, font->bitmap8, sizeof(font->bitmap8));
 		if (ok)
 			PromoteVersion3ToVersion4(font, width8x16, bitmap8x16);
+		Free(legacyBuffer);
 	}
 
 	File_Close(file);

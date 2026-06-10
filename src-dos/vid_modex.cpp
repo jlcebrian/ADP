@@ -163,6 +163,7 @@ static unsigned modeXPageSize;
 
 static dos_ptr8 ModeX_GetPagePtr(unsigned page);
 static void ModeX_PresentPage(unsigned page);
+static void ModeX_PresentPageWithPalette(unsigned page, const uint32_t* palette, uint16_t count, uint16_t firstColor);
 static void ModeX_CopyPage(unsigned srcPage, unsigned dstPage);
 static void ModeX_ClearPage(unsigned page, uint8_t color);
 static void ModeX_SetTarget(SCR_Operation op, bool front);
@@ -189,6 +190,7 @@ static VID_Adapter modeXAdapter =
 	{
 		ModeX_GetPagePtr,
 		ModeX_PresentPage,
+		ModeX_PresentPageWithPalette,
 		ModeX_CopyPage,
 		ModeX_ClearPage,
 		ModeX_SetTarget,
@@ -314,6 +316,43 @@ static void ModeX_PresentPage(unsigned page)
 {
 	while (inp(0x3DA) & 0x01)
 		;
+
+	uint32_t videoOffset = modeXPageSize * page;
+	outpw(0x3D4, 0x0C | (videoOffset & 0xFF00));
+	outpw(0x3D4, 0x0D | ((videoOffset & 0x00FF) << 8));
+}
+
+static void ModeX_WriteHardwarePalette(const uint32_t* palette, uint16_t count, uint16_t firstColor)
+{
+	uint16_t limit = 256;
+	if (firstColor >= limit)
+		return;
+	if (count > limit - firstColor)
+		count = limit - firstColor;
+
+	outp(0x3C8, firstColor);
+	for (uint16_t i = 0; i < count; i++)
+	{
+		uint32_t color = palette[i];
+		outp(0x3C9, (uint8_t)((color >> 18) & 0x3F));
+		outp(0x3C9, (uint8_t)((color >> 10) & 0x3F));
+		outp(0x3C9, (uint8_t)((color >>  2) & 0x3F));
+	}
+}
+
+static void ModeX_PresentPageWithPalette(unsigned page, const uint32_t* palette, uint16_t count, uint16_t firstColor)
+{
+	if (firstColor >= 256)
+		return;
+	if (count > 256 - firstColor)
+		count = 256 - firstColor;
+
+	while (inp(0x3DA) & 0x08)
+		;
+	while (!(inp(0x3DA) & 0x08))
+		;
+
+	ModeX_WriteHardwarePalette(palette, count, firstColor);
 
 	uint32_t videoOffset = modeXPageSize * page;
 	outpw(0x3D4, 0x0C | (videoOffset & 0xFF00));

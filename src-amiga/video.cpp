@@ -41,7 +41,7 @@ extern struct View* ActiView;
 #endif
 
 #ifndef DEBUG_AMIGA_PICTURE_IO
-#define DEBUG_AMIGA_PICTURE_IO 1
+#define DEBUG_AMIGA_PICTURE_IO 0
 #endif
 
 #define R_VPOSR ( *(volatile uint32_t*)0xDFF004 )
@@ -114,6 +114,8 @@ static uint32_t 	frontPalette[256];
 static uint32_t 	backPalette[256];
 static uint32_t 	scratchDisplayPalette[256];
 static uint32_t 	savedPalette[256];
+static uint32_t 	tempPalette[256];
+static uint32_t 	introBlackPalette[256];
 static uint16_t 	savedPaletteColors = 16;
 
 static uint16_t* 	activePaletteAGAHigh = 0;
@@ -351,25 +353,23 @@ static void PresentScratchDisplayBuffer()
 	if (displaySwap)
 	{
 		uint8_t* oldVisible = backBuffer;
-		uint32_t oldPalette[256];
-		CopyPaletteStore(oldPalette, backPalette);
+		CopyPaletteStore(tempPalette, backPalette);
 		backBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
 		RefreshBackPlanePointers();
 		CopyPaletteStore(backPalette, scratchDisplayPalette);
-		CopyPaletteStore(scratchDisplayPalette, oldPalette);
+		CopyPaletteStore(scratchDisplayPalette, tempPalette);
 	}
 	else
 	{
 		uint8_t* oldVisible = frontBuffer;
-		uint32_t oldPalette[256];
-		CopyPaletteStore(oldPalette, frontPalette);
+		CopyPaletteStore(tempPalette, frontPalette);
 		frontBuffer = scratchDisplayBuffer;
 		scratchDisplayBuffer = oldVisible;
 		SetPlanePointers(frontBuffer, frontPlane);
 		RefreshBackPlanePointers();
 		CopyPaletteStore(frontPalette, scratchDisplayPalette);
-		CopyPaletteStore(scratchDisplayPalette, oldPalette);
+		CopyPaletteStore(scratchDisplayPalette, tempPalette);
 	}
 	SetPlanePointers(scratchDisplayBuffer, scratchDisplayPlane);
 	CopyPaletteStore(activePalette, GetVisiblePaletteStore());
@@ -1141,8 +1141,9 @@ uint8_t** VID_GetIntroScratchPlanes()
 
 void VID_PresentIntroScreen(const uint32_t* palette, uint16_t count, bool fadeIn)
 {
-	uint32_t blackPalette[256] = { 0 };
-	const uint32_t* introPalette = fadeIn ? blackPalette : palette;
+	if (fadeIn)
+		MemClear(introBlackPalette, sizeof(introBlackPalette));
+	const uint32_t* introPalette = fadeIn ? introBlackPalette : palette;
 
 	CopyPaletteStore(scratchDisplayPalette, GetVisiblePaletteStore());
 	UpdatePaletteStore(scratchDisplayPalette, introPalette, count, 0, true);
@@ -1368,7 +1369,7 @@ bool VID_LoadDataFile (const char* fileName)
 		}
 	}
 
-	char resolvedDataFile[FILE_MAX_PATH];
+	static char resolvedDataFile[FILE_MAX_PATH];
 	const char* loadedName = ChangeExtension(fileName, ".dat");
 	DDB_ScreenMode resolvedScreenMode = selectedScreenMode;
 	if (DDB_ResolveDataFile(fileName, screenMachine, selectedScreenMode, resolvedDataFile, sizeof(resolvedDataFile), &resolvedScreenMode, 0))
@@ -1483,9 +1484,10 @@ bool VID_LoadDataFile (const char* fileName)
 	if (imageCacheReserve == 0)
 		imageCacheReserve = GetRecommendedClassicImageCacheSize(dmg);
 
+	DebugPrintf("Loading fonts");
+
 	bool fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
 		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
-
 	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
 		!LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
@@ -2074,6 +2076,11 @@ void VID_SetWindowIcon(const char* fileName)
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 {
 	PlaySample((uint8_t*)buffer, samples, hz, volume);
+}
+
+void VID_StopSampleIfOverlaps(const void* buffer, uint32_t size)
+{
+	StopSampleIfOverlaps(buffer, size);
 }
 
 void VID_Quit ()

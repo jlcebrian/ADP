@@ -244,7 +244,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
 		uint8_t* scratch = 0;
 		uint32_t scratchSize = 0;
-		if (entry->length != expectedSize)
+		if (entry->length < expectedSize)
 			success = false;
 		else if (dmg->version == DMG_Version1_PCW)
 			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
@@ -269,7 +269,7 @@ uint8_t* DMG_GetEntryDataChunky (DMG* dmg, uint8_t index)
 			success = DMG_CopyImageData(fileData, entry->length, buffer, packedSize);
 		#endif
 		else 
-			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
+			success = DMG_Planar8ToPacked(fileData, expectedSize, buffer, packedSize, entry->width);
 	}
 	if (!success)
 	{

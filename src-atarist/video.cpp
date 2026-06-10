@@ -1471,6 +1471,12 @@ void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 	PlaySample((uint8_t*)buffer, samples, hzMode);
 }
 
+void VID_StopSampleIfOverlaps(const void* buffer, uint32_t size)
+{
+	(void)buffer;
+	(void)size;
+}
+
 void VID_Quit ()
 {
 	quit = true;

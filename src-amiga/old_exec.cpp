@@ -55,7 +55,7 @@ bool OldExec_CreateIORequest(struct MsgPort** outPort, struct IORequest** outReq
 
 	req->io_Message.mn_ReplyPort = port;
 	req->io_Message.mn_Length = size;
-	req->io_Message.mn_Node.ln_Type = NT_REPLYMSG;
+	req->io_Message.mn_Node.ln_Type = NT_MESSAGE; // Was NT_REPLYMSG;
 	req->io_Message.mn_Node.ln_Pri = 0;
 	req->io_Message.mn_Node.ln_Name = 0;
 

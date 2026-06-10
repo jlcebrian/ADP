@@ -1211,7 +1211,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		// TODO: Handle ImageMode_Planar
 		uint32_t expectedSize = DMG_CalculateRequiredSize(entry, ImageMode_Raw);
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
-		if (entry->length != expectedSize)
+		if (entry->length < expectedSize)
 			success = false;
 		else if (dmg->version == DMG_Version1_PCW)
 			success = DMG_ExpandPCWStoredLayoutToPacked(fileData, entry->width, entry->height, buffer, packedSize);
@@ -1240,7 +1240,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 		else if (mode == ImageMode_PlanarFalcon)
 			return DMG_ConvertPlanar8ToPlanarFalcon(fileData, buffer, packedSize, entry->width);
 		else
-			success = DMG_Planar8ToPacked(fileData, entry->length, buffer, packedSize, entry->width);
+			success = DMG_Planar8ToPacked(fileData, expectedSize, buffer, packedSize, entry->width);
 	}
 	if (success && mode != ImageMode_Packed)
 	{

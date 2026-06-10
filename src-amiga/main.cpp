@@ -80,7 +80,7 @@ static int RunWithExpandedStackIfNeeded()
 		return 0;
 	}
 
-	DebugPrintf("Switching to private stack: %u -> %u bytes\n", stackBytes, (uint32_t)kPrivateStackBytes);
+	DebugPrintf("Switching to private stack: %u -> %u bytes from %p to %p\n", stackBytes, (uint32_t)kPrivateStackBytes, privateStack, (uint8_t*)privateStack + kPrivateStackBytes);
 
 	int result = 0;
 	if (((struct Library*)SysBase)->lib_Version >= 36)

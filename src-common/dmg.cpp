@@ -187,6 +187,8 @@ static void DMG_ParseClassicEntryHeader(DMG* dmg, DMG_Entry* entry, const uint8_
 	if ((v & 0x8000) != 0)
 		entry->flags |= DMG_FLAG_COMPRESSED;
 	v = read16(header + 2, dmg->littleEndian);
+	if ((v & 0x8000) != 0)
+		entry->type = DMGEntry_Audio;
 	entry->height = v & 0x7FFF;
 	entry->length = read16(header + 4, dmg->littleEndian);
 }
@@ -1499,11 +1501,11 @@ bool DMG_ReadV2Entries(DMG* dmg)
 	#if DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES
 	if (!DMG_AllocateConversionPaletteBlock(dmg, conversionCount, "Classic conversion palettes"))
 		return false;
+	DMG_CVPal* conversionCursor = dmg->conversionPaletteBlock;
 	#endif
 
 	uint32_t nextEntry = 0;
 	uint32_t* paletteCursor = dmg->paletteBlock;
-	DMG_CVPal* conversionCursor = dmg->conversionPaletteBlock;
 
 	for (n = 0; n < 256; n++)
 	{
@@ -1546,9 +1548,11 @@ bool DMG_ReadV2Entries(DMG* dmg)
 
 		if (offset == 0)
 			dmg->entries[n]->type = DMGEntry_Empty;
-		if (dmg->entries[n]->type == DMGEntry_Image && !amigaPaletteHack)
-			dmg->entries[n]->conversionPalette = conversionCursor++;
 
+		#if DMG_SUPPORT_CLASSIC_CONVERSION_PALETTES
+		if (dmg->entries[n]->type == DMGEntry_Image && !amigaPaletteHack) {
+			dmg->entries[n]->conversionPalette = conversionCursor++;
+		}
 		if (dmg->entries[n]->type == DMGEntry_Image)
 		{
 			uint8_t* egaPalette = DMG_GetEntryEGAPalette(dmg->entries[n]);
@@ -1563,6 +1567,17 @@ bool DMG_ReadV2Entries(DMG* dmg)
 					cgaPalette[p] = (CGAColors >> (2*p)) & 0x03;
 			}
 		}
+		#else
+		if (dmg->entries[n]->type == DMGEntry_Image)
+		{
+			for (p = 0; p < 16; p++) 
+			{
+				uint16_t color = read16BE(ptr + 12 + p * 2);
+				dmg->entries[n]->RGB32Palette[p] = Pal2RGB(color, amigaPaletteHack);
+			}
+		}
+		#endif
+
         if (amigaPaletteHack)
             dmg->entries[n]->flags |= DMG_FLAG_AMIPALHACK;
         else

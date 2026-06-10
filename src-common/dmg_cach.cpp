@@ -1,4 +1,5 @@
 #include <dmg.h>
+#include <ddb_vid.h>
 #include <os_mem.h>
 #include <os_lib.h>
 #include <vid_screen.h>
@@ -230,6 +231,7 @@ void DMG_FreeImageCache(DMG* dmg)
 {
 	if (dmg->cache != 0)
 	{
+		VID_StopSampleIfOverlaps(dmg->cache, dmg->cacheSize);
 		Free(dmg->cache);
 		dmg->cache = 0;
 	}
@@ -251,6 +253,7 @@ bool DMG_SetupImageCache (DMG* dmg, uint32_t bytes)
 
 	if (dmg->cache != 0)
 	{
+		VID_StopSampleIfOverlaps(dmg->cache, dmg->cacheSize);
 		Free(dmg->cache);
 		dmg->cache = 0;
 	}
@@ -335,6 +338,7 @@ bool DMG_RemoveOlderCacheItem (DMG* dmg, bool force)
 #endif
 	uint32_t offsetNext = (uint8_t*)older->next - (uint8_t*)dmg->cache;
 	uint32_t spaceAfter = dmg->cacheSize - dmg->cacheFree - offsetNext;
+	VID_StopSampleIfOverlaps(older, (uint32_t)((uint8_t*)dmg->cacheTail - (uint8_t*)older));
 	if (spaceAfter > 0)
 		MemMove(older, older->next, spaceAfter);
 

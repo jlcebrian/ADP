@@ -812,7 +812,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 	{
 		uint32_t expectedSize = DMG_CalculateRequiredSize(entry, ImageMode_Raw);
 		uint32_t packedSize = DMG_CalculateRequiredSize(entry, ImageMode_Packed);
-		if (entry->length != expectedSize)
+		if (entry->length < expectedSize)
 		{
 			DebugPrintf("WARNING: expectedSize(%lu) != packedSize(%lu) in image %u\n",
 				(unsigned long)expectedSize, (unsigned long)packedSize, (unsigned)index);

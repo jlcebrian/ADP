@@ -28,3 +28,5 @@ tmp
 
 web-games/*
 src-z80
+trace*.txt
+*.gdb

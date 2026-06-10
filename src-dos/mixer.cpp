@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <i86.h>
 
 #include "sb.h"
 
@@ -20,6 +21,20 @@ void MIX_PlaySample (uint8_t* buffer, int samples, int hz, int volume)
 	mixAudioPtr = (uint8_t*)buffer;
 
 	// fprintf(stderr, "Playing sample: %d samples, %d Hz, %d volume\n", samples, hz, v);
+}
+
+void MIX_StopSampleIfOverlaps(const void* buffer, uint32_t size)
+{
+	size_t start = (size_t)buffer;
+	size_t end = start + size;
+
+	_disable();
+	if (mixAudioPtr != NULL && (size_t)mixAudioPtr < end && (size_t)mixAudioEnd > start)
+	{
+		mixAudioPtr = NULL;
+		mixAudioEnd = NULL;
+	}
+	_enable();
 }
 
 void MIX_WriteAudio (uint8_t *stream, int len)

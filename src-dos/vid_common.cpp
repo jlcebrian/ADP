@@ -147,7 +147,8 @@ uint32_t VID_CommonGetNativeImageSize(int width, int height)
 
 bool VID_CommonBeginFixedPicturePresentation()
 {
-	if (state.ops == 0 || state.ops->copyPage == 0 || state.ops->getPagePtr == 0 ||
+	if (state.ops == 0 || state.ops->presentPageWithPalette == 0 ||
+		state.ops->copyPage == 0 || state.ops->getPagePtr == 0 ||
 		state.activePage != state.frontPage || state.scratchPage == VID_INVALID_PAGE)
 		return false;
 
@@ -157,9 +158,9 @@ bool VID_CommonBeginFixedPicturePresentation()
 	return true;
 }
 
-void VID_CommonEndFixedPicturePresentation()
+void VID_CommonEndFixedPicturePresentation(const uint32_t* palette, uint16_t count, uint16_t firstColor)
 {
-	if (state.ops == 0 || state.ops->presentPage == 0 || state.ops->copyPage == 0 ||
+	if (state.ops == 0 || state.ops->presentPageWithPalette == 0 || state.ops->copyPage == 0 ||
 		state.ops->getPagePtr == 0 || state.scratchPage == VID_INVALID_PAGE)
 		return;
 
@@ -167,7 +168,7 @@ void VID_CommonEndFixedPicturePresentation()
 	state.frontPage = state.scratchPage;
 	state.scratchPage = oldFront;
 
-	state.ops->presentPage(state.frontPage);
+	state.ops->presentPageWithPalette(state.frontPage, palette, count, firstColor);
 	state.ops->copyPage(state.frontPage, state.backPage);
 
 	if (state.activePage == oldFront)

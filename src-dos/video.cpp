@@ -847,6 +847,25 @@ static void ApplyPalette256(const uint32_t* colors)
 	}
 }
 
+static void StagePaletteEntries(const uint32_t* colors, uint16_t count, uint16_t firstColor)
+{
+	uint16_t paletteSize = VID_GetPaletteSize();
+	if (firstColor > paletteSize)
+		return;
+	if (count > paletteSize - firstColor)
+		count = paletteSize - firstColor;
+
+	for (uint16_t i = 0; i < count; i++)
+	{
+		uint32_t color = colors[i];
+		uint16_t index = firstColor + i;
+		palette[index] = 0xFF000000UL | (color & 0x00FFFFFFUL);
+		paletteR[index] = (uint8_t)((color >> 16) & 0xFF);
+		paletteG[index] = (uint8_t)((color >> 8) & 0xFF);
+		paletteB[index] = (uint8_t)(color & 0xFF);
+	}
+}
+
 bool VID_LoadDataFile (const char* fileName)
 {
 	#if HAS_PCX
@@ -1039,8 +1058,15 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			w = pcxPictureWidth;
 		if (h > pcxPictureHeight)
 			h = pcxPictureHeight;
+		bool useScratchPresentation = IsVGAMode() && VID_CommonBeginFixedPicturePresentation();
 		VID_CommonBlitNativeImage(pcxPictureData, pcxPictureWidth, pcxPictureHeight, x, y, w, h);
-		ApplyPalette256(pcxPalette);
+		if (useScratchPresentation)
+		{
+			StagePaletteEntries(pcxPalette, 256, 0);
+			VID_CommonEndFixedPicturePresentation(pcxPalette, 256, 0);
+		}
+		else
+			ApplyPalette256(pcxPalette);
 		return;
 	}
 	#endif
@@ -1074,7 +1100,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		CGA_SetPaletteRed(DMG_GetCGAMode(entry) == CGA_Red);
 		
 	bool updatePalette = (entry->flags & DMG_FLAG_FIXED) != 0;
-	bool useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
+	bool useScratchPresentation = false;
 
 	if (bufferedPictureIndexed)
 	{
@@ -1107,6 +1133,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 		if (w <= 0 || h <= 0)
 			return;
 
+		useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
 		const uint8_t* src = pictureData + (uint32_t)srcY * entry->width + srcX;
 		VID_CommonBlitIndexedImage(src, entry->width, x, y, w, h);
 	}
@@ -1117,6 +1144,7 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 			DebugPrintf("DOSVID: DisplayPicture native blit size=%dx%d entry=%dx%d\n",
 				w, h, entry->width, entry->height);
 		#endif
+		useScratchPresentation = updatePalette && VID_CommonBeginFixedPicturePresentation();
 		VID_CommonBlitNativeImage(pictureData, entry->width, entry->height, x, y, w, h);
 	}
 
@@ -1127,9 +1155,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 
 	if (updatePalette)
 	{
-		uint32_t* palette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
+		uint32_t* picturePalette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
 		if (dmg->version == DMG_Version1)
-			palette[15] = 0xFFFFFFFF;
+			picturePalette[15] = 0xFFFFFFFF;
 		if (IsVGAMode())
 		{
 			int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedEntryIndex);
@@ -1144,8 +1172,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 				paletteCount = 256 - firstColor;
 
 			if (useScratchPresentation)
-				VID_VSync();
-			VID_SetPaletteEntries(palette, (uint16_t)paletteCount, (uint16_t)firstColor, firstColor == 0, !useScratchPresentation);
+				StagePaletteEntries(picturePalette, (uint16_t)paletteCount, (uint16_t)firstColor);
+			else
+				VID_SetPaletteEntries(picturePalette, (uint16_t)paletteCount, (uint16_t)firstColor, false, true);
 		}
 	}
 
@@ -1155,7 +1184,16 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode screenMode)
 	#endif
 
 	if (useScratchPresentation)
-		VID_CommonEndFixedPicturePresentation();
+	{
+		uint32_t* picturePalette = DMG_GetEntryPalette(dmg, bufferedEntryIndex);
+		uint16_t paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedEntryIndex);
+		uint16_t firstColor = DMG_GetEntryFirstColor(dmg, bufferedEntryIndex);
+		if (firstColor > 255)
+			firstColor = 255;
+		if (paletteCount > 256 - firstColor)
+			paletteCount = 256 - firstColor;
+		VID_CommonEndFixedPicturePresentation(picturePalette, paletteCount, firstColor);
+	}
 
 	#if DEBUG_DOS_PICTURE_TIMINGS
 	if (traceThisPicture)
@@ -1698,6 +1736,11 @@ void VID_PlaySample (uint8_t no, int* duration)
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
 {
 	MIX_PlaySample((uint8_t*)buffer, samples, hz, volume);
+}
+
+void VID_StopSampleIfOverlaps(const void* buffer, uint32_t size)
+{
+	MIX_StopSampleIfOverlaps(buffer, size);
 }
 
 void VID_Quit ()

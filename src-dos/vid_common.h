@@ -24,6 +24,7 @@ struct VID_AdapterOps
 {
 	dos_ptr8 (*getPagePtr)(unsigned page);
 	void (*presentPage)(unsigned page);
+	void (*presentPageWithPalette)(unsigned page, const uint32_t* palette, uint16_t count, uint16_t firstColor);
 	void (*copyPage)(unsigned srcPage, unsigned dstPage);
 	void (*clearPage)(unsigned page, uint8_t color);
 	void (*setTarget)(SCR_Operation op, bool front);
@@ -68,7 +69,7 @@ const VID_Adapter* VID_CommonGetAdapter();
 const VID_AdapterInfo* VID_CommonGetInfo();
 uint32_t VID_CommonGetNativeImageSize(int width, int height);
 bool VID_CommonBeginFixedPicturePresentation();
-void VID_CommonEndFixedPicturePresentation();
+void VID_CommonEndFixedPicturePresentation(const uint32_t* palette, uint16_t count, uint16_t firstColor);
 void VID_CommonRestoreScreen();
 void VID_CommonSaveScreen();
 void VID_CommonSetActiveBuffer(bool front);

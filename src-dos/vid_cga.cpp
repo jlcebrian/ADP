@@ -73,6 +73,7 @@ static VID_Adapter cgaAdapter =
 	{
 		CGA_GetPagePtr,
 		CGA_PresentPage,
+		0,
 		CGA_CopyPage,
 		CGA_ClearPage,
 		CGA_SetTarget,

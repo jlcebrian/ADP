@@ -62,6 +62,7 @@ static VID_Adapter egaAdapter =
 	{
 		EGA_GetPagePtr,
 		EGA_PresentPage,
+		0,
 		EGA_CopyPage,
 		EGA_ClearPage,
 		EGA_SetTarget,

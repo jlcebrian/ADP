@@ -155,6 +155,7 @@ bool       zxsPictureMirror = false;
 #endif
 #endif
 uint8_t*   audioData;
+uint32_t   audioDataSize = 0;
 DMG_Entry* bufferedEntry = NULL;
 uint8_t    bufferedIndex;
 bool       quit;
@@ -1590,6 +1591,24 @@ void VID_Finish()
 		Free(backBuffer);
 		backBuffer = NULL;
 	}
+	if (audioData != NULL)
+	{
+		if (audioAvailable)
+		{
+			SDL_LockAudio();
+			size_t start = (size_t)audioData;
+			size_t end = start + audioDataSize;
+			if (audioPtr != NULL && (size_t)audioPtr >= start && (size_t)audioPtr < end)
+			{
+				audioPtr = NULL;
+				audioEnd = NULL;
+			}
+			SDL_UnlockAudio();
+		}
+		Free(audioData);
+		audioData = NULL;
+		audioDataSize = 0;
+	}
 	#if HAS_PCX
 	FreeBufferedPCXPicture();
 	#endif
@@ -2074,6 +2093,10 @@ void SDLCALL VID_FillAudio (void *udata, Uint8 *stream, int len)
 
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int v)
 {
+	uint8_t* oldAudioData = audioData;
+	audioData = NULL;
+	audioDataSize = 0;
+
 	SDL_LockAudio();
 	audioPtr = (uint8_t*)buffer;
 	audioEnd = (uint8_t*)buffer + samples;
@@ -2081,8 +2104,27 @@ void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int v)
 	mixVolume = v;
 	audioBitsPerSample = 8;
 	SDL_UnlockAudio();
+	if (oldAudioData != NULL)
+		Free(oldAudioData);
 
 	// fprintf(stderr, "PlaySampleBuffer: %d samples, %d Hz, %d volume\n", samples, hz, v);
+}
+
+void VID_StopSampleIfOverlaps(const void* buffer, uint32_t size)
+{
+	if (!audioAvailable)
+		return;
+
+	size_t start = (size_t)buffer;
+	size_t end = start + size;
+
+	SDL_LockAudio();
+	if (audioPtr != NULL && (size_t)audioPtr < end && (size_t)audioEnd > start)
+	{
+		audioPtr = NULL;
+		audioEnd = NULL;
+	}
+	SDL_UnlockAudio();
 }
 
 void VID_PlaySample (uint8_t picno, int* duration)
@@ -2093,12 +2135,21 @@ void VID_PlaySample (uint8_t picno, int* duration)
 	if (entry == NULL || entry->type != DMGEntry_Audio)
 		return;
 
-	audioData = DMG_GetEntryData(dmg, picno, ImageMode_Audio);
-	if (audioData == 0)
+	uint8_t* sourceData = DMG_GetEntryData(dmg, picno, ImageMode_Audio);
+	if (sourceData == 0)
 		return;
 
+	uint8_t* sampleData = Allocate<uint8_t>("SDL audio sample", entry->length, false);
+	if (sampleData == NULL)
+		return;
+	MemCopy(sampleData, sourceData, entry->length);
+
+	uint8_t* oldAudioData = audioData;
+	audioData = sampleData;
+	audioDataSize = entry->length;
+
 	SDL_LockAudio();
-	audioPtr = audioData;
+	audioPtr = sampleData;
 	audioEnd = audioPtr + entry->length;
 	mixVolume = 256;
 	audioBitsPerSample = entry->bitDepth == 16 ? 16 : 8;
@@ -2115,6 +2166,8 @@ void VID_PlaySample (uint8_t picno, int* duration)
 		default:           inputHz = 11025; break;
 	}
 	SDL_UnlockAudio();
+	if (oldAudioData != NULL)
+		Free(oldAudioData);
 
 	if (duration != NULL)
 		*duration = (entry->length / (audioBitsPerSample == 16 ? 2 : 1)) * 1000 / inputHz;

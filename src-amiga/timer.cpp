@@ -63,9 +63,16 @@ void OpenTimer()
 
 uint32_t GetMilliseconds()
 {
+	return 1;
+
 	if (timerOpened == false)
 		OpenTimer();
 	
+	req->tr_node.io_Message.mn_Node.ln_Type = NT_MESSAGE;
+	req->tr_node.io_Message.mn_Node.ln_Succ = 0;
+	req->tr_node.io_Message.mn_Node.ln_Pred = 0;
+	req->tr_node.io_Flags = 0;
+	req->tr_node.io_Error = 0;
 	req->tr_node.io_Command = TR_GETSYSTIME;
 	DoIO(&req->tr_node);
 	

@@ -24,7 +24,7 @@ volatile uint16_t InputBuffer[64];
 volatile uint8_t  InputBufferTail = 0;
 volatile uint8_t  InputBufferHead = 0;
 
-uint8_t  KeyboardBitmap[16];
+volatile uint8_t  KeyboardBitmap[16];
 
 bool     kbOpen = false;
 
@@ -286,9 +286,7 @@ void OpenKeyboard()
 		handler.is_Node.ln_Pri  = 60; /* above intuition's handler */
 		req->io_Data = (APTR)&handler;
 		req->io_Command = IND_ADDHANDLER;
-		SendIO ((IORequest *)req);
-		if (CheckIO((IORequest *)req) != 0)
-			WaitIO((IORequest *)req);
+		DoIO((IORequest *)req);
 
 		kbOpen = true;
 	}
@@ -300,11 +298,7 @@ void CloseKeyboard()
 	{
 		req->io_Data = (APTR)&handler;
 		req->io_Command = IND_REMHANDLER;
-		
-		SendIO ((IORequest *)req);
-		if (CheckIO((IORequest *)req) == 0)
-			WaitIO((IORequest *)req);
-		
+		DoIO((IORequest *)req);
 		CloseDevice((IORequest *)req);
 
 		if (SysBase->SoftVer < 39)

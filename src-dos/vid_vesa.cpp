@@ -8,6 +8,7 @@
 #include <os_lib.h>
 
 #include <i86.h>
+#include <conio.h>
 #include <dos.h>
 
 #define VESA_WIDTH 640
@@ -121,6 +122,7 @@ static void VESA_InitDerivedModeState();
 
 static dos_ptr8 VESA_GetPagePtr(unsigned page);
 static void VESA_PresentPage(unsigned page);
+static void VESA_PresentPageWithPalette(unsigned page, const uint32_t* palette, uint16_t count, uint16_t firstColor);
 static void VESA_PresentRect(unsigned page, int x, int y, int w, int h);
 static void VESA_PresentActiveRectIfFront(int x, int y, int w, int h);
 static void VESA_CopyPage(unsigned srcPage, unsigned dstPage);
@@ -147,6 +149,7 @@ static VID_Adapter vesaAdapter =
 	{
 		VESA_GetPagePtr,
 		VESA_PresentPage,
+		VESA_PresentPageWithPalette,
 		VESA_CopyPage,
 		VESA_ClearPage,
 		VESA_SetTarget,
@@ -1059,6 +1062,8 @@ bool VESA_SetVideoMode()
 	}
 	else
 		vesaCanDisplayStart = VESA_SetDisplayStart(0);
+	vesaAdapter.ops.presentPageWithPalette =
+		(vesaCanDisplayStart && vesaPageCount > 2) ? VESA_PresentPageWithPalette : 0;
 	vesaVisiblePage = 0;
 	DebugPrintf("VESA: video mode activated backend=%u pageSize=%lu pitch=%u pages=%u displayStart=%u\n",
 		(unsigned)vesaBackend, (unsigned long)vesaPageSize, (unsigned)vesaLineSize, vesaPageCount,
@@ -1092,6 +1097,43 @@ static void VESA_PresentPage(unsigned page)
 		return;
 	VESA_CopySpan(VESA_PageOffset(0), VESA_PageOffset(page), (int32_t)vesaPageSize);
 	vesaVisiblePage = 0;
+}
+
+static void VESA_WriteHardwarePalette(const uint32_t* palette, uint16_t count, uint16_t firstColor)
+{
+	uint16_t limit = 256;
+	if (firstColor >= limit)
+		return;
+	if (count > limit - firstColor)
+		count = limit - firstColor;
+
+	outp(0x3C8, firstColor);
+	for (uint16_t i = 0; i < count; i++)
+	{
+		uint32_t color = palette[i];
+		outp(0x3C9, (uint8_t)((color >> 18) & 0x3F));
+		outp(0x3C9, (uint8_t)((color >> 10) & 0x3F));
+		outp(0x3C9, (uint8_t)((color >>  2) & 0x3F));
+	}
+}
+
+static void VESA_PresentPageWithPalette(unsigned page, const uint32_t* palette, uint16_t count, uint16_t firstColor)
+{
+	if (page >= vesaPageCount || !vesaCanDisplayStart)
+		return;
+	if (firstColor >= 256)
+		return;
+	if (count > 256 - firstColor)
+		count = 256 - firstColor;
+
+	while (inp(0x3DA) & 0x08)
+		;
+	while (!(inp(0x3DA) & 0x08))
+		;
+
+	VESA_WriteHardwarePalette(palette, count, firstColor);
+	if (VESA_SetDisplayStart(page))
+		vesaVisiblePage = page;
 }
 
 static void VESA_PresentRect(unsigned page, int x, int y, int w, int h)

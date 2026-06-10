@@ -66,8 +66,14 @@ static StartupConfig    startupConfig;
 static LoaderPromptMode loaderPromptMode = LoaderPrompt_None;
 static int              diskPromptNumber = 0;
 static bool             diskPromptConfirmed = false;
+
+#if HAS_VIRTUALFILESYSTEM
 static char             diskImages[MAX_FILES][FILE_MAX_PATH];
 static int              diskImageCount = 0;
+
+static void CollectDiskImages();
+#endif
+
 static int              currentDiskNumber = 0;
 static DDB_ScreenMode   startupScreenModeOverride = ScreenMode_Default;
 static DDB_StartupVideoModePolicy startupVideoModePolicy = DDB_StartupVideoModePolicy_Configurable;
@@ -92,7 +98,6 @@ static void WaitForKeyUpdate(int elapsed);
 static void ResetStartupConfig();
 static void LoadStartupConfig();
 static void SaveStartupVideoMode(const char* ddbFile, DDB_ScreenMode mode);
-static void CollectDiskImages();
 static int GetConfiguredPartCount();
 static void ShowLoaderPrompt(int parts, DDB_Language language);
 static void ShowDiskPrompt(int diskNumber, DDB_Language language);
@@ -522,11 +527,14 @@ static void ResetStartupConfig()
 	loaderPromptMode = LoaderPrompt_None;
 	diskPromptNumber = 0;
 	diskPromptConfirmed = false;
-	diskImageCount = 0;
 	currentDiskNumber = 0;
 	startupPattern[0] = 0;
+
+	#if HAS_VIRTUALFILESYSTEM
+	diskImageCount = 0;
 	for (int i = 0; i < MAX_FILES; i++)
 		diskImages[i][0] = 0;
+	#endif
 }
 
 static void ApplyConfigEntry(const char* cfgFile, const char* key, const char* value)
@@ -735,6 +743,7 @@ static void SaveStartupVideoMode(const char* ddbFile, DDB_ScreenMode mode)
 #endif
 }
 
+#if HAS_VIRTUALFILESYSTEM
 static void CollectDiskImages()
 {
 	diskImageCount = 0;
@@ -750,6 +759,7 @@ static void CollectDiskImages()
 	}
 	DebugPrintf("Collected %d disk image candidate(s)\n", diskImageCount);
 }
+#endif
 
 static int GetConfiguredPartCount()
 {
@@ -764,7 +774,7 @@ static int GetTargetDiskForPart(int partIndex)
 	return disk > 0 && disk <= startupConfig.disks ? disk : 0;
 }
 
-#ifdef HAS_VIRTUALFILESYSTEM
+#if HAS_VIRTUALFILESYSTEM
 static int GetDiskNumberForImage(const char* path)
 {
 	for (int i = 0; i < diskImageCount; i++)
@@ -774,7 +784,6 @@ static int GetDiskNumberForImage(const char* path)
 	}
 	return 0;
 }
-#endif
 
 static bool MountDiskByNumber(int diskNumber)
 {
@@ -797,6 +806,7 @@ static bool MountDiskByNumber(int diskNumber)
 	EnumFiles();
 	return true;
 }
+#endif
 
 static bool HasLocalDataForDDB(const char* ddbFile, DDB_Machine machine, DDB_Version version)
 {
@@ -837,8 +847,12 @@ static bool ShowAndProcessDiskPrompt(int diskNumber, DDB_Language language)
 {
 	ShowDiskPrompt(diskNumber, language);
 	VID_MainLoop(0, WaitForKeyUpdate);
+
+	#if HAS_VIRTUALFILESYSTEM	
 	if (diskImageCount > 0 && diskNumber <= diskImageCount)
 		return MountDiskByNumber(diskNumber);
+	#endif
+
 	RescanCurrentFiles();
 	return true;
 }
@@ -1179,10 +1193,6 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 		resolvedMachine = DDB_MACHINE_IBMPC;
 	}
 #endif
-	DebugPrintf("ResolveDDBVideoConfig: %s machine=%s version=%s\n",
-		fileName,
-		DDB_DescribeMachine(resolvedMachine),
-		DDB_DescribeVersion(resolvedVersion));
 
 	if (machine)
 		*machine = resolvedMachine;
@@ -1272,10 +1282,6 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 		*screenMode = resolvedScreenMode;
 	if (displayPlanes)
 		*displayPlanes = resolvedPlanes;
-
-	DebugPrintf("ResolveDDBVideoConfig: resolved mode=%s planes=%u\n",
-		DescribeScreenMode(resolvedScreenMode),
-		(unsigned)resolvedPlanes);
 
 	return true;
 }
@@ -2033,14 +2039,14 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 
 static const int fadeSteps = 8;
 static const uint16_t fadeScale[fadeSteps] = { 256, 219, 183, 146, 110, 73, 37, 0 };
+static uint32_t fadeSourcePalette[256];
+static uint32_t fadeWorkingPalette[256];
 
 static void FadeOut()
 {
 	if (!VID_IsFadeEnabled())
 		return;
 
-	uint32_t sourcePalette[256];
-	uint32_t palette[256];
 	uint16_t fadePaletteSize = VID_GetPaletteSize();
 	if (fadePaletteSize > 256)
 		fadePaletteSize = 256;
@@ -2048,13 +2054,13 @@ static void FadeOut()
 	{
 		uint8_t r, g, b;
 		VID_GetPaletteColor(i, &r, &g, &b);
-		sourcePalette[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+		fadeSourcePalette[i] = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 	}
 	for (int frame = 0; frame < fadeSteps; frame++)
 	{
 		uint16_t scale = fadeScale[frame];
-		ScaleFadePalette(sourcePalette, palette, fadePaletteSize, scale);
-		VID_SetPaletteEntries(palette, fadePaletteSize, 0, false, true);
+		ScaleFadePalette(fadeSourcePalette, fadeWorkingPalette, fadePaletteSize, scale);
+		VID_SetPaletteEntries(fadeWorkingPalette, fadePaletteSize, 0, false, true);
 	}
 }
 
@@ -2136,7 +2142,10 @@ bool DDB_RunPlayer()
 
 	EnumFiles();
 	LoadStartupConfig();
+
+	#if HAS_VIRTUALFILESYSTEM
 	CollectDiskImages();
+	#endif
 	
 	ddbCount = CountDDBFiles();
 	if (ddbCount == 0)

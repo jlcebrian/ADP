@@ -46,6 +46,7 @@ extern void   VID_MainLoopAsync       (DDB_Interpreter* i, void (*callback)(int 
 extern void   VID_OpenFileDialog      (bool existing, char* filename, size_t bufferSize);
 extern void   VID_PlaySample          (uint8_t no, int* duration);
 extern void   VID_PlaySampleBuffer    (void* buffer, int samples, int hz, int volume);
+extern void   VID_StopSampleIfOverlaps(const void* buffer, uint32_t size);
 extern void   VID_Quit                ();
 extern void   VID_Scroll              (int x, int y, int w, int h, int lines, uint8_t paper);
 extern void   VID_SetDefaultPalette   ();

@@ -3843,10 +3843,30 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 
-
 			case CONDACT_XMESSAGE:
 			#if HAS_XMSG
-				if (param1 == 3)
+				if (param1 == 3 && params == 3)
+				{
+					uint16_t offset = param0 + code[3]*256;
+					const uint8_t* msg = DDB_GetXMessage(offset);
+					if (msg != 0)
+					{
+						TRACE("XMSG %d: \"", offset);
+						OutputMessageContents(i, msg, &i->win);
+						TRACE("\"");
+						break;
+					}
+					else
+					{
+						DebugPrintf("[Invalid XMessage %d: %s]", offset, DDB_GetErrorString());
+					}
+				}
+				else if (params == 3)
+				{
+					// This is actually an EXTERN, so no third byte
+					params = 2;
+				}
+				else if (xmsgFilePresent)
 				{
 					uint16_t offset = param0 + param1*256;
 					const uint8_t* msg = DDB_GetXMessage(offset);
@@ -3861,11 +3881,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					{
 						DebugPrintf("[Invalid XMessage %d: %s]", offset, DDB_GetErrorString());
 					}
-				}
-				else
-				{
-					// This is actually an EXTERN, so no third byte
-					params = 2;
 				}
 			#endif
 				i->done = true;

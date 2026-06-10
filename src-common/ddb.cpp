@@ -1735,6 +1735,10 @@ DDB* DDB_Load(const char* filename)
 	DDB_FillTokenPointers(ddb);
 	DDB_FillMsgPointers(ddb);
 
+	#if HAS_XMSG
+	DDB_OpenXMessageFile(filename);
+	#endif
+
 	// Old databases may need a PAWS style flow, try to
 	// detect if process table 0 is a responses table
 	//
@@ -1772,6 +1776,10 @@ void DDB_Close(DDB* ddb)
 {
 	if (ddb == 0)
 		return;
+	#if HAS_XMSG
+	DDB_CloseXMessageFile();
+	DDB_FreeXMessageCache();
+	#endif
 	if (ddb->memory != 0)
 		Free(ddb->memory);
 	Free(ddb);
