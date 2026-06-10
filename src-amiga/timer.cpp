@@ -63,8 +63,6 @@ void OpenTimer()
 
 uint32_t GetMilliseconds()
 {
-	return 1;
-
 	if (timerOpened == false)
 		OpenTimer();
 	

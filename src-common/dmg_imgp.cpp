@@ -10,8 +10,13 @@
 #define DEBUG_AMIGA_PICTURE_IO 1
 #endif
 
+#if defined(_AMIGA) && HAS_ASM_RLE
 extern "C" void DecompressRLE (const void* data, uint32_t dataSize,
-	void* output, uint32_t outputSize, uint16_t rleMask);
+	void* output, uint32_t width, uint32_t height, uint16_t rleMask);
+#else
+extern "C" void DecompressRLE (const void* data, uint32_t dataSize,
+	void* output, uint32_t width, uint16_t rleMask);
+#endif
 
 #if (defined(_AMIGA) || defined(_ATARIST)) && HAS_ASM_RLE
 extern "C" bool DecompressOldRLEToPlanar8Asm(const void* data, uint32_t dataSize,
@@ -400,12 +405,17 @@ static uint8_t* DMG_GetEntryDataPlanarV5(DMG* dmg, uint8_t index, DMG_Entry* ent
 }
 
 bool DMG_DecompressNewRLEToPlanarST (const uint8_t* d, uint16_t rleMask, 
-	uint16_t dataLength, uint8_t* buffer, uint32_t width, bool littleEndian)
+	uint16_t dataLength, uint8_t* buffer, uint32_t width, uint32_t height, bool littleEndian)
 {
-#if HAS_ASM_RLE
+#if defined(_AMIGA) && HAS_ASM_RLE
+	DecompressRLE(d, dataLength, buffer, width, height, rleMask);
+	return true;
+#elif HAS_ASM_RLE
+	(void)height;
 	DecompressRLE(d, dataLength, buffer, width, rleMask);
 	return true;
 #else
+	(void)height;
 	// WARNING! Non-ASM RLE decompression is buggy, please use ASM implementaiton
 
 	uint32_t nibbles;
@@ -576,7 +586,21 @@ static bool DMG_DecompressOldRLEToPlanarSTAsm(const DMG_Entry* entry, DMG* dmg,
 uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 {
 	bool success;
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	uint32_t planarStart, planarStep;
+	VID_GetMilliseconds(&planarStart);
+	planarStep = planarStart;
+	#endif
 	DMG_Entry* entry = DMG_GetEntry(dmg, index);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	uint32_t entryLookupMs;
+	VID_GetMilliseconds(&entryLookupMs);
+	DebugPrintf("DMG_GetEntryDataPlanar(%u): entry lookup %lu ms entry=%p\n",
+		(unsigned)index,
+		(unsigned long)(entryLookupMs - planarStep),
+		entry);
+	planarStep = entryLookupMs;
+	#endif
 	if (entry == 0)
 		return 0;
 	if (entry->type == DMGEntry_Empty)
@@ -608,9 +632,18 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		(unsigned)(dmg != 0 ? dmg->colorMode : 0));
 	#endif
 
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	VID_GetMilliseconds(&planarStep);
+	#endif
 	cache = DMG_GetImageCache (dmg, index, entry, requiredSize);
 	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
-	DebugPrintf("DMG_GetEntryDataPlanar(%u): cache=%p\n", (unsigned)index, cache);
+	uint32_t cacheMs;
+	VID_GetMilliseconds(&cacheMs);
+	DebugPrintf("DMG_GetEntryDataPlanar(%u): cache=%p lookup=%lu ms\n",
+		(unsigned)index,
+		cache,
+		(unsigned long)(cacheMs - planarStep));
+	planarStep = cacheMs;
 	#endif
 	if (cache)
 	{
@@ -618,7 +651,12 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		if (cache->populated && cache->imageMode == nativePlanarMode)
 		{
 			#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
-			DebugPrintf("DMG_GetEntryDataPlanar(%u): cache hit buffer=%p\n", (unsigned)index, buffer);
+			uint32_t cacheHitMs;
+			VID_GetMilliseconds(&cacheHitMs);
+			DebugPrintf("DMG_GetEntryDataPlanar(%u): cache hit buffer=%p total=%lu ms\n",
+				(unsigned)index,
+				buffer,
+				(unsigned long)(cacheHitMs - planarStart));
 			#endif
 			return buffer;
 		}
@@ -667,7 +705,21 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 		return result;
 	}
 
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	VID_GetMilliseconds(&planarStep);
+	#endif
 	fileData = (uint8_t*)DMG_GetFromFileCache(dmg, entry->fileOffset+6, entry->length);
+	#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+	uint32_t fileCacheMs;
+	VID_GetMilliseconds(&fileCacheMs);
+	DebugPrintf("DMG_GetEntryDataPlanar(%u): file cache %s offset=%lu length=%lu in %lu ms\n",
+		(unsigned)index,
+		fileData != 0 ? "hit" : "miss",
+		(unsigned long)(entry->fileOffset + 6),
+		(unsigned long)entry->length,
+		(unsigned long)(fileCacheMs - planarStep));
+	planarStep = fileCacheMs;
+	#endif
 	if (fileData == 0)
 	{
 		if (entry->length > bufferSize)
@@ -693,11 +745,25 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			fileData = buffer + bufferSize - entry->length;
 			fileDataSharesOutputBuffer = true;
 		}
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		uint32_t readStart;
+		VID_GetMilliseconds(&readStart);
+		#endif
 		if (DMG_ReadFromFile(dmg, entry->fileOffset + 6, fileData, entry->length) != entry->length)
 		{
 			DMG_SetError(DMG_ERROR_READING_FILE);
 			return 0;
 		}
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		uint32_t readEnd;
+		VID_GetMilliseconds(&readEnd);
+		DebugPrintf("DMG_GetEntryDataPlanar(%u): file read length=%lu in %lu ms into %p\n",
+			(unsigned)index,
+			(unsigned long)entry->length,
+			(unsigned long)(readEnd - readStart),
+			fileData);
+		planarStep = readEnd;
+		#endif
 	}
 
 	DMG_ImageMode outputMode = ImageMode_PlanarST;
@@ -769,7 +835,7 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 			}
 			else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian))
 			{
-				#ifdef DEBUG_RLE
+				#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
 				uint32_t t0, t1;
 				VID_GetMilliseconds(&t0);
 				#endif
@@ -780,13 +846,20 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 				outputMode = ImageMode_Packed;
 				#else
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
-					entry->length-2, buffer, entry->width, dmg->littleEndian);
+					entry->length-2, buffer, entry->width, entry->height, dmg->littleEndian);
+				#if defined(_AMIGA) && HAS_ASM_RLE
+				outputMode = ImageMode_Planar;
+				#endif
 				#endif
 				
-				#ifdef DEBUG_RLE
+				#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
 				VID_GetMilliseconds(&t1);
-				DebugPrintf("Decompressed new RLE image %u in %lu ms\n",
-					(unsigned)index, (unsigned long)(t1 - t0));
+				DebugPrintf("DMG_GetEntryDataPlanar(%u): DAT2 RLE decode success=%d outputMode=%u in %lu ms\n",
+					(unsigned)index,
+					success ? 1 : 0,
+					(unsigned)outputMode,
+					(unsigned long)(t1 - t0));
+				planarStep = t1;
 				#endif
 			}
 			else
@@ -926,6 +999,19 @@ uint8_t* DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index)
 
 		if (cache != 0)
 			cache->populated = true;
+
+		#if defined(_AMIGA) && DEBUG_AMIGA_PICTURE_IO
+		uint32_t doneMs;
+		VID_GetMilliseconds(&doneMs);
+		DebugPrintf("DMG_GetEntryDataPlanar(%u): success outputMode=%u cache=%p populated=%d total=%lu ms sinceLast=%lu ms buffer=%p\n",
+			(unsigned)index,
+			(unsigned)outputMode,
+			cache,
+			cache != 0 && cache->populated ? 1 : 0,
+			(unsigned long)(doneMs - planarStart),
+			(unsigned long)(doneMs - planarStep),
+			buffer);
+		#endif
 	}
 	else
 	{

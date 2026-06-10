@@ -1904,7 +1904,7 @@ void VID_GetPictureInfo (bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_
 	}
 }
 
-void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
+static void ClearLoadedPicture()
 {
 	pictureOrigin = 0;
 	pictureEntry = 0;
@@ -1914,45 +1914,85 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	picturePlaneStride = 0;
 	picturePlanes = TEXT_PLANES;
 	picturePlaneMajor = false;
-	
+}
+
+void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
+{
+	#if DEBUG_AMIGA_PICTURE_IO
+	uint32_t loadStart = GetMilliseconds();
+	DebugPrintf("VID_LoadPicture(%u): begin\n", (unsigned)picno);
+	#endif
+
 	if (dmg == 0) 
 	{
 		#if DEBUG_AMIGA_PICTURE_IO
-		DebugPrintf("VID_LoadPicture(%u): no data file loaded\n", (unsigned)picno);
+		DebugPrintf("VID_LoadPicture(%u): no data file loaded after %lu ms\n",
+			(unsigned)picno,
+			(unsigned long)(GetMilliseconds() - loadStart));
 		#endif
+		ClearLoadedPicture();
 		return;
 	}
 
+	#if DEBUG_AMIGA_PICTURE_IO
+	uint32_t entryStart = GetMilliseconds();
+	#endif
 	DMG_Entry* entry = DMG_GetEntry(dmg, picno);
+	#if DEBUG_AMIGA_PICTURE_IO
+	uint32_t entryElapsed = GetMilliseconds() - entryStart;
+	#endif
 	if (entry == 0 || entry->type != DMGEntry_Image)
 	{
 		#if DEBUG_AMIGA_PICTURE_IO
-		DebugPrintf("VID_LoadPicture(%u): entry missing or not an image\n", (unsigned)picno);
+		DebugPrintf("VID_LoadPicture(%u): entry missing or not an image after %lu ms (entry lookup %lu ms)\n",
+			(unsigned)picno,
+			(unsigned long)(GetMilliseconds() - loadStart),
+			(unsigned long)entryElapsed);
 		#endif
+		ClearLoadedPicture();
 		return;
 	}
 
 	if (pictureOrigin == dmg && pictureEntry == entry && pictureIndex == picno && pictureData != 0)
 	{
 		#if DEBUG_AMIGA_PICTURE_IO
-		DebugPrintf("VID_LoadPicture(%u): reusing cached decoded picture\n", (unsigned)picno);
+		DebugPrintf("VID_LoadPicture(%u): reusing cached decoded picture in %lu ms (entry lookup %lu ms)\n",
+			(unsigned)picno,
+			(unsigned long)(GetMilliseconds() - loadStart),
+			(unsigned long)entryElapsed);
 		#endif
 		return;
 	}
 
+	ClearLoadedPicture();
+
 	#if DEBUG_AMIGA_PICTURE_IO
-	DebugPrintf("VID_LoadPicture(%u): loading %ux%u image, mode=%u bitDepth=%u screenMode=%u\n",
+	DebugPrintf("VID_LoadPicture(%u): loading %ux%u image, mode=%u bitDepth=%u screenMode=%u entryLookup=%lu ms\n",
 		(unsigned)picno,
 		(unsigned)entry->width,
 		(unsigned)entry->height,
 		(unsigned)(dmg != 0 ? dmg->colorMode : 0),
 		(unsigned)(entry->bitDepth ? entry->bitDepth : TEXT_PLANES),
-		(unsigned)screenMode);
+		(unsigned)screenMode,
+		(unsigned long)entryElapsed);
 	#endif
 
 	picturePlanes = entry->bitDepth ? entry->bitDepth : TEXT_PLANES;
 	uint32_t widthWords = (uint32_t)(entry->width + 15) >> 4;
+	#if DEBUG_AMIGA_PICTURE_IO
+	uint32_t decodeStart = GetMilliseconds();
+	#endif
 	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);
+	#if DEBUG_AMIGA_PICTURE_IO
+	uint32_t decodeElapsed = GetMilliseconds() - decodeStart;
+	DebugPrintf("VID_LoadPicture(%u): DMG_GetEntryDataNative returned %p in %lu ms error=%d (%s)\n",
+		(unsigned)picno,
+		pictureData,
+		(unsigned long)decodeElapsed,
+		(int)DMG_GetError(),
+		DMG_GetErrorString());
+	uint32_t setupStart = GetMilliseconds();
+	#endif
 	if (pictureData != 0)
 	{
 		pictureOrigin = dmg;
@@ -1966,14 +2006,16 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	{
 		SetPictureDecodeErrorFromDMG();
 		#if DEBUG_AMIGA_PICTURE_IO
-		DebugPrintf("VID_LoadPicture(%u): native decode failed for %ux%u image, mode=%u bitDepth=%u error=%d (%s)\n",
+		DebugPrintf("VID_LoadPicture(%u): native decode failed for %ux%u image, mode=%u bitDepth=%u error=%d (%s) total=%lu ms decode=%lu ms\n",
 			(unsigned)picno,
 			(unsigned)entry->width,
 			(unsigned)entry->height,
 			(unsigned)(dmg != 0 ? dmg->colorMode : 0),
 			(unsigned)picturePlanes,
 			(int)DMG_GetError(),
-			DMG_GetErrorString());
+			DMG_GetErrorString(),
+			(unsigned long)(GetMilliseconds() - loadStart),
+			(unsigned long)decodeElapsed);
 		#endif
 	}
 	else if (picturePlanes > displayPlanes)
@@ -1999,11 +2041,15 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	else
 	{
 		#if DEBUG_AMIGA_PICTURE_IO
-		DebugPrintf("VID_LoadPicture(%u): decode ok, strideWords=%lu planeStrideWords=%lu planes=%u\n",
+		uint32_t setupElapsed = GetMilliseconds() - setupStart;
+		DebugPrintf("VID_LoadPicture(%u): decode ok, strideWords=%lu planeStrideWords=%lu planes=%u total=%lu ms decode=%lu ms setup=%lu ms\n",
 			(unsigned)picno,
 			(unsigned long)pictureStride,
 			(unsigned long)picturePlaneStride,
-			(unsigned)picturePlanes);
+			(unsigned)picturePlanes,
+			(unsigned long)(GetMilliseconds() - loadStart),
+			(unsigned long)decodeElapsed,
+			(unsigned long)setupElapsed);
 		#endif
 	}
 }

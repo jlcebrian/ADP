@@ -1188,7 +1188,7 @@ uint8_t* DMG_GetEntryData(DMG* dmg, uint8_t index, DMG_ImageMode mode)
 			else if (DMG_IsClassicNativeDATByteOrder(dmg->littleEndian) && mode == ImageMode_PlanarST)
 			{
 				success = DMG_DecompressNewRLEToPlanarST(fileData+2, mask, 
-					entry->length-2, buffer, pixels, dmg->littleEndian);
+					entry->length-2, buffer, entry->width, entry->height, dmg->littleEndian);
 				if (success)
 				{
 					if (cache != 0)
