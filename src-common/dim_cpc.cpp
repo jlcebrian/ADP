@@ -977,7 +977,7 @@ CPC_OSHeaderType CPC_CheckOSHeader (CPC_FindResults* result, uint8_t* header)
 				if (v0 == 0x8000)
 					snprintf(result->description, 32, "BASIC");
 				else
-					snprintf(result->description, 32, "BASIC LINE %d", v1);
+					snprintf(result->description, 32, "BASIC LINE %d", v0);
 				break;
 			case 1:
 				snprintf(result->description, 32, "DATA %c", header[19] - 64);
@@ -1462,6 +1462,11 @@ uint32_t CPC_GetBlockCount (CPC_Disk* disk)
 	if (disk->doubleSide) tracks *= 2;
 	tracks -= disk->reservedTracks;
 	return tracks * disk->sectorsPerTrack * disk->sectorSize / disk->blockSize;
+}
+
+bool CPC_IsSpectrumDisk (CPC_Disk* disk)
+{
+	return disk->diskType == CPC_FORMAT_SPECTRUM;
 }
 
 uint64_t CPC_GetFreeSpace (CPC_Disk* disk)

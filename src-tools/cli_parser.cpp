@@ -141,7 +141,7 @@ static bool ParseLongOption(
 
     const CLI_OptionSpec* option = FindLongOption(options, name);
     if (option == 0)
-        return SetError(errorBuffer, errorBufferSize, "Unknown option: \"%s\"", token);
+        return AddArgument(commandLine, token, errorBuffer, errorBufferSize);
 
     if (option->argumentMode == CLI_OPTION_REQUIRED_VALUE)
     {

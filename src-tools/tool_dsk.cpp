@@ -74,6 +74,11 @@ enum
 enum
 {
 	ADDOPT_RECURSIVE = 0x01,
+	ADDOPT_BASIC     = 0x02,
+	ADDOPT_CODE      = 0x04,
+	ADDOPT_SCREEN    = 0x08,
+	ADDOPT_PLUS3DOS  = 0x10,
+	ADDOPT_AMSDOS    = 0x20,
 };
 
 enum
@@ -198,14 +203,14 @@ static const CLI_ActionSpec actionSpecs[] =
 
 static const CLI_OptionSpec optionSpecs[] =
 {
-	{ 'B', "brief", DSK_OPTION_BRIEF, CLI_OPTION_NONE },
-	{ 'l', "lowercase", DSK_OPTION_LOWERCASE, CLI_OPTION_NONE },
-	{ 'a', "ascii", DSK_OPTION_ASCII, CLI_OPTION_NONE },
-	{ 'r', "recursive", DSK_OPTION_RECURSIVE, CLI_OPTION_NONE },
+	{ 'B', "brief",    DSK_OPTION_BRIEF,    CLI_OPTION_NONE },
+	{ 'l', "lowercase",DSK_OPTION_LOWERCASE,CLI_OPTION_NONE },
+	{ 'a', "ascii",    DSK_OPTION_ASCII,    CLI_OPTION_NONE },
+	{ 'r', "recursive",DSK_OPTION_RECURSIVE,CLI_OPTION_NONE },
 	{ 'b', "bootable", DSK_OPTION_BOOTABLE, CLI_OPTION_NONE },
-	{ 'd', "dd", DSK_OPTION_DD, CLI_OPTION_NONE },
-	{ 'H', "hd", DSK_OPTION_HD, CLI_OPTION_NONE },
-	{ 'h', "help", DSK_OPTION_HELP, CLI_OPTION_NONE },
+	{ 'd', "dd",       DSK_OPTION_DD,       CLI_OPTION_NONE },
+	{ 'H', "hd",       DSK_OPTION_HD,       CLI_OPTION_NONE },
+	{ 'h', "help",     DSK_OPTION_HELP,     CLI_OPTION_NONE },
 	{ 0, 0, 0, CLI_OPTION_NONE }
 };
 
@@ -1120,8 +1125,7 @@ static bool CreateDisk(int argc, char *argv[])
 			densityPreset = command;
 			continue;
 		}
-		if (CheckExtension(localDiskFileName, "dsk") &&
-		    (stricmp(command, "plus3") == 0 || stricmp(command, "cpc") == 0 || stricmp(command, "pcw") == 0))
+		if (stricmp(command, "plus3") == 0 || stricmp(command, "cpc") == 0 || stricmp(command, "pcw") == 0)
 		{
 			if (size != 0 || densityPreset != NULL || preset != NULL)
 			{
@@ -1156,6 +1160,11 @@ static bool CreateDisk(int argc, char *argv[])
 	if (localDiskFileName == NULL)
 	{
 		printf("Missing disk file name\n");
+		return false;
+	}
+	if (preset != NULL && !CheckExtension(localDiskFileName, "dsk"))
+	{
+		printf("Error: the '%s' preset requires a .dsk output file\n", preset);
 		return false;
 	}
 	if (densityPreset != NULL)
@@ -1281,7 +1290,93 @@ static bool EnsureDiskDirectoryPath(const char* path)
 	return true;
 }
 
-static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
+struct FileAddOptions
+{
+	int      fileOptions;  // ADDOPT_BASIC | ADDOPT_CODE | ADDOPT_SCREEN | ADDOPT_PLUS3DOS | ADDOPT_AMSDOS
+	int      autoLine;     // -1 = no autostart
+	int      loadAddr;
+	int      execAddr;
+};
+
+static int ParseAddress(const char* s)
+{
+	if (s == NULL) return 0;
+	if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+		return (int)strtol(s + 2, NULL, 16);
+	return (int)strtol(s, NULL, 10);
+}
+
+static void BuildPlus3DOSHeader(uint8_t* hdr, int fileType, uint32_t payloadSize, int autoLine, uint16_t p0, uint16_t p1)
+{
+	memset(hdr, 0, 128);
+	memcpy(hdr, "PLUS3DOS", 8);
+	hdr[8]  = 0x1A;
+	hdr[9]  = 1;
+	hdr[10] = 0;
+	uint32_t total = payloadSize + 128;
+	hdr[11] = total & 0xFF;
+	hdr[12] = (total >> 8)  & 0xFF;
+	hdr[13] = (total >> 16) & 0xFF;
+	hdr[14] = (total >> 24) & 0xFF;
+	hdr[15] = (uint8_t)fileType;
+	hdr[16] = payloadSize & 0xFF;
+	hdr[17] = (payloadSize >> 8) & 0xFF;
+	hdr[18] = p0 & 0xFF;
+	hdr[19] = (p0 >> 8) & 0xFF;
+	hdr[20] = p1 & 0xFF;
+	hdr[21] = (p1 >> 8) & 0xFF;
+	uint8_t checksum = 0;
+	for (int n = 0; n < 127; n++)
+		checksum += hdr[n];
+	hdr[127] = checksum;
+}
+
+static void BuildAMSDOSHeader(uint8_t* hdr, const char* diskPath, int fileType, uint32_t payloadSize, uint16_t loadAddr, uint16_t execAddr)
+{
+	memset(hdr, 0, 128);
+	const char* base = diskPath;
+	for (const char* p = diskPath; *p; p++)
+		if (*p == '/' || *p == '\\')
+			base = p + 1;
+	const char* dot = NULL;
+	for (const char* p = base; *p; p++)
+		if (*p == '.')
+			dot = p;
+	int nameLen = dot ? (int)(dot - base) : (int)strlen(base);
+	if (nameLen > 8) nameLen = 8;
+	for (int i = 0; i < 8; i++)
+		hdr[1 + i] = (i < nameLen) ? (uint8_t)toupper((unsigned char)base[i]) : ' ';
+	if (dot)
+	{
+		int extLen = (int)strlen(dot + 1);
+		if (extLen > 3) extLen = 3;
+		for (int i = 0; i < 3; i++)
+			hdr[9 + i] = (i < extLen) ? (uint8_t)toupper((unsigned char)dot[1 + i]) : ' ';
+	}
+	else
+	{
+		hdr[9] = hdr[10] = hdr[11] = ' ';
+	}
+	hdr[18] = (uint8_t)fileType;
+	hdr[19] = payloadSize & 0xFF;
+	hdr[20] = (payloadSize >> 8) & 0xFF;
+	hdr[21] = loadAddr & 0xFF;
+	hdr[22] = (loadAddr >> 8) & 0xFF;
+	hdr[24] = payloadSize & 0xFF;
+	hdr[25] = (payloadSize >> 8) & 0xFF;
+	hdr[26] = execAddr & 0xFF;
+	hdr[27] = (execAddr >> 8) & 0xFF;
+	hdr[64] = payloadSize & 0xFF;
+	hdr[65] = (payloadSize >> 8) & 0xFF;
+	hdr[66] = (payloadSize >> 16) & 0xFF;
+	uint16_t checksum = 0;
+	for (int n = 0; n < 67; n++)
+		checksum += hdr[n];
+	hdr[67] = checksum & 0xFF;
+	hdr[68] = (checksum >> 8) & 0xFF;
+}
+
+static bool AddFileToDisk(const char* hostFileName, const char* diskFileName, const FileAddOptions& fo)
 {
 	static size_t bufferSize = 0;
 	static uint8_t* buffer = NULL;
@@ -1295,27 +1390,32 @@ static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 		return false;
 	}
 
+	bool wantHeader = (fo.fileOptions & (ADDOPT_BASIC | ADDOPT_CODE | ADDOPT_SCREEN)) != 0
+	                  && disk != NULL && disk->type == DIM_CPC;
+	uint32_t headerSize = wantHeader ? 128 : 0;
+
 	File* file = File_Open(hostFileName);
 	if (file == NULL)
 	{
 		printf("%s: file not found\n", hostFileName);
 		return false;
 	}
-	uint64_t size = File_GetSize(file);
+	uint64_t payloadSize = File_GetSize(file);
+	uint64_t totalSize = payloadSize + headerSize;
 	uint64_t freeSpace = DIM_GetFreeSpace(disk);
-	if (freeSpace < size)
+	if (freeSpace < totalSize)
 	{
 		printf("%s: no enough space left on disk\n", hostFileName);
 		File_Close(file);
 		return false;
 	}
-	if (!EnsureBufferCapacity(&buffer, &bufferSize, size, "DSK add buffer"))
+	if (!EnsureBufferCapacity(&buffer, &bufferSize, totalSize > 0 ? (size_t)totalSize : 1, "DSK add buffer"))
 	{
 		printf("Out of memory\n");
 		File_Close(file);
 		return false;
 	}
-	if (File_Read(file, buffer, size) != size)
+	if (File_Read(file, buffer + headerSize, payloadSize) != payloadSize)
 	{
 		printf("%s: error reading file\n", hostFileName);
 		File_Close(file);
@@ -1343,6 +1443,37 @@ static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 		diskPath[sizeof(diskPath) - 1] = 0;
 	}
 
+	if (wantHeader)
+	{
+		bool usePlus3DOS = (fo.fileOptions & ADDOPT_PLUS3DOS) != 0 ||
+			(!(fo.fileOptions & ADDOPT_AMSDOS) && CPC_IsSpectrumDisk(disk->cpc));
+		if (usePlus3DOS)
+		{
+			int fileType = (fo.fileOptions & ADDOPT_CODE) ? 3 : 0;
+			uint16_t p0, p1;
+			if (fo.fileOptions & ADDOPT_CODE)
+			{
+				p0 = (uint16_t)fo.loadAddr;
+				p1 = 0;
+			}
+			else
+			{
+				p0 = (fo.autoLine >= 0) ? (uint16_t)fo.autoLine : 0x8000;
+				p1 = (uint16_t)payloadSize;
+			}
+			BuildPlus3DOSHeader(buffer, fileType, (uint32_t)payloadSize, fo.autoLine, p0, p1);
+		}
+		else
+		{
+			int fileType;
+			if (fo.fileOptions & ADDOPT_CODE)        fileType = 2;
+			else if (fo.fileOptions & ADDOPT_SCREEN)  fileType = 4;
+			else                                      fileType = 0;
+			BuildAMSDOSHeader(buffer, diskPath, fileType, (uint32_t)payloadSize,
+				(uint16_t)fo.loadAddr, (uint16_t)fo.execAddr);
+		}
+	}
+
 	char* slash = strrchr(diskPath, '/');
 	char* bslash = strrchr(diskPath, '\\');
 	char* sep = slash > bslash ? slash : bslash;
@@ -1358,23 +1489,24 @@ static bool AddFileToDisk(const char* hostFileName, const char* diskFileName)
 		*sep = '/';
 	}
 
-	if (!DIM_WriteFile(disk, diskPath, buffer, (uint32_t)size))
-    {
+	if (!DIM_WriteFile(disk, diskPath, buffer, (uint32_t)totalSize))
+	{
 		printf("%s: %s\n", diskPath, DIM_GetErrorString());
 		DIM_ChangeDirectory(disk, savedCwd);
-        return false;
-    }
+		return false;
+	}
 	else
-    {
-		printf("%s: %d bytes written\n", diskPath, (uint32_t)size);
+	{
+		printf("%s: %d bytes written\n", diskPath, (uint32_t)totalSize);
 		DIM_ChangeDirectory(disk, savedCwd);
-        return true;
-    }
+		return true;
+	}
 }
 
 static bool AddFile (const char* filename)
 {
-	return AddFileToDisk(filename, NULL);
+	FileAddOptions fo = { 0, -1, 0, 0 };
+	return AddFileToDisk(filename, NULL, fo);
 }
 
 static bool ParseAddSpec(const char* spec, char* hostFileName, size_t hostFileNameSize, char* diskFileName, size_t diskFileNameSize)
@@ -1417,15 +1549,62 @@ static bool AddFiles (int argc, char *argv[])
 {
 	bool ok = true;
 	bool recursive = (options & ADDOPT_RECURSIVE) != 0;
+	FileAddOptions fo = { 0, -1, 0, 0 };
 
 	for (; argc > 0; argc--, argv++)
 	{
+		const char* token = argv[0];
+
+		if (token[0] == '-' && token[1] == '-')
+		{
+			const char* name = token + 2;
+			if (strcmp(name, "basic") == 0)
+			{
+				fo.fileOptions = (fo.fileOptions & ~(ADDOPT_CODE | ADDOPT_SCREEN)) | ADDOPT_BASIC;
+			}
+			else if (strcmp(name, "code") == 0)
+			{
+				fo.fileOptions = (fo.fileOptions & ~(ADDOPT_BASIC | ADDOPT_SCREEN)) | ADDOPT_CODE;
+			}
+			else if (strcmp(name, "screen") == 0)
+			{
+				fo.fileOptions = (fo.fileOptions & ~(ADDOPT_BASIC | ADDOPT_CODE)) | ADDOPT_SCREEN;
+			}
+			else if (strcmp(name, "plus3dos") == 0)
+			{
+				fo.fileOptions = (fo.fileOptions & ~ADDOPT_AMSDOS) | ADDOPT_PLUS3DOS;
+			}
+			else if (strcmp(name, "amsdos") == 0)
+			{
+				fo.fileOptions = (fo.fileOptions & ~ADDOPT_PLUS3DOS) | ADDOPT_AMSDOS;
+			}
+			else if (strncmp(name, "line=", 5) == 0)
+			{
+				fo.autoLine = ParseAddress(name + 5);
+			}
+			else if (strncmp(name, "load=", 5) == 0)
+			{
+				fo.loadAddr = ParseAddress(name + 5);
+			}
+			else if (strncmp(name, "exec=", 5) == 0)
+			{
+				fo.execAddr = ParseAddress(name + 5);
+			}
+			else
+			{
+				printf("Unknown option: --%s\n", name);
+				ok = false;
+			}
+			continue;
+		}
+
 		char hostFileName[FILE_MAX_PATH];
 		char diskPath[FILE_MAX_PATH];
-		if (!ParseAddSpec(argv[0], hostFileName, sizeof(hostFileName), diskPath, sizeof(diskPath)))
+		if (!ParseAddSpec(token, hostFileName, sizeof(hostFileName), diskPath, sizeof(diskPath)))
 		{
-			printf("%s: invalid add specification\n", argv[0]);
+			printf("%s: invalid add specification\n", token);
 			ok = false;
+			fo = { 0, -1, 0, 0 };
 			continue;
 		}
 
@@ -1446,39 +1625,42 @@ static bool AddFiles (int argc, char *argv[])
 					printf("%s: directory not found\n", hostFileName);
 					ok = false;
 					*dirSep = savedChar;
+					fo = { 0, -1, 0, 0 };
 					continue;
 				}
 				*dirSep = savedChar;
 				memmove(hostFileName, dirSep + 1, strlen(dirSep + 1) + 1);
 			}
-            if (diskPath[0] != 0)
-            {
-                printf("%s: wildcard host patterns cannot be combined with a disk destination path\n", argv[0]);
+			if (diskPath[0] != 0)
+			{
+				printf("%s: wildcard host patterns cannot be combined with a disk destination path\n", token);
 				if (hostCwdSaved)
 					OS_ChangeDirectory(savedHostCwd);
-                ok = false;
-                continue;
-            }
-            if (OS_FindFirstFile(hostFileName, &results))
-            {
-                do
-                {
-                    if (results.attributes & FileAttribute_Directory)
-                        continue;
-                    if (!AddFile(results.fileName))
-                        ok = false;
-                }
-                while (OS_FindNextFile(&results));
-            }
-            else
-            {
-                printf("%s: file not found\n", hostFileName);
-                ok = false;
-            }
+				ok = false;
+				fo = { 0, -1, 0, 0 };
+				continue;
+			}
+			if (OS_FindFirstFile(hostFileName, &results))
+			{
+				do
+				{
+					if (results.attributes & FileAttribute_Directory)
+						continue;
+					if (!AddFileToDisk(results.fileName, NULL, fo))
+						ok = false;
+				}
+				while (OS_FindNextFile(&results));
+			}
+			else
+			{
+				printf("%s: file not found\n", hostFileName);
+				ok = false;
+			}
 			if (hostCwdSaved)
 				OS_ChangeDirectory(savedHostCwd);
-            continue;
-        }
+			fo = { 0, -1, 0, 0 };
+			continue;
+		}
 
 		if (HostPathIsDirectory(hostFileName))
 		{
@@ -1486,14 +1668,17 @@ static bool AddFiles (int argc, char *argv[])
 			{
 				if (!AddTreeRecursive(hostFileName, diskPath))
 					ok = false;
+				fo = { 0, -1, 0, 0 };
 				continue;
 			}
 			printf("%s: skipping directory\n", hostFileName);
+			fo = { 0, -1, 0, 0 };
 			continue;
 		}
 
-		if (!AddFileToDisk(hostFileName, diskPath[0] ? diskPath : NULL))
+		if (!AddFileToDisk(hostFileName, diskPath[0] ? diskPath : NULL, fo))
 			ok = false;
+		fo = { 0, -1, 0, 0 };
 	}
 	return ok;
 }
@@ -1556,9 +1741,11 @@ static bool AddTreeRecursive(const char* hostDir, const char* destDir)
 				if (!AddTreeRecursive(results.fileName, nextDest))
 					ok = false;
 			}
-			else if (!AddFileToDisk(results.fileName, nextDest))
+			else
 			{
-				ok = false;
+				FileAddOptions fo = { 0, -1, 0, 0 };
+				if (!AddFileToDisk(results.fileName, nextDest, fo))
+					ok = false;
 			}
 		}
 		while (OS_FindNextFile(&results));

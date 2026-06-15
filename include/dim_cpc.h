@@ -38,6 +38,7 @@ extern uint32_t  CPC_ReadFile      (CPC_Disk* disk, const char* name, uint8_t* b
 extern uint32_t  CPC_WriteFile     (CPC_Disk* disk, const char* name, const uint8_t* buffer, uint32_t bufferSize);
 extern bool      CPC_DeleteFile    (CPC_Disk* disk, const char* name);
 extern uint64_t  CPC_GetFreeSpace  (CPC_Disk* disk);
+extern bool      CPC_IsSpectrumDisk(CPC_Disk* disk);
 extern void      CPC_DumpInfo      (CPC_Disk* disk);
 extern void      CPC_CloseDisk     (CPC_Disk* disk);
 
