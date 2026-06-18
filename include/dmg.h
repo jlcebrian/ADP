@@ -84,9 +84,8 @@ static inline bool DMG_IsClassicNativeDATByteOrder(bool littleEndian)
 #if defined(_AMIGA)
 #define DMG_NATIVE_IMAGE_MODE ImageMode_Planar
 #elif defined(_ATARIST)
-enum DMG_ImageMode;
-extern DMG_ImageMode screenMode;
-#define DMG_NATIVE_IMAGE_MODE screenMode
+extern DMG_ImageMode nativeImageMode;
+#define DMG_NATIVE_IMAGE_MODE nativeImageMode
 #elif defined(_DOS)
 #define DMG_NATIVE_IMAGE_MODE ImageMode_IndexedX
 #else

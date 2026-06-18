@@ -1418,8 +1418,6 @@ uint8_t* DMG_GetEntryDataNative(DMG* dmg, uint8_t index)
 
 	#if defined(_AMIGA)
 	return DMG_GetEntryDataPlanar(dmg, index);
-	#elif defined(_ATARIST)
-	return DMG_GetEntryData(dmg, index, screenMode);
 	#elif defined(_DOS)
 	return DMG_GetEntryDataIndexedX(dmg, index);
 	#else

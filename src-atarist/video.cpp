@@ -101,7 +101,7 @@ static int16_t VID_GetFalcon256Mode(DDB_ScreenMode selectedMode)
 
 static int16_t VID_GetFalconModeCode()
 {
-	return screenMode == ImageMode_PlanarFalcon ?
+	return nativeImageMode == ImageMode_PlanarFalcon ?
 		VID_GetFalcon256Mode(ScreenMode_VGA) :
 		FalconModeSTLow;
 }
@@ -125,7 +125,7 @@ struct STPaletteState
 
 static uint16_t VID_GetActivePaletteSize()
 {
-	return screenMode == ImageMode_PlanarFalcon ? 256 : 16;
+	return nativeImageMode == ImageMode_PlanarFalcon ? 256 : 16;
 }
 
 static uint8_t displayPlanesHint = 4;
@@ -150,7 +150,7 @@ void VID_SetWindowIcon(const char* fileName)
 bool supportsOpenFileDialog = false;
 
 DDB_Machine screenMachine = DDB_MACHINE_ATARIST;
-DMG_ImageMode screenMode = ImageMode_PlanarST;	
+DMG_ImageMode nativeImageMode = ImageMode_PlanarST;	
 	// or ImageMode_PlanarFalcon
 static DDB_ScreenMode selectedScreenMode = ScreenMode_VGA16;
 
@@ -195,7 +195,7 @@ static bool VID_UseFalconMode(DDB_ScreenMode mode)
 
 static void VID_UpdateLayoutFromMode()
 {
-	if (screenMode == ImageMode_PlanarFalcon)
+	if (nativeImageMode == ImageMode_PlanarFalcon)
 	{
 		screenBufferSize = 64000;
 		screenRowBytes = 320;
@@ -213,7 +213,7 @@ static bool VID_ApplyHardwareMode(DDB_ScreenMode selectedMode)
 {
 	int16_t requestedMode = FalconModeSTLow;
 
-	if (screenMode == ImageMode_PlanarFalcon)
+	if (nativeImageMode == ImageMode_PlanarFalcon)
 	{
 		if (!hasFalconVideo)
 		{
@@ -496,7 +496,7 @@ void VID_ApplyPalette(bool waitForVsync)
 	if (waitForVsync)
 		Vsync();
 
-	if (screenMode == ImageMode_PlanarFalcon)
+	if (nativeImageMode == ImageMode_PlanarFalcon)
 		Supexec(_writeFalconPaletteRegisters);
 	else
 		Supexec(_writePaletteRegisters);
@@ -546,9 +546,9 @@ static void VID_SetPaletteInternal(uint32_t* pal, bool waitForVsync, uint16_t co
 
 static void VID_Blit(uint16_t* dstBase, const uint16_t* srcBase, uint32_t srcStride, int x, int y, int w, int h)
 {
-	if (screenMode == ImageMode_PlanarST)
+	if (nativeImageMode == ImageMode_PlanarST)
 		VID_BlitST(dstBase, srcBase, srcStride, x, y, w, h);
-	else if (screenMode == ImageMode_PlanarFalcon)
+	else if (nativeImageMode == ImageMode_PlanarFalcon)
 		VID_BlitFalcon(dstBase, srcBase, srcStride, x, y, w, h);
 }
 
@@ -560,7 +560,7 @@ static void VID_BlitScreenNativeImage(const uint8_t* pixels, int srcW, int srcH,
 		w = srcW;
 	if (h > srcH)
 		h = srcH;
-	uint32_t stride = (screenMode == ImageMode_PlanarFalcon ? 8u : 4u) * ((srcW + 15u) / 16u);
+	uint32_t stride = (nativeImageMode == ImageMode_PlanarFalcon ? 8u : 4u) * ((srcW + 15u) / 16u);
 	VID_Blit(screen, (const uint16_t*)pixels, stride, x, y, w, h);
 }
 
@@ -570,9 +570,9 @@ static void VID_RegisterScreenAdapter()
 	screenAdapter.info.height = screenHeight;
 	screenAdapter.info.cellWidth = columnWidth;
 	screenAdapter.info.cellHeight = lineHeight;
-	screenAdapter.info.colorDepth = screenMode == ImageMode_PlanarFalcon ? 8 : 4;
+	screenAdapter.info.colorDepth = nativeImageMode == ImageMode_PlanarFalcon ? 8 : 4;
 	screenAdapter.info.paletteSize = VID_GetActivePaletteSize();
-	screenAdapter.info.nativeImageMode = screenMode;
+	screenAdapter.info.nativeImageMode = nativeImageMode;
 	screenAdapter.info.alignmentPixels = 1;
 	screenAdapter.ops.clear = VID_Clear;
 	screenAdapter.ops.scroll = VID_Scroll;
@@ -738,7 +738,7 @@ static bool VID_PresentPictureAtomicallyWithTemporaryBuffer(uint32_t* pal, bool 
 
 	if (hasFalconVideo)
 	{
-		if (screenMode == ImageMode_PlanarFalcon)
+		if (nativeImageMode == ImageMode_PlanarFalcon)
 		{
 			VBL_QueueSwap(tempScreen, (long*)falconColors, 256);
 		}
@@ -958,9 +958,9 @@ bool VID_LoadDataFile (const char* fileName)
 
 void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
-	if (screenMode == ImageMode_PlanarST)
+	if (nativeImageMode == ImageMode_PlanarST)
 		VID_ClearST(x, y, w, h, color, mode);
-	else if (screenMode == ImageMode_PlanarFalcon)
+	else if (nativeImageMode == ImageMode_PlanarFalcon)
 		VID_ClearFalcon(x, y, w, h, color, mode);
 }
 
@@ -1025,7 +1025,7 @@ void VID_SetPaletteColor16 (uint8_t color, uint16_t c)
 	if (state == visibleState)
 	{
 		VID_LoadHardwarePaletteFromState(state);
-		if (screenMode != ImageMode_PlanarFalcon)
+		if (nativeImageMode != ImageMode_PlanarFalcon)
 			Setcolor(color, c);
 		else
 			VID_ApplyPalette(false);
@@ -1052,7 +1052,7 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 	if (state == visibleState)
 	{
 		VID_LoadHardwarePaletteFromState(state);
-		if (screenMode != ImageMode_PlanarFalcon)
+		if (nativeImageMode != ImageMode_PlanarFalcon)
 			Setcolor(color, v);
 		else
 			VID_ApplyPalette(false);
@@ -1068,7 +1068,7 @@ void VID_ActivatePalette()
 
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
-	if (target == DDB_MACHINE_ATARIST && screenMode == ImageMode_PlanarFalcon && IsFalconRawScreenFile(fileName))
+	if (target == DDB_MACHINE_ATARIST && nativeImageMode == ImageMode_PlanarFalcon && IsFalconRawScreenFile(fileName))
 		return VID_LoadFalconRawScreen(fileName, fadeIn);
 
 	if (target == DDB_MACHINE_ATARIST)
@@ -1326,7 +1326,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 	pictureOrigin = dmg;
 	pictureEntry  = entry;
 	pictureIndex  = picno;
-	pictureStride = (screenMode == ImageMode_PlanarFalcon ? 8u : 4u) * ((entry->width + 15u) / 16u);
+	pictureStride = (nativeImageMode == ImageMode_PlanarFalcon ? 8u : 4u) * ((entry->width + 15u) / 16u);
 	pictureData   = (uint16_t*) DMG_GetEntryDataNative(dmg, picno);
 	if (pictureData == 0)
 	{
@@ -1417,9 +1417,9 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 
 void VID_Scroll (int x, int y, int w, int h, int lines, uint8_t paper)
 {
-	if (screenMode == ImageMode_PlanarST)
+	if (nativeImageMode == ImageMode_PlanarST)
 		VID_ScrollST(x, y, w, h, lines, paper);
-	else if (screenMode == ImageMode_PlanarFalcon)
+	else if (nativeImageMode == ImageMode_PlanarFalcon)
 		VID_ScrollFalcon(x, y, w, h, lines, paper);
 }
 
@@ -1597,7 +1597,7 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode sel
 
 	hasFalconVideo = HasFalconVideo();
 	selectedScreenMode = selectedMode;
-	screenMode = VID_UseFalconMode(selectedMode) ? ImageMode_PlanarFalcon : ImageMode_PlanarST;
+	nativeImageMode = VID_UseFalconMode(selectedMode) ? ImageMode_PlanarFalcon : ImageMode_PlanarST;
 	VID_UpdateLayoutFromMode();
 	if (!VID_ApplyHardwareMode(selectedMode))
 		return false;
