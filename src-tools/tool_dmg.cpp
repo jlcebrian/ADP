@@ -810,7 +810,7 @@ typedef struct
 DMGCacheHeader;
 
 #define DMG_CACHE_MAGIC 0x444D4743u
-#define DMG_CACHE_VERSION_MULTI 4u
+#define DMG_CACHE_VERSION_MULTI 5u
 
 typedef struct
 {
@@ -829,6 +829,7 @@ typedef struct
     uint16_t format;
     uint16_t colorMode;
     uint8_t  compressed;
+    uint8_t  requestedCompression;
     uint8_t  remap;
     uint8_t  firstColor;
     uint8_t  lastColor;
@@ -849,7 +850,7 @@ static bool DMGCacheMatches(const DMGCacheHeader* header, uint32_t sourceSize, u
         header->compressed == compressed;
 }
 
-static bool DMGCacheEntryMatches(const DMGCacheEntryHeader* entry, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed)
+static bool DMGCacheEntryMatches(const DMGCacheEntryHeader* entry, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t requestedCompression)
 {
     return entry->format == format &&
         entry->colorMode == colorMode &&
@@ -858,19 +859,8 @@ static bool DMGCacheEntryMatches(const DMGCacheEntryHeader* entry, uint32_t form
         entry->lastColor == lastColor &&
         entry->width == width &&
         entry->height == height &&
-        entry->compressed == compressed;
+        entry->requestedCompression == requestedCompression;
 }
-
-    static bool DMGCacheEntryMatchesIgnoringCompression(const DMGCacheEntryHeader* entry, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height)
-    {
-        return entry->format == format &&
-        entry->colorMode == colorMode &&
-        entry->remap == remap &&
-        entry->firstColor == firstColor &&
-        entry->lastColor == lastColor &&
-        entry->width == width &&
-        entry->height == height;
-    }
 
 static bool DMGCacheReadPayload(File* file, uint32_t payloadSize, uint8_t** payload, uint32_t* payloadSizeOut)
 {
@@ -922,8 +912,6 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
         return false;
     }
 
-    bool found = false;
-    bool foundExact = false;
     uint8_t* matchedPayload = 0;
     uint32_t matchedPayloadSize = 0;
     uint8_t matchedPayloadCompression = 0;
@@ -937,27 +925,16 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
         if (entry.payloadSize > fileSize || File_GetPosition(file) + entry.payloadSize > fileSize)
             break;
 
-        bool exactMatch = DMGCacheEntryMatches(&entry, format, colorMode, remap, firstColor, lastColor, width, height, requestedCompression);
-        bool fallbackMatch = !foundExact &&
-            requestedCompression != 0 &&
-            entry.compressed == 0 &&
-            DMGCacheEntryMatchesIgnoringCompression(&entry, format, colorMode, remap, firstColor, lastColor, width, height);
-
-        if (exactMatch || fallbackMatch)
+        if (DMGCacheEntryMatches(&entry, format, colorMode, remap, firstColor, lastColor, width, height, requestedCompression))
         {
             uint8_t* data = 0;
             uint32_t dataSize = 0;
             if (!DMGCacheReadPayload(file, entry.payloadSize, &data, &dataSize))
                 break;
-            if (matchedPayload != 0)
-                Free(matchedPayload);
             matchedPayload = data;
             matchedPayloadSize = dataSize;
             matchedPayloadCompression = entry.compressed;
-            found = true;
-            foundExact = exactMatch;
-            if (foundExact)
-                break;
+            break;
         }
         else if (!File_Seek(file, File_GetPosition(file) + entry.payloadSize))
         {
@@ -966,7 +943,7 @@ static bool TryLoadCachedPayload(const char* sourceFile, const char* cacheFile, 
     }
 
     File_Close(file);
-    if (!found)
+    if (matchedPayload == 0)
         return false;
 
     *payload = matchedPayload;
@@ -1015,7 +992,7 @@ static bool OpenCacheForAppend(const char* cacheFile, uint32_t sourceSize, uint3
     return true;
 }
 
-static void SaveCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t compressed, const uint8_t* payload, uint32_t payloadSize)
+static void SaveCachedPayload(const char* sourceFile, const char* cacheFile, uint32_t format, uint32_t colorMode, uint8_t remap, uint8_t firstColor, uint8_t lastColor, uint32_t width, uint32_t height, uint8_t requestedCompression, uint8_t compressed, const uint8_t* payload, uint32_t payloadSize)
 {
     DMGSourceFileInfo sourceInfo;
     if (!GetSourceFileInfo(sourceFile, &sourceInfo))
@@ -1032,6 +1009,7 @@ static void SaveCachedPayload(const char* sourceFile, const char* cacheFile, uin
     header.format = (uint16_t)format;
     header.colorMode = (uint16_t)colorMode;
     header.compressed = compressed;
+    header.requestedCompression = requestedCompression;
     header.remap = remap;
     header.firstColor = firstColor;
     header.lastColor = lastColor;
@@ -5190,7 +5168,7 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 storedBuffer = outBuffer;
                 storedSize = encodedSize;
             }
-            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)effectiveRemapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, compressed ? 1 : 0, storedBuffer, storedSize);
+            SaveCachedPayload(path, cacheFile, dmg->version, dmg->colorMode, (uint8_t)effectiveRemapMode, (uint8_t)firstColor, (uint8_t)lastColor, width, height, localCompressionEnabled ? 1 : 0, compressed ? 1 : 0, storedBuffer, storedSize);
         }
         else
         {
