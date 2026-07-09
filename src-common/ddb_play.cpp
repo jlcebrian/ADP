@@ -117,10 +117,31 @@ static void LogBackBufferAnalysisForDDB(const char* fileName, DDB_Machine machin
 }
 
 #ifdef _AMIGA
+enum AmigaKeyboardLayout
+{
+	AmigaKeyboardLayout_English,
+	AmigaKeyboardLayout_Spanish,
+};
 extern bool VID_IsAGAAvailable();
 extern void VID_SetDisplayColorModeHint(uint8_t colorMode);
 extern void OpenKeyboard();
+extern void SetKeyboardLayout(AmigaKeyboardLayout layout);
 extern bool OpenAudio();
+#endif
+
+#ifdef _AMIGA
+static AmigaKeyboardLayout GetAmigaKeyboardLayout(DDB_Language language)
+{
+	switch (language)
+	{
+		case DDB_SPANISH:
+			return AmigaKeyboardLayout_Spanish;
+
+		case DDB_ENGLISH:
+		default:
+			return AmigaKeyboardLayout_English;
+	}
+}
 #endif
 
 static bool FileExistsByName(const char* fileName)
@@ -2194,6 +2215,7 @@ bool DDB_RunPlayer()
 	}
 
 	#ifdef _AMIGA
+	SetKeyboardLayout(GetAmigaKeyboardLayout(language));
 	OpenKeyboard();
 	OpenAudio();
 	#endif
@@ -2277,6 +2299,10 @@ bool DDB_RunPlayer()
 		{
 			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
 		}
+		language = selectedLanguage;
+		#ifdef _AMIGA
+		SetKeyboardLayout(GetAmigaKeyboardLayout(language));
+		#endif
 	}
 
 	CloseEnum();
@@ -2293,6 +2319,9 @@ bool DDB_RunPlayer()
 		DebugPrintf(": %s\n", DDB_GetErrorString());
 		return false;
 	}
+	#ifdef _AMIGA
+	SetKeyboardLayout(GetAmigaKeyboardLayout(ddb->language));
+	#endif
 	if (DDB_RequiresBackBuffer(ddb))
 		VID_EnableBackBuffer();
 

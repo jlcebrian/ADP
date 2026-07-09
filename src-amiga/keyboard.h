@@ -8,7 +8,14 @@ extern volatile uint8_t  InputBufferHead;
 
 extern volatile uint8_t  KeyboardBitmap[16];
 
+enum AmigaKeyboardLayout
+{
+	AmigaKeyboardLayout_English,
+	AmigaKeyboardLayout_Spanish,
+};
+
 extern void OpenKeyboard();
+extern void SetKeyboardLayout(AmigaKeyboardLayout layout);
 extern int  GetModifiers();
 extern void CloseKeyboard();
 

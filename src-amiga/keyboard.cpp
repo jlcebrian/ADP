@@ -34,7 +34,7 @@ static Interrupt handler;
 static IOStdReq* req;
 static MsgPort*  port;
 
-uint16_t Keymap[128] =
+static const uint16_t KeymapEnglish[128] =
 {
 	// First row	00-0F
 	0xB4, // ´
@@ -110,7 +110,7 @@ uint16_t Keymap[128] =
 	0,		// Amiga
 };
 
-uint16_t KeymapCaps[128] =
+static const uint16_t KeymapEnglishCaps[128] =
 {
 	// First row	00-0F
 	0x7E, // ~
@@ -185,6 +185,178 @@ uint16_t KeymapCaps[128] =
 	0,
 	0,		// Amiga
 };
+
+static const uint16_t KeymapSpanish[128] =
+{
+	// First row	00-0F
+	0xB4, // ´
+	'1','2','3','4','5','6','7','8','9','0','-','=','\\',
+	0,
+	0,
+
+	// Second row	10-1F
+	'q','w','e','r','t','y','u','i','o','p',0xB4,'`',
+	0,
+	0,		// KP1
+	0,		// KP2,
+	0,		// KP3,
+
+	// Third row	20-2F
+	'a','s','d','f','g','h','j','k','l',0x1A,';',0x1C,
+	0,
+	0,		// KP4
+	0,		// KP5
+	0,		// KP6
+
+	// Fourth row	30-3F
+	'<','z','x','c','v','b','n','m','.',':',',',
+	0,
+	0,
+	0,		// KP7
+	0,		// KP8
+	0,		// KP9
+
+	// Fifth row	40-4F
+	' ',	// Space
+	8,		// Backspace
+	9,		// Tab
+	0x1C00, // KP Enter,
+	13,		// Return,
+	27,		// Escape
+	0,		// DEL
+	0,
+	0,
+	0,
+	'-',	// KP-
+	0,
+	0x4800,	// Cursor up
+	0x5000,	// Cursor down
+	0x4D00,	// Cursor right
+	0x4B00,	// Cursor left
+
+	// Sixth row	50-5F
+	0x3B00,	// F1
+	0x3C00,	// F2
+	0x3D00,	// F3
+	0x3E00,	// F4
+	0x3F00,	// F5
+	0x4000,	// F6
+	0x4100,	// F7
+	0x4200,	// F8
+	0x4300,	// F9
+	0x4400,	// F10
+	'(',	// KP(
+	')',	// KP)
+	'/',	// KP/
+	'*',	// KP*
+	0,
+	0,		// HELP
+
+	// Seventh row	60-6F
+	0,		// Left shift
+	0,		// Right shift
+	0,		// Caps lock
+	0,		// Ctrl
+	0,		// Alt
+	0,
+	0,		// Amiga
+};
+
+static const uint16_t KeymapSpanishCaps[128] =
+{
+	// First row	00-0F
+	0x7E, // ~
+	'1','2','3','4','5','6','7','8','9','0','_','+',0x11,
+	0,
+	0,
+
+	// Second row	10-1F
+	'Q','W','E','R','T','Y','U','I','O','P',0xB4,'^',
+	0,
+	0,		// KP1
+	0,		// KP2,
+	0,		// KP3,
+
+	// Third row	20-2F
+	'A','S','D','F','G','H','J','K','L',0x1B,':',0x1D,
+	0,
+	0,		// KP4
+	0,		// KP5
+	0,		// KP6
+
+	// Fourth row	30-3F
+	'>','Z','X','C','V','B','N','M','?','!','"',
+	0,
+	0,
+	0,		// KP7
+	0,		// KP8
+	0,		// KP9
+
+	// Fifth row	40-4F
+	' ',	// Space
+	8,		// Backspace
+	9,		// Tab
+	0x1C00, // KP Enter,
+	13,		// Return,
+	27,		// Escape
+	0,		// DEL
+	0,
+	0,
+	0,
+	'-',	// KP-
+	0,
+	0x4800,	// Cursor up
+	0x5000,	// Cursor down
+	0x4D00,	// Cursor right
+	0x4B00,	// Cursor left
+
+	// Sixth row	50-5F
+	0x3B00,	// F1
+	0x3C00,	// F2
+	0x3D00,	// F3
+	0x3E00,	// F4
+	0x3F00,	// F5
+	0x4000,	// F6
+	0x4100,	// F7
+	0x4200,	// F8
+	0x4300,	// F9
+	0x4400,	// F10
+	'(',	// KP(
+	')',	// KP)
+	'/',	// KP/
+	'*',	// KP*
+	0,
+	0,		// HELP
+
+	// Seventh row	60-6F
+	0,		// Left shift
+	0,		// Right shift
+	0,		// Caps lock
+	0,		// Ctrl
+	0,		// Alt
+	0,
+	0,		// Amiga
+};
+
+static const uint16_t* Keymap = KeymapEnglish;
+static const uint16_t* KeymapCaps = KeymapEnglishCaps;
+
+void SetKeyboardLayout(AmigaKeyboardLayout layout)
+{
+	switch (layout)
+	{
+		case AmigaKeyboardLayout_Spanish:
+			Keymap = KeymapSpanish;
+			KeymapCaps = KeymapSpanishCaps;
+			break;
+
+		case AmigaKeyboardLayout_English:
+		default:
+			Keymap = KeymapEnglish;
+			KeymapCaps = KeymapEnglishCaps;
+			break;
+	}
+}
 
 EXPORT void KeyFound (InputEvent* ptr)
 {
@@ -313,6 +485,7 @@ void CloseKeyboard()
 		req = 0;
 		port = 0;
 		kbOpen = false;
+		SetKeyboardLayout(AmigaKeyboardLayout_English);
 	}
 }
 
