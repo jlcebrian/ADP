@@ -1,5 +1,6 @@
 #include <ddb_scr.h>
 #include <ddb_vid.h>
+#include <ddb_test.h>
 #include <os_mem.h>
 #include <os_file.h>
 
@@ -16,10 +17,6 @@ SCR_CommandData  firstCommandBlock[COMMANDS_PER_BLOCK];
 SCR_CommandData	*commandBufferBlocks[MAX_BLOCKS] = { firstCommandBlock };
 size_t			 commandBufferIndex = 0;
 size_t			 commandBufferReadIndex = 0;
-
-const char*      inputFile = 0;
-const char*      inputFileBegin = 0;
-const char*      inputFileEnd = 0;
 
 static inline int IndexBlock (size_t index)
 {
@@ -286,31 +283,28 @@ bool SCR_Synchronized ()
 
 void SCR_GetKey(uint8_t* key, uint8_t* ext, uint8_t* mod)
 {
-    if (inputFile && inputFile < inputFileEnd && *inputFile == '\r')
-        inputFile++;
-    if (inputFile && inputFile < inputFileEnd)
-    {
-        if (key) {
-            *key = *inputFile++;
-            if (*key == '\n') *key = 0x0D;
-        }
-        if (ext)
-            *ext = 0;
-        if (mod)
-            *mod = 0;
-        return;
-    }
-
+	#if HAS_TESTMODE
+	if (DDB_TestGetKey(key, ext, mod))
+		return;
+	#endif
 	VID_GetKey(key, ext, mod);
 }
 
 bool SCR_AnyKey()
 {
-    if (inputFile && inputFile < inputFileEnd)
-        return true;
-
+	#if HAS_TESTMODE
+	if (DDB_TestIsActive())
+		return DDB_TestAnyKey();
+	#endif
 	return VID_AnyKey();
 }
+
+#if HAS_TESTMODE
+bool SCR_AnyKeyForWait()
+{
+	return DDB_TestIsActive() ? DDB_TestAnyKeyForWait() : SCR_AnyKey();
+}
+#endif
 
 void SCR_GetPaletteColor(uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b)
 {
@@ -427,33 +421,11 @@ void SCR_SetTextInputMode(bool enabled)
 	VID_SetTextInputMode(enabled);
 }
 
+#if HAS_TESTMODE
 void SCR_UseInputFile(const char* filename)
 {
-	if (inputFileBegin != 0)
-		Free((void*)inputFileBegin);
-
-    File* file = File_Open(filename, ReadOnly);
-    if (file == 0)
-    {
-        inputFile = 0;
-        inputFileBegin = 0;
-        inputFileEnd = 0;
-        return;
-    }
-
-    uint64_t fileSize = File_GetSize(file);
-	inputFileBegin = inputFile = (const char*)AllocateBlock("Input file", (size_t)fileSize, false);
-	if (inputFileBegin == 0)
-	{
-		inputFile = 0;
-		inputFileEnd = 0;
-		File_Close(file);
-		return;
-	}
-    inputFileEnd = inputFileBegin + File_Read(file, (uint8_t*)inputFile, fileSize);
-    File_Close(file);
-
-    inputFile = inputFileBegin;
+	DDB_TestLoadInput(filename);
 }
+#endif
 
 #endif

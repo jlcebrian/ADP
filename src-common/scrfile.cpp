@@ -166,7 +166,9 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 	#endif
 
-	if (SCR_HasPI1Header(buffer, size))
+	// PI1 (Degas) detection is size-only, and an Amiga SCR is coincidentally the
+	// same 32034 bytes, so exclude Amiga here or its screens decode as Atari ST.
+	if (target != DDB_MACHINE_AMIGA && SCR_HasPI1Header(buffer, size))
 	{
 		SCR_DecodePlanarST(buffer + 2, output, width, height, palette);
 		return true;

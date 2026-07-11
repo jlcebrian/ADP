@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "redistribution": "The project asserts that the included releases are public domain.",
+  "games": [
+    "chichen",
+    "cozumel",
+    "espacial",
+    "jabato",
+    "original",
+    "templos"
+  ],
+  "notes": "Original filenames and disk ordering are preserved below each game/platform directory.",
+  "probes": [
+    "chichen/amiga/CHICHEN-AMIGA.ADF",
+    "chichen/atarist/CHICHEN-ST.st",
+    "chichen/spectrum/CHICHEN-SPECTRUM 1.tzx",
+    "chichen/spectrum/CHICHEN-SPECTRUM 2.tzx",
+    "cozumel/amiga/COZUMEL-AMIGA.ADF",
+    "cozumel/atarist/COZUMEL-ST.st",
+    "cozumel/pcw/COZUMEL-PCW 1 Corregida.dsk",
+    "cozumel/pcw/COZUMEL-PCW 1.dsk",
+    "cozumel/pcw/COZUMEL-PCW 2.dsk",
+    "cozumel/spectrum/COZUMEL-SPECTRUM 1.tzx",
+    "espacial/amiga/ESPACIAL-AMIGA.ADF",
+    "espacial/atarist/ESPACIAL-ST 1.st",
+    "jabato/amiga/JABATO-AMIGA.ADF",
+    "jabato/atarist/JABATO-ST 1.ST",
+    "original/amiga/ORIGINAL-AMIGA.ADF",
+    "original/atarist/ORIGINAL-ST.ST",
+    "original/spectrum/ORIGINAL-SPECTRUM 1.tzx",
+    "original/spectrum/ORIGINAL-SPECTRUM 2.tzx",
+    "templos/amiga/TEMPLOS-AMIGA.adf",
+    "templos/atarist/TEMPLOS-ST 1.ST",
+    "templos/atarist/TEMPLOS-ST 2.ST",
+    "templos/spectrum/TEMPLOS-SPECTRUM 1.dsk"
+  ]
+}

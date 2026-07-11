@@ -1018,6 +1018,7 @@ void VID_Finish()
 	VID_Clear(0, 0, screenWidth, screenHeight, 0);
 	VID_VSync();
 
+	CGA_Shutdown();
 	ModeX_SetVideoMode(MODE_TEXT);
 	initialized = false;
 }

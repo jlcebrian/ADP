@@ -59,7 +59,6 @@ enum SCR_KeyMod
 };
 
 typedef void (*MainLoopCallback)(int elapsed);
-
 #if  NO_BUFFERING
 
 #include <ddb_vid.h>
@@ -104,7 +103,6 @@ static inline void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t pap
 
 static inline bool SCR_Synchronized()  { return true; }
 static inline void SCR_ConsumeBuffer() {}
-
 static inline void SCR_WaitForKey()
 {
 	uint8_t key, ext;
@@ -115,6 +113,9 @@ static inline void SCR_WaitForKey()
 #else
 
 extern bool SCR_AnyKey           ();
+#if HAS_TESTMODE
+extern bool SCR_AnyKeyForWait    ();
+#endif
 extern bool SCR_LoadPicture      (uint8_t picno, DDB_ScreenMode screenMode);
 extern bool SCR_PictureExists    (uint8_t picno);
 extern bool SCR_SampleExists     (uint8_t no);
@@ -142,7 +143,9 @@ extern void SCR_SetPaletteColor  (uint8_t color, uint8_t r, uint8_t g, uint8_t b
 extern void SCR_SetTextInputMode (bool enabled);
 extern void SCR_SwapScreen       ();
 extern void SCR_WaitForKey       ();
+#if HAS_TESTMODE
 extern void SCR_UseInputFile     (const char* filename);
+#endif
 
 #ifdef __cplusplus
 inline void SCR_Clear(int x, int y, int w, int h, uint8_t color)

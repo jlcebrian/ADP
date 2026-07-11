@@ -22,6 +22,7 @@ CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB -D_UNIX
 CPPFLAGS += -DHAS_CLIPBOARD -DHAS_VIRTUALFILESYSTEM -DHAS_FULLSCREEN
 CPPFLAGS += -DHAS_SNAPSHOTS -DHAS_PAWS -DHAS_DRAWSTRING -DHAS_XMSG
 CPPFLAGS += -DHAS_PCX -DHAS_SPECTRUM -DHAS_PSG -DNO_SAMPLES
+CPPFLAGS += -DHAS_TESTMODE=1
 CPPFLAGS += -Dstricmp=strcasecmp -Dstrnicmp=strncasecmp
 
 ifeq ($(DEBUGPRINT),1)
@@ -77,11 +78,27 @@ ADPC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_SRCS)))
 ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRCS)))
 
 .DEFAULT_GOAL := all
-.PHONY: all clean
+.PHONY: all clean test test-host test-dos test-inventory test-game
 
 -include $(COMMON_OBJS:.o=.d) $(TRACED_COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(ADPC_OBJS:_adpc.o=_adpc.d) $(ADPC_COMMON_OBJS:_adpc.o=_adpc.d)
 
 all: $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)
+
+test: test-host
+
+test-host: $(OUTDIR)/ddb
+
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb
+
+test-dos:
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --suite dos
+
+test-inventory: $(OUTDIR)/ddb
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --inventory
+
+test-game: $(OUTDIR)/ddb
+	@test -n "$(SCENARIO)" || (echo "Usage: make -f Makefile-linux test-game SCENARIO=chichen/part1-amiga [FAST=1] [RECORD=1] [TRACE=1] [INTERACTIVE=1]"; exit 2)
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --scenario $(SCENARIO) $(if $(filter 1 yes,$(RECORD)),--record,) $(if $(filter 1 yes,$(TRACE)),--trace,) $(if $(filter 1 yes,$(INTERACTIVE)),--interactive,) $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,)
 
 $(OUTDIR):
 	@mkdir -p $@

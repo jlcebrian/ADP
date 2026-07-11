@@ -2,6 +2,9 @@
 
 #include <ddb.h>
 #include <ddb_vid.h>
+#if defined(DOS_TEST_BUILD)
+#include <ddb_scr.h>
+#endif
 #include <os_lib.h>
 #include <os_mem.h>
 #include <os_file.h>
@@ -89,12 +92,28 @@ static bool ChangeToGamePath(const char* path)
 extern "C" int main (int argc, char**argv)
 {
 	const char* gamePath = 0;
+	#if defined(DOS_TEST_BUILD)
+	const char* inputFileName = 0;
+	const char* transcriptFileName = 0;
+	#endif
 	DebugPrintf("PLAYER: startup build=%s %s argc=%d\n", __DATE__, __TIME__, argc);
 	DOS_InitStackWatermark();
 	DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy_Configurable);
 	DDB_ClearStartupScreenModeOverride();
 	for (int i = 1; i < argc; i++)
 	{
+		#if defined(DOS_TEST_BUILD)
+		if (StrIComp(argv[i], "-i") == 0 && i + 1 < argc)
+		{
+			inputFileName = argv[++i];
+			continue;
+		}
+		if (StrIComp(argv[i], "-o") == 0 && i + 1 < argc)
+		{
+			transcriptFileName = argv[++i];
+			continue;
+		}
+		#endif
 		DebugPrintf("PLAYER: argv[%d]=%s\n", i, argv[i] != 0 ? argv[i] : "(null)");
 		DDB_ScreenMode mode = ParseScreenModeArgument(argv[i]);
 		if (mode != ScreenMode_Default)
@@ -113,6 +132,13 @@ extern "C" int main (int argc, char**argv)
 		DebugPrintf("PLAYER: ChangeToGamePath failed for %s\n", gamePath);
 		cputs("Warning: unable to change directory\r\n");
 	}
+
+	#if defined(DOS_TEST_BUILD)
+	if (transcriptFileName != 0)
+		DDB_UseTranscriptFile(transcriptFileName);
+	if (inputFileName != 0)
+		SCR_UseInputFile(inputFileName);
+	#endif
 
 	DebugPrintf("PLAYER: invoking DDB_RunPlayer\n");
 	if (!DDB_RunPlayer())

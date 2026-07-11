@@ -1832,6 +1832,29 @@ void VID_SaveDebugBitmap()
 	SDL_FreeSurface(debugSurface);
 }
 
+bool VID_SaveScreenshot(const char* fileName)
+{
+	if (fileName == 0 || fileName[0] == 0 || frontBuffer == 0 || screenWidth == 0 || screenHeight == 0)
+		return false;
+
+	SDL_Surface* frame = SDL_CreateRGBSurfaceWithFormat(0, screenWidth, screenHeight, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (frame == 0)
+		return false;
+
+	uint32_t* pixels = (uint32_t*)frame->pixels;
+	for (int y = 0; y < screenHeight; y++)
+	{
+		uint32_t* row = (uint32_t*)((uint8_t*)pixels + y * frame->pitch);
+		const uint8_t* source = frontBuffer + y * screenWidth;
+		for (int x = 0; x < screenWidth; x++)
+			row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+	}
+
+	bool saved = SDL_SaveBMP(frame, fileName) == 0;
+	SDL_FreeSurface(frame);
+	return saved;
+}
+
 void VID_InnerLoop()
 {
 	Uint32 now = SDL_GetTicks();
@@ -2043,7 +2066,11 @@ void VID_MainLoop (DDB_Interpreter* interpreter, void (*callback)(int elapsed))
 	{
 		// Delay for smooth scrolling
 		Uint32 now = SDL_GetTicks();
-		if (buffering || (interpreter != NULL && interpreter->state == DDB_VSYNC))
+		if (
+			#if HAS_TESTMODE
+			!VID_IsFastMode() &&
+			#endif
+			(buffering || (interpreter != NULL && interpreter->state == DDB_VSYNC)))
 		{
 			if (now - ticks < 20)
 				SDL_Delay(now + 20 - ticks);
@@ -2501,7 +2528,14 @@ void VID_VSync()
 	return;
 #endif
 	VID_InnerLoop();
-	SDL_Delay(16);
+	if (
+		#if HAS_TESTMODE
+		!VID_IsFastMode()
+		#else
+		true
+		#endif
+	)
+		SDL_Delay(16);
 }
 
 static char* clipboard = 0;

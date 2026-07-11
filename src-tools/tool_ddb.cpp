@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_vid.h>
+#include <ddb_test.h>
 #include <ddb_scr.h>
 #include <dmg.h>
 #include <cli_parser.h>
@@ -9,6 +10,7 @@
 #include <os_bito.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -19,6 +21,24 @@ static bool dumpMessageSamples = true;
 
 static void PrintWarning(const char* message);
 
+static bool SaveScreenshot(const char* fileName)
+{
+	return VID_SaveScreenshot(fileName);
+}
+
+static bool ParseScreenModeOption(const char* option, DDB_ScreenMode* mode)
+{
+	if (stricmp(option, "cga") == 0)
+		*mode = ScreenMode_CGA;
+	else if (stricmp(option, "ega") == 0)
+		*mode = ScreenMode_EGA;
+	else if (stricmp(option, "vga") == 0)
+		*mode = ScreenMode_VGA16;
+	else
+		return false;
+	return true;
+}
+
 typedef enum
 {
 	CLI_OPTION_TRACE = 1,
@@ -27,6 +47,11 @@ typedef enum
 	CLI_OPTION_TRANSCRIPT,
 	CLI_OPTION_INPUT,
 	CLI_OPTION_SCREEN,
+	CLI_OPTION_CAPTURE,
+	CLI_OPTION_INTERACTIVE,
+	CLI_OPTION_SKIP_TIMED_PAUSES,
+	CLI_OPTION_PART,
+	CLI_OPTION_PART_CAPTURE,
 	CLI_OPTION_NO_MESSAGE_SAMPLES,
 	CLI_OPTION_HELP,
 }
@@ -347,6 +372,7 @@ void TracePrintf(const char* format, ...)
 	va_end(args);
 
 	fputs(buffer, stdout);
+	fflush(stdout);
 }
 
 typedef enum
@@ -386,7 +412,12 @@ void ShowHelp()
     printf("                           Do not show message samples beside process code in dump mode\n");
     printf("   -o, --transcript FILE   Use FILE as transcript output file when running\n");
     printf("   -i, --input FILE        Use FILE as scripted input when running\n");
-    printf("   -s, --screen MODE       Select screen mode for run/test: cga, ega, vga\n");
+	printf("   -s, --screen MODE       Select screen mode for run/test: cga, ega, vga\n");
+	printf("       --capture FILE      Save the final logical framebuffer when running\n");
+	printf("       --interactive       Use live input after scripted test input ends\n");
+	printf("       --skip-timed-pauses Skip finite PAUSE condacts when running\n");
+	printf("       --part N            Auto-select part N in the part selector (test mode)\n");
+	printf("       --part-capture FILE Save a screenshot of the part selector (test mode)\n");
     printf("   -h, --help              Show this help\n\n");
 }
 
@@ -662,6 +693,11 @@ int main (int argc, char *argv[])
 		{ 'o', "transcript", CLI_OPTION_TRANSCRIPT, CLI_OPTION_REQUIRED_VALUE },
 		{ 'i', "input", CLI_OPTION_INPUT, CLI_OPTION_REQUIRED_VALUE },
 		{ 's', "screen", CLI_OPTION_SCREEN, CLI_OPTION_REQUIRED_VALUE },
+		{ 0, "capture", CLI_OPTION_CAPTURE, CLI_OPTION_REQUIRED_VALUE },
+		{ 0, "interactive", CLI_OPTION_INTERACTIVE, CLI_OPTION_NONE },
+		{ 0, "skip-timed-pauses", CLI_OPTION_SKIP_TIMED_PAUSES, CLI_OPTION_NONE },
+		{ 0, "part", CLI_OPTION_PART, CLI_OPTION_REQUIRED_VALUE },
+		{ 0, "part-capture", CLI_OPTION_PART_CAPTURE, CLI_OPTION_REQUIRED_VALUE },
 		{ 'S', "no-message-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
 		{ 'S', "no-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
 		{ 'h', "help", CLI_OPTION_HELP, CLI_OPTION_NONE },
@@ -705,6 +741,12 @@ int main (int argc, char *argv[])
 	const char* transcriptFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_TRANSCRIPT);
 	const char* scriptedInputFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_INPUT);
 	const char* screenOption = CLI_GetOptionValue(&commandLine, CLI_OPTION_SCREEN);
+	const char* captureFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_CAPTURE);
+	bool interactiveTestInput = CLI_HasOption(&commandLine, CLI_OPTION_INTERACTIVE);
+	bool skipTimedPauses = CLI_HasOption(&commandLine, CLI_OPTION_SKIP_TIMED_PAUSES);
+	const char* partOption = CLI_GetOptionValue(&commandLine, CLI_OPTION_PART);
+	const char* partCaptureFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_PART_CAPTURE);
+	int partSelection = partOption != 0 ? atoi(partOption) : 0;
 
 	if (showMemoryMap && action != ACTION_LIST)
 	{
@@ -716,24 +758,70 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Error: --no-message-samples is only valid with the dump action\n");
 		return 1;
 	}
-	if ((transcriptFileName != 0 || scriptedInputFileName != 0 || screenOption != 0) &&
+	if ((transcriptFileName != 0 || scriptedInputFileName != 0 || screenOption != 0 || captureFileName != 0 || interactiveTestInput || skipTimedPauses) &&
 		action != ACTION_RUN && action != ACTION_TEST)
 	{
 		fprintf(stderr, "Error: run-only options can only be used with run or test\n");
+		return 1;
+	}
+	if ((partOption != 0 || partCaptureFileName != 0) && action != ACTION_TEST)
+	{
+		fprintf(stderr, "Error: --part and --part-capture can only be used with test\n");
+		return 1;
+	}
+	if (partOption != 0 && partSelection < 1)
+	{
+		fprintf(stderr, "Error: --part requires a positive part number\n");
+		return 1;
+	}
+	if (partCaptureFileName != 0 && partSelection < 1)
+	{
+		fprintf(stderr, "Error: --part-capture requires --part\n");
+		return 1;
+	}
+	if (captureFileName != 0 && partSelection >= 1)
+	{
+		fprintf(stderr, "Error: --capture cannot be combined with --part\n");
+		return 1;
+	}
+	DDB_ScreenMode requestedScreenMode = ScreenMode_Default;
+	if (screenOption != 0 && !ParseScreenModeOption(screenOption, &requestedScreenMode))
+	{
+		fprintf(stderr, "Error: Unknown screen mode '%s'\n", screenOption);
 		return 1;
 	}
 
 	if (transcriptFileName != 0)
 		DDB_UseTranscriptFile(transcriptFileName);
 	if (scriptedInputFileName != 0)
-		SCR_UseInputFile(scriptedInputFileName);
+		DDB_TestLoadInput(scriptedInputFileName);
+	if (action == ACTION_TEST)
+		DDB_TestSetScreenshotCallback(SaveScreenshot);
+	if (interactiveTestInput)
+		DDB_TestEnableInteractiveInput();
+	if (partSelection >= 1)
+		DDB_TestSetPartSelection(partSelection, partCaptureFileName);
 
 	#ifdef HAS_VIRTUALFILESYSTEM
-	if ((action == ACTION_RUN || action == ACTION_TEST) && File_MountDisk(inputFileName))
+	// A part selection needs the real player so the part selector runs; route
+	// multi-part test scenarios through it just like the interactive player.
+	if ((action == ACTION_RUN || (action == ACTION_TEST && partSelection >= 1)) &&
+		File_MountDisk(inputFileName))
 	{
+		// The part selector runs inside the player, so the requested graphics mode
+		// (CGA/EGA/VGA) has to be applied as a startup override here rather than on
+		// the direct load path below.
+		if (requestedScreenMode != ScreenMode_Default)
+			DDB_SetStartupScreenModeOverride(requestedScreenMode);
+		VID_SetFastMode(skipTimedPauses);
 		if (!DDB_RunPlayer())
 		{
 			fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+			return 1;
+		}
+		if (DDB_TestHasError())
+		{
+			fprintf(stderr, "Error: %s\n", DDB_TestGetError());
 			return 1;
 		}
 		return 0;
@@ -858,25 +946,7 @@ int main (int argc, char *argv[])
 
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);
 	uint8_t displayPlanes = 4;
-	DDB_ScreenMode requestedDataMode = ScreenMode_Default;
-
-	if (screenOption != 0)
-	{
-		if (stricmp(screenOption, "ega") == 0)
-			requestedDataMode = ScreenMode_EGA;
-		else if (stricmp(screenOption, "cga") == 0)
-			requestedDataMode = ScreenMode_CGA;
-		else if (stricmp(screenOption, "vga") == 0)
-			requestedDataMode = ScreenMode_VGA16;
-		else
-		{
-			fprintf(stderr, "Error: Unknown screen mode '%s'\n", screenOption);
-			DDB_Close(ddb);
-			if (mountedDiskImage)
-				File_UnmountDisk();
-			return 1;
-		}
-	}
+	DDB_ScreenMode requestedDataMode = requestedScreenMode;
 
 	DDB_ScreenMode resolvedDataMode = requestedDataMode;
 	if (DDB_CheckDataFileConfig(loadedDDBFileName, ddb->target, &resolvedDataMode, &displayPlanes))
@@ -911,7 +981,35 @@ int main (int argc, char *argv[])
 
 	DDB_Reset(interpreter);
 	DDB_ResetWindows(interpreter);
+	VID_SetFastMode(skipTimedPauses);
+	DDB_SetSkipTimedPauses(interpreter, skipTimedPauses);
+	if (action != ACTION_TEST)
+	{
+		uint32_t seed = 0;
+		SCR_GetMilliseconds(&seed);
+		RandSeed(seed);
+	}
 	DDB_Run(interpreter);
+	if (DDB_TestHasError())
+	{
+		fprintf(stderr, "Error: %s\n", DDB_TestGetError());
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		if (mountedDiskImage)
+			File_UnmountDisk();
+		VID_Finish();
+		return 1;
+	}
+	if (captureFileName != 0 && !VID_SaveScreenshot(captureFileName))
+	{
+		fprintf(stderr, "Error: unable to save capture '%s'\n", captureFileName);
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		if (mountedDiskImage)
+			File_UnmountDisk();
+		VID_Finish();
+		return 1;
+	}
 	DDB_CloseInterpreter(interpreter);
 	DDB_Close(ddb);
 	if (mountedDiskImage)

@@ -1,0 +1,1472 @@
+El Sabke Sagrado que serpentea entre la densa vegetación tropical haciendo de puente sobre torrentosos ríos te ha conducido a salvo hasta la meta de tu viaje: La mítica Chichén Itzá.
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. También puedes ver un plato. 
+> COGER PLATO
+Coges el plato.
+> EX PUERTA
+Los desaparecidos batientes de madera han sido reemplazados hace largo tiempo por desgarradas telarañas. Hoy sólo quedan los muros del marco.
+> EX MUROS
+El marco está muy deteriorado. Muchas de las figuras de arácnidos que había como decoración han sido arrancadas o están muy estropeadas. Hay una muy bien conservada que está medio desprendida. 
+> COGER FIGURA
+Coges la araña tallada.
+> N
+Es una zona boscosa que por el Norte y Este empieza a ser ahogada por el avance de la intrincada maleza selvática y en la que aún resisten, entre las especies cultivadas antaño, algunos elegantes guamos. 
+> EX GUAMO
+Arbol de alto tronco delgado y amplias ramas cargadas de enormes vainas.
+> SACUDIR GUAMO
+Una de las enormes vainas cae al suelo.
+> COGER VAINA
+Coges la vaina de guama.
+> S
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. 
+> PONER VAINA EN PLATO
+Pones la vaina de guama en el plato.
+> MACHACAR VAINA CON ARANA
+Machacas la vaina y un líquido espeso brota de ella llenando el plato.
+> UNTAR LIQUIDO
+Te untas el espeso mucílago de guama.
+> DEJAR ARANA
+Dejas la araña tallada.
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. También puedes ver un panal abandonado. 
+> O
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Quetzalcoatl-Kukulkan, máximo héroe-dios mesoamericano.
+Oyes su voz: "Encuentra mi verdadero lugar de reposo".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> O
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Tráeme la bebida de los dioses y te ayudaré".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una piedra marrón. 
+> COGER PIEDRA
+Coges la piedra marrón.
+> E
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> N
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Xochiyaoyotl, poderoso jefe del Clan de las Aguilas.
+Oyes su voz: "Encuentra el arma que mato mi alma".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> S
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> O
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Son dos Tlamatimine, altos sacerdotes Mayas.
+Oyes su voz: "Encuentra nuestro tesoro".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> EX URNA
+Es un pequeño recipiente. Su localización central hace pensar que estuvo destinado a ceremonias mágicas. En el fondo quedan restos de polvillo de roca. Está vacía.
+> PONER PIEDRA EN URNA
+Pones la piedra marrón en la urna.
+La piedra marrón se transforma en el ónice.
+> COGER ONICE
+Coges el ónice.
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. 
+> EX SIMBOLOS
+Los miles de surcos, lineas y tramas se entremezclan intrincadamente entre ellos produciendo una confusa amalgama. He ahí el porqué de su nombre. 
+> EX ALTAR
+Pequeña construcción pétrea, más o menos de un metro de altura, en forma de copa. La concavidad de su boca es muy llana y está bastante chamuscada. Está vacío.
+> MIRAR POR ONICE
+El color del cristal hace destacar varios grupos de escenas en las que se ve:
+A un personaje cogiendo un fruto de cacao.
+A un personaje cogiendo miel.
+A un personaje aromatizando la bebida con un pequeño fruto y finas cortezas.
+Al dios Chac Mool recostado irradiando energía.
+A un dios bebiendo.
+> DEJAR ONICE
+Dejas el ónice.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> O
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+> COGER VAINILLA Y CANELA
+Coges el fruto de vainilla.
+Coges la rama de canela.
+> RS
+Vale.
+> NE
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+> ESPERAR
+El tiempo pasa...
+> NE
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> E
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> E
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. También puedes ver un panal abandonado. 
+> COGER PANAL
+Coges el panal abandonado.
+> E
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. También puedes ver una araña tallada. 
+> S
+La enmarañada selva intenta sofocar por el Este y el Sur esta antigua zona de cultivo en la que destacan, entre el espeso y enmarañado monte, algunos árboles de belché y de cacao. 
+> COGER CACAO
+Coges el fruto de cacao.
+> N
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. También puedes ver una araña tallada. 
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. 
+> O
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> O
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. También puedes ver una jarra. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Son Nokon Zibolab y Dazin Likor, los juerguistas borrachos.
+Oyes su voz: "Mort-tzal, nuestro pfvagar por éste limbo et-tílico es faravillosso, ¡Hics! pero con un foquito de humo tzería ya dem-masié".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. También puedes ver una jarra. 
+> COGER JARRA
+Coges la jarra.
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. 
+> EX ESTATUA
+Es una representación en piedra y de tamaño natural de Chac Mool. Está recostado y sostiene sobre su regazo un cuenco.
+> ABRIR PANAL
+Vale.
+> EX PANAL
+Ha sido abandonado recientemente y está empezando a deteriorarse. Dentro hay miel.
+> PONER MIEL EN JARRA
+Vacías el panal abandonado en la jarra.
+> DEJAR PANAL
+Dejas el panal abandonado.
+> PONER VAINILLA EN JARRA
+Pones el fruto de vainilla en la jarra.
+> PONER CANELA EN JARRA
+Pones la rama de canela en la jarra.
+> PONER CACAO EN JARRA
+Pones el fruto de cacao en la jarra.
+> PONER JARRA EN CUENCO
+Pones la jarra en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER JARRA
+Coges la jarra.
+> EX JARRA
+Su elegante diseño y decoración indican que fué usada para ofrendas a los dioses. Dentro hay chocolate caliente. 
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"El tiempo no es lineal; ayer y hoy se unen en un círculo que gira locamente en ciclos sin fin."
+"Toma mi Presente, gira la rueda del destino y vive tu Pasado".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver un anillo. 
+> COGER ANILLO
+Coges el anillo.
+> PONER ANILLO
+Te pones el anillo.
+> E
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> N
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> SUBIR
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. También puedes ver una lanceta. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Hace siglos, profané mi cuchillo más estimado con un magnicidio. Debo purificarlo".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. También puedes ver una piedra roja y una lanceta. 
+> COGER PIEDRA
+Coges la piedra roja.
+> BAJAR
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> O
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> PONER PIEDRA EN URNA
+Pones la piedra roja en la urna.
+La piedra roja se transforma en el rubí.
+> COGER RUBI
+Coges el rubí.
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice. 
+> MIRAR POR RUBI
+El color del cristal hace destacar varios grupos de escenas en las que se ve:
+A un personaje cogiendo una flor de peyotl.
+Al dios Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la ingestión de una flor de peyotl desecada.
+> DEJAR RUBI
+Dejas el rubí.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> S
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> S
+Un ruinoso interior, mal iluminado y lleno de escombros, es todo lo que queda del elegante y sobrio palacio que antaño albergara a las altivas vírgenes del sol. También puedes ver una vasija. 
+> COGER VASIJA
+Coges la vasija.
+> EX VASIJA
+La amplia panza, la pequeña boca y el rancio olor que aún la impregna, sugieren que fué usada para fermentar bebidas. Está vacía.
+> N
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> N
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> RS
+Vale.
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> ESPERAR
+El tiempo pasa...
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> S
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Por un figarro abagado te daremos toíto el poder de encen-¡hics!-delo".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. 
+> N
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> N
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. 
+> EX CACTUS
+Son cactus de peyotl, pequeños, de raiz gruesa y tallo hemisférico, sin espinas, con una aureola central de la cual nace una flor.
+> COGER FLOR
+Coges la flor de peyotl.
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Hunhun-Ahpu, el más grande jugador de Tlachtli.
+Oyes su voz: "Mi vida entera dediqué al juego de la pelota. Ahora hace siglos que no practico con la esfera elástica".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. 
+> S
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un panal abandonado. 
+> PONER FLOR EN PLATO
+Pones la flor de peyotl en el plato.
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER PLATO
+Coges el plato.
+> EX PLATO
+De durísima obsidiana. Su uso principal estaba destinado a la preparación de diversas sustancias para ritos religiosos. Usarlo para algo tan vulgar como comer era un sacrilegio castigado con la muerte. Dentro hay un botón de mescal. 
+> COGER BOTON
+Coges el botón de mescal.
+> DEJAR PLATO
+Dejas el plato.
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> O
+La explanada de las Aguilas es una zona al Oeste de la Pirámide, llamada así porque entre sus ruinas hay varias representaciones de estas poderosas rapaces tan veneradas en toda América. 
+> COMER BOTON
+Te zampas el botón de mescal.
+Apuras toda la ración.
+Pronto la droga hace su efecto y entras en trance.
+Eres una poderosa águila que vuela hasta lo alto de una de las Mil Columnas, donde con tus afiladas garras recoges un cuchillo.
+Con el arma firmemente apresada, desciendes majestuosamente.
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. También puedes ver un cuchillo. 
+> COGER CUCHILLO
+Coges el cuchillo.
+> O
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> O
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> SO
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+> COGER TABACL
+Coges la hoja de tabaco.
+> EX CALABAZA
+La calabaza es del tamaño de una pelota y tiene un agujero. Está vacía.
+> COGER CALABAZA
+Coges la calabaza.
+> E
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> S
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Xochiquétzal, antigua reina y diosa de las flores y el amor.
+Oyes su voz: "Dame un objeto de amor".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> S
+Un ruinoso interior, mal iluminado y lleno de escombros, es todo lo que queda del elegante y sobrio palacio que antaño albergara a las altivas vírgenes del sol. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Al pasar por aquí, a la luz del albor, he perdido una flor. ¡Que dolor! No hay desdicha mayor para mí, pues la flor que perdí era signo de amor".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Un ruinoso interior, mal iluminado y lleno de escombros, es todo lo que queda del elegante y sobrio palacio que antaño albergara a las altivas vírgenes del sol. También puedes ver un trozo de carbón. 
+> COGER CARBON
+Coges el trozo de carbón.
+> N
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> N
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> PONER CARBON EN URNA
+Pones el trozo de carbón en la urna.
+El trozo de carbón se transforma en el brillante.
+> COGER BRILLANTE
+Coges el brillante.
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice y un rubí. 
+> MIRAR POR BRILLANTE
+El color del cristal hace destacar varios grupos de escenas en las que se ve:
+A un personaje arrancando la corteza del tronco de un árbol.
+A un personaje cogiendo miel.
+Al dios Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la ingestión de una bebida fermentada con aguamiel.
+> DEJAR BRILLANTE.
+Dejas el brillante.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> RS
+Vale.
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> E
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> SUBIR
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. También puedes ver una lanceta. 
+> COGER LANCETA
+Coges la lanceta.
+> BAJAR
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> O
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> N
+La Via Sagrada, arteria principal de Chichén Itzá y punto de paso obligado para todo tipo de procesiones y rituales, es todavía bastante amplia y está flanqueada por frondosos árboles de cahuchtl. También puedes ver una rosa. 
+> COGER ROSA
+Coges la rosa.
+> EX ARBOL
+Gran árbol de grueso tronco recubierto de blanda corteza.
+> SANGRAR ARBOL CON LANCETA
+Sangras el árbol con la lanceta. Pronto comienza a brotar una espesa resina.
+> LLENAR CALABAZA CON RESINA
+Llenas la calabaza de resina de caucho.
+> S
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un plato y un panal abandonado. 
+> PONER CALABAZA EN CUENCO
+Pones la calabaza en el cuenco del Chac Mool.
+La energía se concentra sobre la calabaza. Con un seco ¡puf! se desintegra.
+En el cuenco queda una pelota de caucho.
+> COGER PELOTA
+Coges la pelota.
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> N
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Toma la llave de tu destino".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. También puedes ver una llave. 
+> COGER LLAVE
+Coges la llave.
+> S
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> DEJAR LLAVE
+Dejas la llave.
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un plato y un panal abandonado. 
+> PONER HOJA EN PLATO
+Pones la hoja de tabaco en el plato.
+> COGER PLATO
+Coges el plato.
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER PLATO
+Coges el plato.
+> COGER HOJA
+Coges la hoja seca de tabaco.
+> DEJAR PLATO
+Dejas el plato.
+> LIAR CIGARRO
+Te lías un enorme puro.
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> DEJAR VASIJA
+Dejas la vasija.
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> S
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"¡FFieeen! La pfipa del pfuego et-terno es tuya. ¡Masshote!".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. También puedes ver una pipa. 
+> COGER PIPA
+Coges la pipa.
+> N
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> N
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. 
+> EX MURO
+Bastante alto, cierra el juego de pelota por el Norte y está lleno de grabados de animales. En una grieta hay un panal del que entran y salen multitud de atareadas abejas. Por un momento consideras la posibilidad que abandonar la arquelología y dedicarte a la apicultura, pero consigues sobreponerte y continuar con la aventura.
+> COGER PANAL
+Las abejas se lanzan al ataque pero el apestoso humo de la pipa las pone en retirada.
+Coges el panal nuevo.
+> S
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. También puedes ver una vasija. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> O
+Las excavaciones hechas en el interior del Chichanchob han sacado a la luz diversos instrumentos que confirman la teoría de que fue una especie de hospital. Hoy todo está bastante oscuro y ruinoso. También puedes ver una manta. 
+> GIRAR ANILLO
+También tu giras en el tiempo.
+Las formas pierden solidez y sus contornos se difuminan.
+Las olas del pasado irrumpen súbitamente inundando el paisaje de brillantes colores, alegres ruidos de muchedumbre y frescos olores.
+Pero sólo fue un relámpago de vida y al siguiente instante te encuentras de nuevo vagando entre las tristes ruinas.
+> COGER PIEDRA VERDE
+¡No está a tu alcance!
+> E
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> PONER PIEDRA EN URNA
+Pero... ¡si no lo tienes!
+> COGER ESMERALDA
+¡No está a tu alcance!
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí y un brillante. 
+> MIRAR POR ESMERALDA
+No puedes hacerlo.
+> DEJAR ESMERALDA
+Pero... ¡si no lo tienes!
+> DEJAR PIPA.
+Dejas la pipa.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> RS
+Vale.
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. También puedes ver una vasija. 
+> COGER VASIJA
+Coges la vasija.
+> E
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> S
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> E
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. 
+> E
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. 
+> S
+La enmarañada selva intenta sofocar por el Este y el Sur esta antigua zona de cultivo en la que destacan, entre el espeso y enmarañado monte, algunos árboles de belché y de cacao. 
+> EX BELCHE
+Gran árbol de grueso tronco recubierto de blanda corteza.
+> COGER CORTEZA CON LANCETA
+Coges la corteza de belché.
+> N
+Este claro ante la maltrecha Puerta de las Arañas, antigua entrada a la ciudad, todavía está resguardado hacia el Norte y el Sur por algunas zonas de bosque limítrofe que empiezan ya a ser invadidas por la impenetrable selva. Hacia el Este, el Sabke que comunica con los Templos Sagrados se aleja hasta confundirse en la distancia con el lejano verdor. 
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+El complejo de las Mil Columnas está en realidad formado por 360 columnas que cubren un área de noventa mil metros. Era el sitio de reunión de las órdenes militares y donde se ofrecían sacrificios al Sol Naciente. 
+> O
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> S
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> S
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es el dios Tlaloc, señor del trueno y de la lluvia.
+Oyes su voz: "Tráeme el Sudor del Sol y serás recompensado".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> S
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. 
+> PONER CORTEZA EN VASIJA
+Pones la corteza de belché en la vasija.
+> ABRIR PANAL
+Vale.
+> PONER MIEL EN VASIJA
+Llenas la vasija desde el panal nuevo.
+> LLENAR VASIJA CON AGUA
+Mezclas el agua con la miel.
+> N
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> N
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> N
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> N
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> O
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un plato y un panal abandonado. 
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER VASIJA
+Coges la vasija.
+> EX VASIJA
+La amplia panza, la pequeña boca y el rancio olor que aún la impregna, sugieren que fué usada para fermentar bebidas. Dentro hay bebida de belché. 
+> BEBER BELCHE
+Bebes un trago de bebida de belché.
+Apuras toda la ración.
+Pronto la droga hace su efecto y entras en trance.
+Llevas una flor natural en la mano y, al tocar con ella una flor tallada en bajorrelieve... ¡Tu flor se convierte en una de piedra!
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> EX CONOS
+De piedra y con el grabado de una flor en su centro. Tienen un marcado simbolismo femenino y están ligados a los ritos de la fertilidad.
+> TOCAR CONO CON ROSA
+Al contacto con el cono, la rosa se marchita. Un instante después se endurece y petrifica formándose una réplica exacta, pero en piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> S
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> S
+Un ruinoso interior, mal iluminado y lleno de escombros, es todo lo que queda del elegante y sobrio palacio que antaño albergara a las altivas vírgenes del sol. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Toma la borla, hazme dichosa e ilumina de una vez la oscura losa".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Un ruinoso interior, mal iluminado y lleno de escombros, es todo lo que queda del elegante y sobrio palacio que antaño albergara a las altivas vírgenes del sol. También puedes ver una borla de algodón. 
+> COGER BORLA
+Coges la borla de algodón.
+> N
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio llamado por los primeros españoles "de las monjas". Bien conservado en su cuerpo principal, su parte superior se ha derrumbado. 
+> N
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un brillante y una pipa. 
+> DEJAR BORLA
+Dejas la borla de algodón.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> O
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+> COGER MAHIS
+Coges la mazorca de maíz.
+> RS
+Vale.
+> NE
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+> NE
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+> NE
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> E
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> S
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> S
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. 
+> PONER MIEL EN VASIJA
+Vacías el panal nuevo en la vasija.
+> DEJAR PANAL
+Dejas el panal nuevo.
+> PONER MAZORCA EN VASIJA
+Pones la mazorca de maíz en la vasija.
+> LLENAR VASIJA CON AGUA
+Mezclas el agua con la miel.
+> N
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> N
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> O
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un plato y un panal abandonado. 
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER VASIJA
+Coges la vasija.
+> EX VASIJA
+La amplia panza, la pequeña boca y el rancio olor que aún la impregna, sugieren que fué usada para fermentar bebidas. Dentro hay chicha. 
+> BEBER CHICHA
+Bebes un trago de chicha.
+Apuras toda la ración.
+Pronto la droga hace su efecto y entras en trance.
+Te detienes en el hace siglos bullicioso mercado para comprar una preciosa ampolla. Te vuelves para salir y la ampolla se desvanece entre tus manos mientras la voz de Kukulkan te susurra: "En el mismo lugar en el futuro lejano".
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> E
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> GIRAR ANILLO
+También tu giras en el tiempo.
+Las formas pierden solidez y sus contornos se difuminan.
+Las olas del pasado irrumpen súbitamente inundando el paisaje de brillantes colores, alegres ruidos de muchedumbre y frescos olores.
+Pero sólo fue un relámpago de vida y al siguiente instante te encuentras de nuevo vagando entre las tristes ruinas.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela y un tarro. 
+> COGER TARRO
+Coges el tarro.
+> EX TARRO
+Contiene una pasta altamente corrosiva usada como disolvente. 
+> O
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> O
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"En este arcón descansaba el pectoral real que robamos. Ayúdanos a reponerlo y te mostraremos el camino a las minas reales".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. También puedes ver una piedra amarillenta. 
+> COGER PIEDRA
+Coges la piedra amarillenta.
+> E
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> PONER PIEDRA EN URNA
+Pones la piedra amarillenta en la urna.
+La piedra amarillenta se transforma en el zafiro.
+> COGER ZAFIRO
+Coges el zafiro.
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un brillante, una pipa y una borla de algodón. 
+> MIRAR POR ZAFIRO
+El color del cristal hace destacar varios grupos de escenas en las que se ve:
+A un personaje sangrando el tronco de un árbol.
+Al dios Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la aspiración de un humo espeso.
+> DEJAR ZAFIRO
+Dejas el zafiro.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> RS
+Vale.
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> E
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> S
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> S
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. También puedes ver un panal nuevo. 
+> EX ARBOL
+Gran árbol de grueso tronco recubierto de blanda corteza.
+> SANGRAR ARBOL
+Sangras el árbol con la lanceta. Pronto comienza a brotar una espesa resina.
+> LLENAR VASIJA CON RESINA
+Llenas la vasija de resina de copal.
+> DEJAR LANCETA
+Dejas la lanceta.
+> N
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> N
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> GIRAR ANILLO
+También tu giras en el tiempo.
+Las formas pierden solidez y sus contornos se difuminan.
+Las olas del pasado irrumpen súbitamente inundando el paisaje de brillantes colores, alegres ruidos de muchedumbre y frescos olores.
+Pero sólo fue un relámpago de vida y al siguiente instante te encuentras de nuevo vagando entre las tristes ruinas.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela y una ampolla. 
+> COGER AMPOLLA
+Coges la ampolla.
+> O
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver un plato y un panal abandonado. 
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+El espeso humo llena la estancia.
+Te duermes, y en tu sueño, ves a los Sacerdotes  abriendo la tapa falsa de una de las bancadas del graderío del juego de pelota y ocultando un valioso objeto dentro.
+> COGER VASIJA
+Coges la vasija.
+> DEJAR VASIJA
+Dejas la vasija.
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Ipoc Klatex, el más afamado médico Maya.
+Oyes su voz: "Tráeme la medicina que no usé".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> O
+Las excavaciones hechas en el interior del Chichanchob han sacado a la luz diversos instrumentos que confirman la teoría de que fue una especie de hospital. Hoy todo está bastante oscuro y ruinoso. También puedes ver una manta. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"La sabiduría que buscas flota sobre el agua sagrada".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Las excavaciones hechas en el interior del Chichanchob han sacado a la luz diversos instrumentos que confirman la teoría de que fue una especie de hospital. Hoy todo está bastante oscuro y ruinoso. También puedes ver una manta. 
+> E
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> N
+El estadio del juego de la pelota o Campo de Tlachtli mide unos 90 metros de longitud y tenía una capacidad para veinte mil personas. La cancha es un área en forma de doble T limitada por amplias galerías laterales con bancadas formando gradas. Está cerrado al Norte por un alto muro y en su árido suelo crecen algunos bajos cactus. 
+> EX BANCADAS
+Largas hileras de piedra escalonadas formando gradas para el sufrido público.
+Animado por tu visión, te armas de paciencia y comienzas a buscar la bancada hueca. Tras decorar con la piel de tus nudillos un par de filas, das al fin con ella.
+> EX BANCADA
+Es un lugar ideal para esconder cosas (siempre que no haya un espectador sentado encima). Está cerrada. 
+> ABRIR BANCADA
+La tapa está sellada con una sustancia reseca.
+> VERTER PASTA EN BANCADA
+Viertes unas gotas de disolvente que inmediatamente se volatiliza.
+> ABRIR BANCADA
+Vale.
+> EX BANCADA
+Es un lugar ideal para esconder cosas (siempre que no haya un espectador sentado encima). Está abierta. Dentro hay un pectoral real. 
+> COGER PECTORAL
+Coges el pectoral real.
+> S
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> O
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"El tesoro ha vuelto a su sitio. El paso hacia la mina de Cristal Mágico te ha sido abierto".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. Un pasadizo descendente se abre en una de las paredes. 
+> E
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> O
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> SUBIR
+La Cúpula del Observatorio tiene gruesas paredes semicirculares en las que se abren unas ventanas tuneliformes que permiten una mejor captación de la luz. También puedes ver un sol de oro y una serpiente de jade. 
+> COGER SOL
+Coges el sol de oro.
+> BAJAR
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> RS
+Vale.
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+Es Coatlicue, la terrible Gran Madre Loca de la Falda de Serpientes.
+Oyes su voz: "Mortal, tu presencia en éste lugar es indeseada para Nos", aulla con su demente risa-alarido.
+"Por lo tanto confiscamos lo que ahora lleváis vos".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> E
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> GIRAR ANILLO
+También tu giras en el tiempo.
+Las formas pierden solidez y sus contornos se difuminan.
+Las olas del pasado irrumpen súbitamente inundando el paisaje de brillantes colores, alegres ruidos de muchedumbre y frescos olores.
+Pero sólo fue un relámpago de vida y al siguiente instante te encuentras de nuevo vagando entre las tristes ruinas.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela y un frasco. 
+> COGER FRASCO
+Coges el frasco.
+> EX FRASCO
+Estos pequeños frasquitos, de estrechísima boca, contienen aceites destinados, como uso sagrado, a la purificación de utensilios y, como uso profano, para facilitar el rodamiento de las muchas superficies pétreas. 
+> S
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Cubre el sol y tendrás el poder de la tormenta".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+Este bello sendero unía el centro comercial de la urbe con la escasa e imprescindible reserva de agua. 
+> N
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío donde resuenan extrañamente los ecos. Sabemos lo que fue porque exámenes microscópicos de su suelo han revelado restos de cientos de granos, tintes y especias, además de por su ubicación central y cercana al agua. También puedes ver una cazuela. 
+> O
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> O
+Las excavaciones hechas en el interior del Chichanchob han sacado a la luz diversos instrumentos que confirman la teoría de que fue una especie de hospital. Hoy todo está bastante oscuro y ruinoso. También puedes ver una manta. 
+> COGER MANTA
+Coges la manta.
+> E
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver una llave. 
+> PURIFICAR CUCHILLO
+Viertes unas gotas de aceite sagrado que inmediatamente se volatiliza.
+El cuchillo de Xochiyaoyotl ha sido purificado.
+> DEJAR FRASCO
+Dejas el frasco.
+> E
+La explanada de Ucyabnal (el antiguo nombre de Chichén Itzá) es una pequeña terraza que une las Mil Columnas con la imponente mole de la Pirámide central, que desde su altura de sesenta y cuatro metros, domina todo el panorama al Oeste. 
+> N
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> SUBIR
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. 
+> GIRAR ANILLO
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Purificando mi arma me has purificado a mi. En agradecimiento te doy protección contra el exceso de luz".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. También puedes ver un prisma de metal. 
+> COGER PRISMA
+Coges el prisma de metal.
+> E
+El interior de Templo de los Guerreros es una amplia estancia en semipenumbra en la que destacan varias columnas de considerable grosor que, como todas las de éste edificio, más que servir de soporte, tienen una evidente función simbólica y decorativa. También puedes ver una escudilla y un mazo. 
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"En el lugar donde el Norte se encuentra con el Sureste te será revelado mi lugar de reposo".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+El interior de Templo de los Guerreros es una amplia estancia en semipenumbra en la que destacan varias columnas de considerable grosor que, como todas las de éste edificio, más que servir de soporte, tienen una evidente función simbólica y decorativa. También puedes ver una escudilla y un mazo. 
+> COGER MAZO
+Coges el mazo.
+> O
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este, entre grandes paredes, se abre el pórtico que lleva al interior del templo. 
+> BAJAR
+El Templo de los Guerreros es una estructura piramidal de 40 metros de base y once de altura. Está flanqueado por columnas en el Sur y en el Oeste donde la escalinata de acceso se abre paso entre ellas. Los otros lados dan a la selva, formando la esquina Nororiental del complejo arquitectónico. 
+> O
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> N
+La Via Sagrada, arteria principal de Chichén Itzá y punto de paso obligado para todo tipo de procesiones y rituales, es todavía bastante amplia y está flanqueada por frondosos árboles de cahuchtl. 
+> N
+Las turbias aguas verdosas del Cenote Sagrado de Chichén Itzá, quedan al fondo de un impresionante semicírculo arbolado desde el que descienden escarpados cortados de unos 20 metros. Los varios dragados, que han producido tesoros y esqueletos de niños, adultos y animales ofrecidos a Chac, dios de la lluvia, lo han confirmado como centro religioso de la urbe y han dado origen a múltiples mitos y leyendas. En la zona alta hay un monumento al disco solar. 
+> EX DISCO
+Esta enorme réplica en piedra del famoso disco solar demuestra la gran atención que los Mayas tenían por el tiempo. 
+> CUBRIR DISCO
+Tapas el disco solar con la manta.
+Sobre el Cenote Sagrado se reunen negros nubarrones.
+Pronto estalla una gran tormenta y un rayo alcanza un árbol desgajando y abatiendo su tronco.
+> BAJAR
+Desde aquí abajo, las sucias y verdosas aguas del cenote son bastante desagradables, sobre todo si se tiene en cuenta cual ha podido ser la causa (sacrificios) de la polución. También puedes ver un cilindro de madera. 
+> COGER CILINDRO
+Coges el cilindro de madera.
+> SUBIR
+Las turbias aguas verdosas del Cenote Sagrado de Chichén Itzá, quedan al fondo de un impresionante semicírculo arbolado desde el que descienden escarpados cortados de unos 20 metros. Los varios dragados, que han producido tesoros y esqueletos de niños, adultos y animales ofrecidos a Chac, dios de la lluvia, lo han confirmado como centro religioso de la urbe y han dado origen a múltiples mitos y leyendas. En la zona alta hay un monumento al disco solar. Un árbol ha sido abatido por la tormenta y la parte superior de su tronco llega hasta el agua del cenote. El disco solar está tapado con la manta de caucho. 
+> EX CILINDRO
+Es un cilindro de madera muy pulida, obviamente artificial. Está sellado herméticamente con una sustancia serosa endurecida.
+> VERTER PASTA EN CILINDRO
+Viertes unas gotas de disolvente que inmediatamente se volatiliza.
+La sustancia que cerraba el tubo se disuelve.
+> EX CILINDRO
+Es un cilindro de madera muy pulida, obviamente artificial. Está abierto. Dentro hay un códice. 
+> COGER CODICE
+Coges el códice.
+> DEJAR CILINDRO Y TARRO
+Dejas el cilindro de madera.
+Dejas el tarro.
+> S
+La Via Sagrada, arteria principal de Chichén Itzá y punto de paso obligado para todo tipo de procesiones y rituales, es todavía bastante amplia y está flanqueada por frondosos árboles de cahuchtl. 
+> S
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> O
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> O
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> S
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. 
+> SUBIR
+El misterioso recinto superior, con sus características paredes combadas y su ténue iluminación era una zona favorecedora de todo tipo de experiencias místicas. También puedes ver un cazo y un escoplo. 
+> COGER ESCOPLO
+Coges el escoplo.
+> BAJAR
+El piso inferior era una especie de almacén profano donde se guardaban animales y otras ofrendas destinadas a servir en los ritos de la zona superior. 
+> N
+El Templo del Jaguar es una estructura de dos pisos bastante bien conservada y situada en una de las zonas más agradables de todo el complejo arqueológico. 
+> E
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso, lo que hace pensar que fue un lugar de sacrificios rituales. En uno de sus lados hay un foso. 
+> E
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver un frasco y una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> O
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. Un pasadizo descendente se abre en una de las paredes. 
+> BAJAR
+En esta gruta, de paredes enriquecidas por brillantes vetas de cristal de roca, se encontró a principios de siglo un enterramiento con ofrendas de tal calidad que demostraron la importancia que tenía el gran Sacerdote. Posteriormente la entrada fue cegada y, a pesar de varios intentos, no se había vuelto a encontrar. 
+> PICAR VETA
+Usando el mazo y el escoplo arrancas un trozo de cristal.
+> COGER CRISTAL
+Coges el trozo de cristal.
+> DEJAR MAZO Y ESCOPLO
+Dejas el mazo.
+Dejas el escoplo.
+> SUBIR
+Esta estancia de bajo techo abovedado y empedradas paredes, ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales hoy dia totalmente expoliadas y todos los indicios apuntan a que debe haber algunos pozos más por descubrir. Un pasadizo descendente se abre en una de las paredes. 
+> E
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver un frasco y una llave. 
+> N
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> N
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> E
+El altar de Chac Mool está dominado, como es lógico, por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida, se escucha un suave zumbido y se respira un aire de sabor metálico. También puedes ver una vasija, un plato y un panal abandonado. 
+> PONER CRISTAL EN PLATO
+Pones el trozo de cristal en el plato.
+> COGER PLATO
+Coges el plato.
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+Una nube de humo sale del cuenco.
+> COGER PLATO
+Coges el plato.
+> EX PLATO
+De durísima obsidiana. Su uso principal estaba destinado a la preparación de diversas sustancias para ritos religiosos. Usarlo para algo tan vulgar como comer era un sacrilegio castigado con la muerte. Dentro hay un trozo de cuarzo. 
+> COGER CUARZO
+Coges el trozo de cuarzo.
+> DEJAR PLATO
+Dejas el plato.
+> METER CUARZO EN PRISMA
+El trozo de cuarzo encaja a la perfección en el prisma. Te has construido un observador.
+> O
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná, con su mismo curioso enrejado y mascarones en las esquinas. 
+> S
+La explanada de los Conos es un descampado al Norte de la Pirámide, llamado así porque semienterrados en su suelo hay cientos de conos de piedra. 
+> S
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver un frasco y una llave. 
+> S
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> S
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> S
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> RS
+Vale.
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> S
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> S
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> E
+Del Akab D'zib o edificio de las Escrituras Oscuras, una de las más misteriosas construcciones del enclave, sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un zafiro, un brillante, una pipa y una borla de algodón. 
+> COGER BORLA Y PIPA
+Coges la borla de algodón.
+Coges la pipa.
+> PONER BORLA EN ALTAR
+Pones la borla de algodón en el altar.
+> ENCENDER BORLA
+Enciendes la borla de algodón.
+La borla encendida ilumina los simbolos del Akab de una forma especial destacando ángulos y relieves antes desapercibidos.
+> DEJAR PIPA
+Dejas la pipa.
+> O
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> RS
+Vale.
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> RL
+Incongruentemente con su nombre, esta explanada de las Piedras Viejas es uno de los recintos mejor conservados. En el centro, sobre una pilastra, hay una pequeña urna. 
+> N
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> O
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> SUBIR
+La Cúpula del Observatorio tiene gruesas paredes semicirculares en las que se abren unas ventanas tuneliformes que permiten una mejor captación de la luz. También puedes ver una serpiente de jade. 
+> MIRAR POR OBSERVADOR N
+A través de la ventana tienes una hermosa vista ampliada del Juego de la Pelota y el Muro de los Animales. Distingues un interesante grupo de bajorrelieves, pero en el centro de la imagen se destaca claramente la figura de una ovejita.
+> MIRAR POR OBSERVADOR SE
+A través de la ventana tienes una hermosa vista ampliada del Akab D'zib.
+Distingues un interesante grupo de bajorrelieves, pero en el centro de la imagen se destaca claramente la figura de una araña.
+> EX CODICE
+Podrido e ilegible en su mayor parte. Sin embargo queda una zona central donde hay una relación numerada de dibujos de animales:
+0 .- una serpiente.
+1 .- un águila.
+2 .- un jaguar.
+3 .- un mono.
+4 .- un cocodrilo.
+5 .- una araña.
+6 .- un escorpión.
+7 .- un loro.
+8 .- una ovejita.
+9 .- un tiburón.
+> BAJAR
+El oscuro interior está dominado por la imponente escalera helicoidal a la que se debe el sobrenombre del caracol. 
+> RS
+Vale.
+> E
+Al final de la Ruta Sur se encuentran varias explanadas que reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio tenemos una espléndida vista del llamado Caracol, gran torreón circular erigido sobre una base cuadrada, dedicado sin ningún género de dudas a la observación de los astros. 
+> N
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren la teoría de fue un lugar de curación. 
+> N
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, elegante edificio adecuado a su alto rango construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+> N
+La explanada del Castillo, llamada así porque los primeros españoles dieron este nombre a la colosal Pirámide escalonada de nueve cuerpos que la domina al norte, es un amplio patio desde el que arranca la ruta Sur. 
+> N
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. También puedes ver un frasco y una llave. 
+> COGER FRASCO Y LLAVE
+Coges el frasco.
+Coges la llave.
+> EX SUELO
+Las enormes losas del suelo forman un perfecto tablero.
+> EX LOSAS
+Para referirte a una losa determinada usa "ABRIR CIFRA1 CIFRA2".
+> EX PARED
+En una de las paredes hay una chapa de cobre con una ranura.
+> EX RANURA
+Es bastante grande y está toda oxidada.
+> METER LLAVE EN RANURA
+Introduces la llave en la ranura pero no consigues girarla.
+> VERTER ACEITE EN RANURA
+Viertes unas gotas de aceite sagrado que inmediatamente se volatiliza.
+> METER LLAVE EN RANURA
+Introduces la llave en la ranura y la giras e inmediatamante oyes un ruido de piedras que se deslizan bajo el suelo.
+> ABRIR 8 5
+Levantas la losa dejando al descubierto un oscuro pasadizo que desciende hacia las entrañas de la pirámide.
+> BAJAR
+Frente a ti se va reuniendo una extraña bruma.
+Oyes un extraño ruido zumbante.
+La bruma se condensa y se concreta en una figura.
+"Quédate con la Rueda del Tiempo y devuelve todo lo demás".
+La aparición se esfuma. Todo queda de nuevo en silencio.
+La sobrecogedora atmósfera de este lugar de culto se logra mediante la habilísima distribución de la luz que resalta el volumen de los pilares y juguetea con la misteriosa penumbra de las paredes creando bellísimos efectos de mágico claroscuro sobre el extraño suelo. 
+> DEJAR TODO
+Dejas el frasco.
+Dejas el observador.
+Dejas el códice.
+Dejas la llave.
+> BAJAR
+Bajas cautelósamente por el misterioso pasillo con la fuerte sensación de estar abandonando para siempre el mundo conocido para sumergirte en el caótico nucleo del Más Allá, lugar donde la realidad es invadida y ahogada por el pandemónium de las leyendas Mayas.
+Y la clave para ese mundo es: RICO PAPASITO.
+¿Lo intentas otra vez? (Si/No)
+> N

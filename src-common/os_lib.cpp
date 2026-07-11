@@ -234,9 +234,38 @@ int StrComp(const char *dst, const char *src, size_t maxSize)
 	return strncmp(dst, src, maxSize);
 }
 
+static uint32_t randState[31];
+static uint8_t randFront;
+static uint8_t randRear;
+static bool randInitialized = false;
+
+void RandSeed(uint32_t seed)
+{
+	randState[0] = seed == 0 ? 1 : seed;
+	for (int n = 1; n < 31; n++)
+		randState[n] = (uint32_t)((uint64_t)randState[n - 1] * 16807u % 2147483647u);
+	randFront = 3;
+	randRear = 0;
+	randInitialized = true;
+
+	// glibc warms this additive generator for ten complete state cycles.
+	for (int n = 0; n < 310; n++)
+	{
+		randState[randFront] += randState[randRear];
+		randFront = (randFront + 1) % 31;
+		randRear = (randRear + 1) % 31;
+	}
+}
+
 uint32_t RandInt(uint32_t min, uint32_t max)
 {
-	return min + rand() % (max - min + 1);
+	if (!randInitialized)
+		RandSeed(1);
+	randState[randFront] += randState[randRear];
+	uint32_t value = randState[randFront] >> 1;
+	randFront = (randFront + 1) % 31;
+	randRear = (randRear + 1) % 31;
+	return min + value % (max - min + 1);
 }
 
 void* OSAlloc(size_t size, OSMemoryPool pool)

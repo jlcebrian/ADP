@@ -59,6 +59,7 @@ struct File
 	uint64_t (*getSize)     (File *file);
 	uint64_t (*read)        (File *file, void *buffer, uint64_t bytes);
 	uint64_t (*write)       (File *file, const void *buffer, uint64_t bytes);
+	bool     (*flush)       (File *file);
 
 	void*    data;
 	uint64_t pos;
@@ -78,6 +79,7 @@ extern bool     File_FindNext  (FindFileResults* results);
 inline uint64_t File_GetSize     (File *file)                                     { return file->getSize(file);              }
 inline uint64_t File_Read        (File *file, void *buffer, uint64_t bytes)       { return file->read(file, buffer, bytes);  }
 inline uint64_t File_Write       (File *file, const void *buffer, uint64_t bytes) { return file->write(file, buffer, bytes); }
+inline bool     File_Flush       (File *file)                                     { return file->flush(file);                }
 inline bool     File_Seek        (File *file, uint64_t position)                  { return file->seek(file, position);       }
 inline uint64_t File_GetPosition (File *file)                                     { return file->getPosition(file);          }
 inline bool     File_Truncate    (File *file, uint64_t size)                      { return file->truncate(file, size);       }
@@ -95,6 +97,7 @@ extern uint64_t    File_GetSizeByName  (const char* file);
 extern uint64_t    File_GetSize        (File* file);
 extern uint64_t    File_Read           (File* file, void* buffer, uint64_t bytes);
 extern uint64_t    File_Write          (File* file, const void* buffer, uint64_t bytes);
+extern bool        File_Flush          (File* file);
 extern bool        File_Seek           (File* file, uint64_t position);
 extern uint64_t    File_GetPosition    (File* file);
 extern bool        File_Truncate       (File* file, uint64_t size);

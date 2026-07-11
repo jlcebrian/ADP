@@ -1,6 +1,7 @@
 
 #include <ddb.h>
 #include <ddb_scr.h>
+#include <ddb_test.h>
 #include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <dmg.h>
@@ -2236,9 +2237,28 @@ bool DDB_RunPlayer()
 		ddbSelected = -1;
 		loaderPromptMode = LoaderPrompt_Part;
 		ShowLoaderPrompt(GetConfiguredPartCount(), language);
-		VID_MainLoop(0, LoaderScreenUpdate);
-		if (exitGame)
-			return true;
+		#if HAS_TESTMODE
+		if (DDB_TestIsActive() && DDB_TestGetPartSelection() > 0)
+		{
+			if (!DDB_TestCapturePartSelector())
+			{
+				CloseEnum();
+				VID_Finish();
+				return false;
+			}
+			int part = DDB_TestGetPartSelection();
+			if (part < 1 || part > GetConfiguredPartCount())
+				part = 1;
+			ddbSelected = part - 1;
+			DebugPrintf("Test mode auto-selected part %d\n", part);
+		}
+		else
+		#endif
+		{
+			VID_MainLoop(0, LoaderScreenUpdate);
+			if (exitGame)
+				return true;
+		}
 		if (ddbSelected == -1)
 		{
 			CloseEnum();
@@ -2338,8 +2358,11 @@ bool DDB_RunPlayer()
 		VID_Finish();
 		return false;
 	}
+	#if HAS_TESTMODE
+	DDB_SetSkipTimedPauses(interpreter, VID_IsFastMode());
+	#endif
 
-	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName)) 
+	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
 	{
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
 		VID_ShowError(DDB_GetErrorString());

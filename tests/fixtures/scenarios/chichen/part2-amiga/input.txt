@@ -1,0 +1,326 @@
+rico papasito
+
+# (no ves nada)
+girar anillo
+@key
+@save Inicio
+e
+coger esfera
+ex esfera 
+# (con una ranura)
+
+o
+o
+coger cazo 
+# (los sacerdotes escapan)
+
+ex cazo 
+# (contiene pasta de Copal)
+
+poner esfera en soporte
+coger esfera
+tapar ranura con pasta
+poner cazo en soporte
+e
+empujar tronco e
+empujar tronco abajo
+empujar tronco abajo
+empujar tronco o 
+# (el tronco detiene las paredes)
+@save Trampa
+
+bajar
+coger Anales
+subir
+e
+coger alfombrilla
+subir
+subir
+coger hongo
+ex hongo 
+# (alucinógeno)
+
+o
+bajar
+poner Anales en nicho
+subir
+o
+bajar
+bajar
+coger cachiporra
+subir
+n 
+# (tus pies se fríen... retrocedes a saltos)
+
+comer hongo 
+# (quedas insensible)
+
+n
+coger baston
+s
+subir
+e
+e
+bajar
+ex puerta 
+# (tiene una ranura y está cerrada)
+@save Puerta
+
+meter alfombrilla debajo puerta
+meter baston en ranura 
+# (la llave cae al otro lado)
+
+dejar baston
+coger alfombra
+coger llave
+abrir puerta
+dejar llave
+s
+coger vasija
+ex vasija 
+# (del tamaño de un coco)
+
+bajar
+meter cachiporra en argollas
+e
+coger calavera
+bajar
+coger Libro
+subir
+o
+subir
+n
+subir
+o
+bajar
+poner Libro en nicho
+subir
+o
+bajar
+bajar
+e 
+# (la luz de la esfera se refleja en las paredes y te hace retroceder)
+@save Esfera
+
+cubrir esfera con alfombrilla
+e
+bajar
+coger Chilan Balam
+subir
+o
+subir
+subir
+e
+bajar
+poner Chilan en nicho
+subir
+e
+coger hongo
+comer hongo
+coger hongo
+o
+o
+bajar
+n
+ex canalon 
+# (hay un agujero del tamaño de un coco)
+
+tapar agujero con vasija
+bajar
+o
+coger mazo
+bajar
+coger Popol Vuh
+subir
+e
+comer hongo
+subir
+s
+subir
+e
+bajar
+poner Popol en nicho 
+# (el peso de los cuatro libros activa un mecanismo oculto)
+
+bajar
+e
+e
+ex sol 
+# (hay una cuña)
+
+golpear cuna con mazo 
+# (el sol se te viene encima!)
+@save Cuña
+
+o
+n 
+# (el sol pasa y destroza el muro del fondo)
+
+s
+o
+dejar alfombrilla y mazo
+o 
+# (caes hasta Xibalbá)
+.
+
+s
+e
+s 
+# (Yum Kcimil está aquí)
+@save Yum
+
+n
+o
+s
+s
+o
+no
+dejar calavera
+m (Yum llega
+recoge la calavera y se detiene)
+se
+e
+n
+n
+n
+o
+n 
+# (Tezcatlipoca está aquí)
+@save Tezcatlipoca
+
+s
+e
+s
+s
+s
+o
+no
+m 
+# (repite hasta que llegue Tezca - los dos dioses se contemplan; por fin Tezcatlipoca alza su escudo y Yum muere)
+
+m
+coger espejo
+se 
+# (Tezca imita tus movimientos)
+
+e
+n
+n
+n
+o
+o 
+# (el sol dorado está atascado aquí)
+
+empujar sol 
+# (Tezcatlipoca te imita y lanza la bola abajo)
+
+e
+e
+s
+s
+o
+o 
+# (la cascada ha dejado de caer)
+@save Cascada
+
+n 
+# (cruzas a otra dimensión)
+.
+
+ex cactus
+coger puas
+e
+s
+s
+so
+coger rosa
+ne
+e
+s
+coger datiles
+s
+e
+s
+s
+meter puas en datiles
+poner datiles en cesto
+o 
+# (Sipac come las datiles y se convierte en un nuevo volcán)
+@save Sipac
+
+coger todo 
+# (la espada pesa demasiado)
+
+e
+e
+
+# (un suave canto te atrae)
+
+o
+hacer tapones 
+# (con la cera)
+
+poner tapones
+e
+ex rocas
+ex cono
+tocar cono con rosa 
+# (Zyanya cobra vida y te da un filtro)
+
+o
+quitar tapones
+dejar tapones
+s
+preguntar Xiutecutli 
+# (dice 'Puedes endulzar mi amarga vida?')
+
+dar jarra a Xiutecutli 
+# (te da una máscara)
+
+n
+o
+beber filtro 
+# (la fuerza te invade)
+
+coger espada
+e
+n
+n
+o
+poner mascara
+o 
+# (la máscara te protege del humo)
+
+s
+quitar mascara
+dejar mascara
+ex buitres 
+# (ves Kuill)
+@save Kuill
+
+seguir Kuill
+so
+e
+ex kappock
+coger frutas
+o
+o
+o
+n 
+# (el dios se ve reflejado en el espejo y queda desconcertado)
+
+matar Huitzilipochtli
+@save Huitzilipochtli
+n
+dar frutas a muertos
+n
+vaciar botella en suelo
+dejar esfera 
+
+# (baja rodando por la rampa creciendo por el liquido al avanzar y se estrella contra la puerta)
+n
+n 
+
+# (Estás frente al Kukulkan; te agradece te da una pequeña petaca y dice que la contiene todos los sufrimientos que te esperan en tu larga vida. Abres la petaca para examinar su contenido... ESTÁ VACÍA!)
+@save Final
+n

@@ -10,6 +10,16 @@
 
 extern File* transcriptFile;
 
+// Sound variation is presentation-only.  It must not consume the interpreter's
+// random stream, because doing so makes CHANCE depend on input/render timing.
+static uint32_t clickRandomState = 0xC001D00Du;
+
+static uint32_t ClickRandInt(uint32_t min, uint32_t max)
+{
+	clickRandomState = clickRandomState * 1664525u + 1013904223u;
+	return min + clickRandomState % (max - min + 1);
+}
+
 // TODO: Move this to an OS-specific location
 
 enum UndoMode
@@ -629,8 +639,8 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 	}
     else if (transcriptFile != 0)
     {
-        File_Write(transcriptFile, i->inputBuffer, i->inputBufferLength);
-        File_Write(transcriptFile, "\n", 1);
+		DDB_TranscriptWrite(i->inputBuffer, i->inputBufferLength);
+		DDB_TranscriptNewLine();
     }
 
 	for (n = first; n < i->inputBufferLength; n++)
@@ -690,13 +700,13 @@ void DDB_PlayClick(DDB_Interpreter* i, bool allowRepeats)
 		if (i->keyClick == 2)
 		{
 			SCR_PlaySampleBuffer(clickSample, clickSampleSize,
-			                     RandInt(29000, 31000),
-			                     RandInt(48, 80));
+			                     ClickRandInt(29000, 31000),
+			                     ClickRandInt(48, 80));
 		}
 		else if (i->keyClick == 1)
 		{
 			SCR_PlaySampleBuffer(beepSample, beepSampleSize,
-			                     30000, RandInt(48, 80));
+			                     30000, ClickRandInt(48, 80));
 		}
 	}
 #endif

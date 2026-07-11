@@ -1,11 +1,16 @@
 obj
 out
-test
-tests
 tools
 build
 tmp
 .cache
+
+# Test fixtures are source-controlled. Test runs keep all generated evidence here.
+test-results/
+tests/.work/
+tests/*
+!tests/fixtures/
+!tests/fixtures/**
 
 *.map
 *.lst
@@ -30,3 +35,6 @@ web-games/*
 src-z80
 trace*.txt
 *.gdb
+
+__pycache__/
+*.pyc

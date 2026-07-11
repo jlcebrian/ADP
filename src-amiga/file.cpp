@@ -142,6 +142,14 @@ uint64_t File_Write(File* file, const void* buffer, uint64_t size)
 	return result;
 }
 
+bool File_Flush(File* file)
+{
+	CallingDOS();
+	LONG result = Flush(file->handle);
+	AfterCallingDOS();
+	return result != 0;
+}
+
 bool File_Seek(File* file, uint64_t offset)
 {
 #if DEBUG_FILE_IO

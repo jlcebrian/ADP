@@ -674,6 +674,9 @@ struct DDB_Interpreter
 	int32_t         pauseFrames;
 	uint32_t        pauseStart;
 	uint32_t        quitStart;
+	#if HAS_TESTMODE
+	bool            skipTimedPauses;
+	#endif
 
 	uint8_t*		buffer;
 	size_t			bufferSize;
@@ -809,6 +812,9 @@ extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
+#if HAS_TESTMODE
+extern void				DDB_SetSkipTimedPauses (DDB_Interpreter* interpreter, bool skip);
+#endif
 extern void				DDB_CloseInterpreter	 (DDB_Interpreter* interpreter);
 
 extern DDB_Error    	DDB_GetError             ();
@@ -837,6 +843,10 @@ extern void             DDB_SetWindow            (DDB_Interpreter* i, int winno)
 extern void             DDB_PlayClick            (DDB_Interpreter* i, bool allowRepeats);
 extern void             DDB_CalculateCells       (DDB_Interpreter* i, DDB_Window* w, uint8_t* cellX, uint8_t* cellW);
 extern void             DDB_UseTranscriptFile    (const char* fileName);
+extern void             DDB_TranscriptBreak      ();
+extern void             DDB_TranscriptNewLine    ();
+extern void             DDB_TranscriptWrite      (const void* text, size_t length);
+extern void             DDB_TranscriptFlush      ();
 
 extern void             DDB_ProcessInputFrame    ();
 extern void             DDB_StartInput           (DDB_Interpreter* i, bool withPrompt);

@@ -1,0 +1,5 @@
+{
+    "fixture": "chichen/pc/CHICHEN-PC.img",
+    "screen": "ega",
+    "shared": "chichen/part1-amiga"
+}

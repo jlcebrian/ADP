@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_scr.h>
+#include <ddb_test.h>
 #include <ddb_pal.h>
 #include <ddb_data.h>
 #include <ddb_vid.h>
@@ -19,8 +20,29 @@ extern bool DDB_PlayExternalPSG(DDB* ddb, uint8_t soundIndex);
 #define DEBUG_UNDO 0
 
 File* transcriptFile = 0;
+static bool transcriptAtLineStart = true;
+static bool transcriptBreakPending = false;
 
 static void MarkWindowOutput();
+
+static bool SkipTimedPauses(const DDB_Interpreter* i)
+{
+	#if HAS_TESTMODE
+	return i->skipTimedPauses;
+	#else
+	(void)i;
+	return false;
+	#endif
+}
+
+static bool AnyKeyForWait()
+{
+	#if HAS_TESTMODE
+	return SCR_AnyKeyForWait();
+	#else
+	return SCR_AnyKey();
+	#endif
+}
 
 static uint8_t objNameBuffer[256];
 
@@ -92,6 +114,41 @@ static const char* TranslateCharForTrace(uint8_t c)
 }
 #endif
 
+void DDB_TranscriptBreak()
+{
+	if (transcriptFile != 0)
+		transcriptBreakPending = true;
+}
+
+void DDB_TranscriptNewLine()
+{
+	if (transcriptFile == 0)
+		return;
+	transcriptBreakPending = false;
+	if (!transcriptAtLineStart)
+	{
+		File_Write(transcriptFile, "\n", 1);
+		transcriptAtLineStart = true;
+	}
+	File_Flush(transcriptFile);
+}
+
+void DDB_TranscriptWrite(const void* text, size_t length)
+{
+	if (transcriptFile == 0 || length == 0)
+		return;
+	if (transcriptBreakPending)
+		DDB_TranscriptNewLine();
+	File_Write(transcriptFile, text, length);
+	transcriptAtLineStart = false;
+}
+
+void DDB_TranscriptFlush()
+{
+	if (transcriptFile != 0)
+		File_Flush(transcriptFile);
+}
+
 static void WriteTranscriptChar(uint8_t ch)
 {
 	if (transcriptFile == 0)
@@ -101,17 +158,17 @@ static void WriteTranscriptChar(uint8_t ch)
 	{
 		char buffer[24] = "\\x";
 		char* ptr = LongToChar(ch, buffer + 2, 16);
-		File_Write(transcriptFile, buffer, ptr - buffer);
+		DDB_TranscriptWrite(buffer, ptr - buffer);
 	}
 	else if (ch < 32)
 	{
 		static const char* spanishChars[] = { "º", "¡", "¿", "«", "»", "á", "é", "í", "ó", "ú", "ñ", "Ñ", "ç", "Ç", "ü", "Ü" };
 		const char* ptr = spanishChars[ch - 16];
-		File_Write(transcriptFile, ptr, StrLen(ptr));
+		DDB_TranscriptWrite(ptr, StrLen(ptr));
 	}
 	else
 	{
-		File_Write(transcriptFile, &ch, 1);
+		DDB_TranscriptWrite(&ch, 1);
 	}
 }
 
@@ -517,11 +574,13 @@ bool DDB_NewLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 
 bool DDB_NewLine (DDB_Interpreter* i)
 {
+	DDB_TranscriptNewLine();
 	return DDB_NewLineAtWindow(i, &i->win);
 }
 
 void DDB_ClearWindow (DDB_Interpreter* i, DDB_Window* w)
 {
+	DDB_TranscriptBreak();
 	int x, width;
 	if (w != &i->win)
 	{
@@ -830,6 +889,11 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			{
 				if (singleCh == ' ' || singleCh == 0xA0)
 				{
+					// The renderer discards a separator at the right edge so the
+					// next line does not start with it. It is still part of the
+					// logical message and must remain in the transcript.
+					if (transcriptFile)
+						WriteTranscriptChar(ch);
 					w->posX = maxX;
 					n++;
 					continue;
@@ -860,6 +924,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		}
 	}
 	i->pendingPtr = 0;
+	DDB_TranscriptFlush();
 
 	i->keyChecked = false;
 }
@@ -985,8 +1050,7 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case '\x0D':		// Newline ('\n')
 					DDB_FlushWindow(i, w);
 					DDB_NewLineAtWindow(i, w);
-                    if (transcriptFile)
-                        File_Write(transcriptFile, "\n", 1);
+					DDB_TranscriptNewLine();
 					return;
 
 				case '@':
@@ -1196,6 +1260,9 @@ void DDB_OutputInputPrompt(DDB_Interpreter* i)
 void DDB_UseTranscriptFile(const char* fileName)
 {
     transcriptFile = File_Create(fileName);
+	transcriptAtLineStart = true;
+	transcriptBreakPending = false;
+	DDB_TranscriptFlush();
 }
 
 static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
@@ -1225,8 +1292,7 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 	w->scrollCount = 0;
 	w->smooth = 0;
 
-    if (transcriptFile)
-        File_Write(transcriptFile, "\n", 1);
+	DDB_TranscriptBreak();
 }
 
 static void WinAt (DDB_Interpreter* i, int line, int col)
@@ -1411,7 +1477,7 @@ static uint8_t WhatoAt (DDB_Interpreter* i, uint8_t locno)
 		if (i->flags[Flag_Noun1] == noun && (i->flags[Flag_Adjective1] == 255 || i->flags[Flag_Adjective1] == adjective))
 		{
 			if (locno == 255 || i->objloc[n] == locno)
-				objno = n;
+				return n;
 		}
 	}
 
@@ -1722,6 +1788,8 @@ void DDB_NewText(DDB_Interpreter* i)
 
 void DDB_SetWindow(DDB_Interpreter* i, int winno)
 {
+	if (i->curwin != (winno & 7))
+		DDB_TranscriptBreak();
 	i->windef[i->curwin] = i->win;
 	i->curwin = winno & 7;
 	i->win = i->windef[i->curwin];
@@ -2800,8 +2868,18 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_PAUSE:
 				DDB_Flush(i);
-				while (SCR_AnyKey())
-					SCR_GetKey(0, 0, 0);
+				i->done = true;
+				if (param0 != 0 && SkipTimedPauses(i))
+				{
+					TRACE("[skipped]");
+					break;
+				}
+				#if HAS_TESTMODE
+				// Scripted input is deliberately queued for the pause itself.
+				if (!DDB_TestHasScriptedInput())
+				#endif
+					while (SCR_AnyKey())
+						SCR_GetKey(0, 0, 0);
 				i->state = DDB_PAUSED;
 				i->pauseFrames = param0 == 0 ? 65535 : param0;
 				i->saveKeyToFlags = (param0 == 0);
@@ -3063,10 +3141,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_CHANCE:
-				ok = RandInt(0, 100) < param0;
+			{
+				uint32_t value = RandInt(0, 100);
+				ok = value < param0;
+				TRACE("%sCHANCE %u: %u\n", ok ? "" : "[Failed] ", param0, value);
 				break;
+			}
 			case CONDACT_RANDOM:
 				i->flags[param0] = RandInt(0, 100) + 1;
+				TRACE("RANDOM %u: %u\n", param0, i->flags[param0]);
 				i->done = true;
 				break;
 
@@ -3476,7 +3559,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_CLS:
 				DDB_Flush(i);
 				i->done = true;
-                if (AnyWindowOverlapsCurrent(i))
+				if (!SkipTimedPauses(i) && AnyWindowOverlapsCurrent(i))
                 {
 					// fprintf(stderr, "WARNING: Overlap detected in CLS in process %d, entry %d, offset %d\n", process, entry, offset);
 					DDB_Flush(i);
@@ -3542,10 +3625,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				{
 					if (repeatingDisplay)
 					{
-						i->state = DDB_VSYNC;
-						UpdatePos(i, process, entry, offset);
-						TRACE("\n");
-						return;
+						if (!SkipTimedPauses(i))
+						{
+							i->state = DDB_VSYNC;
+							UpdatePos(i, process, entry, offset);
+							TRACE("\n");
+							return;
+						}
+						repeatingDisplay = false;
 					}
 					if (i->ddb->drawString)
 					{
@@ -3620,13 +3707,17 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					case 9:			// set palette color (param0: index of a 4-flag buffer with color#,R,G,B)
 						if (paletteChanges & (1 << i->flags[param0]))
 						{
-							// If this color was already changed this frame, wait
-							TRACE("\n\nPalette color %d already changed this frame, waiting\n", i->flags[param0]);
-							DDB_Flush(i);
-							i->state = DDB_VSYNC;
-							UpdatePos(i, process, entry, offset);
-							TRACE("\n");
-							return;
+							if (!SkipTimedPauses(i))
+							{
+								// If this color was already changed this frame, wait.
+								TRACE("\n\nPalette color %d already changed this frame, waiting\n", i->flags[param0]);
+								DDB_Flush(i);
+								i->state = DDB_VSYNC;
+								UpdatePos(i, process, entry, offset);
+								TRACE("\n");
+								return;
+							}
+							paletteChanges = 0;
 						}
 						TRACE("\nSetting palette color %d to %d,%d,%d\n", i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
 						SCR_SetPaletteColor(i->flags[param0], i->flags[param0+1], i->flags[param0+2], i->flags[param0+3]);
@@ -4025,7 +4116,7 @@ static void StepFunction(int elapsed)
 	{
 		if (waitingForKey)
 		{
-			if (!SCR_AnyKey())
+							if (!AnyKeyForWait())
 			{
 				if (i->timeout)
 				{
@@ -4090,7 +4181,7 @@ static void StepFunction(int elapsed)
 			uint32_t current = 0;
 			SCR_GetMilliseconds(&current);
 
-			if (SCR_AnyKey())
+							if (AnyKeyForWait())
 			{
 				i->state = DDB_RUNNING;
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
@@ -4111,7 +4202,7 @@ static void StepFunction(int elapsed)
 		}
 
 		case DDB_WAITING_FOR_KEY:
-			if (SCR_AnyKey())
+							if (AnyKeyForWait())
 			{
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
 				DDB_PlayClick(i, true);
@@ -4171,6 +4262,14 @@ void DDB_Run (DDB_Interpreter* i)
 {
 	SCR_MainLoop(i, StepFunction);
 }
+
+#if HAS_TESTMODE
+void DDB_SetSkipTimedPauses (DDB_Interpreter* i, bool skip)
+{
+	if (i != 0)
+		i->skipTimedPauses = skip;
+}
+#endif
 
 DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 {

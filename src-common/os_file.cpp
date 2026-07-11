@@ -170,6 +170,11 @@ uint64_t Native_Write(File *file, const void *buffer, uint64_t bytes)
 	return fwrite(buffer, 1, bytes, (FILE*)file->data);
 }
 
+bool Native_Flush(File *file)
+{
+	return fflush((FILE*)file->data) == 0;
+}
+
 bool Native_Seek(File *file, uint64_t position)
 {
 	return fseek((FILE*)file->data, position, SEEK_SET) == 0;
@@ -203,6 +208,7 @@ File *Native_Open(const char *name, FileOpenMode mode)
 	file->getSize     = Native_GetSize;
 	file->read        = Native_Read;
 	file->write       = Native_Write;
+	file->flush       = Native_Flush;
 	file->data        = nativeFile;
 	File_ClearErrorState();
 	return file;
@@ -231,6 +237,7 @@ File *Native_Create(const char *name)
 	file->getSize     = Native_GetSize;
 	file->read        = Native_Read;
 	file->write       = Native_Write;
+	file->flush       = Native_Flush;
 	file->data        = nativeFile;
 	File_ClearErrorState();
 	return file;
@@ -280,6 +287,11 @@ uint64_t Memory_Write(File *file, const void *buffer, uint64_t bytes)
 	return bytes;
 }
 
+bool Memory_Flush(File *file)
+{
+	return true;
+}
+
 bool Memory_Seek(File *file, uint64_t position)
 {
 	if (position > file->size)
@@ -304,6 +316,7 @@ File *Memory_Open(void *data, uint64_t dataSize)
 	file->getSize     = Memory_GetSize;
 	file->read        = Memory_Read;
 	file->write       = Memory_Write;
+	file->flush       = Memory_Flush;
 	file->data        = data;
 	file->size        = dataSize;
 	file->pos         = 0;
@@ -643,6 +656,11 @@ uint64_t File_Write(File *file, const void *buffer, uint64_t bytes)
 	return total;
 }
 
+bool File_Flush(File *file)
+{
+	return true;
+}
+
 bool File_Seek(File *file, uint64_t position)
 {
 	DosFileHandle* f = (DosFileHandle*)file;
@@ -817,6 +835,11 @@ uint64_t File_Read(File *file, void *buffer, uint64_t bytes)
 uint64_t File_Write(File *file, const void *buffer, uint64_t bytes)
 {
 	return fwrite(buffer, 1, bytes, (FILE*)file);
+}
+
+bool File_Flush(File *file)
+{
+	return fflush((FILE*)file) == 0;
 }
 
 bool File_Seek(File *file, uint64_t position)

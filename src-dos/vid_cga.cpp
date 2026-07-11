@@ -17,7 +17,7 @@
 #define CGA_WIDTH 320
 #define CGA_HEIGHT 200
 #define CGA_LINE_BYTES 80
-#define CGA_PAGE_SIZE (CGA_LINE_BYTES * CGA_HEIGHT)
+#define CGA_PAGE_SIZE 0x4000
 #define CGA_PAGE_COUNT 2
 
 #if defined(__386__)
@@ -27,6 +27,7 @@
 #endif
 
 static bool cgaRedPalette;
+static dos_ptr8 cgaBackBuffer;
 
 static dos_ptr8 CGA_GetPagePtr(unsigned page);
 static void CGA_PresentPage(unsigned page);
@@ -117,14 +118,14 @@ void CGA_SetPaletteRed(bool red)
 
 static uint8_t CGA_GetPixel(unsigned pageIndex, int x, int y)
 {
-	uint8_t packed = *CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + (x >> 2));
+	uint8_t packed = *(CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + (x >> 2));
 	int shift = 6 - ((x & 3) << 1);
 	return (packed >> shift) & 0x03;
 }
 
 static void CGA_SetPixel(unsigned pageIndex, int x, int y, uint8_t color)
 {
-	dos_ptr8 ptr = CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + (x >> 2));
+	dos_ptr8 ptr = CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + (x >> 2);
 	int shift = 6 - ((x & 3) << 1);
 	uint8_t mask = (uint8_t)(0x03 << shift);
 	*ptr = (uint8_t)((*ptr & ~mask) | ((color & 0x03) << shift));
@@ -201,7 +202,7 @@ static bool CGA_InitTables(void)
 
 static dos_ptr8 CGA_GetRowPtr(unsigned pageIndex, int y)
 {
-	return CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y));
+	return CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y);
 }
 
 static uint8_t CGA_GetRowPixel(dos_ptr8 row, int x)
@@ -223,6 +224,15 @@ bool CGA_SetVideoMode(DDB_ScreenMode mode)
 {
 	CGA_SetBIOSMode(mode == ScreenMode_CGA ? 0x04 : 0x05);
 	CGA_SetPaletteRed(cgaRedPalette);
+	if (cgaBackBuffer == 0)
+	{
+		cgaBackBuffer = Allocate<uint8_t>("CGA back buffer", CGA_PAGE_SIZE, false);
+		if (cgaBackBuffer == 0)
+		{
+			DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+			return false;
+		}
+	}
 	if (!CGA_InitTables())
 	{
 		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
@@ -237,7 +247,20 @@ bool CGA_SetVideoMode(DDB_ScreenMode mode)
 
 static dos_ptr8 CGA_GetPagePtr(unsigned page)
 {
-	return page < CGA_PAGE_COUNT ? CGA_PTR((uint16_t)(page * CGA_PAGE_SIZE)) : 0;
+	if (page == 0)
+		return CGA_PTR(0);
+	if (page == 1)
+		return cgaBackBuffer;
+	return 0;
+}
+
+void CGA_Shutdown()
+{
+	if (cgaBackBuffer != 0)
+	{
+		Free(cgaBackBuffer);
+		cgaBackBuffer = 0;
+	}
 }
 
 static void CGA_PresentPage(unsigned page)
@@ -249,8 +272,8 @@ static void CGA_PresentPage(unsigned page)
 		return;
 
 	for (int y = 0; y < CGA_HEIGHT; y++)
-		memcpy_bytes(CGA_PTR(CGA_PhysicalOffsetForRow(y)),
-			CGA_PTR((uint16_t)(page * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y)),
+		memcpy_bytes(CGA_GetPagePtr(0) + CGA_PhysicalOffsetForRow(y),
+			CGA_GetPagePtr(page) + CGA_PhysicalOffsetForRow(y),
 			CGA_LINE_BYTES);
 }
 
@@ -276,8 +299,8 @@ static void CGA_PresentRect(unsigned page, int x, int y, int w, int h)
 	int rightByte = (x2 + 3) >> 2;
 	int bytes = rightByte - leftByte;
 	for (int row = y1; row < y2; row++)
-		memcpy_bytes(CGA_PTR(CGA_PhysicalOffsetForRow(row) + leftByte),
-			CGA_PTR((uint16_t)(page * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(row) + leftByte),
+		memcpy_bytes(CGA_GetPagePtr(0) + CGA_PhysicalOffsetForRow(row) + leftByte,
+			CGA_GetPagePtr(page) + CGA_PhysicalOffsetForRow(row) + leftByte,
 			bytes);
 }
 
@@ -296,12 +319,12 @@ static uint8_t CGA_GetLogicalPixel(unsigned pageIndex, int x, int y)
 
 static uint8_t CGA_GetLogicalByte(unsigned pageIndex, int byteX, int y)
 {
-	return *CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + byteX);
+	return *(CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + byteX);
 }
 
 static void CGA_SetLogicalByte(unsigned pageIndex, int byteX, int y, uint8_t value)
 {
-	*CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + byteX) = value;
+	*(CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + byteX) = value;
 }
 
 static void CGA_SetLogicalPixel(unsigned pageIndex, int x, int y, uint8_t color)
@@ -321,8 +344,8 @@ static void CGA_PresentByteSpan(unsigned pageIndex, int byteX, int y, int bytes)
 {
 	if (pageIndex == 0 || bytes <= 0)
 		return;
-	memcpy_bytes(CGA_PTR(CGA_PhysicalOffsetForRow(y) + byteX),
-		CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + byteX),
+	memcpy_bytes(CGA_GetPagePtr(0) + CGA_PhysicalOffsetForRow(y) + byteX,
+		CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + byteX,
 		bytes);
 }
 
@@ -330,15 +353,15 @@ static void CGA_CopyNativeBytes(unsigned pageIndex, int byteX, int y, const uint
 {
 	if (bytes <= 0)
 		return;
-	memcpy_bytes(CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + byteX), src, bytes);
+	memcpy_bytes(CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + byteX, src, bytes);
 }
 
 static void CGA_CopyLogicalBytes(unsigned pageIndex, int dstByteX, int dstY, int srcByteX, int srcY, int bytes)
 {
 	if (bytes <= 0)
 		return;
-	dos_ptr8 dst = CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(dstY) + dstByteX);
-	dos_ptr8 src = CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(srcY) + srcByteX);
+	dos_ptr8 dst = CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(dstY) + dstByteX;
+	dos_ptr8 src = CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(srcY) + srcByteX;
 	if (dst <= src)
 	{
 		for (int i = 0; i < bytes; i++)
@@ -355,7 +378,7 @@ static void CGA_FillLogicalBytes(unsigned pageIndex, int byteX, int y, int bytes
 {
 	if (bytes <= 0)
 		return;
-	memset8(CGA_PTR((uint16_t)(pageIndex * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y) + byteX), value, bytes);
+	memset8(CGA_GetPagePtr(pageIndex) + CGA_PhysicalOffsetForRow(y) + byteX, value, bytes);
 }
 
 static void CGA_CopyPage(unsigned srcPage, unsigned dstPage)
@@ -363,8 +386,8 @@ static void CGA_CopyPage(unsigned srcPage, unsigned dstPage)
 	if (srcPage >= CGA_PAGE_COUNT || dstPage >= CGA_PAGE_COUNT || srcPage == dstPage)
 		return;
 	for (int y = 0; y < CGA_HEIGHT; y++)
-		memcpy_bytes(CGA_PTR((uint16_t)(dstPage * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y)),
-			CGA_PTR((uint16_t)(srcPage * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y)),
+		memcpy_bytes(CGA_GetPagePtr(dstPage) + CGA_PhysicalOffsetForRow(y),
+			CGA_GetPagePtr(srcPage) + CGA_PhysicalOffsetForRow(y),
 			CGA_LINE_BYTES);
 }
 
@@ -374,7 +397,7 @@ static void CGA_ClearPage(unsigned page, uint8_t color)
 		return;
 	uint8_t c = (uint8_t)((color & 0x03) * 0x55);
 	for (int y = 0; y < CGA_HEIGHT; y++)
-		memset8(CGA_PTR((uint16_t)(page * CGA_PAGE_SIZE) + CGA_PhysicalOffsetForRow(y)), c, CGA_LINE_BYTES);
+		memset8(CGA_GetPagePtr(page) + CGA_PhysicalOffsetForRow(y), c, CGA_LINE_BYTES);
 }
 
 static void CGA_SetTarget(SCR_Operation op, bool front)

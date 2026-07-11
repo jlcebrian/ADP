@@ -56,6 +56,10 @@ extern void   VID_SetPaletteRange     (const uint32_t* palette, uint16_t count, 
 extern void   VID_SetPaletteColor     (uint8_t color, uint8_t r, uint8_t g, uint8_t b);
 extern void   VID_SetTextInputMode    (bool enabled);
 extern void   VID_VSync               ();
+#if HAS_TESTMODE
+extern void   VID_SetFastMode          (bool enabled);
+extern bool   VID_IsFastMode           ();
+#endif
 extern void   VID_WaitForKey          ();		// Not suported in all platforms
 extern void   VID_ShowError           (const char* msg);
 extern const char* VID_DescribeVideoModeError(DDB_Error error, DDB_ScreenMode mode);
@@ -69,6 +73,9 @@ extern void   VID_SetCharset          (const uint8_t* charset);
 extern void   VID_SetCharsetWidth     (uint8_t width);
 extern void   VID_SetWindowTitle      (const char* title);
 extern void   VID_SetWindowIcon       (const char* fileName);
+#if HAS_TESTMODE
+extern bool   VID_SaveScreenshot      (const char* fileName);
+#endif
 
 // Backbuffer support
 extern void   VID_EnableBackBuffer    ();

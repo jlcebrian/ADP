@@ -1,0 +1,574 @@
+Introduce la clave de acceso:
+> rico papasito
+Con tu habitual valentía penetras en el interior del monumento en busca de sus más ocultos secretos.
+A medida que bajas el ambiente se va haciendo más oscuro, más cálido, más íntimo.
+Como si fuese un ser vivo, como respondiendo a tu presencia, la tumba se cierra y te encuentras en la acogedora oscuridad del vientre de la Gran Pirámide.
+Oscuro.
+Estás a oscuras. No ves nada.
+Turno: 0
+> girar anillo
+Giras el anillo y pasado y presente se funden y confunden. Ves el interior de la pirámide tal como estaba iluminado en otro tiempo.
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. También puedes ver un tronco. 
+> e
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. También puedes ver una esfera. 
+> coger esfera
+Coges la esfera.
+> ex esfera 
+Es una esfera de cristal de roca con una pequeña ranura. 
+> o
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. También puedes ver un tronco. 
+> o
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. De la urna sale un humo luminiscente. Unos cuantos sacerdotes se hayan ocupados con sus rituales. 
+> coger cazo 
+Coges el cazo.
+Los sacerdotes ven el cazo moverse por sí solo, hacen una precipitada reverencia y salen huyendo despavoridos.
+> ex cazo 
+Cazo de cerámica maya provisto de un asa y que contiene una pasta de gomoso y pegajoso Copal. 
+> poner esfera en soporte
+Pones la esfera en el soporte.
+El humo se cuela dentro de la esfera por la ranura.
+La esfera se llena con el denso humo.
+> coger esfera
+Coges la esfera luminosa.
+Poco a poco, el humo se va escapando por la ranura.
+> tapar ranura con pasta
+Tapas la ranura de la esfera con la pasta. Pronto se endurece.
+> poner cazo en soporte
+Pones el cazo en el soporte.
+> e
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. También puedes ver un tronco. 
+> empujar tronco e
+Empujas el tronco.
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. También puedes ver un tronco. 
+> empujar tronco abajo
+Empujas el tronco.
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Sur se abre un estrecho pasillo, bloqueado a medio camino por una sólida puerta. También puedes ver un tronco. 
+> empujar tronco abajo
+Empujas el tronco.
+Estancia de techos combados por el enorme peso soportado. Está comunicada hacia arriba por un pasadizo escalonado y hacia el Oeste por un estrecho pasaje en la roca. También puedes ver un tronco y una alfombrilla. 
+> empujar tronco o 
+Empujas el tronco.
+Cámara estrecha comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado hacia todavía más profundas profundidades. También puedes ver un tronco. 
+Tu desagradable presencia ha activado algún mecanismo secreto puesto por alguna mente retorcida.
+Con un estremecedor chirrido, las paredes comienzan a juntarse.
+¡El recio tronco detiene las paredes de piedra!
+> bajar
+Estrechísimo cubículo medio aplastado en las profundidades de la pirámide. Las paredes están combadas por el enorme peso soportado y la única salida es hacia arriba por una angosta escalerilla tallada en la roca. También puedes ver un ejemplar de los Anales de los Cakchiqueles. 
+> coger Anales
+Coges el ejemplar de los Anales de los Cakchiqueles.
+> subir
+Cámara estrecha comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado hacia todavía más profundas profundidades. También puedes ver un tronco. 
+> e
+Estancia de techos combados por el enorme peso soportado. Está comunicada hacia arriba por un pasadizo escalonado y hacia el Oeste por un estrecho pasaje en la roca. También puedes ver una alfombrilla. 
+> coger alfombrilla
+Coges la alfombrilla.
+> subir
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Sur se abre un estrecho pasillo, bloqueado a medio camino por una sólida puerta. 
+Algunos mecanismos en el nivel inferior se ponen en funcionamiento. Durante unos segundos el suelo vibra bajo tus pies.
+> subir
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. 
+Empiezas a ver las cosas mal definidas, como dobles. Pasado y presente comienzan a separarse porque el anillo se está debilitando.
+> coger hongo
+Coges el hongo.
+> ex hongo 
+Stropharia Cubensis, hongo alucinógeno por su alto contenido en psilocibina, muy usado en la religión maya.
+> o
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> bajar
+Esta estancia, enterrada en el centro de la pirámide, parece más bien un pozo de piedra, sólo comunicada mediante un pasadizo escalonado con la superior. En la pared del fondo hay tallados en la roca cuatro nichos, formando lo que parece un estantería. 
+> poner Anales en nicho
+Pones el ejemplar de los Anales de los Cakchiqueles en el estante.
+La energia del anillo se agota y vuelves a tu tiempo.
+Esta estancia, enterrada en el centro de la pirámide, parece más bien un pozo de piedra, sólo comunicada mediante un pasadizo escalonado con la superior. En la pared del fondo hay tallados en la roca cuatro nichos, formando lo que parece un estantería. 
+> subir
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> o
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> bajar
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> bajar
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Alrededor de la boca del pasadizo hay varios grabados en los que reconoces al dios Tezcatlipoca o Espejo Oscuro. También puedes ver una cachiporra. 
+> coger cachiporra
+Coges la cachiporra.
+> subir
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> n 
+Valerosamente intentas pasar, pero tu autocontrol falla cuando la quemadura te alcanza el calcáneo.
+Retrocedes entre agónicos gemiditos y te dedicas a lamerte las plantas de los pies.
+> comer hongo 
+Te comes el hongo y entras en un estado de insensibilidad total.
+> n
+Pasas sobre las hirvientes losas sin enterarte.
+Cámara estrecha comunicada hacia el Sur. En una de las gruesas paredes hay una zona derrumbada dejando ver uno de los canalones o conductos por donde se distribuye el agua a las demás dependencias. En el suelo hay un pasadizo escalonado que baja hacia mayores profundidades. También puedes ver un bastón de mando. 
+> coger baston
+Coges el bastón de mando.
+> s
+Pasas sobre las hirvientes losas sin enterarte.
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> subir
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> e
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> e
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. 
+> bajar
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Sur se abre un estrecho pasillo, bloqueado a medio camino por una sólida puerta. 
+Notas como tu cuerpo serrano va recobrando la sensibilidad. Pruebas a morderte fuertemente la lengua y meterte los sucios dedos en los ojos y... ¡efectivamente! Acabas revolcándote de dolor en el suelo. Ya eres tú otra vez.
+> ex puerta 
+Es de caoba, la más dura madera que existe. El tiempo y el ambiente aislado en que está la han cuasipetrificado. Está algo despegada del suelo y tiene una ranura a media altura. Está cerrada.
+> meter alfombrilla debajo puerta
+Pasas la alfombrilla por debajo de la puerta. 
+> meter baston en ranura 
+Introduces el bastón de mando en la ranura empujando la llave.
+Un alentador "Toc" te indica que ha caido al otro lado.
+> dejar baston
+Dejas el bastón de mando.
+> coger alfombra
+Coges la alfombrilla.
+Te traes con ella la llave, que cae al suelo con un alegre tintineo.
+> coger llave
+Coges la llave.
+> abrir puerta
+Introduces la llave en la ranura y abres la puerta.
+> dejar llave
+Dejas la llave.
+> s
+Estrecha y solitaria cámara comunicada hacia el Norte y desde cuyo suelo baja un pasillo escalonado. También puedes ver una vasija. 
+> coger vasija
+Coges la vasija.
+> ex vasija 
+Antigua vasija de ofrendas más o menos del tamaño de un coco. Está toda rota y muy resquebrajada en su parte inferior. 
+> bajar
+Estancia comunicada hacia arriba por un pasadizo escalonado. Una losa sobresale del suelo entre dos argollas. 
+> meter cachiporra en argollas
+Empujas la losa hacia abajo y pasas la cachiporra por las argollas. 
+La losa desciende suavemente al tiempo que un pasadizo se abre al Este. 
+> e
+Cámara estrecha y de ambiente húmedo, comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. También puedes ver una calavera. 
+> coger calavera
+Coges la calavera.
+> bajar
+Estrechísimo cubículo medio aplastado en las profundidades de la pirámide. Las paredes están combadas por el enorme peso soportado y la única salida es hacia arriba por una angosta escalerilla tallada en la roca. También puedes ver un ejemplar del Libro de los Señores de Totonicapan. 
+> coger Libro
+Coges el ejemplar del Libro de los Señores de Totonicapan.
+> subir
+Cámara estrecha y de ambiente húmedo, comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. 
+> o
+Estancia comunicada hacia arriba por un pasadizo escalonado. Una losa sobresale del suelo entre dos argollas. También puedes ver una cachiporra. 
+> subir
+Estrecha y solitaria cámara comunicada hacia el Norte y desde cuyo suelo baja un pasillo escalonado. 
+> n
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Sur se abre un estrecho pasillo, bloqueado a medio camino por una sólida puerta. También puedes ver una llave y un bastón de mando. 
+> subir
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. 
+> o
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> bajar
+Esta estancia, enterrada en el centro de la pirámide, parece más bien un pozo de piedra, sólo comunicada mediante un pasadizo escalonado con la superior. En la pared del fondo hay tallados en la roca cuatro nichos, formando lo que parece un estantería. 
+> poner Libro en nicho
+Pones el ejemplar del Libro de los Señores de Totonicapan en el estante.
+> subir
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> o
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> bajar
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> bajar
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Alrededor de la boca del pasadizo hay varios grabados en los que reconoces al dios Tezcatlipoca o Espejo Oscuro. 
+> e 
+La luz de la esfera se refleja en las pulidas paredes con tanta intensidad que te obliga a retroceder medio cegato.
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Alrededor de la boca del pasadizo hay varios grabados en los que reconoces al dios Tezcatlipoca o Espejo Oscuro. 
+> cubrir esfera con alfombrilla
+Cubres la esfera luminosa con la alfombrilla.
+> e
+A la escasa luz que se filtra a través de la alfombra puedes observar esta curiosa estancia. Está dedicada al tenebroso dios Tezcatlipoca y sus paredes están formadas por pulidísima obsidiana, con un alto poder reflectante. Era usada para la danza ritual de las velas, donde se creaban bellísimos efectos visuales hipnóticos atribuidos al poder del dios. Hay un pasadizo escalonado que continúa hacia abajo.
+> bajar
+Estrechísimo cubículo medio aplastado en las profundidades de la pirámide. Las paredes están combadas por el enorme peso soportado y la única salida es hacia arriba por una angosta escalerilla tallada en la roca. También puedes ver un ejemplar del Chilan Balam. 
+> coger Chilan Balam
+Coges el ejemplar del Chilan Balam.
+> subir
+A la escasa luz que se filtra a través de la alfombra puedes observar esta curiosa estancia. Está dedicada al tenebroso dios Tezcatlipoca y sus paredes están formadas por pulidísima obsidiana, con un alto poder reflectante. Era usada para la danza ritual de las velas, donde se creaban bellísimos efectos visuales hipnóticos atribuidos al poder del dios. Hay un pasadizo escalonado que continúa hacia abajo.
+> o
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Alrededor de la boca del pasadizo hay varios grabados en los que reconoces al dios Tezcatlipoca o Espejo Oscuro. 
+> subir
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> subir
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> e
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> bajar
+Esta estancia, enterrada en el centro de la pirámide, parece más bien un pozo de piedra, sólo comunicada mediante un pasadizo escalonado con la superior. En la pared del fondo hay tallados en la roca cuatro nichos, formando lo que parece un estantería. 
+> poner Chilan en nicho
+Pones el ejemplar del Chilan Balam en el estante.
+> subir
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> e
+Cámara estrecha comunicada hacia el Oeste y desde cuyo suelo baja un pasillo escalonado. En las paredes crecen hongos de aspecto bastante repugnante. 
+> coger hongo
+Coges el hongo.
+> comer hongo
+Te comes el hongo y entras en un estado de insensibilidad total.
+> coger hongo
+Coges el hongo.
+> o
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> o
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> bajar
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> n
+Pasas sobre las hirvientes losas sin enterarte.
+Cámara estrecha comunicada hacia el Sur. En una de las gruesas paredes hay una zona derrumbada dejando ver uno de los canalones o conductos por donde se distribuye el agua a las demás dependencias. En el suelo hay un pasadizo escalonado que baja hacia mayores profundidades. 
+> ex canalon 
+Parte de un antiguo acueducto que transcurre por el interior de las espesas paredes. En esta zona los derrumbes han hecho un agujero del tamaño de un coco por el que se escapa el agua.  
+> tapar agujero con vasija
+¡Muy ingenioso! La vasija encaja en el agujero, tapándolo. El agua deja de derramarse.
+Notas como tu cuerpo serrano va recobrando la sensibilidad. Pruebas a morderte fuertemente la lengua y meterte los sucios dedos en los ojos y... ¡efectivamente! Acabas revolcándote de dolor en el suelo. Ya eres tú otra vez.
+> bajar
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Oeste por un estrecho pasaje en la roca. 
+> o
+Cámara estrecha, algunos de cuyos muros laterales están algo cedidos por el gran peso soportado. Está comunicada hacia el Este y en su suelo se abre un pasadizo escalonado que baja hacia aún mayores profundidades. También puedes ver un mazo. 
+> coger mazo
+Coges el mazo.
+> bajar
+Estrechísimo cubículo medio aplastado en las profundidades de la pirámide. Las paredes están combadas por el enorme peso soportado y la única salida es hacia arriba por una angosta escalerilla tallada en la roca. También puedes ver un ejemplar del Popol Vuh. 
+> coger Popol Vuh
+Coges el ejemplar del Popol Vuh.
+> subir
+Cámara estrecha, algunos de cuyos muros laterales están algo cedidos por el gran peso soportado. Está comunicada hacia el Este y en su suelo se abre un pasadizo escalonado que baja hacia aún mayores profundidades. 
+> e
+Estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Oeste por un estrecho pasaje en la roca. 
+> comer hongo
+Te comes el hongo y entras en un estado de insensibilidad total.
+> subir
+Cámara estrecha comunicada hacia el Sur. En una de las gruesas paredes hay una zona derrumbada dejando ver uno de los canalones o conductos por donde se distribuye el agua a las demás dependencias. En el suelo hay un pasadizo escalonado que baja hacia mayores profundidades. 
+> s
+Pasas sobre las hirvientes losas sin enterarte.
+Amplia cámara abierta en medio de una escalera de piedra que la comunica tanto por arriba como hacia abajo. Hacia el lado Norte se abre un estrecho pasillo y las piedras del suelo, comunicadas quién sabe cómo con vete a saber qué volcán, están al rojo vivo creando fantasmagóricos claroscuros. 
+> subir
+Tus pasos producen extrañas resonancias y misteriosos ecos en esta estrecha cámara comunicada hacia el Este y desde cuyo suelo baja un pasadizo escalonado. En el suelo, en un rincón hay una urna y en la pared, a una cierta altura sobre ella, un soporte sobre el que hay un cazo. 
+> e
+Una amplia cámara de sólidas paredes formadas por enormes bloques de piedra. En el suelo, cerca de la pared del fondo, un pasadizo escalonado desciende. En las paredes Este y Oeste se abren estrechos pasillos. 
+> bajar
+Esta estancia, enterrada en el centro de la pirámide, parece más bien un pozo de piedra, sólo comunicada mediante un pasadizo escalonado con la superior. En la pared del fondo hay tallados en la roca cuatro nichos, formando lo que parece un estantería. 
+> poner Popol en nicho 
+Pones el ejemplar del Popol Vuh en el estante.
+El peso exacto de los cuatro libros sagrados activa un mecanismo oculto.
+Una losa se desliza dejando abierto un estrecho pasaje descendente.
+> bajar
+Amplísima estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Es evidente que antaño continuaba hacia el Oeste, pero esa ruta ha sido bloqueada por un imponente muro. 
+Notas como tu cuerpo serrano va recobrando la sensibilidad. Pruebas a morderte fuertemente la lengua y meterte los sucios dedos en los ojos y... ¡efectivamente! Acabas revolcándote de dolor en el suelo. Ya eres tú otra vez.
+> e
+Conducto tuneliforme muy inclinado y claustrofóbico. La parte alta queda al Este y la baja hacia el Oeste. A medio camino hay una pequeña derivación hacia el norte. 
+> e
+Las paredes de esta cámara han sido decoradas con detalladas imágenes del sol y su movimiento a través de la bóveda celeste. Un enorme sol dorado llena toda la habitación. 
+> ex sol 
+Es una enorme esfera que representa al sol. Las propias paredes de la habitación lo retienen por todos lados, menos por el Oeste donde una cuña lo mantiene en posición.
+> golpear cuna con mazo 
+Golpeas la cuña con el mazo y la quitas. ¡El enorme sol se te viene encima!
+> o
+Conducto tuneliforme muy inclinado y claustrofóbico. La parte alta queda al Este y la baja hacia el Oeste. A medio camino hay una pequeña derivación hacia el norte. 
+¡El enorme sol se te viene encima!
+> n 
+Estás en una pequeñísima habitación, probablemente dedicada a guardar objetos. 
+La enorme mole solar pasa a tu lado y sigue pasillo abajo. Oyes un estruendo cuando golpea contra el muro del fondo. Luego silencio.
+> s
+Conducto tuneliforme muy inclinado y claustrofóbico. La parte alta queda al Este y la baja hacia el Oeste. A medio camino hay una pequeña derivación hacia el norte. 
+> o
+Amplísima estancia comunicada hacia arriba por un pasadizo escalonado y hacia el Este por un estrecho pasaje en la roca. Es evidente que antaño continuaba hacia el Oeste, pero esa ruta ha sido bloqueada por un imponente muro. La gran bola ha abierto un enorme agujero en el muro. Del otro lado solo hay negrura. 
+> dejar alfombrilla y mazo
+Dejas la alfombrilla.
+Dejas el mazo.
+> o 
+Caes.
+Caes hacia remotas profundidades del tiempo y del espacio hasta Xibalbá, en el mismo corazón del infierno Maya.
+Esta zona, habitualmente sumida en la oscuridad más perpetua, está ahora iluminada por la dorada luz del sol que te ha precedido.
+Gran caverna que se extiende al mismo nivel hacia el Oeste, y baja hacia el Sur por una pequeña pendiente rocosa. 
+> .
+No es necesario en esta aventura.
+> s
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+> e
+Oscuro y helado túnel lateral que comunica con la caverna principal por el Oeste y baja hacia el tenebroso Sur. 
+> s 
+En esta pequeña y desolada cueva terminal el ambiente está helado y la tristeza es infinita. El aire se hace más frío y frente a ti aparece un enorme esqueleto. Es Yum Kcimil el muerto viviente. 
+Del esqueleto emana un intenso frío.
+El ser se vuelve hacia ti y comienza a acercarse.
+> n
+Oscuro y helado túnel lateral que comunica con la caverna principal por el Oeste y baja hacia el tenebroso Sur. 
+El calor y la vida vuelven lentamente a tu cuerpo al alejarte de la fría muerte.
+> o
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+> s
+Gran caverna que se extiende al mismo nivel de Norte a Sur y baja en pendiente hacia el Oeste. 
+> s
+Gran caverna que se extiende al mismo nivel hacia el Norte y baja por una cuesta hacia el Oeste. 
+> o
+Parte de la caverna muy inclinada, con una rampa de subida hacia el Este y un fuerte declive hacia el Noroeste. 
+> no
+El agua cae desde arriba por innumerables grietas lamiendo lentamente todas las paredes de esta baja cámara de gran humedad, dándole un extraño y bello ambiente central rodeado por cortinas de agua. 
+> dejar calavera
+Dejas la calavera.
+> m (Yum llega
+Pero... si no está.
+Yum llega.
+La calavera llama poderósamente la atención del esqueleto.
+Se detiene, la toma en sus manos y, como en estado catatónico, inicia una triste, huesuda y descarnada parodia del soliloquio de Hamlet.
+> recoge la calavera y se detiene)
+No puedes hacerlo.
+Del esqueleto emana un intenso frío.
+> se
+Parte de la caverna muy inclinada, con una rampa de subida hacia el Este y un fuerte declive hacia el Noroeste. 
+El calor y la vida vuelven lentamente a tu cuerpo al alejarte de la fría muerte.
+> e
+Gran caverna que se extiende al mismo nivel hacia el Norte y baja por una cuesta hacia el Oeste. 
+> n
+Gran caverna que se extiende al mismo nivel de Norte a Sur y baja en pendiente hacia el Oeste. 
+> n
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+> n
+Gran caverna que se extiende al mismo nivel hacia el Oeste, y baja hacia el Sur por una pequeña pendiente rocosa. 
+> o
+Gran caverna que se extiende Este-Oeste al mismo nivel. Hacia el Norte hay un repecho que baja a una zona más oscura. Hacia el Sur, un peligroso desnivel cae hacia una laguna interior. 
+> n 
+Oscuro y tenebroso rincón de la caverna con una estrecha rampa de subida hacia el Sur. La caverna se entristece con la presencia de una negra sombra portadora de una especie de escudo. Es el dios Tezcatlipoca.
+El ser se vuelve hacia ti y comienza a acercarse.
+> s
+Gran caverna que se extiende Este-Oeste al mismo nivel. Hacia el Norte hay un repecho que baja a una zona más oscura. Hacia el Sur, un peligroso desnivel cae hacia una laguna interior. 
+> e
+Gran caverna que se extiende al mismo nivel hacia el Oeste, y baja hacia el Sur por una pequeña pendiente rocosa. 
+> s
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+> s
+Gran caverna que se extiende al mismo nivel de Norte a Sur y baja en pendiente hacia el Oeste. 
+> s
+Gran caverna que se extiende al mismo nivel hacia el Norte y baja por una cuesta hacia el Oeste. 
+> o
+Parte de la caverna muy inclinada, con una rampa de subida hacia el Este y un fuerte declive hacia el Noroeste. 
+> no
+El agua que caía por las grietas se ha congelado creándose así un fantasmagórico aposento rodeado por reflectantes espejos de hielo. Yum está aquí. Está ensimismado en la contemplación de la calavera. 
+Del esqueleto emana un intenso frío.
+> m 
+El agua que caía por las grietas se ha congelado creándose así un fantasmagórico aposento rodeado por reflectantes espejos de hielo. Yum está aquí. Está ensimismado en la contemplación de la calavera. 
+Una gélida laxitud se va apoderando de tu cuerpo.
+> m
+El agua que caía por las grietas se ha congelado creándose así un fantasmagórico aposento rodeado por reflectantes espejos de hielo. Yum está aquí. Está ensimismado en la contemplación de la calavera. 
+La punzada helada penetra hasta tu corazón e invade tu mente.
+Tezca llega.
+Siempre juntos en el frío y las sombras, siempre rivales en Xibalbá, los dos dioses se contemplan.
+El choque de voluntades es tremendo y ambos irradian enorme energía.
+Por fin, lentamente, Tezcatlipoca alza su negro escudo y Yum Kcimil estalla en mil pedazos. El equilibrio se ha alterado.  
+Tezca ve su imagen reflejada por el hielo en su propio Espejo Oscuro. Al instante comprende su error, pero ya es tarde, su voluntad ha sido absorbida y queda como un muñeco, sin albedrío.
+El ser se vuelve hacia ti y comienza a acercarse.
+> coger espejo
+Coges el espejo.
+El calor y la vida vuelven lentamente a tu cuerpo al alejarte de la fría muerte.
+Tezca imita tus movimientos.
+> se 
+Parte de la caverna muy inclinada, con una rampa de subida hacia el Este y un fuerte declive hacia el Noroeste. 
+Tezca imita tus movimientos.
+> e
+Gran caverna que se extiende al mismo nivel hacia el Norte y baja por una cuesta hacia el Oeste. 
+Tezca imita tus movimientos.
+> n
+Gran caverna que se extiende al mismo nivel de Norte a Sur y baja en pendiente hacia el Oeste. 
+Tezca imita tus movimientos.
+> n
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+Tezca imita tus movimientos.
+> n
+Gran caverna que se extiende al mismo nivel hacia el Oeste, y baja hacia el Sur por una pequeña pendiente rocosa. 
+Tezca imita tus movimientos.
+> o
+Gran caverna que se extiende Este-Oeste al mismo nivel. Hacia el Norte hay un repecho que baja a una zona más oscura. Hacia el Sur, un peligroso desnivel cae hacia una laguna interior. 
+Tezca imita tus movimientos.
+> o 
+Has llegado al final de la gran caverna Este-Oeste. El enorme sol dorado está atascado aquí. 
+Tezca imita tus movimientos.
+> empujar sol 
+Comienzas a empujar el sol y Tezcatlipoca te imita.
+Su fuerza sobrehumana envía la dorada bola precipicio abajo.
+> e
+Gran caverna que se extiende Este-Oeste al mismo nivel. Hacia el Norte hay un repecho que baja a una zona más oscura. Hacia el Sur, un peligroso desnivel cae hacia una laguna interior. 
+Tezca llega.
+Tezca imita tus movimientos.
+> e
+Gran caverna que se extiende al mismo nivel hacia el Oeste, y baja hacia el Sur por una pequeña pendiente rocosa. 
+Tezca imita tus movimientos.
+> s
+Gran caverna que se extiende al mismo nivel hacia el Sur. Una rampa rocosa sube hacia el Norte, al Oeste se ve la orilla de un lago interior y hacia el Este una oscura, tenebrosa y fría entrada. 
+Tezca imita tus movimientos.
+> s
+Gran caverna que se extiende al mismo nivel de Norte a Sur y baja en pendiente hacia el Oeste. 
+Tezca imita tus movimientos.
+> o
+Esta complicada parte de la caverna continúa hacia el Oeste al mismo nivel y tiene una rampa ascendente hacia el Este. 
+Tezca imita tus movimientos.
+> o 
+La cascada ha dejado de caer, y en la todavía húmeda pared Norte se ve una estrecha grieta que se pierde entre retorcidos recovecos. 
+Tezca imita tus movimientos.
+> n 
+Sientes el ya familiar cruce hacia otra dimensión.
+Pero esta vez tu alma nota que has ascendido desde el tenebroso reino del mal.
+  
+En este tórrido purgatorio de arena y sol es en el único lugar donde puedes encontrar cactus de tan extraña especie. 
+> .
+No es necesario en esta aventura.
+> ex cactus
+Plantas perennes de tallo dividido en paletas ovaladas llenas de espinas o púas.
+> coger puas
+Coges el puñado de púas de cactus.
+> e
+En este tórrido purgatorio de arena y sol es en el único lugar donde puedes encontrar cactus de tan extraña especie. 
+> s
+Desde esta región árida y desolada sólo las desnudas formaciones rocosas, mudas, te contemplan. 
+> s
+Desde esta región árida y desolada sólo las desnudas formaciones rocosas, mudas, te contemplan. Hacia el Suroeste hay una enorme roca. 
+> so
+La enorme roca da cobijo a este lugar donde puedes hallar un cierto respiro para tu sofocada humanidad y en donde crecen protegidas las llamadas rosas del desierto. 
+> coger rosa
+Coges la rosa del desierto.
+> ne
+Desde esta región árida y desolada sólo las desnudas formaciones rocosas, mudas, te contemplan. Hacia el Suroeste hay una enorme roca. 
+> e
+Desde esta región árida y desolada sólo las desnudas formaciones rocosas, mudas, te contemplan. 
+> s
+Las frondosas datileras y la verde hierba son muestras de que en el subsuelo de este oasis hay bastante humedad. 
+> coger datiles
+Coges el racimo de dátiles.
+> s
+Para tu gran horror y frustración, estás otra vez en zona desértica, pero así es la vida del aventurero. A lo lejos, hacia el Oeste, se ve una columna de humo. 
+> e
+La calzada de los Gigantes está formada por miles de formaciones poligonales de basalto caóticamente amontonadas. 
+> s
+Te hallas en el centro de la calzada, rodeado de las peculiares formaciones que le dan el nombre. 
+> s
+El extremo sur de la calzada presenta la misma extraña configuración geológica. De pronto, la inmensa figura del gigante Sipac nubla el sol. También puedes ver un cesto. 
+> meter puas en datiles
+Con una gran paciencia te dedicas a clavar una púa en cada dátil.
+> poner datiles en cesto
+Pones el racimo de dátiles en el cesto.
+> o 
+Sipac se fija en ti y se te acerca con actitud agresiva. La cesta con jugosos dátiles llama su atención. Mientras te sujeta con una mano, se come los dátiles con la otra. Inmediatamente, te suelta y, con un alarido, se lleva ambas manos al cuello.
+Luego se retuerce agarrándose el vientre y como dice la mitología maya...
+"Cayó cuan largo era, con tal fuerza que su cuerpo se incrustó en el suelo y se convirtió en un nuevo volcán."
+Te has metido en la mismísima guarida de Sipac. Apesta a rancio y todo está muy desordenado. También puedes ver una espada, un trozo de cera, una botella y una jarra con miel. 
+> coger todo 
+La espada pesa demasiado y se te cae.
+Coges el trozo de cera.
+Coges la botella.
+Coges la jarra con miel.
+> e
+El extremo sur de la calzada presenta la misma extraña configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+> e
+En este extraño lugar hay unas extrañísimas formaciones rocosas, algunas en grupos, otras en parejas y alguna que otra solitaria. 
+Un suave canto, a la vez dulce y tristísimo, flota en el ambiente y te atrae irresistiblemente.
+> o
+El extremo sur de la calzada presenta la misma extraña configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+> hacer tapones 
+Hábilmente modelas un par de tapones con la cera. 
+> poner tapones
+Te pones los tapones de cera.
+> e
+En este extraño lugar hay unas extrañísimas formaciones rocosas, algunas en grupos, otras en parejas y alguna que otra solitaria. 
+> ex rocas
+Una de ellas tiene grabado un cono que te resulta familiar.
+> ex cono
+Es igual que los conos que había en una de las explanadas de Chichén Itzá.
+> tocar cono con rosa 
+Zyanya, a quien hace tiempo dejaste convertida en piedra, cobra vida ante tus atónitos ojos.
+Recibe tu flor y, siguiendo su costumbre, te da otro filtro.
+Luego, antes de que puedas detenerla, se despide de ti con un suave beso y vuelve a su mundo pétreo.
+> o
+El extremo sur de la calzada presenta la misma extraña configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+> quitar tapones
+Te quitas los tapones de cera.
+> dejar tapones
+Dejas los tapones de cera.
+> s
+Toda la ladera del volcán Sipác retumba y se estremece con el profundo rugido del gigante, que sacude iracundo la roca, acordándose del mortal que lo engañó. Ante ti se halla la amargada figura de Xiutecutli. 
+> preguntar Xiutecutli 
+Xiutecutli alza su ácida mirada y te dice "¿Puedes traerme algo que endulce mi amarga existencia?".
+> dar jarra a Xiutecutli 
+Xiutecutli exclama "¡Gracias, mortal!" y cogiendo el cuenco añade: "Toma mi inútil máscara a cambio" y murmurando alabanzas sobre la dulzura de su nueva vida, desaparece entre las brumas.
+> n
+El extremo sur de la calzada presenta la misma extraña configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto y unos tapones de cera. 
+> o
+Te has metido en la mismísima guarida de Sipac. Apesta a rancio y todo está muy desordenado. También puedes ver una espada. 
+> beber filtro 
+Te bebes el filtro mágico y sientes como la fuerza te invade. Vacío de su contenido, el inútil frasco estalla en mil pedazos.
+> coger espada
+Coges la espada.
+> e
+El extremo sur de la calzada presenta la misma extraña configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto y unos tapones de cera. 
+> n
+Te hallas en el centro de la calzada, rodeado de las peculiares formaciones que le dan el nombre. 
+> n
+La calzada de los Gigantes está formada por miles de formaciones poligonales de basalto caóticamente amontonadas. 
+> o
+Para tu gran horror y frustración, estás otra vez en zona desértica, pero así es la vida del aventurero. A lo lejos, hacia el Oeste, se ve una columna de humo. 
+> poner mascara
+Te pones la máscara.
+> o 
+Por este Lugar Humeante se escapa del interior de la tierra toda la furia volcánica en forma de tóxicos y sulfurosos gases. 
+Sobrevives a los tóxicos efluvios gracias a la máscara de Xiutecutli.
+> s
+Una alta, enorme y maciza muralla granítica se alza ante tus sufridos ojos. En lo alto giran perezosos unos negros buitres. 
+> quitar mascara
+Te quitas la máscara.
+> dejar mascara
+Dejas la máscara.
+> ex buitres 
+Son enormes rapaces enlutadas, que quizá presintiendo tu triste sino, vuelan con ávida esperanza en apretados círculos sobre tu cabeza.  Pero el jefe de la banda presenta un raro colorido y vuela bastante bajo.
+Parece Kuill.
+¡Es cierto!¡Es cierto! ¡Es Kuill!
+El escandaloso loro se te acerca revoloteando muy agitado. Te dice: "Sígueme...Grrak...Sígueme".
+> seguir Kuill
+Kuill se dirige hacia la montaña y te guía por ocultos senderos y tortuosos caminos.
+Cuando te ve bien encaminado, emitiendo una última caquita embadurnadora sobre tus ya acostumbradas espaldas, vuelve con los suyos.
+Estás en la localidad del paso. 
+> so
+El bello y fértil valle que se abre frente a ti destaca como un paraiso entre toda la aridez de la zona. Un enorme árbol hay al Este y un florido sendero se contonea hacia el Oeste. 
+> e
+La imponente masa vegetal de Kappock, el Arbol de la Vida, domina todo este umbrío rincón. 
+> ex kappock
+Enorme árbol central del paraiso maya. Está cargado con frutos de la vida.
+> coger frutas
+Coges las frutas de kappok.
+> o
+El bello y fértil valle que se abre frente a ti destaca como un paraiso entre toda la aridez de la zona. Un enorme árbol hay al Este y un florido sendero se contonea hacia el Oeste. 
+> o
+Este frondoso sendero, bordeado de bellos árboles y flores, se extiende en dirección Este/Oeste. 
+> o
+Este yermo sendero, bordeado de raquíticos y casi secos arbolillos, se extiende hacia el Este y el Norte. Guardando el paso hacia el norte se encuentra el temible Huitzilopochtli. 
+> n 
+Lo intentas, pero al ver tu cobarde huida, el gran Huitzilopochtli te alcanza. Instintivamente te escudas con el espejo humeante. Huitzilopcochtli se ve reflejado y tiene un momento de desconcierto.
+> matar Huitzilipochtli
+Fortalecido por el filtro, el miedo y la rabia, lanzas un alocado, pero tremendo mandoble.
+Cogido por sorpresa, Huitzilopochtli no alcanza a esquivarlo y lo recibe de lleno.
+Mortal, has decapitado a un poderoso dios.
+Privado del placer de morir, la envoltura corpórea de Huitzilopochtli se deshace y su espíritu se transfiere al Olimpo Maya.
+> n
+El Lugar del Olvido, donde yacen las almas de todos aquellos que llevaron una vida tan insulsa que no merecen ni siquiera el Infierno, los llamados "muertos en muerte", es de una tristeza insuperable. 
+Los muertos en muerte avanzan sobre ti acosándote.
+> dar frutas a muertos
+Los No-seres se alejan lentamente, engullendo con nauseabunda avidez las frutas de la vida.
+> n
+Ante ti se yergue, por fin, el  esplendoroso palacio donde los celosos dioses mantienen cautivo a Kukulkán desde que, voluntariamente se exiliara de la tierra. Estás en lo alto de una pequeña loma desde la cual desciende una rampa de lisas losas hasta la puerta del palacio. 
+> vaciar botella en suelo
+Vacías la botella sobre la rampa, formando un reguero a todo lo largo de ésta.
+Vacío de su contenido, el inútil frasco estalla en mil pedazos.
+> dejar esfera 
+Dejas la esfera luminosa.
+La esfera baja rodando por la rampa impregnándose con el liquido y creciendo conforme avanza.
+Cuando alcanza el templo su tamaño es enorme y se estrella contra la puerta destrozándose ambas por completo.
+> n
+Estás al final de la rampa, frente a las mismísimas puertas que retienen prisionero a Kukulkán en la cárcel-palacio de máxima seguridad. 
+> n 
+Estás frente al gran Kukulkan-Quetzacoatl, el mítico ser que ha guiado tus pasos a lo largo de toda la trilogía, desde tu primer encuentro con el mundo sobrenatural Maya en Cozumel, durante tus aventuras en los templos sagrados de Tulúm y Cobá y ahora, en tu choque final con los dioses.
+Si antes te conformabas, como arqueólogo, con hallar sus restos mortales, ahora has liberado al verdadero dios, y la era de los ritos de sangre, guerras y violencias, ha terminado.
+-"Mortal, este regalo de los dioses lo has ganado con tu valor"- exclama Kukulkan, dándote una petaquita. -"Allí dentro encontrarás todos los sufrimientos, penas y pesares que te aguardan en tu larga vida". Y con una eterna sonrisa, desaparece.
+Con manos temblorosas abres la petaca para examinar su contenido...
+ ¡ESTA VACIA! 
+¿Lo intentas otra vez? (Si/No)
+> n

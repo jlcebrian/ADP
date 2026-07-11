@@ -12,12 +12,27 @@ extern void VID_SetPaletteRangeFast(const uint32_t* palette, uint16_t count, uin
 
 bool		waitingForKey = false;
 bool 		buffering = false;
+#if HAS_TESTMODE
+static bool fastMode = false;
+#endif
 uint8_t 	lineHeight;
 uint8_t 	columnWidth;
 uint8_t 	screenCellWidth = 8;
 uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
+
+#if HAS_TESTMODE
+void VID_SetFastMode(bool enabled)
+{
+	fastMode = enabled;
+}
+
+bool VID_IsFastMode()
+{
+	return fastMode;
+}
+#endif
 
 static const VID_ScreenAdapter* activeScreenAdapter = 0;
 

@@ -6,22 +6,32 @@ MODE = 32
 !include version.mk
 !endif
 
+!ifdef DOS_TEST_BUILD
+EXE = adp$(MODE)test.exe
+!else
 EXE = adp$(MODE).exe
+!endif
 
 !ifndef OBJBUILD
 
+!ifdef DOS_TEST_BUILD
+OBJDIR = obj/dos$(MODE)test
+TEST_BUILD_ARG = DOS_TEST_BUILD=$(DOS_TEST_BUILD)
+!else
 OBJDIR = obj/dos$(MODE)
+TEST_BUILD_ARG =
+!endif
 OUTDIR = out
 
 all : Release .SYMBOLIC
 
 Debug : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 DOS_DEBUG_BUILD=1 all
+	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) $(TEST_BUILD_ARG) OBJBUILD=1 DOS_DEBUG_BUILD=1 all
 
 Release : .SYMBOLIC
 	@if not exist $(OBJDIR) @mkdir $(OBJDIR)
-	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) OBJBUILD=1 all
+	@cd $(OBJDIR) && wmake -h -e -f ../../Makefile-dos MODE=$(MODE) VERSION=$(VERSION) $(TEST_BUILD_ARG) OBJBUILD=1 all
 
 clean : .SYMBOLIC
 	@if exist $(OBJDIR)/*.obj      @rm $(OBJDIR)/*.obj
@@ -39,7 +49,7 @@ VERSION_DEF = -DVERSION=\"$(VERSION)\"
 CC    = wpp386
 CL    = wcl386
 OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
-OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING -DHAS_PCX
+OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DHAS_PCX
 OPTIM = -osexanuc -zc -3 -r
 LOPTS = -l=PMODEW
 #OPTIM=-onatx -oh -ei -zp8 -3
@@ -49,9 +59,15 @@ LOPTS = -l=PMODEW
 CC     = wpp
 CL     = wcl
 OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm $(VERSION_DEF)
-OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DNO_BUFFERING -DHAS_PCX
+OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DHAS_PCX
 OPTIM  = -osexanuc
 
+!endif
+
+!ifdef DOS_TEST_BUILD
+OPTS += -DDOS_TEST_BUILD
+!else
+OPTS += -DNO_BUFFERING
 !endif
 
 !ifdef DOS_DEBUG_BUILD
