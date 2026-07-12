@@ -1,0 +1,5 @@
+{
+    "fixture": "original/pc/ORIGINAL-PC.img",
+    "screen": "cga",
+    "shared": "original/part2-amiga"
+}

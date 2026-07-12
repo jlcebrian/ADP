@@ -996,7 +996,14 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 		case DDB_MACHINE_SPECTRUM:
 		case DDB_MACHINE_MSX:
 			if (*ptr == 7)
+			{
+				// Empty subroutine (immediate RETURN). Balance the depth counter
+				// bumped at entry -- otherwise every GOSUB into an empty image
+				// leaks a level and, once the limit is hit, all further vector
+				// graphics silently stop rendering for the rest of the session.
+				depth--;
 				return false;
+			}
 			for (;;)
 			{
 				switch (*ptr & 7)
@@ -1274,6 +1281,11 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 		printf("DDB_DrawVectorPicture: picno %d out of range (0-%d)\n", picno, count-1);
 		return false;
 	}
+
+	// This is the top of the recursion, so the depth counter must start at 0.
+	// Reset it defensively so any stray leak in a subroutine cannot accumulate
+	// across pictures and permanently disable graphics.
+	depth = 0;
 
 	switch (vectorGraphicsMachine)
 	{

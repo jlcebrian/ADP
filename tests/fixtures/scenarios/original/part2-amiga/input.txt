@@ -1,0 +1,249 @@
+# Solución original: proyecto CASA https://solutionarchive.com/file/id%2C24410/
+# (Autor original: boldir)
+
+TIMACUS
+
+@save Inicio
+@key
+@save Entrada
+O
+O
+coger varita
+O
+O
+bajar
+O
+usar varita
+O
+N
+N
+S
+E
+O
+bajar
+sacar pila
+meter pila en maquina
+meter moneda en maquina
+coger pila
+poner pila
+encender linterna
+subir
+S
+E
+N
+bajar
+S
+E
+coger diamante
+O
+S
+subir
+SO
+O
+bajar
+NE
+coger garfio
+E
+NE
+N
+E
+E
+ex nota
+buscar pepita
+soplar
+buscar pepita
+dejar llave
+coger pepita
+subir
+E
+E
+xyzzy
+dejar diamante y garfio y pepita
+mirar
+xyzzy
+e
+coger jaula
+O
+O
+dejar varita
+cazar pajaro
+O
+bajar
+bajar
+@save Trono
+abrir jaula
+mirar
+coger joya
+N
+coger barra
+N
+oir
+@save SalaAcustica
+recolector
+dejar joya y barra
+recolector
+ayuda
+magia
+N
+coger piramide
+S
+magia
+S
+bajar
+NO
+NE
+@save Alcoba
+coger esmeralda
+SO
+dejar jaula
+coger jarron
+dejar botella
+SE
+E
+coger almohada
+@save HabitacionBlanda
+O
+subir
+N
+recolector
+dejar piramide y esmeralda y almohada
+dejar jarron en almohada
+recolector
+S
+bajar
+NO
+coger botella
+SE
+
+# Aquí aparece el enano Maluva
+
+@key
+@key
+@save Enano
+coger hacha
+subir
+S
+SO
+O
+@save Dragon
+atacar dragon
+@save Dragon2
+mirar
+coger alfombra
+E
+bajar
+bajar
+coger especias
+regar judias
+@save Judias
+subir
+subir
+NE
+N
+N
+O
+llenar botella
+E
+recolector
+dejar especias y alfombra
+recolector
+S
+S
+SO
+bajar
+bajar
+regar plantita
+subir tronco
+@save Armas
+coger huevo
+bajar
+subir
+E
+bajar
+llenar botella
+subir
+O
+tirar hacha a enano
+bajar
+subir tronco
+aceitar puerta
+abrir puerta
+entrar
+coger tridente
+bajar
+S
+SE
+N
+@save Almeja
+abrir almeja
+bajar
+bajar
+coger perla
+subir
+subir
+S
+subir
+N
+recolector
+dejar tridente y perla
+recolector
+S
+S
+subir
+coger llave
+bajar
+N
+bajar
+NO
+SO
+N
+@save Puente
+dar huevo
+N
+E
+bajar
+ex llave
+ex tortilla
+abrir jaula
+entrar
+@save Oso
+dar tortilla
+soltar oso
+E
+subir
+O
+soltar oso
+mirar
+coger cadena
+S
+S
+S
+SE
+subir
+S
+SO
+bajar
+bajar
+subir tronco
+fee fie foe foo
+coger huevo
+bajar
+subir
+subir
+NE
+N
+N
+recolector
+@save Recolector
+dejar huevo y cadena
+m
+@save Recolector
+xyzzy
+E
+E
+@save Salida
+@key
+@save Salida2
+salir
+@save Final
+n

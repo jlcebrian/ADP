@@ -1,0 +1,603 @@
+\xC1\xD6\xC5\xCE\xD4\xD5\xD2\xC1\xA0\xCF\xD2\xC9\xC7\xC9\xCE\xC1\xCC\xA0\xC9\xC9
+Programación:
+Gráficos:
+\xC5\xCC\xA0\xC5\xCE\xC3\xD5\xC5\xCE\xD4\xD2\xCF
+Manuel González
+Andrés  Samudio
+Carlos  Marqués
+(c) 1989 Aventuras AD
+Dirección:
+¿Clave de acceso?
+> TIMACUS
+Con un click la puerta se cierra mágicamente...
+Los rayos del sol iluminan la caverna a través de los barrotes. Más allá sólo hay misterio...
+> O
+Te arrastras por un pasadizo bajo y lleno de cantos rodados.
+Puedes ver una jaula\xFF\xE1\xE2 y un canto rodado\xFF\xBA.
+> O
+Es una amplia estancia, antiguo recolector de desechos del rio. 
+Un curioso texto rompe la monotonía de la pared.
+Puedes ver una varita mágica\xFF\xE5\xE6.
+> coger varita
+Has cogido la varita mágica\xFF\xE5\xE6.
+> O
+Los caprichos rocosos de ésta cámara crean un sobrecogedor escenario. Un pajarillo revolotea por la estancia.
+> O
+Es el fín de ésta zona. De un agujero a tus pies salen retazos de niebla.
+> bajar
+El lado Este de la Cámara de las Nieblas está lleno de nubes que dificultan la visión. Hay una nota en la pared. Una escalera labrada en la piedra baja aún mas a las profundidades.
+> O
+Estás junto a una enorme y fisura que parte en dos la cámara. El precipicio queda al Oeste.
+> usar varita
+Junto a la fisura, junto a un puente de cristal. El precipicio queda al Oeste.
+Puedes ver un diamante\xFF\xE9\xEA.
+> O
+Es el lado oeste de la Cámara, aquí hay poca niebla y puedes ver varias salidas.
+> N
+Estás en un laberinto de ovales pasillos intercomunicados. 
+> N
+Estás en un intercomunicado laberinto de pasillos ovales. 
+> S
+Estás en un laberinto de intercomunicados pasillos ovales. 
+> E
+Estás en un intercomunicado laberinto de ovales pasillos. 
+> O
+Estás en un laberinto de pasillos ovales intercomunicados. 
+> bajar
+Hay una máquina recarga-pilas con una ranura para meter monedas.
+> sacar pila
+No se vé nada.
+> meter pila en maquina
+Vale.
+> meter moneda en maquina
+¡CHUMM! ¡BROOM! ¡PIFSSS!
+¡ Pilas recargadas !
+> coger pila
+Has cogido la pila\xFF\xB4\xB5.
+> poner pila
+Vale.
+> encender linterna
+Hay una máquina recarga-pilas con una ranura para meter monedas.
+> subir
+Estás en un laberinto de pasillos ovales intercomunicados. 
+> S
+Estás en un intercomunicado laberinto de ovales pasillos. 
+> E
+Estás en un laberinto de intercomunicados pasillos ovales. 
+> N
+Estás en un intercomunicado laberinto de pasillos ovales. 
+> bajar
+Estás en un laberinto de ovales pasillos intercomunicados. 
+> S
+Es el lado oeste de la Cámara, aquí hay poca niebla y puedes ver varias salidas.
+> E
+Junto a la fisura, junto a un puente de cristal. El precipicio queda al Oeste.
+Puedes ver un diamante\xFF\xE9\xEA.
+> coger diamante
+Has cogido el diamante\xFF\xE9\xEA.
+> O
+Es el lado oeste de la Cámara, aquí hay poca niebla y puedes ver varias salidas.
+> S
+Estás en un laberinto de pequeñas habitaciones entrelazadas. 
+> subir
+Estás en un pequeño laberinto de habitaciones entrelazadas. 
+> SO
+Estás en un entrelazado laberinto de habitaciones pequeñas. Hay un agujero en el suelo. 
+> O
+Estás en un pequeño laberinto de entrelazadas habitaciones. 
+> bajar
+Estás en un laberinto de habitaciones pequeñas entrelazadas. 
+> NE
+Estás en un entrelazado laberinto de pequeñas habitaciones. Estás en la guarida del pirata. 
+Puedes ver un garfio de oro\xFF\xEE\xEF.
+> coger garfio
+Has cogido el garfio de oro\xFF\xEE\xEF.
+> E
+Estás en un entrelazado laberinto de habitaciones pequeñas. Hay un agujero en el suelo. 
+> NE
+Estás en un laberinto de pequeñas habitaciones entrelazadas. 
+> N
+Es el lado oeste de la Cámara, aquí hay poca niebla y puedes ver varias salidas.
+> E
+Junto a la fisura, junto a un puente de cristal. El precipicio queda al Oeste.
+> E
+El lado Este de la Cámara de las Nieblas está lleno de nubes que dificultan la visión. Hay una nota en la pared. Una escalera labrada en la piedra baja aún mas a las profundidades.
+> ex nota
+"Aquí se perdió una pepita de oro."
+> buscar pepita
+La niebla te lo impide.
+> soplar
+Vale.
+> buscar pepita
+¡Está en el suelo!
+> dejar llave
+Has dejado la llave\xFF\xAC\xAD.
+> coger pepita
+Has cogido la pepita de oro\xFF\xBE.
+> subir
+Es el fín de ésta zona. De un agujero a tus pies salen retazos de niebla.
+> E
+Los caprichos rocosos de ésta cámara crean un sobrecogedor escenario. Un pajarillo revolotea por la estancia.
+> E
+Es una amplia estancia, antiguo recolector de desechos del rio. 
+Un curioso texto rompe la monotonía de la pared.
+> xyzzy
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+> dejar diamante y garfio y pepita
+Has dejado el diamante\xFF\xE9\xEA.
+Has dejado el garfio de oro\xFF\xEE\xEF.
+Has dejado la pepita de oro\xFF\xBE.
+> mirar
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> xyzzy
+Es una amplia estancia, antiguo recolector de desechos del rio. 
+Un curioso texto rompe la monotonía de la pared.
+> e
+Te arrastras por un pasadizo bajo y lleno de cantos rodados.
+Puedes ver una jaula\xFF\xE1\xE2 y un canto rodado\xFF\xBA.
+> coger jaula
+Has cogido la jaula\xFF\xE1\xE2.
+> O
+Es una amplia estancia, antiguo recolector de desechos del rio. 
+Un curioso texto rompe la monotonía de la pared.
+> O
+Los caprichos rocosos de ésta cámara crean un sobrecogedor escenario. Un pajarillo revolotea por la estancia.
+> dejar varita
+Has dejado la varita mágica\xFF\xE5\xE6.
+> cazar pajaro
+Tienes al pájaro enjaulado.
+> O
+Es el fín de ésta zona. De un agujero a tus pies salen retazos de niebla.
+> bajar
+El lado Este de la Cámara de las Nieblas está lleno de nubes que dificultan la visión. Hay una nota en la pared. Una escalera labrada en la piedra baja aún mas a las profundidades.
+Puedes ver una llave\xFF\xAC\xAD.
+> bajar
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono. Una enorme serpiente te observa.
+> abrir jaula
+¡El pájaro se escapa!
+Y al ver a la serpiente la ataca en los ojos y la hace huir.
+> mirar
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+Puedes ver una joya\xFF\xF2\xF3.
+> coger joya
+Has cogido la joya\xFF\xF2\xF3.
+> N
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+Puedes ver una barra de titanio\xFF\xF0\xF1.
+> coger barra
+Has cogido la barra de titanio\xFF\xF0\xF1.
+> N
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> oir
+El eco susurra: \xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2
+> recolector
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> dejar joya y barra
+Has dejado la joya\xFF\xF2\xF3.
+Has dejado la barra de titanio\xFF\xF0\xF1.
+> recolector
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> ayuda
+Usa otros sentidos o la magia.
+> magia
+La habitación mágica se ilumina con su verde resplandor. Hay una puerta hacia la oscuridad.
+> N
+Hacía años que la luz no rasgaba las tinieblas de la habitación Negra.
+Puedes ver una pirámide de platino\xFF\xE3\xE4.
+> coger piramide
+Has cogido la pirámide de platino\xFF\xE3\xE4.
+> S
+La habitación mágica se ilumina con su verde resplandor. Hay una puerta hacia la oscuridad.
+> magia
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> S
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> bajar
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> NO
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver un jarrón chino\xFF\xF9\xFA.
+> NE
+La Alcoba de los Reyes. Una misteriosa luz verde sale por un estrecho pasaje al Este.
+Puedes ver una esmeralda\xFF\xEB\xEC.
+> coger esmeralda
+Has cogido la esmeralda\xFF\xEB\xEC.
+> SO
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver un jarrón chino\xFF\xF9\xFA.
+> dejar jaula
+Has dejado la jaula\xFF\xE1\xE2.
+> coger jarron
+Has cogido el jarrón chino\xFF\xF9\xFA.
+> dejar botella
+Has dejado la botella con agua\xFF\xAA\xAB.
+> SE
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> E
+La habitación blanda lo es.
+Puedes ver una almohada\xFF\xA3\xA4.
+> coger almohada
+Has cogido la almohada\xFF\xA3\xA4.
+> O
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> subir
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> N
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> recolector
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> dejar piramide y esmeralda y almohada
+Has dejado la pirámide de platino\xFF\xE3\xE4.
+Has dejado la esmeralda\xFF\xEB\xEC.
+Has dejado la almohada\xFF\xA3\xA4.
+> dejar jarron en almohada
+Has dejado el jarrón chino\xFF\xF9\xFA.
+> recolector
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> S
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> bajar
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> NO
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver una botella con agua\xFF\xAA\xAB y una jaula\xFF\xE1\xE2.
+> coger botella
+Has cogido la botella con agua\xFF\xAA\xAB.
+> SE
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+¡El enano Maluva sale de entre las sombras!
+Babeando avanza hacia tí.
+Te arroja con furia su hacha... 
+...¡y falla por poco!
+Con un gran insulto vuelve a las tinieblas.
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+Puedes ver un hacha\xFF\xF5\xF4.
+> coger hacha
+Has cogido el hacha\xFF\xF5\xF4.
+> subir
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> S
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> SO
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> O
+Estás en una enorme madriguera con un olor insoportable a caca de dragón. Frente a tí hay un enorme bissho.
+Puedes ver un hueso humano algo chamuscado\xFF\xB8\xB9.
+¡Qué rico! Aventurero para cenar.
+> atacar dragon
+El cobardica vuelve llorando a su casa en el Hobbit.
+> mirar
+Estás en una enorme madriguera con un olor insoportable a caca de dragón.
+Puedes ver un hueso humano algo chamuscado\xFF\xB8\xB9 y una alfombra persa\xFF\xE7\xE8.
+> coger alfombra
+Has cogido la alfombra persa\xFF\xE7\xE8.
+> E
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> bajar
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. Hay unas semillas de Judías.
+Puedes ver unas especias indias\xFF\xA5.
+> coger especias
+Has cogido las especias indias\xFF\xA5.
+> regar judias
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. Nace una plantita de Judías.
+> subir
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> subir
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> NE
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> N
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> N
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> O
+El mirador tiene una ventana que da al abismo. Una figura te observa desde el otro lado. Tambien hay un charco de agua.
+> llenar botella
+Vale.
+> E
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> recolector
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Objeto: la almohada\xFF\xA3\xA4
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: la pirámide de platino\xFF\xE3\xE4
+Tesoro: la esmeralda\xFF\xEB\xEC
+Tesoro: el jarrón chino\xFF\xF9\xFA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> dejar especias y alfombra
+Has dejado las especias indias\xFF\xA5.
+Has dejado la alfombra persa\xFF\xE7\xE8.
+> recolector
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> S
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> S
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> SO
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> bajar
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. Nace una plantita de Judías.
+> regar plantita
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+> subir tronco
+El hacha y el escudo del gigante llenan este lugar. En la pared se lee: \xC6\xC5\xC5\xA0\xC6\xC9\xC5\xA0\xC6\xCF\xC5\xA0\xC6\xCF\xCF.
+Aquí hay una puerta herrumbrosa.
+Puedes ver un huevo de oro\xFF\xED.
+> coger huevo
+Has cogido el huevo de oro\xFF\xED.
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+> subir
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> E
+Estás al Este de la Habitación Dos Fosos.
+> bajar
+Estás al lado de un depósito de aceite en el Foso Este.
+> llenar botella
+Vale.
+> subir
+Estás al Este de la Habitación Dos Fosos.
+> O
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+¡El enano Maluva sale de entre las sombras!
+Babeando avanza hacia tí.
+> tirar hacha a enano
+¡Le has cortado la cabeza! ¡Maluva y su hacha se desintegra!
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+¡El enano Maluva sale de entre las sombras!
+Babeando avanza hacia tí.
+Te arroja con furia su hacha... 
+...¡y falla por poco!
+Con un gran insulto vuelve a las tinieblas.
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+Puedes ver un hacha\xFF\xF5\xF4.
+> subir tronco
+El hacha y el escudo del gigante llenan este lugar. En la pared se lee: \xC6\xC5\xC5\xA0\xC6\xC9\xC5\xA0\xC6\xCF\xC5\xA0\xC6\xCF\xCF.
+Aquí hay una puerta herrumbrosa.
+> aceitar puerta
+Hay una puerta bien aceitada.
+> abrir puerta
+La puerta está abierta.
+> entrar
+Estás frente a la espumosa Gran Cascada.
+Puedes ver un tridente marino\xFF\xF6\xF7.
+> coger tridente
+Has cogido el tridente marino\xFF\xF6\xF7.
+> bajar
+Encima de una cornisa de unos 10 mts. de altura, desde la cual ves el abismo que separa dos ventanas...
+> S
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver una jaula\xFF\xE1\xE2.
+> SE
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> N
+En la habitación marina se oyen las olas y se respira un aire salado. Una enorme almeja está anclada firmemente al inclinado suelo.
+> abrir almeja
+¡Se abre y... es una ostra! Una perla cae y rueda por el pasillo.
+> bajar
+Estás en un inclinado corredor.
+> bajar
+Final del corredor inclinado.
+Puedes ver una gran perla\xFF\xF8.
+> coger perla
+Has cogido la gran perla\xFF\xF8.
+> subir
+Estás en un inclinado corredor.
+> subir
+En la habitación marina se oyen las olas y se respira un aire salado. Una enorme almeja está anclada firmemente al inclinado suelo.
+> S
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> subir
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> N
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> recolector
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Objeto: la almohada\xFF\xA3\xA4
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: las especias indias\xFF\xA5
+Tesoro: la alfombra persa\xFF\xE7\xE8
+Tesoro: la pirámide de platino\xFF\xE3\xE4
+Tesoro: la esmeralda\xFF\xEB\xEC
+Tesoro: el jarrón chino\xFF\xF9\xFA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> dejar tridente y perla
+Has dejado el tridente marino\xFF\xF6\xF7.
+Has dejado la gran perla\xFF\xF8.
+> recolector
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> S
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> S
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> subir
+El lado Este de la Cámara de las Nieblas está lleno de nubes que dificultan la visión. Hay una nota en la pared. Una escalera labrada en la piedra baja aún mas a las profundidades.
+Puedes ver una llave\xFF\xAC\xAD.
+> coger llave
+Has cogido la llave\xFF\xAC\xAD.
+> bajar
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> N
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> bajar
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> NO
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver una jaula\xFF\xE1\xE2.
+> SO
+Encima de una cornisa de unos 10 mts. de altura, desde la cual ves el abismo que separa dos ventanas...
+> N
+Estás al Suroeste de un abismo cruzado sólo por un destartalado puente.¡Te bloquea un fornido Troll que ruge: un tesoro para pasar!
+> dar huevo
+¡Cojo el huevo de oro\xFF\xED. Pasa cobardica!
+> N
+Este es el lado Noreste del abismo.
+> E
+El calor de las paredes indica que estamos muy cerca del volcán.
+> bajar
+Es un húmedo pasadizo inclinado que termina frente a una jaula.
+> ex llave
+Del zoo.
+> ex tortilla
+Se la comería hasta un oso.
+> abrir jaula
+La jaula tiene la reja abierta.
+> entrar
+Estás dentro de la jaula. ¡Un enorme oso tira con furia de su cadena para darte un abrazo de bienvenida!
+> dar tortilla
+Peposo se tranquiliza. Tienes un fiel amigo.
+> soltar oso
+Lo liberas de la pared y lo llevas de la cadena.
+> E
+Es un húmedo pasadizo inclinado que termina frente a una jaula. El oso viene contigo.
+> subir
+El calor de las paredes indica que estamos muy cerca del volcán. El oso viene contigo.
+> O
+Este es el lado Noreste del abismo.¡Te bloquea un fornido Troll que ruge: un tesoro para pasar! El oso viene contigo.
+> soltar oso
+Peposo se escapa dejando a tus pies la cadena. Al verlo suelto, el Troll sale corriendo.
+> mirar
+Este es el lado Noreste del abismo.
+Puedes ver una cadena de plata\xFF\xFB\xFD.
+> coger cadena
+Has cogido la cadena de plata\xFF\xFB\xFD.
+> S
+Estás al Suroeste de un abismo cruzado sólo por un destartalado puente.
+> S
+Encima de una cornisa de unos 10 mts. de altura, desde la cual ves el abismo que separa dos ventanas...
+> S
+Dulce tañido campanitas anuncial tú estal en habitación oliental.
+Puedes ver una jaula\xFF\xE1\xE2.
+> SE
+La habitación del Queso Suizo, con sus paredes agujereadas y su fuerte olor. 
+> subir
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> S
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> SO
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> bajar
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+Puedes ver un hacha\xFF\xF5\xF4.
+> subir tronco
+El hacha y el escudo del gigante llenan este lugar. En la pared se lee: \xC6\xC5\xC5\xA0\xC6\xC9\xC5\xA0\xC6\xCF\xC5\xA0\xC6\xCF\xCF.
+La puerta está abierta.
+> fee fie foe foo
+¡El huevo aparece entre tus pies!
+> coger huevo
+Has cogido el huevo de oro\xFF\xED.
+> bajar
+El fondo del Pozo Oeste queda unos 4 mts. por debajo del salón Dos Fosos. En lo alto ves el agujero. El tronco crece fuerte hacia las alturas.
+Puedes ver un hacha\xFF\xF5\xF4.
+> subir
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste.
+> subir
+Has encontrado la habitación secreta. El agujero del suelo te lleva a los fosos; huele a caca de dragón.
+> NE
+La cámara de los Reyes Elfos aún conserva el pasado esplendor. En el centro está el gran trono.
+> N
+Un bajo pasaje Norte-Sur con un agujero en el suelo.
+> N
+Es la Sala Acústica, con un curioso grabado en el pilar central.
+> recolector
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Objeto: la almohada\xFF\xA3\xA4
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: las especias indias\xFF\xA5
+Tesoro: la alfombra persa\xFF\xE7\xE8
+Tesoro: el tridente marino\xFF\xF6\xF7
+Tesoro: la gran perla\xFF\xF8
+Tesoro: la pirámide de platino\xFF\xE3\xE4
+Tesoro: la esmeralda\xFF\xEB\xEC
+Tesoro: el jarrón chino\xFF\xF9\xFA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+Te faltan 2.
+> dejar huevo y cadena
+Has dejado el huevo de oro\xFF\xED.
+Has dejado la cadena de plata\xFF\xFB\xFD.
+------- \xCC\xCF\xD3\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3\xA0\xC4\xC5 -------
+----- \xCC\xC1\xA0\xC3\xC1\xD6\xC5\xD2\xCE\xC1\xA0\xCF\xD2\xC9\xC7\xC9\xCE\xC1\xCC ----
+---------- \xD3\xCF\xCE\xA0\xD4\xD5\xD9\xCF\xD3 ---------
+\xC6\xC5\xCC\xC9\xC3\xC9\xC4\xC1\xC4\xC5\xD3
+   Aparece Elfito y te dice:
+   "Sin tesoros La Caverna
+  se derrumbará, larguémonos",
+        y se las pira...
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Objeto: la almohada\xFF\xA3\xA4
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: las especias indias\xFF\xA5
+Tesoro: la alfombra persa\xFF\xE7\xE8
+Tesoro: el tridente marino\xFF\xF6\xF7
+Tesoro: la gran perla\xFF\xF8
+Tesoro: el huevo de oro\xFF\xED
+Tesoro: la cadena de plata\xFF\xFB\xFD
+Tesoro: la pirámide de platino\xFF\xE3\xE4
+Tesoro: la esmeralda\xFF\xEB\xEC
+Tesoro: el jarrón chino\xFF\xF9\xFA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> m
+***\xD2\xC5\xC3\xCF\xCC\xC5\xC3\xD4\xCF\xD2\xA0\xC4\xC5\xA0\xD4\xC5\xD3\xCF\xD2\xCF\xD3***
+Objeto: la almohada\xFF\xA3\xA4
+Tesoro: la pepita de oro\xFF\xBE
+Tesoro: el diamante\xFF\xE9\xEA
+Tesoro: la barra de titanio\xFF\xF0\xF1
+Tesoro: la joya\xFF\xF2\xF3
+Tesoro: las especias indias\xFF\xA5
+Tesoro: la alfombra persa\xFF\xE7\xE8
+Tesoro: el tridente marino\xFF\xF6\xF7
+Tesoro: la gran perla\xFF\xF8
+Tesoro: el huevo de oro\xFF\xED
+Tesoro: la cadena de plata\xFF\xFB\xFD
+Tesoro: la pirámide de platino\xFF\xE3\xE4
+Tesoro: la esmeralda\xFF\xEB\xEC
+Tesoro: el jarrón chino\xFF\xF9\xFA
+Tesoro: el garfio de oro\xFF\xEE\xEF
+> xyzzy
+Es una amplia estancia, antiguo recolector de desechos del rio. 
+Un curioso texto rompe la monotonía de la pared.
+> E
+Te arrastras por un pasadizo bajo y lleno de cantos rodados.
+Puedes ver un canto rodado\xFF\xBA.
+> E
+La puerta se abre mágicamente...
+Te encuentras en la salida al exterior de la cueva.
+> salir
+   Los habitantes del valle
+admiran al nuevo
+      \xCD\xC1\xC5\xD3\xD4\xD2\xCF\xA0\xC1\xD6\xC5\xCE\xD4\xD5\xD2\xC5\xD2\xCF
+Los tesoros aparecen a tus pies
+  El equipo A.D. te espera en
+      la próxima aventura.
+¿Hace otra partidita?
+> n

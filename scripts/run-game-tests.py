@@ -327,6 +327,15 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
         for capture_id, name in capture_names.items():
             actual_frame_path = capture_paths[capture_id]
             if not actual_frame_path.is_file():
+                if capture_id == "part-selector":
+                    # Single-part games (e.g. the separate Spectrum/CPC tapes) show
+                    # no part selector, so the tool produces no capture. A genuine
+                    # capture failure aborts the tool with a non-zero exit (handled
+                    # above), so an absent file here means "this game has no
+                    # selector" -- skip it rather than failing.
+                    if record and (base / name).exists():
+                        (base / name).unlink()
+                    continue
                 print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: missing {capture_id} screenshot")
                 return False
             if record:

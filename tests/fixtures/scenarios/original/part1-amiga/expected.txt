@@ -1,0 +1,214 @@
+?
+\xC1\xD6\xC5\xCE\xD4\xD5\xD2\xC1\xA0\xCF\xD2\xC9\xC7\xC9\xCE\xC1\xCC\xA0\xC9
+\xCC\xC1\xA0\xC2\xD5\xD3\xD1\xD5\xC5\xC4\xC1
+Programación:
+Gráficos:
+Dirección:
+Andrés  Samudio
+Manuel González
+Carlos
+Marqués
+Vicente Misas 
+(c) 1989 Aventuras AD 
+               ********
+           ¡LA GRAN CAVERNA!
+  ORIGEN DE LEYENDAS SOBRE FABULOSAS
+     RIQUEZAS Y TERRIBLES PELIGROS.
+           ¿MITO O REALIDAD?
+SIGUIENDO EL BORROSO MAPA QUE TE DIO UN
+EXTRAÑO (POR CIERTO, MUY RICO) A QUIEN
+ SALVASTE DE LAS GARRAS DE UNOS TROLLS
+   HAS LLEGADO A ESTE APACIBLE VALLE.  
+    PRESIENTES QUE ESTAS MUY CERCA,
+   PERO DE REPENTE EL VIEJO MAPA SE
+   DESHACE EN TUS MANOS MIENTRAS UNA   CALIDA BRISA TE SUSURRA:
+   "SOLO LOS VALIENTES QUE DOMINEN
+    LA MAGIA MERECERAN MIS TESOROS"
+¡SUERTE!
+                ****** 
+Estás justo en la frontera entre las tierras áridas del Norte y la zona húmeda y boscosa del Sur. Muy cerca hacia el Este hay una cabaña de ladrillos rodeada por un frondoso bosque. Un rio poco caudaloso fluye hacia el Sur.
+> S
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> S
+El valle se hace mas estrecho y profundo. El arroyo es cada vez menos caudaloso, y ahora no tan alegre, porque poco a poco se va filtrando por las numerosas grietas del rocoso lecho.
+> S
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. 
+Hay una fuerte reja metálica cerrada con un candado. Detrás de ella se ve una misteriosa entrada a las profundidades.
+> S
+El cañón se abre en lo que fué antes una cascada y hoy sólo un precipicio rocoso. Un enorme cortado parte el paisaje de este a oeste y desde tus 500 mts. de altura tienes una vista maravillosa de las tierras del Sur. Desde el Norte llega el viento a través de la garganta rocosa.
+Puedes ver una botella\xFF\xA6\xA7.
+> coger botella
+Has cogido la botella\xFF\xA6\xA7.
+> N
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. 
+Hay una fuerte reja metálica cerrada con un candado. Detrás de ella se ve una misteriosa entrada a las profundidades.
+> N
+El valle se hace mas estrecho y profundo. El arroyo es cada vez menos caudaloso, y ahora no tan alegre, porque poco a poco se va filtrando por las numerosas grietas del rocoso lecho.
+> N
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> E
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+> E
+Este es un bosquecillo muy agradable al lado Este del valle. Oyes el murmullo de una corriente de agua cerca.
+> S
+Aquí el bosque es bastante cerrado, con árboles por todas partes. 
+> S
+Estás al comienzo de una maravillosa rampa artificial fabricada en medio del bosque, no se sabe hace cuantos años ni por quien.
+> S
+Sigues en la rampa artificial construida en medio del bosque. Frente a ti ves la base de una extraña, pero bellísima estructura.
+> S
+La rampa te conduce hasta un majestuoso claro. Ante tí se eleva la espiral, pulida, brillante y sobre todo impresionante. Detrás el suelo cae bruscamente.
+Puedes ver una pareja de botas\xFF\xB6\xB7.
+> coger botas
+Has cogido la pareja de botas\xFF\xB6\xB7.
+> N
+Sigues en la rampa artificial construida en medio del bosque. Frente a ti ves la base de una extraña, pero bellísima estructura.
+> N
+Estás al comienzo de una maravillosa rampa artificial fabricada en medio del bosque, no se sabe hace cuantos años ni por quien.
+> N
+Aquí el bosque es bastante cerrado, con árboles por todas partes. Oyes un débil llanto y con dificultad ves una figura traslúcida.
+> N
+Este es un bosquecillo muy agradable al lado Este del valle. Oyes el murmullo de una corriente de agua cerca.
+> O
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+> O
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> N
+Estás justo en la frontera entre las tierras áridas del Norte y la zona húmeda y boscosa del Sur. Muy cerca hacia el Este hay una cabaña de ladrillos rodeada por un frondoso bosque. Un rio poco caudaloso fluye hacia el Sur.
+> N
+En campo abierto, rodeado por escasa vegetación. Un camino va hacia la cabaña y hacia el Este te llega una peste a azufre.
+> E
+Esta es una zona muy árida donde solo crecen malezas espinosas. La fragancia azufrada ya empieza a molestar.
+> E
+Estás en un terreno tapizado de lava vomitada por el activo volcán norteño. Hacia el Sur hay una colinita que se eleva suavemente.
+> S
+Desde la colina contemplas el fiero espectáculo de fuego, humo y cenizas producido por el volcán. Hacia el Oeste, a lo lejos, y rodeada de denso bosque, se ve una casita. Una senda parte hacia el Este, y al Sur queda el bosque, tras el cual ves una extraña torre en espiral rodeada de nubes.
+Puedes ver una pila eléctrica\xFF\xB4\xB5.
+> coger pila
+Has cogido la pila eléctrica\xFF\xB4\xB5.
+> N
+Estás en un terreno tapizado de lava vomitada por el activo volcán norteño. Hacia el Sur hay una colinita que se eleva suavemente.
+> N
+El calor que se desprende de la burbujeante lava es asfixiante. Un enorme penacho de cenizas se desprende flotando perezosamente del ardiente magma, dejando una peste cosa mala. Imprudentemente estás haciendo el payaso en el peligroso borde del volcán junto a un enano que rabia de amargura.
+> dar botas
+Don Enano se calza y agradecido te deja una linterna.
+> coger linterna
+Has cogido la linterna\xFF\xB0\xB1.
+> poner pila
+Vale, linterna lista.
+> encender linterna
+Vale.
+> S
+En éste lugar el paisaje es alucinante, lleno de rocas erosionadas y partidas, mudos testigos de anteriores erupciones producidas por el furioso volcán del Norte.
+> S
+¡Cuidado! Estás al borde del precipicio donde antaño se suicidaban los enanos celosos. Aquí terminan (aparte de las pasiones desenfrenadas) tanto la senda del Oeste como el camino del Norte.
+> O
+Desde la colina contemplas el fiero espectáculo de fuego, humo y cenizas producido por el volcán. Hacia el Oeste, a lo lejos, y rodeada de denso bosque, se ve una casita. Una senda parte hacia el Este, y al Sur queda el bosque, tras el cual ves una extraña torre en espiral rodeada de nubes.
+> S
+Esta parte del bosque es muy densa, los árboles te impiden orientarte bien y son todos muy parecidos. Vagas por entre la maleza buscando tu rumbo pero pronto te das cuenta de que estás algo despistadillo.
+> S
+Te encuentras en lo profundo del bosque rodeado por densa vegetación y junto a un enorme árbol con desgajadas ramas que llegan al suelo.
+> subir
+Ya estás sentado entre las ramas del enorme árbol. Tienes una espléndida vista de toda la región. Al Norte queda el fardón volcán. Rodeada de bosque está la casita. Hacia el Oeste un profundo valle se extiende de norte a sur. En la lejanía, al Sur se yergue la misteriosa espiral. Al Este sólo hay vacio y nubes. El sol hace brillar algo en una rama.
+> ex rama
+¡Parece una llave!
+> sacudir rama
+¡La llave\xFF\xAC\xAD ha caido al suelo!
+> bajar
+Te encuentras en lo profundo del bosque rodeado por densa vegetación y junto a un enorme árbol con desgajadas ramas que llegan al suelo.
+Puedes ver una llave\xFF\xAC\xAD.
+> coger llave
+Has cogido la llave\xFF\xAC\xAD.
+> N
+Esta parte del bosque es muy densa, los árboles te impiden orientarte bien y son todos muy parecidos. Vagas por entre la maleza buscando tu rumbo pero pronto te das cuenta de que estás algo despistadillo.
+> S
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+> O
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> N
+Estás justo en la frontera entre las tierras áridas del Norte y la zona húmeda y boscosa del Sur. Muy cerca hacia el Este hay una cabaña de ladrillos rodeada por un frondoso bosque. Un rio poco caudaloso fluye hacia el Sur.
+> E
+Estás en una habitación bastante guarra. Las paredes desconchadas y el suelo roto indican que hace tiempo fué abandonada. Ves la oscura boca de un pozo por la que baja una herrumbrosa escalera.
+> bajar
+¡Puaf! El fondo del pozo está casi seco (por suerte para tí, curiosón). Sólo quedan algunos charcos malolientes de agua estancada. La estrechez de las mohosas paredes y el enorme silencio que reina hacen que tengas por única compañía el latido desbocado de tu corazón.
+> ex charco
+Chapoteas tocando gelatinosas babosidades pero de pronto descubres que hay ¡una moneda!
+> coger moneda
+Has cogido la moneda\xFF\xB2\xB3.
+> subir
+Estás en una habitación bastante guarra. Las paredes desconchadas y el suelo roto indican que hace tiempo fué abandonada. Ves la oscura boca de un pozo por la que baja una herrumbrosa escalera.
+> O
+Estás justo en la frontera entre las tierras áridas del Norte y la zona húmeda y boscosa del Sur. Muy cerca hacia el Este hay una cabaña de ladrillos rodeada por un frondoso bosque. Un rio poco caudaloso fluye hacia el Sur.
+> S
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> llenar botella
+Vale.
+> E
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+> E
+Este es un bosquecillo muy agradable al lado Este del valle. Oyes el murmullo de una corriente de agua cerca.
+> S
+Aquí el bosque es bastante cerrado, con árboles por todas partes. Oyes un débil llanto y con dificultad ves una figura traslúcida.
+> ex figura
+Es un elfo que llora acurrucado junto a un árbol.
+> hablar elfo
+"¡Mi casa!"
+> decir "sigueme"
+Vale.
+> N
+Este es un bosquecillo muy agradable al lado Este del valle. Oyes el murmullo de una corriente de agua cerca.
+"¡Mi casa!"
+> decir "sigueme"
+Vale.
+> O
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+"No es aquí."
+> decir "sigueme"
+Vale.
+> O
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+"¡Mi casa!"
+> decir "sigueme"
+Vale.
+> S
+El valle se hace mas estrecho y profundo. El arroyo es cada vez menos caudaloso, y ahora no tan alegre, porque poco a poco se va filtrando por las numerosas grietas del rocoso lecho.
+"No es aquí."
+> decir "sigueme"
+Vale.
+> S
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. Elfito da saltos de alegría.
+Hay una fuerte reja metálica cerrada con un candado. Detrás de ella se ve una misteriosa entrada a las profundidades.
+> abrir candado
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. Elfito da saltos de alegría.
+Hay una fuerte reja metálica con un candado abierto. Detrás de ella se ve una misteriosa entrada a las profundidades.
+> quitar candado
+Al quitarlo... ¡desaparece de tus manos!
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. Elfito da saltos de alegría.
+Hay una fuerte reja metálica. Detrás de ella se ve una misteriosa entrada a las profundidades.
+> abrir reja.
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. Elfito da saltos de alegría.
+Tienes ante tí la entrada a La Gran Caverna.
+"¡Mi casa!"
+"Mi agradecimiento está sobre la mesa."
+Y penetra en las profundidades.
+> N
+El valle se hace mas estrecho y profundo. El arroyo es cada vez menos caudaloso, y ahora no tan alegre, porque poco a poco se va filtrando por las numerosas grietas del rocoso lecho.
+> N
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> E
+En ésta zona los enanos hacían sus picnics (aunque las malas lenguas dicen que eran verdaderas orgías). Hay varias sillas junto a una mesa y un árbol con un curioso letrero.
+Puedes ver una tortilla\xFF\xBF\xAF.
+> coger tortilla
+Has cogido la tortilla\xFF\xBF\xAF.
+> O
+Estás al comienzo del valle, al lado de un alegre arroyuelo que juguetea sobre el lecho rocoso en su camino hacia el Sur. Hay bosque a ambos lados.
+> S
+El valle se hace mas estrecho y profundo. El arroyo es cada vez menos caudaloso, y ahora no tan alegre, porque poco a poco se va filtrando por las numerosas grietas del rocoso lecho.
+> S
+Estás en una depresión de 7 mts. El valle se estrecha hacia el Sur. 
+Tienes ante tí la entrada a La Gran Caverna.
+> entrar
+      ¡¡¡\xC6\xC5\xCC\xC9\xC3\xC9\xC4\xC1\xC4\xC5\xD3!!!
+   CLAVE DE ACCESO: \xD4\xC9\xCD\xC1\xC3\xD5\xD3
+¿Hace otra partidita?
+> n

@@ -1,0 +1,96 @@
+@save Question
+@key
+@save Credits
+@key
+@save Intro
+@key
+@save Casita
+S
+S
+S
+S
+coger botella
+N
+N
+N
+E
+@save Picnic
+E
+S
+S
+S
+S
+coger botas
+N
+N
+N
+N
+O
+O
+N
+N
+E
+E
+S
+coger pila
+N
+N
+dar botas
+@save Volcan
+coger linterna
+poner pila
+encender linterna
+S
+S
+O
+S
+S
+@save Arbol
+subir
+ex rama
+sacudir rama
+bajar
+coger llave
+N
+S
+O
+N
+E
+bajar
+@save Pozo
+ex charco
+coger moneda
+subir
+O
+S
+llenar botella
+E
+E
+S
+ex figura
+hablar elfo
+decir "sigueme"
+N
+decir "sigueme"
+O
+decir "sigueme"
+O
+decir "sigueme"
+S
+decir "sigueme"
+S
+abrir candado
+quitar candado
+@save Entrada
+abrir reja.
+@save Reja
+N
+N
+E
+coger tortilla
+O
+S
+S
+entrar
+@save Final
+n
