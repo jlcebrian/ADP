@@ -1011,6 +1011,7 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 	if (file == 0)
 		return false;
 
+	uint64_t fileSize = File_GetSize(file);
 	uint8_t header[16];
 	bool ok = File_Read(file, header, sizeof(header)) == sizeof(header);
 	File_Close(file);
@@ -1078,6 +1079,17 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 			mask = DDB_DataFileMode_EGA;
 		}
 	}
+	// The PCW data file (little-endian, machine=0/mode=4 header) is a format
+	// DMG_Open handles directly; recognise it here too, otherwise this probe
+	// rejects it and the loader reports the data file as "not found".
+	if (mask == 0 && target == DDB_MACHINE_PCW &&
+		DMG_LooksLikePCWDataFile(header, fileSize, extension))
+	{
+		mode = ScreenMode_HiRes;
+		mask = DDB_DataFileMode_HiRes;
+		planes = 1;
+	}
+
 	if (mask == 0)
 	{
 		uint16_t signature = read16BE(header);

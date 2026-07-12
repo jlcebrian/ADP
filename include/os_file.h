@@ -41,6 +41,13 @@ struct FindFileResults
 	uint32_t modifyTime;
 
 	uint8_t  internalData[384];
+
+	// Iteration state for enumerating across several mounted disks at once. The
+	// per-disk backend keeps its own cursor (and the pattern) inside internalData,
+	// which DIM_FindFirstFile reinitialises per disk, so the merged walk retains
+	// the disk index and the pattern here.
+	int      mergeDiskIndex;
+	char     mergePattern[FILE_MAX_PATH];
 };
 
 extern bool OS_FindFirstFile (const char* pattern, FindFileResults* results);
@@ -70,6 +77,7 @@ struct File
 extern bool     File_MountDisk (const char* file);
 extern void     File_UnmountDisk ();
 extern bool     File_IsDiskMounted ();
+extern int      File_GetMountedDiskType ();  // DIM_DiskType, or -1 if none mounted
 extern File*    File_Open      (const char* file, FileOpenMode mode = ReadOnly);
 extern File*    File_Create    (const char* file);
 extern uint64_t File_GetSizeByName(const char* file);

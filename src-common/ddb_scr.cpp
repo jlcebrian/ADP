@@ -300,9 +300,9 @@ bool SCR_AnyKey()
 }
 
 #if HAS_TESTMODE
-bool SCR_AnyKeyForWait()
+bool SCR_AnyKeyForWait(bool allowCaptures)
 {
-	return DDB_TestIsActive() ? DDB_TestAnyKeyForWait() : SCR_AnyKey();
+	return DDB_TestIsActive() ? DDB_TestAnyKeyForWait(allowCaptures) : SCR_AnyKey();
 }
 #endif
 

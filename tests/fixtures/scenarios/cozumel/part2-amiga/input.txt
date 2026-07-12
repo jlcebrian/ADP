@@ -1,0 +1,212 @@
+# Solución original: CASA https://solutionarchive.com/file/id%2C24073/
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+# Cargar posición de la primera parte
+PART1ENDING.SAV
+
+dejar todo
+quitar sortija
+coger caja
+abrir caja
+poner sortija en caja
+coger quinque y botella y barra
+s
+@save Roca
+s
+@save Bifurcacion
+se
+se
+se
+s
+s
+decir "ix chell"
+s
+dejar todo
+coger caja y barra
+sacar cerilla de caja
+dejar caja
+e
+encender cerilla
+romper tumba con barra
+o
+coger caja y barra
+sacar cerilla de caja
+dejar caja
+o
+encender cerilla
+ex cascotes
+matar vibora con barra
+e
+coger caja y botella
+sacar cerilla de caja
+dejar caja
+abrir botella
+SAVE RAM
+o
+encender cerilla
+vaciar botella en musgo
+quemar musgo
+
+# Si algo te muerde en la oscuridad LOAD tu posición salvado
+
+e
+coger caja y quinque
+sacar cerilla de caja
+dejar caja
+encender cerilla y quinque
+dejar cerilla
+o
+ex altar
+mover piedra
+e
+e
+@save AlaEste
+ex tumba
+decir Zyanya "ven"
+decir Zyanya "ven"
+bajar
+@save Diosa1
+ex diosa
+@save Diosa2
+ex diosa
+coger frasco
+abrir frasco
+ex frasco
+beber elixir
+ex momia
+coger figurilla
+cerrar ojos
+subir
+o
+Dejar quinque
+coger caja
+n
+@save Templo
+n
+no
+ex charco
+coger collar
+no
+ex tierra
+coger collar
+no
+ex hojas
+coger collar
+so
+subir
+coger collar
+bajar
+so
+decir diosa "me alejo"
+ex piedras
+poner collar de Palenque
+coger collar
+frotar collar de Palenque
+s
+s
+s
+e
+Sacar sortija de caja
+dar sortija a borracho
+ex loro
+coger jaula
+abrir jaula
+cerrar jaula
+o
+s
+s
+coger cascabel
+n
+o
+o
+n
+decir maton "en el templo"
+decir maton "diciendo ix chell"
+n
+abrir cajon
+meter figurilla en cajon
+cerrar cajon
+hablar Ratso
+abrir cajon
+sacar figurilla de cajon
+n
+@save Turk
+ex mono
+ex Turk
+dar cascabel a mono
+mostrar figurilla a Turk
+decir Turk "no"
+decir Turk "no"
+decir Turk "no"
+
+# Repetir
+
+decir Turk "si"
+coger pesos
+s
+s
+dar pesos a loro
+@save Kuill
+e
+e
+n
+e
+coger pesos
+contar pesos
+o
+s
+e
+@save Dueno
+decir dueno "quiero comprar un barco"
+decir dueno "cuanto vale"
+mostrar pesos a dueno
+coger papeles 
+o
+s
+s
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+ex barco
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+ex barco
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+ex barco
+subir barco
+@key
+@key
+@save Final
+N

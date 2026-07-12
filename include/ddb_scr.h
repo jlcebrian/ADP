@@ -114,7 +114,7 @@ static inline void SCR_WaitForKey()
 
 extern bool SCR_AnyKey           ();
 #if HAS_TESTMODE
-extern bool SCR_AnyKeyForWait    ();
+extern bool SCR_AnyKeyForWait    (bool allowCaptures);
 #endif
 extern bool SCR_LoadPicture      (uint8_t picno, DDB_ScreenMode screenMode);
 extern bool SCR_PictureExists    (uint8_t picno);

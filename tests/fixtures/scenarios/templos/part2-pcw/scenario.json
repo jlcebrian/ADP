@@ -1,0 +1,4 @@
+{
+    "fixture": ["templos/pcw/TEMPLOS-PCW 1.dsk", "templos/pcw/TEMPLOS-PCW 2.dsk"],
+    "shared": "templos/part2-amiga"
+}

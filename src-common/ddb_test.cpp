@@ -49,7 +49,17 @@ static void ConsumeStopDirective()
 	inputStopped = true;
 }
 
-static void ProcessDirectives()
+static bool IsCaptureDirective()
+{
+	return (input + 9 <= inputEnd && MemComp((void*)input, (void*)"@capture ", 9) == 0) ||
+	       (input + 6 <= inputEnd && MemComp((void*)input, (void*)"@save ", 6) == 0);
+}
+
+// allowCaptures is false while a finite (animation-driving) PAUSE is running, so a
+// pending @capture/@save is deferred until the game reaches its next settled input
+// point (command prompt or infinite PAUSE) — the screenshot then shows the final
+// frame instead of a mid-animation one.
+static void ProcessDirectives(bool allowCaptures)
 {
 	while (input != 0 && input < inputEnd)
 	{
@@ -59,13 +69,14 @@ static void ProcessDirectives()
 			return;
 		}
 
-		const char* prefix = 0;
-		if (input + 9 <= inputEnd && MemComp((void*)input, (void*)"@capture ", 9) == 0)
-			prefix = "@capture ";
-		else if (input + 6 <= inputEnd && MemComp((void*)input, (void*)"@save ", 6) == 0)
-			prefix = "@save ";
-		if (prefix == 0)
+		if (!IsCaptureDirective())
 			return;
+		if (!allowCaptures)
+			return;
+
+		const char* prefix =
+			(input + 9 <= inputEnd && MemComp((void*)input, (void*)"@capture ", 9) == 0)
+				? "@capture " : "@save ";
 
 		const char* name = input + StrLen(prefix);
 		const char* end = name;
@@ -116,7 +127,7 @@ bool DDB_TestGetKey(uint8_t* key, uint8_t* ext, uint8_t* mod)
 		return true;
 	}
 	if (input < inputEnd && *input == '\r') input++;
-	ProcessDirectives();
+	ProcessDirectives(true);
 	if (inputStopped)
 	{
 		VID_GetKey(key, ext, mod);
@@ -165,20 +176,25 @@ bool DDB_TestAnyKey()
 		inputBarrier = false;
 		return false;
 	}
-	ProcessDirectives();
+	ProcessDirectives(true);
 	if (inputBarrier)
 	{
 		inputBarrier = false;
 		return false;
 	}
-	return IsKeyDirective() || input < inputEnd;
+	if (IsKeyDirective() || input < inputEnd)
+		return true;
+	// Scripted input exhausted: in interactive mode hand off to live input so the
+	// player regains keyboard control once the script finishes (matching
+	// DDB_TestGetKey and DDB_TestAnyKeyForWait).
+	return interactiveInput ? VID_AnyKey() : false;
 }
 
-bool DDB_TestAnyKeyForWait()
+bool DDB_TestAnyKeyForWait(bool allowCaptures)
 {
 	if (!DDB_TestIsActive())
 		return false;
-	ProcessDirectives();
+	ProcessDirectives(allowCaptures);
 	if (inputStopped)
 		return VID_AnyKey();
 	if (inputBarrier)
@@ -188,6 +204,10 @@ bool DDB_TestAnyKeyForWait()
 	}
 	if (input >= inputEnd)
 		return interactiveInput ? VID_AnyKey() : false;
+	// A capture was deferred (finite pause in progress): report no key so the
+	// pause runs to its end rather than being consumed as a keypress.
+	if (!allowCaptures && IsCaptureDirective())
+		return false;
 	if (IsKeyDirective() || *input == '\r' || *input == '\n')
 	{
 		waitKey = WaitKey_Explicit;

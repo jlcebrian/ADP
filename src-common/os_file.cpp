@@ -326,57 +326,70 @@ File *Memory_Open(void *data, uint64_t dataSize)
 
 // ----- Interface
 
-static DIM_Disk* mountedDisk = 0;
+// Several disk images can be mounted at once (e.g. a multi-disk game supplied as
+// two .st files): enumeration and open present a merged view over all of them, so
+// the player sees every part's files as if they were on one disk.
+#define MAX_MOUNTED_DISKS 8
+static DIM_Disk* mountedDisks[MAX_MOUNTED_DISKS] = { 0 };
+static int       mountedDiskCount = 0;
 
 bool File_MountDisk (const char* file)
 {
-	if (mountedDisk)
+	if (mountedDiskCount >= MAX_MOUNTED_DISKS)
 		return false;
-	mountedDisk = DIM_OpenDisk(file);
-	return mountedDisk != 0;
+	DIM_Disk* disk = DIM_OpenDisk(file);
+	if (disk == 0)
+		return false;
+	mountedDisks[mountedDiskCount++] = disk;
+	return true;
 }
 
 void File_UnmountDisk ()
 {
-	if (mountedDisk)
-	{
-		DIM_CloseDisk(mountedDisk);
-		mountedDisk = 0;
-	}
+	for (int i = 0; i < mountedDiskCount; i++)
+		DIM_CloseDisk(mountedDisks[i]);
+	mountedDiskCount = 0;
 }
 
 bool File_IsDiskMounted ()
 {
-	return mountedDisk != 0;
+	return mountedDiskCount > 0;
+}
+
+int File_GetMountedDiskType ()
+{
+	// A multi-disk set is always the same medium (e.g. two .st are both DIM_FAT),
+	// so the first disk's type represents the platform for the machine override.
+	return mountedDiskCount > 0 ? (int)mountedDisks[0]->type : -1;
 }
 
 File *File_Open(const char *fileName, FileOpenMode mode)
 {
-	if (mountedDisk)
+	for (int i = 0; i < mountedDiskCount; i++)
 	{
 		FindFileResults result;
-		if (DIM_FindFile(mountedDisk, &result, fileName))
-		{
-			uint8_t* data = Allocate<uint8_t>("File", result.fileSize + 1);
-			if (data == 0)
-			{
-				File_SetErrorState(FileError_OutOfMemory, "Out of memory");
-				return 0;
-			}
+		if (!DIM_FindFile(mountedDisks[i], &result, fileName))
+			continue;
 
-			data[result.fileSize] = 0;
-			uint32_t size = DIM_ReadFile(mountedDisk, result.fileName, data, result.fileSize);
-			if (size == 0)
-			{
-				Free(data);
-				File_SetErrorState(FileError_ReadError, "Failed to read mounted file");
-				return 0;
-			}
-			File* file = Memory_Open(data, size);
-			if (file == 0)
-				Free(data);
-			return file;
+		uint8_t* data = Allocate<uint8_t>("File", result.fileSize + 1);
+		if (data == 0)
+		{
+			File_SetErrorState(FileError_OutOfMemory, "Out of memory");
+			return 0;
 		}
+
+		data[result.fileSize] = 0;
+		uint32_t size = DIM_ReadFile(mountedDisks[i], result.fileName, data, result.fileSize);
+		if (size == 0)
+		{
+			Free(data);
+			File_SetErrorState(FileError_ReadError, "Failed to read mounted file");
+			return 0;
+		}
+		File* file = Memory_Open(data, size);
+		if (file == 0)
+			Free(data);
+		return file;
 	}
 	return Native_Open(fileName, mode);
 }
@@ -399,20 +412,36 @@ uint64_t File_GetSizeByName(const char* fileName)
 	return size;
 }
 
-bool File_FindFirst (const char* pattern, FindFileResults* results)  
-{ 
-	if (mountedDisk)
-		return DIM_FindFirstFile(mountedDisk, results, pattern);
-	else
-		return OS_FindFirstFile(pattern, results); 
+bool File_FindFirst (const char* pattern, FindFileResults* results)
+{
+	if (mountedDiskCount > 0)
+	{
+		StrCopy(results->mergePattern, sizeof(results->mergePattern), pattern);
+		for (results->mergeDiskIndex = 0; results->mergeDiskIndex < mountedDiskCount; results->mergeDiskIndex++)
+		{
+			if (DIM_FindFirstFile(mountedDisks[results->mergeDiskIndex], results, pattern))
+				return true;
+		}
+		return false;
+	}
+	return OS_FindFirstFile(pattern, results);
 }
 
-bool File_FindNext (FindFileResults* results)                       
-{ 
-	if (mountedDisk)
-		return DIM_FindNextFile(mountedDisk, results);
-	else
-		return OS_FindNextFile(results); 
+bool File_FindNext (FindFileResults* results)
+{
+	if (mountedDiskCount > 0)
+	{
+		if (DIM_FindNextFile(mountedDisks[results->mergeDiskIndex], results))
+			return true;
+		// Current disk exhausted: continue from the start of the next one.
+		for (results->mergeDiskIndex++; results->mergeDiskIndex < mountedDiskCount; results->mergeDiskIndex++)
+		{
+			if (DIM_FindFirstFile(mountedDisks[results->mergeDiskIndex], results, results->mergePattern))
+				return true;
+		}
+		return false;
+	}
+	return OS_FindNextFile(results);
 }
 
 FileError File_GetError()

@@ -1,0 +1,250 @@
+# Solución obtenida del projecto CASA: https://solutionarchive.com/game/id%2C2205/Templos+Sagrados%2C+Los.html
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+tur kos bon 
+
+# Empiezas en la balsa en la Laguneta de Macanxoc
+
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+@save Balsa
+
+saltar
+agarrar balsa
+empujar balsa 
+
+# Encallas en la costa
+
+subir
+saltar
+ex canas
+coger canas 
+
+# ¡Comienzas a hundirte en el suelo blando!
+
+o
+n
+ex mesa
+ex cajon
+abrir cajon
+ex cajon
+coger plomada
+ex plomada
+subir mesa
+subir tejado 
+@save Casucha
+
+# Estás sobre el techo de la casucha
+
+coger botella
+bajar
+bajar
+romper botella
+coger vidrio
+ex vidrio
+s
+o
+n
+o
+n
+o
+coger mango
+e
+s
+o
+so
+s
+ex barca
+empujar barca
+subir
+@save Canal
+
+# Estás en un estrecho canal. ¡Aquí solo tienes dos turnos!
+
+m
+m 
+ex matorrales
+coger hoja
+
+# La corriente te arrastra hacia la Laguneta de Macanxoc
+
+hacer pala
+dejar todo en barca
+saltar
+agarrar barca
+empujar barca
+subir
+coger todo
+saltar
+o
+o
+n
+n
+e
+ex piscina
+girar plomada 
+girar plomada 
+girar plomada 
+tirar plomada
+cruzar escalera
+coger caracola
+cruzar escalera
+dejar plomada
+coger escalera
+o
+s
+o
+subir
+soplar caracola
+dejar caracola y canas
+encender canas con vidrio
+coger canas
+saltar
+ex nicho
+dejar canas
+entrar
+coger idolo 
+ex idolo
+ex pared 
+mover losa
+salir
+@key
+@save Esplanada
+
+# Esplanada de Sacrificios
+
+o
+ne
+e
+s
+e
+e
+coger canas
+o
+o
+n
+n
+ex pared 
+
+# Está muy oscuro para distinguir nada
+
+s
+dejar todo
+coger vidrio y idolo
+encender canas con vidrio
+coger canas
+n
+ex pared 
+ex orificio
+insertar idolo 
+empujar losa
+entrar
+coger cazo y cuchillo
+ex cazo 
+salir
+s
+coger pala
+dejar cuchillo
+s
+e
+e
+coger canas
+o
+s
+
+# Frente a un monticulo
+
+dejar canas
+encender canas con vidrio
+coger canas
+subir
+ex suelo
+cavar
+cavar 
+@save Monticulo
+
+# Descubres una entrada
+
+entrar
+ex pasadizo
+coger raices
+quitar piedras
+ex derrumbe 
+# Hay un pasadizo
+
+salir
+bajar
+dejar raices
+encender raices con vidrio
+n
+e
+coger canas
+o
+s
+subir
+dejar canas
+encender canas con vidrio
+coger canas
+entrar
+entrar
+coger idolo y oveja
+salir
+salir
+dar cazo a oveja 
+
+# Despierta de su letargo y te mira con cara de extrañeza
+
+bajar
+n
+o
+n
+dejar cazo y vidrio
+coger cuchillo y escalera
+o
+so
+e
+dejar oveja en circulo
+sacrificar oveja 
+
+# Se convierte en polvo formando la imagen de una mujer
+
+o
+ne
+e
+s
+ex estela
+ex simbolos
+apoyar escalera en estela
+dejar cuchillo y pala
+subir
+m
+coger idolo 
+n
+n
+coger idolo del orificio
+s
+o
+so
+o
+o 
+@save Mujer
+
+# Una mujer espera
+
+dar idolo de barro a mujer
+o
+
+# Se ve un valle en el que destaca la mítica Chichén Itzá próxima meta de tus aventuras, pero esa será otra historia.. Ya te la contaremos.
+
+@key
+@save Final
+n

@@ -808,6 +808,10 @@ int main (int argc, char *argv[])
 	if ((action == ACTION_RUN || (action == ACTION_TEST && partSelection >= 1)) &&
 		File_MountDisk(inputFileName))
 	{
+		// Mount any additional disk images (e.g. a multi-disk game supplied as two
+		// .st files) so the player sees every part's files at once, no disk swapping.
+		for (int i = 1; i < commandLine.argumentCount; i++)
+			File_MountDisk(commandLine.arguments[i]);
 		// The part selector runs inside the player, so the requested graphics mode
 		// (CGA/EGA/VGA) has to be applied as a startup override here rather than on
 		// the direct load path below.

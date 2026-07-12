@@ -14,7 +14,7 @@ extern void        DDB_TestLoadInput             (const char* fileName);
 extern bool        DDB_TestIsActive              ();
 extern bool        DDB_TestGetKey                (uint8_t* key, uint8_t* ext, uint8_t* mod);
 extern bool        DDB_TestAnyKey                ();
-extern bool        DDB_TestAnyKeyForWait         ();
+extern bool        DDB_TestAnyKeyForWait         (bool allowCaptures);
 extern bool        DDB_TestHasScriptedInput      ();
 extern void        DDB_TestSetScreenshotCallback (DDB_ScreenshotCallback callback);
 extern void        DDB_TestEnableInteractiveInput();

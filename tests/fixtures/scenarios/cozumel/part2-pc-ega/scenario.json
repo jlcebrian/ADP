@@ -1,0 +1,6 @@
+{
+    "fixture": "cozumel/pc/COZUMEL-PC.img",
+    "screen": "ega",
+    "shared": "cozumel/part2-amiga",
+    "consumes": { "from": "cozumel/part1-pc-ega", "file": "PART1ENDING.SAV" }
+}

@@ -239,6 +239,15 @@ static uint8_t randFront;
 static uint8_t randRear;
 static bool randInitialized = false;
 
+void RandReset()
+{
+	// Return the generator to its pristine, unseeded state, so the next draw
+	// re-seeds exactly as a freshly started process would (RandSeed(1)). Used on
+	// an AUTOLOAD part hand-off so each part gets an independent, reproducible
+	// random stream rather than inheriting the previous part's advanced state.
+	randInitialized = false;
+}
+
 void RandSeed(uint32_t seed)
 {
 	randState[0] = seed == 0 ? 1 : seed;

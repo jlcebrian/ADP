@@ -5,6 +5,9 @@
 #include <ddb_vid.h>
 #include <ddb_pal.h>
 #include <dmg.h>
+#ifdef HAS_VIRTUALFILESYSTEM
+#include <dim.h>
+#endif
 #include <os_char.h>
 #include <os_file.h>
 #include <os_lib.h>
@@ -1198,6 +1201,28 @@ static bool ResolveDDBVideoConfig(const char* fileName, DDB_Machine* machine, DD
 	if (!GetDDBMetadata(fileName, &resolvedMachine, &resolvedLanguage, &resolvedVersion))
 		return false;
 
+#ifdef HAS_VIRTUALFILESYSTEM
+	// The Amiga and Atari ST releases ship the same big-endian DDB, and the
+	// original interpreter never checked its platform field — it just assumed the
+	// screen format of the machine it was running on. Some releases (e.g. Templos)
+	// therefore carry an Atari ST DDB inside an Amiga .adf. Trust the disk image
+	// over the DDB field so the loading screen decodes in the right format; this
+	// only flips between the Amiga/ST pair and leaves other platforms alone.
+	switch (File_GetMountedDiskType())
+	{
+		case DIM_ADF:
+			if (resolvedMachine == DDB_MACHINE_ATARIST)
+				resolvedMachine = DDB_MACHINE_AMIGA;
+			break;
+		case DIM_FAT:
+			if (resolvedMachine == DDB_MACHINE_AMIGA)
+				resolvedMachine = DDB_MACHINE_ATARIST;
+			break;
+		default:
+			break;
+	}
+#endif
+
 #ifdef _DOS
 	if (resolvedMachine != DDB_MACHINE_IBMPC &&
 		resolvedMachine != DDB_MACHINE_AMIGA &&
@@ -2326,87 +2351,167 @@ bool DDB_RunPlayer()
 	}
 
 	CloseEnum();
-	
-	DebugPrintf("Loading %s\n", ddbFileName);
 
-	VID_ShowProgressBar(0);
-	uint32_t tLoadStart = 0;
-	VID_GetMilliseconds(&tLoadStart);
-	DDB* ddb = DDB_Load(ddbFileName);
-	if (!ddb)
+	// State preserved across an EXIT n (AUTOLOAD) part hand-off: the user
+	// variables (flags + object locations) survive while everything else resets.
+	uint8_t* autoloadState = 0;
+	uint16_t autoloadStateSize = 0;
+	bool     autoloading = false;
+
+	while (true)
 	{
-		DebugPrintf("Error loading %s", ddbFileName);
-		DebugPrintf(": %s\n", DDB_GetErrorString());
-		return false;
-	}
-	#ifdef _AMIGA
-	SetKeyboardLayout(GetAmigaKeyboardLayout(ddb->language));
-	#endif
-	if (DDB_RequiresBackBuffer(ddb))
-		VID_EnableBackBuffer();
+		DebugPrintf("Loading %s\n", ddbFileName);
 
-	uint32_t tAfterDDBLoad = 0;
-	VID_GetMilliseconds(&tAfterDDBLoad);
-	DebugPrintf("DDB_Load completed in %lu ms\n", (unsigned long)(tAfterDDBLoad - tLoadStart));
-	VID_ShowProgressBar(64);
-
-	DDB_CreateInterpreter(ddb, screenMode);
-	if (interpreter == 0)
-	{
-		DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
-		DDB_Close(ddb);
-		VID_Finish();
-		return false;
-	}
-	#if HAS_TESTMODE
-	DDB_SetSkipTimedPauses(interpreter, VID_IsFastMode());
-	#endif
-
-	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
-	{
-		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
-		VID_ShowError(DDB_GetErrorString());
-		DDB_CloseInterpreter(interpreter);
-		DDB_Close(ddb);
-		VID_Finish();
-		return false;
-	}
-
-	#if HAS_PCX
-	if (VID_HasExternalPictures())
-		screenMode = ScreenMode_VGA;
-	#endif
-	VID_ShowProgressBar(255);
-
-	if ((scrCount > 0 || introScreen != 0) && ddbCount == 1)
-	{
-		if (!introVisible)
-			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
-		DDB_Interpreter* i = interpreter;
-		VID_MainLoop(0, WaitForKeyUpdate);
-		interpreter = i;
-		if (exitGame)
+		VID_ShowProgressBar(0);
+		uint32_t tLoadStart = 0;
+		VID_GetMilliseconds(&tLoadStart);
+		DDB* ddb = DDB_Load(ddbFileName);
+		if (!ddb)
 		{
+			DebugPrintf("Error loading %s", ddbFileName);
+			DebugPrintf(": %s\n", DDB_GetErrorString());
+			if (autoloadState) Free(autoloadState);
+			return false;
+		}
+		#ifdef _AMIGA
+		SetKeyboardLayout(GetAmigaKeyboardLayout(ddb->language));
+		#endif
+		if (DDB_RequiresBackBuffer(ddb))
+			VID_EnableBackBuffer();
+
+		uint32_t tAfterDDBLoad = 0;
+		VID_GetMilliseconds(&tAfterDDBLoad);
+		DebugPrintf("DDB_Load completed in %lu ms\n", (unsigned long)(tAfterDDBLoad - tLoadStart));
+		VID_ShowProgressBar(64);
+
+		DDB_CreateInterpreter(ddb, screenMode);
+		if (interpreter == 0)
+		{
+			DebugPrintf("Error creating interpreter: %s\n", DDB_GetErrorString());
+			DDB_Close(ddb);
+			VID_Finish();
+			if (autoloadState) Free(autoloadState);
+			return false;
+		}
+		#if HAS_TESTMODE
+		DDB_SetSkipTimedPauses(interpreter, VID_IsFastMode());
+		#endif
+		// The AUTOLOAD (EXIT n) part hand-off relies on this player reloading the
+		// requested part; enable it only where that path is available. The Amiga
+		// and Atari builds keep the full-reset fallback (complex memory layout).
+		#if !defined(_AMIGA) && !defined(_ATARIST)
+		DDB_SetAutoloadEnabled(interpreter, true);
+		#endif
+
+		// Restore the preserved user variables over the freshly reset state so the
+		// autoloaded part continues from the previous part's game state.
+		if (autoloadState != 0)
+		{
+			uint16_t n = autoloadStateSize;
+			if (n > interpreter->saveStateSize) n = interpreter->saveStateSize;
+			MemCopy(interpreter->buffer, autoloadState, n);
+			Free(autoloadState);
+			autoloadState = 0;
+		}
+
+		if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+		{
+			DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
+			VID_ShowError(DDB_GetErrorString());
 			DDB_CloseInterpreter(interpreter);
 			DDB_Close(ddb);
 			VID_Finish();
-			return true;
+			return false;
 		}
+
+		#if HAS_PCX
+		if (VID_HasExternalPictures())
+			screenMode = ScreenMode_VGA;
+		#endif
+		VID_ShowProgressBar(255);
+
+		// The loading/intro screen only belongs to the initial boot; an
+		// autoloaded part swaps in silently, as the original interpreter did.
+		if (!autoloading)
+		{
+			if ((scrCount > 0 || introScreen != 0) && ddbCount == 1)
+			{
+				if (!introVisible)
+					introVisible = VID_DisplaySCRFile(introScreen, machine, false);
+				DDB_Interpreter* i = interpreter;
+				VID_MainLoop(0, WaitForKeyUpdate);
+				interpreter = i;
+				if (exitGame)
+				{
+					DDB_CloseInterpreter(interpreter);
+					DDB_Close(ddb);
+					VID_Finish();
+					return true;
+				}
+			}
+			if (scrCount > 0)
+				FadeOut();
+		}
+
+		VID_ClearBuffer(true);
+		VID_ClearBuffer(false);
+		VID_SetPaletteRange(DefaultPalette, 16, 0, VID_GetPaletteSize() <= 16, true);
+
+		DebugPrintf("Starting interpreter\n");
+		DDB_Run(interpreter);
+
+		if (interpreter->state == DDB_AUTOLOAD)
+		{
+			int part = interpreter->autoloadPart;
+			DebugPrintf("AUTOLOAD: switching to part %d\n", part);
+
+			// Preserve the user variables (flags + object locations) for the new part.
+			autoloadStateSize = interpreter->saveStateSize;
+			autoloadState = Allocate<uint8_t>("DDB Autoload state", autoloadStateSize);
+			if (autoloadState != 0)
+				MemCopy(autoloadState, interpreter->buffer, autoloadStateSize);
+
+			DDB_CloseInterpreter(interpreter);
+			DDB_Close(ddb);
+
+			// Give the new part an independent random stream, identical to booting
+			// it fresh, so a joined multi-part playthrough stays reproducible.
+			RandReset();
+
+			// DDB_AUTOLOAD broke the main loop through SCR_Quit, which also asked
+			// the game to exit; clear that so the next part's loop keeps running.
+			exitGame = false;
+
+			// Resolve the requested part's DDB (all parts share the same platform
+			// configuration, so no video re-initialisation is needed).
+			EnumFiles();
+			#if HAS_VIRTUALFILESYSTEM
+			CollectDiskImages();
+			#endif
+			ddbCount = CountDDBFiles();
+			int partIndex = part - 1;
+			if (!EnsureSelectedPartMediaSync(partIndex, language))
+			{
+				CloseEnum();
+				if (autoloadState) Free(autoloadState);
+				DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
+				VID_Finish();
+				return false;
+			}
+			StrCopy(ddbFileName, FILE_MAX_PATH, ResolveSelectedDDBFile(partIndex));
+			CloseEnum();
+
+			autoloading = true;
+			continue;
+		}
+
+		DDB_CloseInterpreter(interpreter);
+		DDB_Close(ddb);
+		VID_Finish();
+
+		if (autoloadState) Free(autoloadState);
+		return true;
 	}
-	if (scrCount > 0)
-		FadeOut();
-
-	VID_ClearBuffer(true);
-	VID_ClearBuffer(false);
-	VID_SetPaletteRange(DefaultPalette, 16, 0, VID_GetPaletteSize() <= 16, true);
-
-	DebugPrintf("Starting interpreter\n");
-	DDB_Run(interpreter);
-	DDB_CloseInterpreter(interpreter);
-	DDB_Close(ddb);
-	VID_Finish();
-
-	return true;
 }
 
 #endif

@@ -1,0 +1,10 @@
+{
+    "fixture": [
+        "cozumel/pcw/COZUMEL-PCW 1 Corregida.dsk",
+        "cozumel/pcw/COZUMEL-PCW 2.dsk"
+    ],
+    "part": 1,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

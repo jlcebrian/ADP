@@ -1,0 +1,5 @@
+{
+    "fixture": "cozumel/pc/COZUMEL-PC.img",
+    "screen": "ega",
+    "shared": "cozumel/part1-amiga"
+}

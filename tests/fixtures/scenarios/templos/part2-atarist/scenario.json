@@ -1,0 +1,4 @@
+{
+    "fixture": ["templos/atarist/TEMPLOS-ST 1.ST", "templos/atarist/TEMPLOS-ST 2.ST"],
+    "shared": "templos/part2-amiga"
+}

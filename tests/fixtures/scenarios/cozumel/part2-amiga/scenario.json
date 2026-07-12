@@ -1,0 +1,8 @@
+{
+    "fixture": "cozumel/amiga/COZUMEL-AMIGA.ADF",
+    "part": 2,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "consumes": { "from": "cozumel/part1-amiga", "file": "PART1ENDING.SAV" },
+    "timeout_seconds": 600
+}

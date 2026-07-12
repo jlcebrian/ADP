@@ -1,0 +1,354 @@
+# Solución obtenida del projecto CASA: https://solutionarchive.com/game/id%2C2205/Templos+Sagrados%2C+Los.html
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+# Te encuentras a bordo de una barca
+coger cuerda
+m
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+@key
+# El indio cae al agua
+@save Tormenta
+
+coger remo
+atar cuerda a remo
+tirar remo 
+# Rescatas al indio; por fin llegas a la playa
+
+leer papel
+dar cuerda a indio
+dar papel a indio
+bajar 
+# El loro se va
+subir 
+
+# Otra vez frente a un templo Maya
+@save Templo
+e
+ex piedra
+n
+ex vasijas
+ex escombros
+coger hachuela
+ex hachuela
+s
+o
+n
+
+# En la selva
+ex arbol
+ex suelo
+coger fruta
+ex bambu
+cortar bambu
+o
+coger palo
+ex cactus
+coger espina 
+@save Selva
+
+n
+ex liana
+cortar liana
+ex monos
+poner pua en fruta
+poner fruta en cana
+n 
+# Los monos te acribillan a cocotazos y te huyes
+
+soplar cana
+ex mono 
+# Es muerto
+
+n
+ex suelo
+excavar 
+# Descubres un foso
+
+dejar todo
+bajar
+ex estacas
+coger estaca
+lanzar estaca
+subir
+coger todo
+ne
+matar jaguar con estaca
+quitar piel de jaguar
+atar hachuela en palo 
+# Has construida un hacha
+
+dejar estaca
+so
+s
+cortar liana
+n
+dejar todo
+coger hacha
+talar tronco 
+# Rugoso
+
+talar tronco 
+# Liso
+
+talar tronco 
+# Recto
+
+talar tronco 
+# Grueso
+
+dejar hacha
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+n 
+# Plazoleta
+
+ex acantilado
+ex orificios
+ex muro norte
+ex muro oeste
+ex bloques
+s
+so
+coger piel
+s
+s
+e
+s
+e
+n
+coger cuenta con piel
+s
+o
+n
+o
+n
+n
+ne
+n
+@save Plazoleta
+
+# Plazoleta
+empujar bloque norte izquierda
+empujar bloque norte derecha
+o 
+# Estancia
+
+coger tableta 
+# Del Chicchan
+
+dejar tableta 
+# Empieza a desvanecerse y pronto recobra su solidez normal
+
+coger tableta
+o
+empujar bloque norte izquierda
+empujar bloque norte derecha
+empujar bloque este derecha
+n
+dejar tableta 
+# Del Chicchan. De chiripa pisas una losa suelta.
+
+coger cuenta
+n
+coger tableta 
+# Del Manik
+
+n
+coger tableta 
+# Del Ik
+
+empujar bloque este izquierda
+empujar bloque sur derecha
+e
+coger tableta 
+# Del Akbal
+
+e
+empujar bloque oeste izquierda
+empujar bloque oeste derecha
+dejar tableta Manik
+coger cuenta
+s
+coger tableta 
+# Del Kan
+
+s
+coger tableta 
+# Del Lamat
+
+empujar bloque sur
+o 
+# La cuenta del Oc levita a unos cinco metros sobre el suelo!
+
+ex suelo 
+# Un bloque sobresale
+
+e.
+Dejar tableta Ik
+coger cuenta
+n
+n
+o
+o
+dejar tableta Kan
+coger cuenta
+s
+s
+s
+dejar tableta Akbal
+coger cuenta
+e
+dejar tableta 
+# Del Lamat
+
+coger cuenta
+o
+# Repitiendo hasta encontrar la tableta del Muluc
+ex selva 
+ex selva 
+ex selva 
+@save Muluc
+
+coger tableta
+n
+levantar losa suelta
+coger tableta 
+# Del Cimi
+
+n
+n
+e
+dejar tableta Cimi
+coger cuenta
+e
+s
+dejar tableta 
+# Del Muluc
+
+coger cuenta
+s
+o 
+# La cuenta del Oc levita ahora a un metro del suelo
+
+coger cuenta 
+@save Collar
+
+# Se une a las demás formando un collar
+
+dejar collar en bloque
+n
+@save Cenote
+
+# Cenote
+s
+e
+s
+s
+dejar piel
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+so
+coger liana
+ne
+n
+n
+o
+n
+dejar liana
+coger tronco 
+# Rugoso
+
+s
+dejar tronco
+n
+coger liana
+hacer balsa
+s
+e
+s
+s
+so
+coger hacha
+s
+cortar liana
+n
+ne
+n
+n
+o
+atar liana a tronco
+n
+atar liana a balsa
+ex liana
+tirar balsa por cenote
+dejar todo
+bajar por liana 
+subir balsa
+ex balsa
+desatar liana de balsa 
+
+# Vas directo hacia la boca de un bajo túnel y estas navegando bajo tierras yucatanas por un antiguo canal; te preguntas qué nuevas aventuras te esperan - obtienes la clave para la segunda parte: TUR KOS BON
+
+@key
+@key
+@key
+@key
+@save Final
+n

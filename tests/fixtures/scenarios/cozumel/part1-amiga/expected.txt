@@ -1,0 +1,506 @@
+DIOSA de COZUMEL - Parte I
+En un olvidado arcón de un oscuro desván, entre múltiples cachivaches, ha llamado tu atención un vetusto y polvoriento libro titulado: DIARIO.
+Lo abres con infinito cuidado y sus frágiles páginas amarillentas te sorprenden con una historia fascinante, ilustrada por numerosos dibujos y fotografías antiguas, exquisitamente adosadas por soportes metálicos.
+Se trata de las aventuras y desventuras de un osado explorador y arqueólogo en las islas y costas de la península del Yucatán hacia principios de siglo,  todo ello sazonado con abundante iconografía.
+El salvaje y mágico mundo tropical, las alusiones a secretas leyendas y tradiciones Mayas y las múltiples peripecias de sus personajes te resultan tan absorbentes que empiezas a desear haber sido tú el protagonista.
+Y es que, a medida que vas leyendo el manuscrito, vas imaginando cómo habrías resuelto tal o cual acción o resuelto esos problemas.
+Sin transición, lenta pero inexorablemente, imaginación y realidad se funden, y empiezas a revivirlo todo.
+Eres ya el famoso explorador. Te sientes lleno de valor y astucia para cumplir cualquier misión, pero de momento... estás con el agua al cuello, tratando de sobrevivir de un inesperado naufragio.
+                    Náufrago en el mar
+Te encuentras en una situación desesperada, agotado y a merced de las olas del Caribe. Entre la espuma, sólo alcanzas a ver algunas aletas de mal presagio y, a lo lejos, la costa de Cozumel. Es para echarse a llorar. 
+0/0
+> nadar costa
+¡Justo a tiempo! Estas aguas están infestadas de tiburones.
+                    Playa oeste
+En la desierta playa sólo se escucha el ruido de las aves marinas y el batir de las olas. 
+0/1
+> e
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. 
+0/2
+> ex canoas
+Todo en éste sitio está medio podrido por la acción corrosiva del mar y del tiempo.
+Entre las inservibles canoas descubres unos pantalones cortos. Son muy viejos y... ¡Están completamente empapados!
+0/3
+> coger pantalones
+Coges los pantalones cortos.
+0/4
+> e
+                    Playa este
+Esta zona de la playa está bastante abandonada y es raramente visitada. Sólo mar, arena y sol te rodean. Aquí hay un bastón. 
+1/5
+> coger baston
+Coges el bastón.
+1/6
+> poner pantalones
+Te pones los pantalones cortos.
+¡Brrr! Están calados. Qué desagradable sensación en tus tiernas partes.
+1/7
+> o
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. 
+1/8
+> s
+                    Plaza norte
+San Marcos era el antiguo puerto pesquero de Cozumel. Alrededor de su pequeña plaza se agrupan algunas pobres construcciones. Al norte queda la zona de playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+1/9
+> s
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. 
+1/10
+> s
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+1/11
+> s
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. 
+1/12
+> e
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. 
+1/13
+> s
+                    Aula vacía
+El aula está habitada solamente por el fantasma de chillonas voces infantiles y por unos cuantos pupitres desvencijados. Aquí hay una barra de hierro. 
+1/14
+> coger barra
+Coges la barra de hierro.
+1/15
+> n
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. 
+1/16
+> o
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. 
+1/17
+> n
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+2/18
+> n
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. 
+2/19
+> n
+                    Plaza norte
+San Marcos era el antiguo puerto pesquero de Cozumel. Alrededor de su pequeña plaza se agrupan algunas pobres construcciones. Al norte queda la zona de playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+2/20
+> n
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. 
+2/21
+> o
+                    Playa oeste
+En la desierta playa sólo se escucha el ruido de las aves marinas y el batir de las olas. Aquí hay un barril. 
+2/22
+> ex barril
+Está hecho de madera y muy desajustado. Está cerrado.
+2/23
+> abrir barril
+Usas la barra de hierro. Con un fuerte chasquido de madera rota logras abrir el barril.
+2/24
+> ex barril
+Está hecho de madera y muy desajustado. Dentro hay un paquete. 
+2/25
+> sacar paquete del barril
+Coges el paquete.
+2/26
+Al manipular el húmedo y salado paquete, te das cuenta de que se trata de... ¡Fajos de billetes! Sin duda, beneficio de algún contrabando. Por desgracia, están mojados y se deshacen en tus manos, quedándote tan sólo con los pocos pesos mejicanos que resistieron la humedad.
+> contar pesos
+Son billetes mejicanos. Hay 88 pesos mejicanos.
+2/27
+> e
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. 
+2/28
+> s
+                    Plaza norte
+San Marcos era el antiguo puerto pesquero de Cozumel. Alrededor de su pequeña plaza se agrupan algunas pobres construcciones. Al norte queda la zona de playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+2/29
+> s
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. 
+2/30
+> s
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+2/31
+> o
+                    Mercado
+Todo el lugar es una intrincada red de tiendecitas. En estos momentos te encuentras frente una donde se venden frutas y objetos de vidrio. Aquí hay una botella, un aguacate y un zapote. Aquí está el vendedor. 
+5/32
+> comprar aguacate y zapote
+Compras el aguacate, por 5 pesos. Coges el aguacate.
+5/33
+Compras el zapote, por 5 pesos. Coges el zapote.
+5/34
+> s
+                    Mercado
+En ésta tenducha se pueden comprar pocas cosas, pero muy variadas. Aquí hay una garrafa, un vestido y una camisa. Aquí está el vendedor. 
+5/35
+> comprar vestido
+Compras el vestido, por 25 pesos. Coges el vestido.
+5/36
+> n
+                    Mercado
+Todo el lugar es una intrincada red de tiendecitas. En estos momentos te encuentras frente una donde se venden frutas y objetos de vidrio. Aquí hay una botella. Aquí está el vendedor. 
+5/37
+> e
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+5/38
+> e
+                    Iglesia
+Los rayos que atraviesan las coloreadas vidrieras crean suaves juegos de luz, dando un ambiente de serena paz. Al fondo hay una puerta y junto a ella, un cepillo para limosnas. Un cura se apoya trabajosamente en los gastados bancos para disimular su cojera. 
+5/39
+> poner peso en cepillo
+Metes un peso en el cepillo.
+5/40
+> dar baston a cura
+El cura dice: "¡Hombre, muchas gracias! Hace mucho tiempo que se me había extraviado".
+5/41
+El cura dice: "Gracias, pareces estar cansado y hambriento, sígueme y lo solucionaremos".
+El cura, caminando mucho mejor gracias a su bastón, se va hacia el este y entra en la sacristía.
+> e
+                    Sacristía
+La pequeña habitación está adornada con algunos piadosos cuadros y otras cosas propias del culto. Aquí está el cura. 
+11/42
+El cura dice: "Prepararé uno de los más famosos platos de la isla... ¡El cocido Cozumelano! A ver si lo tengo todo... ¡Lo siento! Me falta el fruto más importante...".
+> dar aguacate a cura
+El cura dice: "Gracias".
+11/43
+Prepara una especie de guisado de carne de iguana al que añade diversas verduras y el aguacate. Luego te ofrece sonriendo la dudosa mezcla.
+Con precaución tomas una cucharadita. ¡Está riquísimo! En un santiamén das cuenta del cocido. Saciado tu apetito, le cuentas al párroco tus aventuras mientras él escribe una carta.
+Tras retirar los platos vacíos, el cura dice: "Tengo un sabio amigo que te puede ayudar a salir de aquí, llévale esta interesante carta".
+Coges el sobre.
+> o
+                    Iglesia
+Los rayos que atraviesan las coloreadas vidrieras crean suaves juegos de luz, dando un ambiente de serena paz. Al fondo hay una puerta y junto a ella, un cepillo para limosnas. 
+15/44
+> o
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+15/45
+> s
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. 
+15/46
+> e
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. 
+15/47
+> llamar a puerta
+Una seca voz dice: "Entreee".
+15/48
+> e
+                    Despacho del maestro
+Es un lugar bastante desordenado. En la pared hay una polvorienta pizarra y un mapa de la región. Un curioso personaje, de revueltos pelos y cara de pocos amigos lee un grueso libro. El maestro dice: "Buenos dias, joven forastero, ya me habian hablado de usted".
+15/49
+> ex pizarra
+Lees un nombre borroso, algo parecido a I* *h*l*, pero no se distingue con claridad.
+15/50
+> ex mapa
+Es un antiguo mapa que muestra toda la región del Yucatán.
+15/51
+> dar carta a maestro
+El maestro dice: "¡Hombre! Una nota de nuestro buen cura". Abre el sobre y la lee con atención, luego con voz más suave y precavida, continúa: "Mi mejor consejo es que busque usted a IX CHELL, la Diosa del Amor. Recuérdelo, pero... ¡Cuidado! El amor puede llegar a ser obsesión".
+15/52
+> ex libro
+El título es: "FRUTOS TROPICALES"
+15/53
+> dar zapote a maestro
+El maestro dice: "Gracias". Fijándose en tus pies descalzos, añade: "¡Por Dios, hombre! No sea imprudente, la isla está infestada de venenosos bichos" E indicándote un par de botas que hay en un rincón, añade: "Póngase mis viejas botas, y que le aprovechen".
+ Coges las botas.
+15/54
+> poner botas
+Te pones las botas.
+15/55
+> o
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. 
+15/56
+> o
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. 
+15/57
+> n
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. 
+15/58
+> n
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. 
+15/59
+> n
+                    Plaza norte
+San Marcos era el antiguo puerto pesquero de Cozumel. Alrededor de su pequeña plaza se agrupan algunas pobres construcciones. Al norte queda la zona de playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+25/60
+> n
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. 
+25/61
+> e
+                    Playa este
+Esta zona de la playa está bastante abandonada y es raramente visitada. Sólo mar, arena y sol te rodean. 
+25/62
+> S
+                    Taberna San Marcos
+Este lugar de San Marcos es el más frecuentado por sus aburridos habitantes. En una de sus paredes hay un cartelón. Tras la barra está un serio tabernero observándote atentamente mientras pretende estar muy ocupado. Una joven mujer te mira esforzándose en parecer seductora, mientras dirige atemorizadas miradas al dueño del local. Un ruidoso y sucio borracho, apestando a ron barato, te saluda alegremente intentando abrazarte. 
+25/63
+> ex cartelon
+\xC1\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC3
+\xC4 WHISKY  5 pesos \xC4
+\xC4 RON     4 pesos \xC4
+\xC4 TEQUILA 3 pesos \xC4
+\xC4 AGUA    2 pesos \xC4
+\xC5\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC2\xC6
+25/64
+El tabernero dice: "¿Qué vá a tomar?".
+El borracho dice: "No concibo la vida sin un buen licor".
+> ex tabernero
+Es un malencarado personaje que dirige su taberna con gran severidad.
+25/65
+El borracho dice: "No concibo la vida sin un buen licor".
+> ex borracho
+Es el típico y siempre alegre borrachín de tabernas, despreocupado y pesado pero, en el fondo, un pobre diablo.
+25/66
+El borracho dice: "No concibo la vida sin un buen licor".
+> ex mujer
+Es una tímida joven de suaves y bellos rasgos indios. En su dulce mirada hay una gran tristeza.
+25/67
+Aburrido, el tabernero se enfrasca en la minuciosa tarea de sacarle brillo a un sucio vaso.
+El borracho dice: "En ésta isla la bebida es mala, pero fuerte".
+> decir tabernero "quiero ron"
+Hablas con el tabernero. Te dice: "Aquí tiene su bebida".
+Coges el vaso.
+25/68
+El borracho dice: "En ésta isla la bebida es mala, pero fuerte".
+> decir tabernero "pagar ron"
+Hablas con el tabernero. El tabernero dice: "Gracias".
+25/69
+El borracho dice: "En ésta isla la bebida es mala, pero fuerte".
+> dar vaso a borracho
+Das el vaso al borracho. Lo bebe con sonora avidez.
+25/70
+El borracho dice: "Oye, dame algún dinerito, así podré comprar mas bebida a tu salud".
+> dar peso a borracho
+Das el billete al borracho. El borracho dice: "Eres un tío grande, pero pareces cansado... toma la llave de mi casa". Coges la llave.
+25/71
+El tabernero dice: "¿Qué vá a tomar?".
+> decir mujer "hola"
+Hablas con la mujer. Te dice: "Hola cariño...".
+25/72
+El tabernero dice: "¿Qué vá a tomar?".
+> besar mujer
+Le das un beso a la mujer. Te dice: "Hola cariño...".
+25/73
+Aburrido, el tabernero se enfrasca en la minuciosa tarea de sacarle brillo a un sucio vaso.
+La mujer dice: "¿Quieres venir conmigo?".
+> decir mujer "si"
+Hablas con la mujer. Observado por el tabernero, te dirijes con ella hacia la puerta norte. Juntos os encamináis a la playa.
+                    Playa este
+Esta zona de la playa está bastante abandonada y es raramente visitada. Sólo mar, arena y sol te rodean. Aquí está la mujer. La mujer te sonríe amistosamente. Te dice: "Mi opresor me exige 30 pesos cada vez que otorgo mis favores... ¿Quieres dármelos?". 
+25/74
+> decir mujer "no"
+Hablas con la mujer. Te dice: "No creas que me gusta andar en éstos oficios, lo que ocurre es que el malvado tabernero me obliga... mi fracaso de hoy me costará muy caro. ¡Ojalá pudiera salir de ésta miseria!".
+25/75
+> decir mujer "ayuda"
+Hablas con la mujer. Te dice: "¡No puedo ir con ésta ropa indecente!".
+25/76
+> dar vestido a mujer
+La mujer dice: "Gracias. Eres la única persona decente que he conocido. La verdad es que estoy empezando a quererte. Te acompañaré siempre en tus aventuras". Luego, con un coqueto ademán añade: "Voy a cambiarme", regresando al poco rato mucho más presentable.
+25/77
+> o
+                    Embarcadero
+Varias canoas, rotas e inservibles, yacen al sol en evidente estado de putrefacción mientras un viejo y carcomido muelle intenta resistir el empuje de las olas. La mujer llega. 
+25/78
+> s
+                    Plaza norte
+San Marcos era el antiguo puerto pesquero de Cozumel. Alrededor de su pequeña plaza se agrupan algunas pobres construcciones. Al norte queda la zona de playas, al este hay una puerta y hacia el sur se extiende el poblacho. La mujer llega. 
+25/79
+> s
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. La mujer llega. 
+38/80
+> s
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. La mujer llega. 
+38/81
+> o
+                    Mercado
+Todo el lugar es una intrincada red de tiendecitas. En estos momentos te encuentras frente una donde se venden frutas y objetos de vidrio. La mujer llega. Aquí hay una botella. Aquí está el vendedor. 
+38/82
+> comprar botella
+Compras la botella, por 10 pesos. Coges la botella.
+38/83
+> o
+                    Mercado
+Te detienes frente a varios puestos en los que se ofrecen todo tipo de cacharros. Son sitios donde se pueden encontrar las cosas más insólitas. La mujer llega. Aquí hay una caja de cerillas, un quinqué y una manta. Aquí está el vendedor. 
+38/84
+> comprar quinque y caja
+Compras el quinqué, por 25 pesos. Coges el quinqué.
+38/85
+Compras la caja de cerillas, por 2 pesos. Coges la caja de cerillas.
+38/86
+> abrir caja
+Abres la caja de cerillas.
+38/87
+> ex caja
+Es pequeña y de cartón. Dentro hay 4 cerillas.
+38/88
+> cerrar caja
+Cierras la caja de cerillas.
+38/89
+> abrir botella
+Abres la botella. El tapón se cae. 
+38/90
+> dejar barra
+Dejas la barra de hierro.
+38/91
+> coger tapon
+Coges el tapón.
+38/92
+> s
+                    Mercado
+Estás en otro de los desordenados rincones del mercaducho, frente a un puesto de chatarrería y armas de fuego. La mujer llega. Aquí hay un machete, un rifle y unas municiones. Aquí está el vendedor. 
+38/93
+> e
+                    Mercado
+En ésta tenducha se pueden comprar pocas cosas, pero muy variadas. La mujer llega. Aquí hay una garrafa y una camisa. Aquí está el vendedor. 
+38/94
+> ex garrafa
+Es una vasija ancha y redonda con largo cuello. Dentro hay petróleo.
+38/95
+> comprar petroleo
+Compras petróleo, por 6 pesos. El vendedor dice: "Vale pues, déme algo que llenar...".
+38/96
+> dar botella a vendedor
+El vendedor llena la botella desde la garrafa.
+38/97
+> ex botella
+Es una botella de vidrio. Dentro hay petróleo.
+38/98
+> abrir quinque
+Abres el quinqué.
+38/99
+> poner petroleo en quinque
+Llenas el quinqué desde la botella.
+38/100
+> cerrar botella y quinque
+Cierras la botella.
+38/101
+Cierras el quinqué.
+38/102
+> n
+                    Mercado
+Todo el lugar es una intrincada red de tiendecitas. En estos momentos te encuentras frente una donde se venden frutas y objetos de vidrio. La mujer llega. Aquí está el vendedor. 
+38/103
+> o
+                    Mercado
+Te detienes frente a varios puestos en los que se ofrecen todo tipo de cacharros. Son sitios donde se pueden encontrar las cosas más insólitas. La mujer llega. Aquí hay una manta y una barra de hierro. Aquí está el vendedor. 
+38/104
+> coger barra
+Coges la barra de hierro.
+38/105
+> e
+                    Mercado
+Todo el lugar es una intrincada red de tiendecitas. En estos momentos te encuentras frente una donde se venden frutas y objetos de vidrio. La mujer llega. Aquí está el vendedor. 
+38/106
+> e
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. La mujer llega. 
+43/107
+> n
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. La mujer llega. 
+43/108
+> abrir puerta
+Abres la puerta.
+43/109
+> o
+                    Casa Borracho
+Por el completo abandono y suciedad que reina en la minúscula casa es evidente que su dueño pasa casi todo el tiempo en otro sitio. La mujer llega. Aquí hay una estera. 
+43/110
+> ex estera
+Al mover la estera, un pequeño objeto metálico rueda por el sucio suelo.
+43/111
+> ex objeto
+Es una sortija de oro, lleva la inscripción "A mi hijo".
+43/112
+> dejar barra
+Dejas la barra de hierro.
+43/113
+> coger sortija
+Coges la sortija.
+43/114
+> poner sortija
+Te pones la sortija.
+43/115
+> coger barra
+Coges la barra de hierro.
+43/116
+> e
+                    Calle
+Estás al inicio de la polvorienta calle única y principal de San Marcos, que se prolonga hacia el sur. Al oeste hay una puerta y la plaza queda al norte. La mujer llega. 
+43/117
+> s
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. La mujer llega. 
+43/118
+> e
+                    Iglesia
+Los rayos que atraviesan las coloreadas vidrieras crean suaves juegos de luz, dando un ambiente de serena paz. Al fondo hay una puerta y junto a ella, un cepillo para limosnas. La mujer llega. 
+46/119
+> e
+                    Sacristía
+La pequeña habitación está adornada con algunos piadosos cuadros y otras cosas propias del culto. La mujer llega. Aquí está el cura. 
+46/120
+El cura dice: "¡Hombre, mira a quién tenemos aquí", contemplando a la jóven que te acompaña. "Nada menos que a doña Zyanya, mi descarriada hermana", luego añade: "Veo que por fin has encontrado a alguien más adecuado".
+> o
+                    Iglesia
+Los rayos que atraviesan las coloreadas vidrieras crean suaves juegos de luz, dando un ambiente de serena paz. Al fondo hay una puerta y junto a ella, un cepillo para limosnas. Zyanya llega. 
+46/121
+> o
+                    Calle
+La calle se extiende de norte a sur, pasando entre la blanqueada iglesita colonial y el desorden del mercado. Zyanya llega. 
+46/122
+> s
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. Zyanya llega. 
+46/123
+> e
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. Zyanya llega. 
+46/124
+> llamar a puerta
+Una seca voz dice: "Entreee".
+46/125
+> e
+                    Despacho del maestro
+Es un lugar bastante desordenado. En la pared hay una polvorienta pizarra y un mapa de la región. Zyanya llega. Aquí está el maestro. 
+46/126
+> o
+El sabio mira a Zyanya pensativo, rebusca por entre los cajones de su escritorio y deposita en la mano de la joven un pequeño objeto. Mientras sales, alcanzas a oír: "... para el mal de amores, querida niña".
+                    Recibidor de escuela
+Estás en un descuidada y lóbrega estancia con una gran arcada que dá al sur y una puerta al este. Zyanya llega. 
+46/127
+> o
+                    Calle
+Llegas al extremo de la solitaria calle de San Marcos, con el mercado a un lado y la escuela al otro. Hacia el sur comienza el rústico camino central de la isla y al norte queda el poblacho. Zyanya llega. 
+46/128
+> s
+                    Salida del pueblo
+Te encuentras en las afueras del pueblo, en el extremo sur. Aunque el terreno está todavía despejado, la frondosa selva empieza a invadirlo todo. Zyanya llega. 
+46/129
+> s
+                    Camino del sur
+Estás en el camino que comunica San Marcos con el sur de la isla. Zyanya llega. 
+50/130
+> s
+Vas a entrar a la Zona II. Necesitas salvar tu posición. ¿Quieres grabarla? (Si/No)
+> S
+Nombre del fichero: PART1ENDING.SAV
+Tu posición ha sido salvada. ¿Quieres continuar en la Zona I? (Si/No)
+> N

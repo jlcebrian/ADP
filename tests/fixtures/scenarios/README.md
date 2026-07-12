@@ -21,6 +21,17 @@ scenario sharing one disk image) and to guard the loading/selector screen, which
 is easy to break. A scenario without `part` runs the first database on the image
 as before.
 
+`produces` and `consumes` wire up games that hand state between parts through a
+saved-position file on disk (e.g. Cozumel: part 1 saves at the boundary, part 2
+loads it at boot). Give the producing scenario `"produces": "PART1ENDING.SAV"`
+(a name or list); the runner records that file as a byte baseline beside the
+scenario and compares it on every run, so the part-boundary game state is
+checked. Give the consuming scenario `"consumes": { "from": "cozumel/part1-amiga",
+"file": "PART1ENDING.SAV" }` (or a list of such entries); before it runs, the
+runner copies the producer's recorded baseline into the working directory so the
+game's LOAD finds it. The consumer reads the producer's committed baseline, so it
+runs standalone without re-running the producer.
+
 `screen` is optional and selects the graphics mode for platforms that support
 several — the IBM PC builds in `cga`, `ega`, or `vga`. It is passed to the player
 as `--screen`, so it also applies through the part selector. Because each mode

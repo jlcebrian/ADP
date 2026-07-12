@@ -567,6 +567,7 @@ bool        DMG_DecompressCGA          (const uint8_t* data, uint16_t dataLength
 bool        DMG_DecompressEGA          (const uint8_t* data, uint16_t dataLength, uint8_t* buffer, int width, int height);
 bool        DMG_ExpandPCWStoredLayoutToPacked(const uint8_t* input, uint16_t width, uint16_t height, uint8_t* output, uint32_t outputSize);
 bool        DMG_DecodePCWCompressedToPacked(const uint8_t* input, uint32_t inputSize, const DMG_Entry* entry, uint8_t* output, uint32_t outputSize);
+bool        DMG_LooksLikePCWDataFile     (const uint8_t* header, size_t fileSize, const char* extension);
 
 #if HAS_PCX
 bool        DMG_ReadPCXPalette         (const char* fileName, uint32_t* palette);

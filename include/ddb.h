@@ -647,6 +647,7 @@ typedef enum
 	DDB_WAITING_FOR_KEY,
 	DDB_CHECKING_KEY,
 	DDB_VSYNC,
+	DDB_AUTOLOAD,
 
 	// Remaining ones are input states
 	DDB_INPUT,
@@ -670,6 +671,8 @@ struct DDB_Interpreter
 	DDB*			ddb;
 	DDB_ScreenMode  screenMode;
 	DDB_State		state;
+	bool			autoloadEnabled;	// host player can reload parts on EXIT n
+	uint8_t			autoloadPart;		// part requested by an EXIT n autoload
 	DDB_Flow		oldMainLoopState;
 	int32_t         pauseFrames;
 	uint32_t        pauseStart;
@@ -812,6 +815,7 @@ extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
+extern void				DDB_SetAutoloadEnabled	 (DDB_Interpreter* interpreter, bool enabled);
 #if HAS_TESTMODE
 extern void				DDB_SetSkipTimedPauses (DDB_Interpreter* interpreter, bool skip);
 #endif

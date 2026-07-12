@@ -1,0 +1,5 @@
+{
+    "fixture": "templos/pc/TEMPLOS-PC.img",
+    "screen": "vga",
+    "shared": "templos/part1-amiga"
+}

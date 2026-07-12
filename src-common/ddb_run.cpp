@@ -35,11 +35,12 @@ static bool SkipTimedPauses(const DDB_Interpreter* i)
 	#endif
 }
 
-static bool AnyKeyForWait()
+static bool AnyKeyForWait(bool allowCaptures = true)
 {
 	#if HAS_TESTMODE
-	return SCR_AnyKeyForWait();
+	return SCR_AnyKeyForWait(allowCaptures);
 	#else
+	(void)allowCaptures;
 	return SCR_AnyKey();
 	#endif
 }
@@ -2302,6 +2303,7 @@ static bool ResolveFileDialogInput(DDB_Interpreter* i, bool isLoad)
 {
 	i->inputBufferLength = 0;
 	i->inputBufferPtr = 0;
+	i->inputBuffer[0] = 0;	// clear first: a cancelled/stub dialog must not reuse leftover input
 	SCR_OpenFileDialog(isLoad, (char*)i->inputBuffer, sizeof(i->inputBuffer));
 	if (i->inputBuffer[0] == 0)
 		return false;
@@ -2760,12 +2762,25 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					return;
 				}
 
-				// TODO: DAAD v2 implements here an AUTOLOAD feature
-				// for PCW, which is not implemented in other platforms.
-				// For now, we perform a complete reset (which is not
-				// available by default in DAAD v2). The original interpreters
-				// just did a RESTART in this case.
+				// A non-zero EXIT value is the DAAD AUTOLOAD feature: jump to the
+				// given part number, keeping the user variables (flags + object
+				// locations) live in memory rather than saving to disk. Originally
+				// only the PCW interpreter supported it. When the host player can
+				// reload parts (desktop), hand the request up through the
+				// DDB_AUTOLOAD state; the player reloads the part and restores the
+				// preserved state block. Otherwise fall back to a full reset.
 
+				if (i->autoloadEnabled)
+				{
+					i->autoloadPart = (uint8_t)param0;
+					i->state = DDB_AUTOLOAD;
+					UpdatePos(i, process, entry, offset);
+					TRACE("\n");
+					return;
+				}
+
+				// Hosts without autoload support: the original interpreters did a
+				// RESTART here; we perform a complete reset instead.
 				DDB_Reset(i);
 				process = 0;
 				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
@@ -4018,10 +4033,16 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				// Unfortunately, the only way to improve it is to add a full blown
 				// Z80 CPU emulator to the interpreter, which is not going to happen
 
-				if (i->ddb->externData != 0 && 
-					(i->ddb->machine == DDB_MACHINE_SPECTRUM ||
-					 i->ddb->machine == DDB_MACHINE_CPC ||
-					 i->ddb->machine == DDB_MACHINE_MSX))
+				// Gate on target, not ddb->machine: the latter is the *snapshot*
+				// machine, only set when the DDB is loaded from a Z80 snapshot
+				// (Spectrum/CPC/MSX). The PCW build ships as a CP/M disk image, so
+				// its machine stays IBMPC while target is PCW — hence the data-init
+				// EXTERN never fired and its block-puzzle flags were left unset.
+				if (i->ddb->externData != 0 &&
+					(i->ddb->target == DDB_MACHINE_SPECTRUM ||
+					 i->ddb->target == DDB_MACHINE_CPC ||
+					 i->ddb->target == DDB_MACHINE_MSX ||
+					 i->ddb->target == DDB_MACHINE_PCW))
 				{
 					static uint8_t templosRoutine[] = {
 						0xC5, 				// PUSH BC
@@ -4181,7 +4202,9 @@ static void StepFunction(int elapsed)
 			uint32_t current = 0;
 			SCR_GetMilliseconds(&current);
 
-							if (AnyKeyForWait())
+			// Only the infinite ("press any key") pause is a settled input point;
+			// finite pauses drive animations, so defer scripted captures there.
+			if (AnyKeyForWait(i->pauseFrames == 65535))
 			{
 				i->state = DDB_RUNNING;
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
@@ -4232,6 +4255,13 @@ static void StepFunction(int elapsed)
 				HandleOldMainLoopFinished(i);
 			break;
 
+		case DDB_AUTOLOAD:
+			// Break the main loop so the host player can reload the requested
+			// part; the transcript is left open so the playthrough is continuous
+			// across the part boundary.
+			SCR_Quit();
+			break;
+
 		case DDB_QUIT:
 		{
 			uint32_t time = 0;
@@ -4261,6 +4291,12 @@ static void StepFunction(int elapsed)
 void DDB_Run (DDB_Interpreter* i)
 {
 	SCR_MainLoop(i, StepFunction);
+}
+
+void DDB_SetAutoloadEnabled (DDB_Interpreter* i, bool enabled)
+{
+	if (i != 0)
+		i->autoloadEnabled = enabled;
 }
 
 #if HAS_TESTMODE

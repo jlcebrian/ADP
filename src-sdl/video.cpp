@@ -270,10 +270,13 @@ uint8_t*   bitmap = NULL;
 uint8_t*   attributes = NULL;
 uint8_t    stride = 32;
 
-#if _WEB
-bool       supportsOpenFileDialog = false;
-#else
+// Only Windows implements VID_OpenFileDialog; elsewhere (Linux/Mac/web) it is a
+// stub, so report no dialog and fall back to the interpreter's "Enter file name"
+// text prompt — which also lets scripted tests supply the save/load filename.
+#if _WIN32
 bool       supportsOpenFileDialog = true;
+#else
+bool       supportsOpenFileDialog = false;
 #endif
 
 void (*mainLoopCallback)(int elapsed);

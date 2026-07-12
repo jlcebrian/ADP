@@ -1308,7 +1308,7 @@ bool DMG_ReadV1DOSEntries(DMG* dmg, DMG_Version version)
 	return true;
 }
 
-static bool DMG_LooksLikePCWDataFile(const uint8_t* header, size_t fileSize, const char* extension)
+bool DMG_LooksLikePCWDataFile(const uint8_t* header, size_t fileSize, const char* extension)
 {
 	if (fileSize < 6)
 		return false;

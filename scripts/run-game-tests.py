@@ -88,8 +88,21 @@ def decode_tool_output(output: bytes | str | None) -> str:
     return output
 
 
+def as_list(value) -> list:
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = False, trace: bool = False, interactive: bool = False, skip_timed_pauses: bool = False) -> bool:
-    scenario = json.loads(scenario_path.read_text(encoding="utf-8"))
+    try:
+        scenario = json.loads(scenario_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: scenario.json is missing")
+        return False
+    except json.JSONDecodeError as error:
+        print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: scenario.json is empty or invalid ({error})")
+        return False
     base = scenario_path.parent
 
     # A scenario may inherit baselines from another platform's scenario via the
@@ -105,7 +118,7 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
             return False
         shared_base = shared_scenario_path.parent
         shared_fields = json.loads(shared_scenario_path.read_text(encoding="utf-8"))
-        for key in ("part", "input", "transcript", "timeout_seconds", "screenshot"):
+        for key in ("part", "input", "transcript", "timeout_seconds", "screenshot", "produces"):
             if scenario.get(key) is None and key in shared_fields:
                 scenario[key] = shared_fields[key]
 
@@ -123,15 +136,28 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
         shared = shared_base / name
         return shared if shared.exists() else local
 
-    fixture = GAMES / scenario["fixture"]
+    # A multi-disk game is supplied as several images, so "fixture" may be a list;
+    # they are all mounted at once and listed in disk order (disk 1 first).
+    fixture_spec = scenario["fixture"]
+    fixture_names = fixture_spec if isinstance(fixture_spec, list) else [fixture_spec]
+    fixtures = [GAMES / name for name in fixture_names]
     input_path = baseline(scenario["input"])
     expected_path = baseline(scenario["transcript"])
-    # Interactive runs drive the game live (e.g. to sit at a @stop breakpoint), so
-    # they neither require nor compare against baselines; only recording needs none.
-    comparing = not record and not interactive
-    if not fixture.is_file() or not input_path.is_file() or (comparing and not expected_path.is_file()):
-        print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: missing fixture, input, or transcript baseline")
+
+    def fail(reason: str) -> bool:
+        print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: {reason}")
         return False
+
+    for fixture in fixtures:
+        if not fixture.is_file():
+            return fail(f"fixture not found: {fixture.relative_to(ROOT)}")
+    if not input_path.is_file():
+        return fail(f"input script not found: {input_path.relative_to(ROOT)}")
+    # Interactive runs drive the game live (e.g. to sit at a @stop breakpoint), and
+    # recording generates the transcript, so neither needs an existing baseline.
+    comparing = not record and not interactive
+    if comparing and not expected_path.is_file():
+        return fail(f"transcript baseline not found: {expected_path.relative_to(ROOT)} (create it with RECORD=1)")
 
     scenario_id = scenario_path.relative_to(SCENARIOS).parent
     result_dir = results / "scenarios" / scenario_id
@@ -139,6 +165,21 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     actual_frame = result_dir / "final.bmp"
     log_path = result_dir / ("trace.log" if trace else "run.log")
     result_dir.mkdir(parents=True, exist_ok=True)
+
+    # Stage save files produced by another scenario into the working directory (the
+    # tool runs with cwd=result_dir), so a later part can LOAD the earlier part's
+    # saved position at boot. The source is the producer's recorded baseline, so this
+    # scenario runs standalone without re-running the producer.
+    for spec in as_list(scenario.get("consumes")):
+        producer_id = spec.get("from")
+        save_name = spec.get("file")
+        if not producer_id or not save_name:
+            return fail("invalid 'consumes' entry (needs 'from' and 'file')")
+        saved = SCENARIOS / producer_id / save_name
+        if not saved.is_file():
+            return fail(f"required save file not found: {saved.relative_to(ROOT)} (record {producer_id} with RECORD=1)")
+        shutil.copyfile(saved, result_dir / save_name)
+
     generated_input = result_dir / "generated.input"
     capture_paths: dict[str, Path] = {}
     capture_names: dict[str, str] = {}
@@ -198,7 +239,8 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     expected_frame = scenario.get("screenshot")
     if expected_frame:
         command.extend(("--capture", str(actual_frame)))
-    command.extend(("test", str(fixture)))
+    command.append("test")
+    command.extend(str(f) for f in fixtures)
     environment = os.environ.copy()
     if interactive:
         environment.pop("SDL_VIDEODRIVER", None)
@@ -318,6 +360,25 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
             path.unlink()
         if stale_screenshots:
             print(f"Removed {len(stale_screenshots)} stale screenshot(s) from {base.relative_to(ROOT)}")
+
+    # Save files the game wrote (multi-part handoff): record/compare them as byte
+    # baselines beside the scenario, so the part-boundary game state is checked and
+    # a later part can consume it.
+    for name in as_list(scenario.get("produces")):
+        produced = result_dir / name
+        if not produced.is_file():
+            return fail(f"expected produced file not written: {name}")
+        # The save is a per-scenario artifact (its bytes can differ by platform), so
+        # it is kept local — not deduped against the shared base like screenshots.
+        baseline_file = base / name
+        if record:
+            baseline_file.write_bytes(produced.read_bytes())
+        elif comparing:
+            if not baseline_file.is_file():
+                return fail(f"produced-file baseline not found: {name} (create it with RECORD=1)")
+            if produced.read_bytes() != baseline_file.read_bytes():
+                return fail(f"produced file differs: {name}")
+
     print(f"PASS scenario {scenario_path.relative_to(ROOT)}")
     return True
 

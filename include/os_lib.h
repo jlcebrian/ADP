@@ -47,6 +47,7 @@ extern void TracePrintf(const char* format, ...);
 
 extern uint32_t RandInt    (uint32_t min, uint32_t max);
 extern void     RandSeed   (uint32_t seed);
+extern void     RandReset  ();
 extern void     Abort      ();
 
 // OS Specific

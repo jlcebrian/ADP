@@ -1,3 +1,6 @@
+# Solución obtenida del projecto CASA: https://solutionarchive.com/game/id%2C2602/Chichen+Itza.html
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
 @key
 @key
 
