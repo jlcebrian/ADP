@@ -323,6 +323,18 @@ void DDB_ResetWindows (DDB_Interpreter* i)
 	DDB_ResetPAWSColors(i, &i->win);
 }
 
+// Full game restart, matching the original interpreters' START/START2 routine:
+// reset the streams/windows, clear the screen ("system clear"), reset the game
+// state, and continue from process 0.  Unlike the RESTART condact (which just
+// re-enters the loop), this is what the original does on a part change / EXIT
+// and on a failed LOAD.
+void DDB_Restart (DDB_Interpreter* i)
+{
+	DDB_Reset(i);
+	DDB_ResetWindows(i);
+	DDB_ClearWindow(i, &i->win);
+}
+
 void DDB_Reset (DDB_Interpreter* i)
 {
 	int n;
@@ -2781,7 +2793,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 				// Hosts without autoload support: the original interpreters did a
 				// RESTART here; we perform a complete reset instead.
-				DDB_Reset(i);
+				DDB_Restart(i);
 				process = 0;
 				SetExecutionProcessStart(i, process, &entry, &offset, &entryPtr, &code);
 				TRACE("\n");
@@ -4247,6 +4259,14 @@ static void StepFunction(int elapsed)
 					i->flags[Flag_TimeoutFlags] |= Timeout_LastFrame;
 					i->state = DDB_RUNNING;
 				}
+			}
+			// A failed LOAD showed "I/O Error" and waited for this key; once it is
+			// acknowledged, do the original's system clear + GOTO 0 + RESTART (see
+			// START2). Consumed on any exit from the wait so it never lingers.
+			if (i->restartPending && i->state == DDB_RUNNING)
+			{
+				i->restartPending = false;
+				DDB_Restart(i);
 			}
 			break;
 

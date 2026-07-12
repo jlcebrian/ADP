@@ -705,6 +705,7 @@ struct DDB_Interpreter
 	uint8_t*        visited;		// 32 bytes, one bit per location
 	uint8_t*		ramSaveArea;
 	bool            ramSaveAvailable;
+	bool            restartPending;		// LOAD read a foreign save: RESTART after the key
 
 	DDB_Window		win;
 	DDB_Window		windef[8];
@@ -815,6 +816,7 @@ extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
+extern void				DDB_Restart				 (DDB_Interpreter* interpreter);
 extern void				DDB_SetAutoloadEnabled	 (DDB_Interpreter* interpreter, bool enabled);
 #if HAS_TESTMODE
 extern void				DDB_SetSkipTimedPauses (DDB_Interpreter* interpreter, bool skip);

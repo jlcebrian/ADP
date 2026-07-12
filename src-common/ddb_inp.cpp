@@ -8,6 +8,18 @@
 
 #define DDB_WRAPAROUND_HISTORY 0
 
+// Classic DAAD save-file layout, compatible with the original 8/16-bit
+// interpreters (DZ80PPL/D68KPPL/D6502PPL, GAMELN=512 on every platform):
+//   [0..255]   256 flags               (USER)
+//   [256..510] 255 object-location bytes (OBJLO, objects 0..254)
+//   [511]      object count            (OBJNO, the original's "same game" check)
+// The original writes the game's object count into the last byte on SAVE and,
+// on LOAD, rejects the file (system clear + RESTART) if it differs from the
+// running game's object count.
+#define DDB_CLASSIC_SAVE_SIZE   512
+#define DDB_CLASSIC_FLAG_COUNT  256
+#define DDB_CLASSIC_OBJLOC_MAX  255
+
 extern File* transcriptFile;
 
 // Sound variation is presentation-only.  It must not consume the interpreter's
@@ -257,17 +269,62 @@ void DDB_ResolveInputLoad(DDB_Interpreter* i)
 	i->inputBuffer[i->inputBufferLength] = 0;
 
 	bool success = false;
+	bool restart = false;
 	File* file = File_Open((const char*)i->inputBuffer, ReadOnly);
 	if (file != 0)
 	{
-		success = File_Read(file, i->buffer, i->saveStateSize) == i->saveStateSize;
+		uint8_t block[DDB_CLASSIC_SAVE_SIZE];
+		uint64_t read = File_Read(file, block, sizeof(block));
 		File_Close(file);
+
+		int objects = i->ddb->numObjects;
+		if (objects > DDB_CLASSIC_OBJLOC_MAX)
+			objects = DDB_CLASSIC_OBJLOC_MAX;
+
+		if (read == DDB_CLASSIC_SAVE_SIZE)
+		{
+			// Classic 512-byte format. The last byte is the object count; the
+			// original interpreters load the block into the live game state and
+			// then, if it does not match the running game, do a full RESTART
+			// (see PCW CHK2 / ST START): the state is no longer trustworthy.
+			MemCopy(i->flags, block, DDB_CLASSIC_FLAG_COUNT);
+			MemCopy(i->objloc, block + DDB_CLASSIC_FLAG_COUNT, objects);
+			if (block[DDB_CLASSIC_SAVE_SIZE - 1] == i->ddb->numObjects)
+				success = true;
+			else
+				restart = true;
+		}
+		else if (read == i->saveStateSize)
+		{
+			// Legacy ADP format: a raw dump of flags + object locations.
+			MemCopy(i->buffer, block, i->saveStateSize);
+			success = true;
+		}
 	}
 
 	DDB_NewText(i);
 
-	if (!success)
+	if (success)
 	{
+		i->state = DDB_RUNNING;
+	}
+	else if (restart)
+	{
+		// A valid-sized save from another game. The block is already loaded into
+		// live memory (as the original does). Match the original ordering: show
+		// I/O Error, wait for a key, then system clear + GOTO 0 + RESTART. The
+		// restart happens on the keypress (see the DDB_WAITING_FOR_KEY handler)
+		// so the error stays on screen until the player acknowledges it.
+		DDB_OutputMessage(i, DDB_SYSMSG, 57);	// I/O Error
+		DDB_Flush(i);
+		DDB_NewLine(i);
+		i->restartPending = true;
+		i->state = DDB_WAITING_FOR_KEY;
+	}
+	else
+	{
+		// File not found or unreadable: the game position is still valid, so
+		// just report the error and carry on (original "Still a valid position").
 		DDB_OutputMessage(i, DDB_SYSMSG, 57);	// I/O Error
 		DDB_Flush(i);
 		DDB_NewLine(i);
@@ -276,10 +333,6 @@ void DDB_ResolveInputLoad(DDB_Interpreter* i)
 		// Jump to the next entry
 		i->procstack[i->procstackptr].offset = 0;
 		i->procstack[i->procstackptr].entry++;
-	}
-	else
-	{
-		i->state = DDB_RUNNING;
 	}
 }
 
@@ -293,11 +346,22 @@ void DDB_ResolveInputSave(DDB_Interpreter* i)
 
 	i->inputBuffer[i->inputBufferLength] = 0;
 
+	// Build a classic 512-byte save block, compatible with the original
+	// interpreters: 256 flags, 255 object locations, then the object count.
+	uint8_t block[DDB_CLASSIC_SAVE_SIZE];
+	MemClear(block, sizeof(block));
+	MemCopy(block, i->flags, DDB_CLASSIC_FLAG_COUNT);
+	int objects = i->ddb->numObjects;
+	if (objects > DDB_CLASSIC_OBJLOC_MAX)
+		objects = DDB_CLASSIC_OBJLOC_MAX;
+	MemCopy(block + DDB_CLASSIC_FLAG_COUNT, i->objloc, objects);
+	block[DDB_CLASSIC_SAVE_SIZE - 1] = i->ddb->numObjects;	// OBJNO check byte
+
 	bool success = false;
 	File* file = File_Create((const char*)i->inputBuffer);
 	if (file != 0)
 	{
-		success = File_Write(file, i->buffer, i->saveStateSize) == i->saveStateSize;
+		success = File_Write(file, block, sizeof(block)) == sizeof(block);
 		File_Close(file);
 		OSSyncFS();
 	}

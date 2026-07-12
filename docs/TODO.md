@@ -7,7 +7,7 @@
 [ ]	CPC: Support more snapshot formats 
 [x]	Add C64 snapshot support
 [x]	Add MSX snapshot support
-[ ] Amiga/DMG/DAT5: add support for half-brite mode (6 bitplanes)
+[x] Amiga/DMG/DAT5: add support for half-brite mode (6 bitplanes)
 [ ] Amiga/DMG/DAT5: add support for HAM mode w/ split screen
 
 ## PAWS
@@ -39,23 +39,23 @@
 [ ]	CPC: Weird differences in SHADE and INK (Chichen vs editor)
 
 [ ] Add support for multiple sentence conversations to PSI (Hobbit, PAWS A16)
-[ ] Honor palette range as it appears in .DAT files (AD didn't use it?)
+[x] Honor palette range as it appears in .DAT files (AD didn't use it?)
 [x] Amiga/ST: Ask for disk # when there are multiple DDB files but no corresponding DATs
-[ ] DOS: use fast VRAM copy in scroll
+[x] DOS: use fast VRAM copy in scroll
 [x] DOS: faster DISPLAY implementation using page 3 as buffer
-[ ] DOS: add fast direct IndexedX conversion/decompression paths for old graphics
-[ ] Fix LOAD/SAVE flow & make a compatible .SAV file format
+[x] DOS: add fast direct IndexedX conversion/decompression paths for old graphics
+[x] Fix LOAD/SAVE flow & make a compatible .SAV file format
 
 # Tools
 
-[ ] Write a compiler which supports version 1 files
+[x] Write a compiler which supports version 1 files
 [ ] DDB: Debugger (step by step, monitor flags & other state)
 
 DMG
 
 [x] Write/add sound to dat
-[ ] Support creation of EGA/CGA files and little endian .DATs
-[ ] Debug CGA red/blue flag
+[x] Support creation of EGA/CGA files and little endian .DATs
+[x] Debug CGA red/blue flag
 [ ] Debug other potential flags in file
 [x] Link entry to another one from command line
 [ ] Allow EGA/CGA palettes to be imported from JSON
@@ -65,13 +65,13 @@ DSK
 [x] Add interactive mode
 [x] Add help text for every subcommand
 [x] mkdisk: Allow selection of disk type
-[ ] FAT: Test & fix write support and mkdir/rmdir
-[ ] FAT: Fix adding multiple files to disk (overwrites existing!)
+[x] FAT: Test & fix write support and mkdir/rmdir
+[x] FAT: Fix adding multiple files to disk (overwrites existing!)
 [x] ADF: Disk creation support (w/special DSK tool syntax)
 [x] ADF: Write file support
 [x] ADF: File deletion support
 [x] ADF: Mkdir/rmdir
-[ ] CPC: Fails to identify master +3 disks
-[ ] CPC: Disk creation support 
-[ ] CPC: Write file support (should rename CPC to PCM?)
-[ ] CPC: File deletion support
+[x] CPC: Fails to identify master +3 disks
+[x] CPC: Disk creation support 
+[x] CPC: Write file support (should rename CPC to PCM?)
+[x] CPC: File deletion support
