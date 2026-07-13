@@ -30,6 +30,25 @@ PAPER	n
 
     The MS-DOS interpreter uses the parameter as-is in text mode.
 
+    The 8 bit interpreters use the same logical color scheme, but the
+    look-up table is not hardcoded: it is stored in the game's graphics
+    database (the footer word ADP calls "coltab"). The table starts with
+    a one byte prefix (a global bright flag on Spectrum, the border
+    color on MSX and C64) followed by the conversion entries:
+
+            Machine     Entries   Notes
+
+            Spectrum    8         Bit 3 of the parameter (bright) is
+                                  preserved and OR-ed over the result
+            MSX         16        TMS9918 colors; all games published
+                                  by Aventuras AD share the same table
+                                  (1 maps to 14, gray)
+            C64         16        CBM hardware colors
+
+    The CPC interpreter has no table at all: INK is masked to the pen
+    range (AND 3) and passed straight to the firmware, and the PCW
+    interpreter ignores INK entirely.
+
 
 
 MOUSE   flagno  op                  (Condact 0x56, replaces version 1 PROMPT)

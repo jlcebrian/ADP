@@ -1,0 +1,8 @@
+{
+    "fixture": "cozumel/msx/COZUMEL-MSX 2.CAS",
+    "shared": "cozumel/part2-amiga",
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "consumes": { "from": "cozumel/part1-msx", "file": "PART1ENDING.SAV" },
+    "timeout_seconds": 600
+}

@@ -1,0 +1,2350 @@
+****************************************
+         CHICHEN ITZA - I PARTE
+        ========================
+       Dirección: Andrés Samudio
+    Programación: Juan Manuel Medina
+          Gráficos: Paco Zarco
+             Carlos Marqués
+          Pruebas: Eva Samitier
+****************************************
+El Sabke Sagrado que serpentea entre la densa vegetación tropical haciendo de puente sobre torrentosos ríos te ha conducido a salvo hasta la meta de tu viaje: La mítica Chichén Itzá.
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. También puedes ver un plato. 
+Turno: 0
+> COGER PLATO
+Coges el plato.
+Turno: 1
+> EX PUERTA
+Hoy sólo quedan los muros del marco llenos de telarañas.
+Turno: 2
+> EX MUROS
+El marco está muy deteriorado. Las figuras de arácnidos que lo decoraban están muy estropeadas. Hay una bien conservada que está casi suelta. 
+Turno: 3
+> COGER FIGURA
+Coges la araña tallada.
+Turno: 4
+> N
+Bosque.
+Es una zona boscosa que por el Norte y Este empieza a ser ahogada por el avance de la intrincada maleza selvática y en la que aún resisten, entre las especies cultivadas antaño, algunos elegantes guamos. 
+Turno: 5
+> EX GUAMO
+Arbol de alto tronco delgado y amplias ramas cargadas de enormes vainas.
+Turno: 6
+> SACUDIR GUAMO
+Una de las enormes vainas cae al suelo.
+Turno: 7
+> COGER VAINA
+Coges la vaina de guama.
+Turno: 8
+> S
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. 
+Turno: 9
+> PONER VAINA EN PLATO
+Pones la vaina de guama en el plato.
+Turno: 10
+> MACHACAR VAINA CON ARANA
+Machacas la vaina y un líquido espeso brota de ella llenando el plato.
+Turno: 11
+> UNTAR LIQUIDO
+Te untas el espeso mucílago de guama.
+Turno: 12
+> DEJAR ARANA
+Dejas la araña tallada.
+Turno: 13
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. También puedes ver un panal abandonado. 
+Turno: 14
+> O
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Quetzalcoatl-Kukulkan, dios mesoamericano.
+Oyes su voz: "Encuentra mi lugar de reposo".
+Explanada de Ucyabnal.
+La aparición se esfuma.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 15
+> O
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Quetzalcoatl-Kukulkan. Oyes su voz: "Trae la bebida de los dioses y te ayudaré".
+Templo Superior.
+La aparición se esfuma.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una piedra marrón. 
+Turno: 16
+> COGER PIEDRA
+Coges la piedra marrón.
+Turno: 17
+> E
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 18
+> N
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiyaoyotl, jefe del Clan Aguila.
+Oyes su voz: "Encuentra mi arma".
+Templo de los Guerreros.
+La aparición se esfuma.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 19
+> S
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 20
+> O
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 21
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 22
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Se va reuniendo una bruma que se condensa en una figura.
+Son dos Tlamatimine, altos sacerdotes Mayas.
+Oyes su voz: "Encuentra nuestro tesoro".
+Frente al Sepulcro.
+La aparición se esfuma.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 23
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 24
+> RS
+Vale.
+Turno: 25
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 26
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 27
+> EX URNA
+Pequeña y destinada a transmutaciones mágicas. Está vacía.
+Turno: 28
+> PONER PIEDRA EN URNA
+Pones la piedra marrón en la urna.
+Turno: 29
+La piedra marrón se transforma en el ónice.
+> COGER ONICE
+Coges el ónice.
+Turno: 30
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. 
+Turno: 31
+> EX SIMBOLOS
+Lineas y tramas se entremezclan en una confusa amalgama.
+Turno: 32
+> EX ALTAR
+Copita pétrea de un metro de altura. Muy chamuscada. Está vacío.
+Turno: 33
+> MIRAR POR ONICE
+El color del cristal destaca una escena en la que se ve:
+A un personaje cogiendo un fruto de cacao.
+A un personaje cogiendo miel.
+A un personaje aromatizando la bebida con un pequeño fruto y finas cortezas.
+A Chac Mool recostado irradiando energía.
+A un dios bebiendo.
+Turno: 34
+> DEJAR ONICE
+Dejas el ónice.
+Turno: 35
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 36
+> O
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+Turno: 37
+> COGER VAINILLA Y CANELA
+Coges el fruto de vainilla.
+Turno: 38
+Coges la rama de canela.
+Turno: 39
+> RS
+Vale.
+Turno: 40
+> NE
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 41
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 41
+> RL
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+Turno: 40
+> ESPERAR
+El tiempo pasa...
+Turno: 41
+> NE
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 42
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 43
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 44
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 45
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 46
+> E
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 47
+> E
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. También puedes ver un panal abandonado. 
+Turno: 48
+> COGER PANAL
+Coges el panal abandonado.
+Turno: 49
+> E
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. También puedes ver una araña tallada. 
+Turno: 50
+> S
+Bosque.
+Antigua zona de cultivo casi ahogada por el espeso monte y donde subsisten árboles de belché y cacao. 
+Turno: 51
+> COGER CACAO
+Coges el fruto de cacao.
+Turno: 52
+> N
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. También puedes ver una araña tallada. 
+Turno: 53
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. 
+Turno: 54
+> O
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 55
+> O
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 56
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 57
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 58
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. También puedes ver una jarra. 
+Se va reuniendo una bruma que se condensa en una figura.
+Son Nokon Zibolab y Dazin Likor, los juerguistas borrachos.
+Oyes su voz: "Mort-tal, danoss humo, ¡Hics!".
+El Templo del Jaguar.
+La aparición se esfuma.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. También puedes ver una jarra. 
+Turno: 59
+> COGER JARRA
+Coges la jarra.
+Turno: 60
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 61
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 62
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 63
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. 
+Turno: 64
+> EX ESTATUA
+De tamaño natural. Está recostado y con un cuenco en su regazo. 
+Turno: 65
+> ABRIR PANAL
+Vale.
+Turno: 66
+> EX PANAL
+Ha sido abandonado recientemente y está empezando a deteriorarse. Dentro hay miel.
+Turno: 67
+> PONER MIEL EN JARRA
+Vacías el panal abandonado en la jarra.
+Turno: 68
+> DEJAR PANAL
+Dejas el panal abandonado.
+Turno: 69
+> PONER VAINILLA EN JARRA
+Pones el fruto de vainilla en la jarra.
+Turno: 70
+> PONER CANELA EN JARRA
+Pones la rama de canela en la jarra.
+Turno: 71
+> PONER CACAO EN JARRA
+Pones el fruto de cacao en la jarra.
+Turno: 72
+> PONER JARRA EN CUENCO
+Pones la jarra en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 73
+> COGER JARRA
+Coges la jarra.
+Turno: 74
+> EX JARRA
+Su elegante diseño y decoración indican que fué usada para ofrendas a los dioses. Dentro hay chocolate caliente. 
+Turno: 75
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 76
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 77
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Quetzalcoatl-Kukulkan. Oyes su voz: "Toma mi Presente, gíralo y vive el Pasado".
+Templo Superior.
+La aparición se esfuma.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver un anillo. 
+Turno: 78
+> COGER ANILLO
+Coges el anillo.
+Turno: 79
+> PONER ANILLO
+Te pones el anillo.
+Turno: 80
+> E
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 81
+> N
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 82
+> SUBIR
+Plataforma Superior.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. También puedes ver una lanceta. 
+Turno: 83
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiyaoyotl. Oyes su voz: "Debo purificar mi cuchillo profanado".
+Plataforma Superior.
+La aparición se esfuma.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. También puedes ver una piedra roja y una lanceta. 
+Turno: 84
+> COGER PIEDRA
+Coges la piedra roja.
+Turno: 85
+> BAJAR
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 86
+> O
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 87
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 88
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 89
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 90
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 91
+> RS
+Vale.
+Turno: 92
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 93
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 94
+> PONER PIEDRA EN URNA
+Pones la piedra roja en la urna.
+Turno: 95
+La piedra roja se transforma en el rubí.
+> COGER RUBI
+Coges el rubí.
+Turno: 96
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice. 
+Turno: 97
+> MIRAR POR RUBI
+El color del cristal destaca una escena en la que se ve:
+A un personaje cogiendo una flor de peyotl.
+A Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la ingestión de una flor de peyotl desecada.
+Turno: 98
+> DEJAR RUBI
+Dejas el rubí.
+Turno: 99
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 100
+> S
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 101
+> S
+Casa de las doncellas.
+Un ruinoso interior es todo lo que queda del elegante palacio que antaño albergó a las vírgenes del sol. También puedes ver una vasija. 
+Turno: 102
+> COGER VASIJA
+Coges la vasija.
+Turno: 103
+> EX VASIJA
+Para fermentar bebidas. Está vacía.
+Turno: 104
+> N
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 105
+> N
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 106
+> RS
+Vale.
+Turno: 107
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 108
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 108
+> RL
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 107
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 108
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 108
+> RL
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 107
+> ESPERAR
+El tiempo pasa...
+Turno: 108
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 109
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 110
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 111
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 112
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 113
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 114
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 115
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 116
+> S
+Interior del Templo.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. 
+Se va reuniendo una bruma que se condensa en una figura.
+Son Nokon Zibolab y Dazin Likor. Oyes su voz: "Por un figarro te daremos el poder del pfuego".
+Interior del Templo.
+La aparición se esfuma.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. 
+Turno: 117
+> N
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 118
+> N
+Estadio.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. 
+Turno: 119
+> EX CACTUS
+Son cactus enanos de peyotl, sin espinas y con una flor.
+Turno: 120
+> COGER FLOR
+Coges la flor de peyotl.
+Turno: 121
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Hunhun-Ahpu, gran jugador de Tlachtli.
+Oyes su voz: "Trae una pelota de caucho".
+Estadio.
+La aparición se esfuma.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. 
+Turno: 122
+> S
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 123
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 124
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 125
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 126
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un panal abandonado. 
+Turno: 127
+> PONER FLOR EN PLATO
+Pones la flor de peyotl en el plato.
+Turno: 128
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 129
+> COGER PLATO
+Coges el plato.
+Turno: 130
+> EX PLATO
+De durísima obsidiana. Su uso principal estaba destinado a la preparación de diversas sustancias para ritos religiosos. Usarlo para algo tan vulgar como comer era un sacrilegio castigado con la muerte. Dentro hay un botón de mescal. 
+Turno: 131
+> COGER BOTON
+Coges el botón de mescal.
+Turno: 132
+> DEJAR PLATO
+Dejas el plato.
+Turno: 133
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 134
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 135
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 136
+> O
+Explanada de las Aguilas.
+La explanada de las Aguilas está al Oeste de la Pirámide. Es llamada así porque en ella hay varias representaciones de estas veneradas rapaces. 
+Turno: 137
+> COMER BOTON
+Te zampas el botón de mescal.
+La droga te pone en trance.
+Eres un águila que recoge un cuchillo de lo alto de una de las Mil Columnas y desciende.
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. También puedes ver un cuchillo. 
+Turno: 138
+> COGER CUCHILLO
+Coges el cuchillo.
+Turno: 139
+> O
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 140
+> O
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 141
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 142
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 143
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 144
+> RS
+Vale.
+Turno: 145
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 146
+> SO
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. También puedes ver una calabaza. 
+Turno: 147
+> COGER TABACL
+Coges la hoja de tabaco.
+Turno: 148
+> EX CALABAZA
+Del tamaño de una pelota y tiene un agujero. Está vacía.
+Turno: 149
+> COGER CALABAZA
+Coges la calabaza.
+Turno: 150
+> E
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 151
+> S
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiquétzal, diosa de las flores.
+Oyes su voz: "Dame un objeto de amor".
+Explanada de las Doncellas.
+La aparición se esfuma.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 152
+> S
+Casa de las doncellas.
+Un ruinoso interior es todo lo que queda del elegante palacio que antaño albergó a las vírgenes del sol. 
+Turno: 153
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiquétzal. Oyes su voz: "No debe ser valioso, pero si hermoso".
+Casa de las doncellas.
+La aparición se esfuma.
+Un ruinoso interior es todo lo que queda del elegante palacio que antaño albergó a las vírgenes del sol. También puedes ver un trozo de carbón. 
+Turno: 154
+> COGER CARBON
+Coges el trozo de carbón.
+Turno: 155
+> N
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 156
+> N
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 157
+> PONER CARBON EN URNA
+Pones el trozo de carbón en la urna.
+Turno: 158
+El trozo de carbón se transforma en el brillante.
+> COGER BRILLANTE
+Coges el brillante.
+Turno: 159
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice y un rubí. 
+Turno: 160
+> MIRAR POR BRILLANTE
+El color del cristal destaca una escena en la que se ve:
+A un personaje arrancando la corteza del tronco de un árbol.
+A un personaje cogiendo miel.
+A Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la ingestión de una bebida fermentada con aguamiel.
+Turno: 161
+> DEJAR BRILLANTE.
+Dejas el brillante.
+Turno: 162
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 163
+> RS
+Vale.
+Turno: 164
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 165
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 166
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 167
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 168
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 169
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 170
+> E
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 171
+> SUBIR
+Plataforma Superior.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. También puedes ver una lanceta. 
+Turno: 172
+> COGER LANCETA
+Coges la lanceta.
+Turno: 173
+> BAJAR
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 174
+> O
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 175
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 176
+> N
+Via Sagrada.
+La Via Sagrada, arteria principal de Chichén Itzá es todavía bastante amplia y está flanqueada por árboles de cahuchtl. También puedes ver una rosa. 
+Turno: 177
+> COGER ROSA
+Coges la rosa.
+Turno: 178
+> EX ARBOL
+De grueso tronco recubierto de corteza.
+Turno: 179
+> SANGRAR ARBOL CON LANCETA
+Sangras el árbol y brota una resina.
+Turno: 180
+> LLENAR CALABAZA CON RESINA
+Llenas la calabaza de resina de caucho.
+Turno: 181
+> S
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 182
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un plato y un panal abandonado. 
+Turno: 183
+> PONER CALABAZA EN CUENCO
+Pones la calabaza en el cuenco del Chac Mool.
+La energía actúa sobre la calabaza y se desintegra.
+En el cuenco queda una pelota de caucho.
+Turno: 184
+> COGER PELOTA
+Coges la pelota.
+Turno: 185
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 186
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 187
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 188
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 189
+> N
+Estadio.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Hunhun-Ahpu. Oyes su voz: "Toma la llave de tu destino".
+Estadio.
+La aparición se esfuma.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. También puedes ver una llave. 
+Turno: 190
+> COGER LLAVE
+Coges la llave.
+Turno: 191
+> S
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 192
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 193
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 194
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 195
+> DEJAR LLAVE
+Dejas la llave.
+Turno: 196
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 197
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 198
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un plato y un panal abandonado. 
+Turno: 199
+> PONER HOJA EN PLATO
+Pones la hoja de tabaco en el plato.
+Turno: 200
+> COGER PLATO
+Coges el plato.
+Turno: 201
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 202
+> COGER PLATO
+Coges el plato.
+Turno: 203
+> COGER HOJA
+Coges la hoja seca de tabaco.
+Turno: 204
+> DEJAR PLATO
+Dejas el plato.
+Turno: 205
+> LIAR CIGARRO
+Lías un puro.
+Turno: 206
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 207
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 208
+> DEJAR VASIJA
+Dejas la vasija.
+Turno: 209
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 210
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 211
+> S
+Interior del Templo.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. 
+Turno: 212
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Son Nokon Zibolab y Dazin Likor. Oyes su voz: "Ten la pfipa del pfuego et-terno".
+Interior del Templo.
+La aparición se esfuma.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. También puedes ver una pipa. 
+Turno: 213
+> COGER PIPA
+Coges la pipa.
+Turno: 214
+> N
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 215
+> N
+Estadio.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. 
+Turno: 216
+> EX MURO
+Cierra el juego por el Norte y tiene grabados de animales. En una grieta hay un panal del que entran y salen multitud de atareadas abejas. Por un momento consideras la posibilidad que abandonar la arquelología y dedicarte a la apicultura, pero consigues sobreponerte y continuar con la aventura.
+Turno: 217
+> COGER PANAL
+Las abejas se lanzan al ataque pero el apestoso humo de la pipa las pone en retirada.
+Coges el panal nuevo.
+Turno: 218
+> S
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 219
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 220
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. También puedes ver una vasija. 
+Turno: 221
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 222
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 223
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 224
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 225
+> O
+Chichanchob.
+En las excavaciones hechas en el interior se han descubierto instrumentos que confirman que fue una especie de hospital. También puedes ver una manta. 
+Turno: 226
+> GIRAR ANILLO
+Visiones del vivo pasado irrumpen súbitamente.
+Pero pronto vuelves a las solitarias ruinas.
+Turno: 227
+> COGER PIEDRA VERDE
+¡No está a tu alcance!
+Turno: 228
+> E
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 229
+> RS
+Vale.
+Turno: 230
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 231
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 231
+> RL
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 230
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 231
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 232
+> PONER PIEDRA EN URNA
+Pero... ¡si no lo tienes!
+Turno: 233
+> COGER ESMERALDA
+¡No está a tu alcance!
+Turno: 234
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí y un brillante. 
+Turno: 235
+> MIRAR POR ESMERALDA
+No puedes hacerlo.
+Turno: 236
+> DEJAR ESMERALDA
+Pero... ¡si no lo tienes!
+Turno: 237
+> DEJAR PIPA.
+Dejas la pipa.
+Turno: 238
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 239
+> RS
+Vale.
+Turno: 240
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 241
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 241
+> RL
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 240
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 241
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 242
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 243
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 244
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 245
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. También puedes ver una vasija. 
+Turno: 246
+> COGER VASIJA
+Coges la vasija.
+Turno: 247
+> E
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 248
+> S
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 249
+> E
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. 
+Turno: 250
+> E
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. 
+Turno: 251
+> S
+Bosque.
+Antigua zona de cultivo casi ahogada por el espeso monte y donde subsisten árboles de belché y cacao. 
+Turno: 252
+> EX BELCHE
+De grueso tronco recubierto de corteza.
+Turno: 253
+> COGER CORTEZA CON LANCETA
+Coges la corteza de belché.
+Turno: 254
+> N
+Puerta de las Arañas.
+Este claro ante la Puerta de las Arañas está casi invadido por la selva. Hacia el Sur todavía queda un poco de bosque limítrofe y hacia el Este el Sabke se aleja hacia los Templos Sagrados. 
+Turno: 255
+> O
+Los fuertes efluvios del mucílago de guama mantienen las Viudas Negras a raya.
+Mil columnas central.
+Esta zona llena de columnas era el sitio de reunión de las órdenes militares y zona de entrada hacia la ciudad. 
+Turno: 256
+> O
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 257
+> S
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 258
+> S
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es el dios Tlaloc, señor de la lluvia.
+Oyes su voz: "Trae el Sudor del Sol".
+Camino del agua.
+La aparición se esfuma.
+Este sendero unía el centro comercial con el agua. 
+Turno: 259
+> S
+Cenote de Xtloloc.
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. 
+Turno: 260
+> PONER CORTEZA EN VASIJA
+Pones la corteza de belché en la vasija.
+Turno: 261
+> ABRIR PANAL
+Vale.
+Turno: 262
+> PONER MIEL EN VASIJA
+Llenas la vasija desde el panal nuevo.
+Turno: 263
+> LLENAR VASIJA CON AGUA
+Mezclas el agua con la miel.
+Turno: 264
+> N
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 265
+> N
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 266
+> N
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 267
+> N
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 268
+> O
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 269
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 270
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un plato y un panal abandonado. 
+Turno: 271
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 272
+> COGER VASIJA
+Coges la vasija.
+Turno: 273
+> EX VASIJA
+Para fermentar bebidas. Dentro hay bebida de belché. 
+Turno: 274
+> BEBER BELCHE
+Bebes un trago de bebida de belché.
+La droga te pone en trance.
+Ves una flor natural convertirse en piedra al tocar una flor tallada.
+Turno: 275
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 276
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 277
+> EX CONOS
+De piedra. La flor grabada es un simbolismo femenino ligado a la fertilidad.
+Turno: 278
+> TOCAR CONO CON ROSA
+La rosa se petrifica al contacto con el cono. 
+Turno: 279
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 280
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 281
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 282
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 283
+> RS
+Vale.
+Turno: 284
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 285
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 286
+> S
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 287
+> S
+Casa de las doncellas.
+Un ruinoso interior es todo lo que queda del elegante palacio que antaño albergó a las vírgenes del sol. 
+Turno: 288
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiquétzal. Oyes su voz: "Toma la borla e ilumina la oscura losa".
+Casa de las doncellas.
+La aparición se esfuma.
+Un ruinoso interior es todo lo que queda del elegante palacio que antaño albergó a las vírgenes del sol. También puedes ver una borla de algodón. 
+Turno: 289
+> COGER BORLA
+Coges la borla de algodón.
+Turno: 290
+> N
+Explanada de las Doncellas.
+La última explanada del sur es la de las Doncellas, pequeño patio dominado por el edificio "de las monjas". Su parte superior se ha derrumbado. 
+Turno: 291
+> N
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 292
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un brillante y una pipa. 
+Turno: 293
+> DEJAR BORLA
+Dejas la borla de algodón.
+Turno: 294
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 295
+> O
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+Turno: 296
+> COGER MAHIS
+Coges la mazorca de maíz.
+Turno: 297
+> RS
+Vale.
+Turno: 298
+> NE
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 299
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 299
+> RL
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+Turno: 298
+> NE
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 299
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 299
+> RL
+Antiguo Jardin.
+Aunque la maleza tropical lo ha invadido todo, se sabe que esta zona fue un antiguo vivero, orgullo de los sabios que trabajaban en el Observatorio. Hoy dia han vuelto a nacer, quizá provenientes de antiguas semillas, algunos arbustos de canela y vainilla, así como algunas plantas de tabacl y mahis. 
+Turno: 298
+> NE
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 299
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 300
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 301
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 302
+> E
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 303
+> S
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 304
+> S
+Cenote de Xtloloc.
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. 
+Turno: 305
+> PONER MIEL EN VASIJA
+Vacías el panal nuevo en la vasija.
+Turno: 306
+> DEJAR PANAL
+Dejas el panal nuevo.
+Turno: 307
+> PONER MAZORCA EN VASIJA
+Pones la mazorca de maíz en la vasija.
+Turno: 308
+> LLENAR VASIJA CON AGUA
+Mezclas el agua con la miel.
+Turno: 309
+> N
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 310
+> N
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 311
+> O
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 312
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 313
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 314
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 315
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un plato y un panal abandonado. 
+Turno: 316
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 317
+> COGER VASIJA
+Coges la vasija.
+Turno: 318
+> EX VASIJA
+Para fermentar bebidas. Dentro hay chicha. 
+Turno: 319
+> BEBER CHICHA
+Bebes un trago de chicha.
+La droga te pone en trance.
+Te detienes en el hace siglos bullicioso mercado para comprar una preciosa ampolla. Te vuelves para salir y la ampolla se desvanece entre tus manos mientras la voz de Kukulkan te susurra: "En el mismo lugar en el futuro lejano".
+Turno: 320
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 321
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 322
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 323
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 324
+> E
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 325
+> GIRAR ANILLO
+Visiones del vivo pasado irrumpen súbitamente.
+Pero pronto vuelves a las solitarias ruinas.
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela y un tarro. 
+Turno: 326
+> COGER TARRO
+Coges el tarro.
+Turno: 327
+> EX TARRO
+Contiene una pasta usada como disolvente. 
+Turno: 328
+> O
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 329
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 330
+> O
+Sepulcro.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. 
+Turno: 331
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Son dos Tlamatimine. Oyes su voz: "En este arcón descansaba el pectoral real que robamos. Ayúdanos a reponerlo y te mostraremos el camino a las minas reales".
+Sepulcro.
+La aparición se esfuma.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. También puedes ver una piedra amarillenta. 
+Turno: 332
+> COGER PIEDRA
+Coges la piedra amarillenta.
+Turno: 333
+> E
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 334
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 335
+> RS
+Vale.
+Turno: 336
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 337
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 337
+> RL
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 336
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 337
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 337
+> RL
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 336
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 337
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 338
+> PONER PIEDRA EN URNA
+Pones la piedra amarillenta en la urna.
+Turno: 339
+La piedra amarillenta se transforma en el zafiro.
+> COGER ZAFIRO
+Coges el zafiro.
+Turno: 340
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un brillante, una pipa y una borla de algodón. 
+Turno: 341
+> MIRAR POR ZAFIRO
+El color del cristal destaca una escena en la que se ve:
+A un personaje sangrando el tronco de un árbol.
+A Chac Mool recostado irradiando energía.
+A un personaje entrando en trance por la aspiración de un humo espeso.
+Turno: 342
+> DEJAR ZAFIRO
+Dejas el zafiro.
+Turno: 343
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 344
+> RS
+Vale.
+Turno: 345
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 346
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 346
+> RL
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 345
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 346
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 347
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 348
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 349
+> E
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 350
+> S
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 351
+> S
+Cenote de Xtloloc.
+El cenote de Xtloloc es hoy una apacible laguna rodeada de árboles de copalli, pero antaño cumplía una importantísima función pública y sus cristalinas aguas tenían una merecida fama en toda la región debido al excelente sabor que daban a las ofrendas. También puedes ver un panal nuevo. 
+Turno: 352
+> EX ARBOL
+De grueso tronco recubierto de corteza.
+Turno: 353
+> SANGRAR ARBOL
+Sangras el árbol y brota una resina.
+Turno: 354
+> LLENAR VASIJA CON RESINA
+Llenas la vasija de resina de copal.
+Turno: 355
+> DEJAR LANCETA
+Dejas la lanceta.
+Turno: 356
+> N
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 357
+> N
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 358
+> GIRAR ANILLO
+Visiones del vivo pasado irrumpen súbitamente.
+Pero pronto vuelves a las solitarias ruinas.
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela y una ampolla. 
+Turno: 359
+> COGER AMPOLLA
+Coges la ampolla.
+Turno: 360
+> O
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 361
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 362
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 363
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 364
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver un plato y un panal abandonado. 
+Turno: 365
+> PONER VASIJA EN CUENCO
+Pones la vasija en el cuenco del Chac Mool.
+El cuenco humea.
+El espeso humo llena la estancia.
+Te duermes, y en tu sueño, ves a los Sacerdotes  abriendo la tapa falsa de una de las bancadas del graderío del juego de pelota y ocultando un valioso objeto dentro.
+Turno: 366
+> COGER VASIJA
+Coges la vasija.
+Turno: 367
+> DEJAR VASIJA
+Dejas la vasija.
+Turno: 368
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 369
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 370
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 371
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 372
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 373
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Ipoc Klatex, el más afamado médico Maya.
+Oyes su voz: "Tráeme la medicina que no usé".
+Frente al Chichanchob.
+La aparición se esfuma.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 374
+> O
+Chichanchob.
+En las excavaciones hechas en el interior se han descubierto instrumentos que confirman que fue una especie de hospital. También puedes ver una manta. 
+Turno: 375
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Ipoc Klatex. Oyes su voz: "La sabiduría que buscas flota sobre el agua sagrada".
+Chichanchob.
+La aparición se esfuma.
+En las excavaciones hechas en el interior se han descubierto instrumentos que confirman que fue una especie de hospital. También puedes ver una manta. 
+Turno: 376
+> E
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 377
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 378
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 379
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 380
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 381
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 382
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 383
+> N
+Estadio.
+El estadio del juego de la pelota o Campo de Tlachtli tiene una cancha en forma de doble T y bancadas laterales formando gradas. Al Norte hay un alto muro y en su árido suelo crecen algunos cactus. 
+Turno: 384
+> EX BANCADAS
+Largas hileras de piedra escalonadas formando gradas para el sufrido público.
+Animado por tu visión, te armas de paciencia y comienzas a buscar la bancada hueca. Tras decorar con la piel de tus nudillos un par de filas, das al fin con ella.
+Turno: 385
+> EX BANCADA
+Es un lugar ideal para esconder cosas (siempre que no haya un espectador sentado encima). Está cerrada. 
+Turno: 386
+> ABRIR BANCADA
+La tapa está sellada.
+Turno: 387
+> VERTER PASTA EN BANCADA
+Viertes unas gotas de disolvente que inmediatamente se volatiliza.
+Turno: 388
+> ABRIR BANCADA
+Vale.
+Turno: 389
+> EX BANCADA
+Es un lugar ideal para esconder cosas (siempre que no haya un espectador sentado encima). Está abierta. Dentro hay un pectoral real. 
+Turno: 390
+> COGER PECTORAL
+Coges el pectoral real.
+Turno: 391
+> S
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 392
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 393
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 394
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 395
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 396
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 397
+> O
+Sepulcro.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. 
+Turno: 398
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Son dos Tlamatimine. Oyes su voz: "El tesoro ha vuelto a su sitio. El paso hacia la mina de Cristal Mágico te ha sido abierto".
+Sepulcro.
+La aparición se esfuma.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. Un pasadizo descendente se abre en una de las paredes. 
+Turno: 399
+> E
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 400
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 401
+> RS
+Vale.
+Turno: 402
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 403
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 403
+> RL
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 402
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 403
+> O
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 404
+> SUBIR
+Cúpula del Observatorio.
+La Cúpula tiene paredes semicirculares con ventanas alargadas que permiten una mejor observación. También puedes ver un sol de oro y una serpiente de jade. 
+Turno: 405
+> COGER SOL
+Coges el sol de oro.
+Turno: 406
+> BAJAR
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 407
+> RS
+Vale.
+Turno: 408
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+> RL
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 408
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+> RL
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 408
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+> RL
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 408
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+Se va reuniendo una bruma que se condensa en una figura.
+Es Coatlicue, la Madre Loca de las Serpientes.
+Oyes su voz: "Mortal", aulla la aparición, "Nos confiscamos lo que lleváis vos".
+Explanada del Observatorio.
+La aparición se esfuma.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+> RL
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 408
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 409
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 410
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 411
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 412
+> E
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 413
+> GIRAR ANILLO
+Visiones del vivo pasado irrumpen súbitamente.
+Pero pronto vuelves a las solitarias ruinas.
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela y un frasco. 
+Turno: 414
+> COGER FRASCO
+Coges el frasco.
+Turno: 415
+> EX FRASCO
+Estos pequeños frasquitos, de estrechísima boca, contienen aceites destinados, como uso sagrado, a la purificación de utensilios y, como uso profano, para facilitar el rodamiento de las muchas superficies pétreas. 
+Turno: 416
+> S
+Camino del agua.
+Este sendero unía el centro comercial con el agua. 
+Turno: 417
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es el dios Tlaloc. Oyes su voz: "Cubre el sol y vendrá la tormenta".
+Camino del agua.
+La aparición se esfuma.
+Este sendero unía el centro comercial con el agua. 
+Turno: 418
+> N
+Antiguo Mercado.
+El antaño bullicioso mercado no es hoy más que un amplio recinto vacío. Su suelo ha revelado restos de granos, tintes y especias. También puedes ver una cazuela. 
+Turno: 419
+> O
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 420
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 421
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 422
+> O
+Chichanchob.
+En las excavaciones hechas en el interior se han descubierto instrumentos que confirman que fue una especie de hospital. También puedes ver una manta. 
+Turno: 423
+> COGER MANTA
+Coges la manta.
+Turno: 424
+> E
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 425
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 426
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 427
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver una llave. 
+Turno: 428
+> PURIFICAR CUCHILLO
+Viertes unas gotas de aceite sagrado que inmediatamente se volatiliza.
+El cuchillo ha sido purificado.
+Turno: 429
+> DEJAR FRASCO
+Dejas el frasco.
+Turno: 430
+> E
+Explanada de Ucyabnal.
+La explanada de Ucyabnal es una terraza que une las Mil Columnas con la imponente Pirámide central. 
+Turno: 431
+> N
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 432
+> SUBIR
+Plataforma Superior.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. 
+Turno: 433
+> GIRAR ANILLO
+Se va reuniendo una bruma que se condensa en una figura.
+Es Xochiyaoyotl. Oyes su voz: "En agradecimiento te doy protección contra el exceso de luz".
+Plataforma Superior.
+La aparición se esfuma.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. También puedes ver un prisma de metal. 
+Turno: 434
+> COGER PRISMA
+Coges el prisma de metal.
+Turno: 435
+> E
+Interior del Templo.
+El interior del Templo es una amplia estancia en semipenumbra en la que destacan varias columnas con evidente función simbólica. También puedes ver una escudilla y un mazo. 
+Se va reuniendo una bruma que se condensa en una figura.
+Es Quetzalcoatl-Kukulkan. Oyes su voz: "Donde el Norte se encuentra con el Sureste está mi lugar de reposo".
+Interior del Templo.
+La aparición se esfuma.
+El interior del Templo es una amplia estancia en semipenumbra en la que destacan varias columnas con evidente función simbólica. También puedes ver una escudilla y un mazo. 
+Turno: 436
+> COGER MAZO
+Coges el mazo.
+Turno: 437
+> O
+Plataforma Superior.
+La Terraza Superior del Templo de los Guerreros está adornada con una estatua yacente. Al Este está el pórtico que lleva al interior. 
+Turno: 438
+> BAJAR
+Templo de los Guerreros.
+El Templo de los Guerreros tiene una escalinata de acceso flanqueada por columnas. Forma la esquina Nororiental del complejo arquitectónico. 
+Turno: 439
+> O
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 440
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 441
+> N
+Via Sagrada.
+La Via Sagrada, arteria principal de Chichén Itzá es todavía bastante amplia y está flanqueada por árboles de cahuchtl. 
+Turno: 442
+> N
+Cenote Sagrado.
+Las turbias aguas del Cenote Sagrado quedan al fondo de un profundo semicírculo arbolado. En la zona alta hay un monumento al disco solar. 
+Turno: 443
+> EX DISCO
+Réplica en piedra del disco solar.
+Turno: 444
+> CUBRIR DISCO
+Tapas el disco solar con la manta.
+Turno: 445
+Estalla una tormenta sobre el cenote sagrado y un rayo derriba un árbol.
+> BAJAR
+Al borde del agua.
+Las sucias aguas del cenote son bastante desagradables si se piensa cual ha podido ser la causa (sacrificios) de la polución. También puedes ver un cilindro de madera. 
+Turno: 446
+> COGER CILINDRO
+Coges el cilindro de madera.
+Turno: 447
+> SUBIR
+Cenote Sagrado.
+Las turbias aguas del Cenote Sagrado quedan al fondo de un profundo semicírculo arbolado. En la zona alta hay un monumento al disco solar. Un árbol abatido por la tormenta llega hasta el agua del cenote. El disco está tapado con la manta. 
+Turno: 448
+> EX CILINDRO
+Cilindro artificial muy pulido. Está sellado herméticamente con una sustancia serosa endurecida.
+Turno: 449
+> VERTER PASTA EN CILINDRO
+Viertes unas gotas de disolvente que inmediatamente se volatiliza.
+La tapa se disuelve.
+Turno: 450
+> EX CILINDRO
+Cilindro artificial muy pulido. Está abierto. Dentro hay un códice. 
+Turno: 451
+> COGER CODICE
+Coges el códice.
+Turno: 452
+> DEJAR CILINDRO Y TARRO
+Dejas el cilindro de madera.
+Turno: 453
+Dejas el tarro.
+Turno: 454
+> S
+Via Sagrada.
+La Via Sagrada, arteria principal de Chichén Itzá es todavía bastante amplia y está flanqueada por árboles de cahuchtl. 
+Turno: 455
+> S
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 456
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 457
+> O
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 458
+> O
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 459
+> S
+Interior del Templo.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. 
+Turno: 460
+> SUBIR
+Altar Superior.
+El misterioso recinto superior era una zona favorable a todo tipo de experiencias místicas. También puedes ver un cazo y un escoplo. 
+Turno: 461
+> COGER ESCOPLO
+Coges el escoplo.
+Turno: 462
+> BAJAR
+Interior del Templo.
+El piso inferior era un almacén profano donde se guardaban animales y ofrendas para los ritos de la zona superior. 
+Turno: 463
+> N
+El Templo del Jaguar.
+El Templo del Jaguar tiene dos pisos bien conservados y está situado al Noroeste del complejo. 
+Turno: 464
+> E
+Tzompantli.
+El Tzompantli, o zona de las calaveras, es llamada así por la multitud de craneos encontrados, tanto de piedra como de hueso. En uno de sus lados hay una fosa. 
+Turno: 465
+> E
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 466
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver un frasco y una llave. 
+Turno: 467
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 468
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 469
+> O
+Sepulcro.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. Un pasadizo descendente se abre en una de las paredes. 
+Turno: 470
+> BAJAR
+Gruta.
+En esta gruta, de paredes enriquecidas por brillantes vetas de cristal de roca, se encontró a principios de siglo un enterramiento con ofrendas de tal calidad que demostraron la importancia que tenía el gran Sacerdote. Posteriormente la entrada fue cegada y, a pesar de varios intentos, no se había vuelto a encontrar. 
+Turno: 471
+> PICAR VETA
+Usando el mazo y el escoplo arrancas un trozo de cristal.
+Turno: 472
+> COGER CRISTAL
+Coges el trozo de cristal.
+Turno: 473
+> DEJAR MAZO Y ESCOPLO
+Dejas el mazo.
+Turno: 474
+Dejas el escoplo.
+Turno: 475
+> SUBIR
+Sepulcro.
+Esta estancia de bajo techo y empedradas paredes ha sido llamada el Sepulcro porque en ella se han encontrado algunas tumbas sacerdotales. Un pasadizo descendente se abre en una de las paredes. 
+Turno: 476
+> E
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 477
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 478
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver un frasco y una llave. 
+Turno: 479
+> N
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 480
+> N
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 481
+> E
+Altar de Chac Mool.
+El altar de Chac Mool está dominado por la estatua de su dios. En todo el lugar se percibe una sensación de energía contenida. También puedes ver una vasija, un plato y un panal abandonado. 
+Turno: 482
+> PONER CRISTAL EN PLATO
+Pones el trozo de cristal en el plato.
+Turno: 483
+> COGER PLATO
+Coges el plato.
+Turno: 484
+> PONER PLATO EN CUENCO
+Pones el plato en el cuenco del Chac Mool.
+El cuenco humea.
+Turno: 485
+> COGER PLATO
+Coges el plato.
+Turno: 486
+> EX PLATO
+De durísima obsidiana. Su uso principal estaba destinado a la preparación de diversas sustancias para ritos religiosos. Usarlo para algo tan vulgar como comer era un sacrilegio castigado con la muerte. Dentro hay un trozo de cuarzo. 
+Turno: 487
+> COGER CUARZO
+Coges el trozo de cuarzo.
+Turno: 488
+> DEJAR PLATO
+Dejas el plato.
+Turno: 489
+> METER CUARZO EN PRISMA
+El trozo de cuarzo encaja a la perfección en el prisma. Te has construido un observador.
+Turno: 490
+> O
+Frente a los Tres Dinteles.
+En el inicio de la Vía Sagrada está el templo de los Tres Dinteles, copia del de Labná. 
+Turno: 491
+> S
+Explanada de los Conos.
+La explanada de los Conos, al Norte de la Pirámide, tiene cientos de conos de piedra semienterrados. 
+Turno: 492
+> S
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver un frasco y una llave. 
+Turno: 493
+> S
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 494
+> S
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 495
+> S
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 496
+> RS
+Vale.
+Turno: 497
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 498
+> RL
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 497
+> S
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 498
+> S
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 499
+> E
+Frente al Akab D'zib.
+Del Akab D'zib o edificio de las Escrituras Oscuras sólo queda su imponente fachada cubierta de símbolos y un pequeño altar frente a ella. También puedes ver un ónice, un rubí, un zafiro, un brillante, una pipa y una borla de algodón. 
+Turno: 500
+> COGER BORLA Y PIPA
+Coges la borla de algodón.
+Turno: 501
+Coges la pipa.
+Turno: 502
+> PONER BORLA EN ALTAR
+Pones la borla de algodón en el altar.
+Turno: 503
+> ENCENDER BORLA
+Enciendes la borla de algodón.
+La borla encendida ilumina los simbolos del Akab destacando relieves antes desapercibidos.
+Turno: 504
+> DEJAR PIPA
+Dejas la pipa.
+Turno: 505
+> O
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 506
+> RS
+Vale.
+Turno: 507
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 508
+> RL
+Piedras Viejas.
+La explanada de las Piedras Viejas tiene en el centro una pequeña urna. 
+Turno: 507
+> N
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 508
+> O
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 509
+> SUBIR
+Cúpula del Observatorio.
+La Cúpula tiene paredes semicirculares con ventanas alargadas que permiten una mejor observación. También puedes ver una serpiente de jade. 
+Turno: 510
+> MIRAR POR OBSERVADOR N
+Hermosa vista ampliada del Juego de Pelota y el Muro. Distingues un grupo de bajorrelieves, pero en el centro se destaca la figura de una ovejita.
+Turno: 511
+> MIRAR POR OBSERVADOR SE
+Hermosa vista ampliada del Akab D'zib.
+Distingues un grupo de bajorrelieves, pero en el centro se destaca la figura de una araña.
+Turno: 512
+> EX CODICE
+Sólo queda una zona con nombres:
+0 .- una serpiente.
+1 .- un águila.
+2 .- un jaguar.
+3 .- un mono.
+4 .- un cocodrilo.
+5 .- una araña.
+6 .- un escorpión.
+7 .- un loro.
+8 .- una ovejita.
+9 .- un tiburón.
+Turno: 513
+> BAJAR
+Escalera Interior.
+El oscuro interior está dominado por una escalera helicoidal a la que se debe el sobrenombre del caracol. 
+Turno: 514
+> RS
+Vale.
+Turno: 515
+> E
+Explanada del Observatorio.
+Las explanadas reciben nombre según el edificio frente al que se encuentran. Desde la del Observatorio vemos el Caracol, gran torreón circular dedicado a la observación de los astros. 
+Turno: 516
+> N
+Frente al Chichanchob.
+La Ruta Sur pasa frente al Chichanchob o Casa Colorada. Algunas inscripciones en sus paredes sugieren que fue un lugar de curación. 
+Turno: 517
+> N
+Frente al Sepulcro.
+La Ruta Sur pasa frente al Sepulcro del Gran Sacerdote, edificio construido alrededor de un nucleo macizo que es lo único que hoy dia puede visitarse. 
+Turno: 518
+> N
+Explanada Sur del Castillo.
+La explanada del Castillo, dominada al norte por la colosal Pirámide, es un amplio patio desde el que arranca la ruta Sur. 
+Turno: 519
+> N
+Templo Superior.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. También puedes ver un frasco y una llave. 
+Turno: 520
+> COGER FRASCO Y LLAVE
+Coges el frasco.
+Turno: 521
+Coges la llave.
+Turno: 522
+> EX SUELO
+Las losas forman un tablero.
+Turno: 523
+> EX LOSAS
+Para referirte a una losa determinada usa "ABRIR CIFRA1 CIFRA2".
+Turno: 524
+> EX PARED
+Una tiene una chapa con una ranura.
+Turno: 525
+> EX RANURA
+Grande y oxidada.
+Turno: 526
+> METER LLAVE EN RANURA
+Metes la llave en la ranura pero no consigues girarla.
+Turno: 527
+> VERTER ACEITE EN RANURA
+Viertes unas gotas de aceite sagrado que inmediatamente se volatiliza.
+Turno: 528
+> METER LLAVE EN RANURA
+Metes la llave en la ranura y la giras y oyes un roce de piedras.
+Turno: 529
+> ABRIR 8 5
+Levantas la losa y descubres un pasadizo hacia las entrañas de la pirámide.
+Turno: 530
+> BAJAR
+Se va reuniendo una bruma que se condensa en una figura.
+Es Quetzalcoatl-Kukulkan. Oyes su voz: "Quédate sólo con la Rueda del Destino".
+Templo Superior.
+La aparición se esfuma.
+La hábil distribución de la luz resalta el volumen de los pilares, la penumbra de las paredes y el extraño suelo. 
+Turno: 531
+> DEJAR TODO
+Dejas el frasco.
+Dejas el observador.
+Dejas el códice.
+Dejas la llave.
+Turno: 532
+> BAJAR
+Te sumerges en el caótico nucleo del Más Allá Maya.
+La clave es RICO PAPASITO.
+¿Lo intentas otra vez? (Si/No)
+> N

@@ -884,6 +884,8 @@ extern bool             DDB_LoadSnapshot         (File* file, const char* filena
 #if HAS_DRAWSTRING
 extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, DDB_Version version, const uint8_t* data, size_t size);
 extern bool             DDB_HasVectorPicture     (uint8_t picno);
+extern bool             DDB_HasVectorWindow      (uint8_t picno);
+extern const uint8_t*   DDB_GetVectorInkMap      ();
 extern bool             DDB_DrawVectorPicture    (uint8_t picno);
 extern bool             DDB_HasVectorDatabase    ();
 extern bool             DDB_WriteVectorDatabase  (const char* filename);

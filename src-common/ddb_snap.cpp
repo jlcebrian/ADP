@@ -733,10 +733,10 @@ static bool LoadSnapshotFromTZX (File* file)
 //
 // A .cdt is a TZX-family tape. CPC DAAD games use a custom turbo loader whose
 // payload is a single large data block holding, contiguously, the text database
-// (DDB) followed by the graphics database (GDB). At runtime the interpreter's
-// INIT code (ClassicDAAD CPC/DCPCI.ASM) keeps the DDB at 0x2880 and LDDR-relocates
-// the GDB upward so it ends flush at GDBEND (0xA600), placing the graphics footer
-// at 0x9DEF and the charset at 0x9E00. We reconstruct that final RAM image so the
+// (DDB) followed by the graphics database (GDB). At runtime the interpreter
+// keeps the DDB at 0x2880 and relocates the GDB upward so it ends flush at
+// 0xA600, placing the graphics footer at 0x9DEF and the charset at 0x9E00.
+// We reconstruct that final RAM image so the
 // standard snapshot loaders (GuessDDBOffsetFromSnapshot + DDB_LoadVectorGraphics)
 // read both text and graphics unchanged.
 
@@ -744,7 +744,7 @@ static bool LoadSnapshotFromTZX (File* file)
 #define CPC_GFX_FOOTER  0x9DEF   // 'start' field of the graphics footer
 #define CPC_GFX_ENDING  0x9DFB   // 0xFFFF sentinel
 #define CPC_GFX_CHARS   0x9E00   // charset (fixed in this interpreter version)
-#define CPC_GFX_END     0xA600   // GDBEND: first byte after the graphics database
+#define CPC_GFX_END     0xA600   // First byte after the graphics database
 
 // Mirror of DDB_LoadVectorGraphics()'s CPC validation applied at the fixed footer
 // address: a candidate that passes here is guaranteed to load as graphics.
@@ -960,6 +960,201 @@ static void RelocateCPCGraphicsFromRAW(size_t ddbOffset)
 		MemMove(snapshotRAM + target, snapshotRAM + spare, gdlen);
 }
 
+// MSX cassette image. DAAD tapes carry the database and the graphics database
+// as raw blocks after the BASIC/loader ones. Two layouts exist: standard BIOS
+// binary blocks whose payloads are staged and then relocated by a small LDIR
+// stub at each block's exec address (emulated here), and custom loader tapes
+// whose blocks hold the database directly and the graphics as a single image
+// located by its footer.
+
+#define MSX_GFX_FOOTER 0xAFED
+
+static bool LoadSnapshotFromCAS(File* file)
+{
+	static const uint8_t sync[8] = { 0x1F, 0xA6, 0xDE, 0xBA, 0xCC, 0x13, 0x7D, 0x74 };
+
+	uint64_t fileSize = File_GetSize(file);
+	if (fileSize < 64 || fileSize > 512*1024)
+		return false;
+
+	uint8_t* data = Allocate<uint8_t>("CAS contents", fileSize);
+	if (data == 0)
+		return false;
+	File_Seek(file, 0);
+	if (File_Read(file, data, fileSize) != fileSize || MemComp(data, sync, 8) != 0)
+	{
+		Free(data);
+		return false;
+	}
+
+	// Collect sync block offsets
+	uint32_t blocks[64];
+	int blockCount = 0;
+	for (uint32_t o = 0; o + 8 <= fileSize && blockCount < 64; o++)
+	{
+		if (MemComp(data + o, sync, 8) == 0)
+		{
+			blocks[blockCount++] = o;
+			o += 7;
+		}
+	}
+
+	if (!AllocateSnapshot(65536))
+	{
+		Free(data);
+		return false;
+	}
+	MemClear(snapshotRAM, 65536);
+
+	// Emulate the BIOS load: place each binary block (announced by a 0xD0
+	// header block) at its load address, then apply the relocations performed
+	// by the LDIR stub at its exec address.
+	bool standardBlocks = false;
+	for (int b = 1; b < blockCount; b++)
+	{
+		bool headerBefore = true;
+		for (int k = 0; k < 10; k++)
+		{
+			if (data[blocks[b-1] + 8 + k] != 0xD0)
+			{
+				headerBefore = false;
+				break;
+			}
+		}
+		if (!headerBefore || blocks[b] + 14 >= fileSize)
+			continue;
+
+		uint32_t next = b + 1 < blockCount ? blocks[b+1] : (uint32_t)fileSize;
+		uint16_t load = read16(data + blocks[b] + 8, true);
+		uint16_t end  = read16(data + blocks[b] + 10, true);
+		uint16_t exec = read16(data + blocks[b] + 12, true);
+		if (end < load)
+			continue;
+
+		uint32_t avail = next - (blocks[b] + 14);
+		uint32_t count = (uint32_t)end - load + 1;
+		if (count > avail) count = avail;
+		if ((uint32_t)load + count > 65536) count = 65536 - load;
+		MemCopy(snapshotRAM + load, data + blocks[b] + 14, count);
+		standardBlocks = true;
+
+		if (exec > load && exec <= end)
+		{
+			// Look for LDIR stubs: LD HL,src / LD DE,dst / LD BC,len / LDIR
+			for (uint32_t o = exec; o + 10 <= (uint32_t)end && o + 10 < 65536; o++)
+			{
+				if (snapshotRAM[o] == 0x21 && snapshotRAM[o+3] == 0x11 &&
+				    snapshotRAM[o+6] == 0x01 && snapshotRAM[o+9] == 0xED && snapshotRAM[o+10] == 0xB0)
+				{
+					uint16_t src = read16(snapshotRAM + o + 1, true);
+					uint16_t dst = read16(snapshotRAM + o + 4, true);
+					uint16_t len = read16(snapshotRAM + o + 7, true);
+					if (len != 0 && (uint32_t)src + len <= 65536 && (uint32_t)dst + len <= 65536)
+						MemMove(snapshotRAM + dst, snapshotRAM + src, len);
+					o += 10;
+				}
+			}
+		}
+	}
+
+	// Check the result: a database signature at the base address means the
+	// emulated load produced a usable memory image
+	if (standardBlocks &&
+	    (snapshotRAM[0x100] == 1 || snapshotRAM[0x100] == 2) &&
+	    (snapshotRAM[0x101] >> 4) == DDB_MACHINE_MSX &&
+	    snapshotRAM[0x102] == 0x5F)
+	{
+		Free(data);
+		return true;
+	}
+
+	// Custom loader tapes: the database block holds the DDB directly and the
+	// graphics block is located by the footer that, placed at the fixed
+	// address, yields a start pointer equal to the resulting load base
+	MemClear(snapshotRAM, 65536);
+
+	uint32_t ddbOffset = 0, ddbEnd = 0;
+	for (int b = 0; b < blockCount && ddbEnd == 0; b++)
+	{
+		uint32_t end = b + 1 < blockCount ? blocks[b+1] : (uint32_t)fileSize;
+		for (uint32_t o = blocks[b] + 8; o < blocks[b] + 17 && o + 3 < end; o++)
+		{
+			if ((data[o] == 1 || data[o] == 2) &&
+			    (data[o+1] >> 4) == DDB_MACHINE_MSX &&
+			    data[o+2] == 0x5F)
+			{
+				ddbOffset = o;
+				ddbEnd = end;
+				break;
+			}
+		}
+	}
+	if (ddbEnd == 0)
+	{
+		Free(data);
+		return false;
+	}
+
+	uint32_t ddbSize = ddbEnd - ddbOffset;
+	uint16_t eof     = read16(data + ddbOffset + (data[ddbOffset] == 2 ? 0x20 : 0x1E), true);
+	if (eof > 0x0100 + 32 && (uint32_t)eof - 0x0100 <= ddbSize)
+		ddbSize = eof - 0x0100;
+	else if ((uint32_t)0x0100 + ddbSize > 65536)
+		ddbSize = 65536 - 0x0100;
+
+	// Locate the graphics block and its load base
+	uint32_t gfxOffset = 0, gfxSize = 0;
+	uint16_t gfxBase = 0;
+	for (int b = 0; b < blockCount && gfxOffset == 0; b++)
+	{
+		uint32_t end = b + 1 < blockCount ? blocks[b+1] : (uint32_t)fileSize;
+		static const uint8_t payloadOffsets[3] = { 8, 9, 14 };
+		for (int po = 0; po < 3 && gfxOffset == 0; po++)
+		{
+			uint32_t start = blocks[b] + payloadOffsets[po];
+			uint32_t size = end - start;
+			if (size < 32 || size > 65536)
+				continue;
+			for (uint32_t f = 0; f + 17 < size; f++)
+			{
+				if (data[start + f + 14] != 0xFF || data[start + f + 15] != 0xFF)
+					continue;
+				if (f > MSX_GFX_FOOTER)
+					continue;
+				uint32_t base = MSX_GFX_FOOTER - f;
+				if (base + size > 65536)
+					continue;
+				const uint8_t* p = data + start + f;
+				uint16_t gstart  = read16(p + 2,  true);
+				uint16_t table   = read16(p + 4,  true);
+				uint16_t windefs = read16(p + 6,  true);
+				uint16_t chset   = read16(p + 10, true);
+				uint16_t coltab  = read16(p + 12, true);
+				if (gstart != base)
+					continue;
+				if (table < gstart || windefs < gstart || chset < gstart || coltab < gstart)
+					continue;
+				if (table >= base + size || windefs >= base + size || chset >= base + size)
+					continue;
+				gfxOffset = start;
+				gfxSize   = size;
+				gfxBase   = (uint16_t)base;
+				break;
+			}
+		}
+	}
+	if (gfxOffset == 0)
+	{
+		Free(data);
+		return false;
+	}
+
+	MemCopy(snapshotRAM + 0x0100, data + ddbOffset, ddbSize);
+	MemCopy(snapshotRAM + gfxBase, data + gfxOffset, gfxSize);
+	Free(data);
+	return true;
+}
+
 // This loads a binary file into memory and tries to search for a valid DDB
 // file inside. It is not very reliable, but may be the only option for
 // some games which are stored in uncompressed formats.
@@ -1043,10 +1238,12 @@ bool LoadSnapshotFromRAW(File* file)
 				if (wordCount < 16 || !spaces || !valid || !endingZero)
 					continue;
 
-				// Move the data into its base address
-				uint16_t remaining = 65536 - baseOffset;
+				// Move the data into its base address. The image may end
+				// before the top of RAM (e.g. a program file holding just
+				// the interpreter and the databases); move what is there
+				uint32_t remaining = 65536 - baseOffset;
 				if (offset + remaining > fileSize)
-					continue;
+					remaining = fileSize - offset;
 				snapshotDDB = snapshotRAM + baseOffset;
 				MemMove(snapshotDDB, ptr, remaining);
 				if (platform == DDB_MACHINE_CPC)
@@ -1123,6 +1320,9 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 			 CheckExtension(filename, "rom") ||
 			 CheckExtension(filename, "raw"))
 	{
+		if (CheckExtension(filename, "cas") && LoadSnapshotFromCAS(file))
+			return DetachSnapshot(ram, size, machine, DDB_MACHINE_MSX);
+
 		if (!LoadSnapshotFromRAW(file))
 			return false;
 

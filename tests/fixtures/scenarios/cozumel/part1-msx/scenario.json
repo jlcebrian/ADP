@@ -1,0 +1,8 @@
+{
+    "fixture": "cozumel/msx/COZUMEL-MSX 1.CAS",
+    "shared": "cozumel/part1-amiga",
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "produces": "PART1ENDING.SAV",
+    "timeout_seconds": 600
+}

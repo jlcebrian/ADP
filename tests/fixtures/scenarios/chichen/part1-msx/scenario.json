@@ -1,0 +1,7 @@
+{
+    "fixture": "chichen/msx/CHICHEN-MSX 1.CAS",
+    "shared": "chichen/part1-amiga",
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

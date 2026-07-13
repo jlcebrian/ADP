@@ -329,11 +329,12 @@ static bool DDB_ParseHeader(DDB* ddb, uint8_t* data, uint32_t dataSize, uint32_t
 		uint32_t externFileOffset = 0;
 		if (externOffset != 0)
 		{
-			if (!DDB_IsHeaderOffsetValid(ddb, externOffset, 1, "external data"))
-				return false;
-			if (!DDB_DecodeStoredOffset(ddb, externOffset, ddb->dataSize, false, &externFileOffset))
-				return false;
-			ddb->externData = data + externFileOffset;
+			// An extern pointer outside the database is not fatal: in memory
+			// snapshots it may point at data loaded elsewhere in RAM, which is
+			// simply unavailable here
+			if (DDB_DecodeStoredOffset(ddb, externOffset, ddb->dataSize, false, &externFileOffset) &&
+			    externFileOffset < ddb->dataSize)
+				ddb->externData = data + externFileOffset;
 		}
 	}
 
@@ -1259,6 +1260,49 @@ bool DDB_CheckDataFileConfig(const char* fileName, DDB_Machine target, DDB_Scree
 	return true;
 }
 
+#if HAS_SNAPSHOTS
+static uint32_t GuessDDBOffsetFromSnapshot(uint8_t* memory, size_t size, DDB_Machine target, DDB* ddb);
+
+// Check a memory snapshot (or a program file holding a memory image, like
+// the .BIN files found in CPC disks): load it, locate the database inside
+// and validate its header
+static bool DDB_CheckSnapshot(File* file, const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
+{
+	uint8_t* memory = 0;
+	size_t ramSize = 0;
+	DDB_Machine snapshotMachine;
+	if (!DDB_LoadSnapshot(file, filename, &memory, &ramSize, &snapshotMachine))
+		return false;
+
+	DDB* check = Allocate<DDB>("DDB Check", 1, true);
+	if (check == 0)
+	{
+		Free(memory);
+		return false;
+	}
+
+	bool result = false;
+	if (GuessDDBOffsetFromSnapshot(memory, ramSize, snapshotMachine, check))
+	{
+		ddbError = DDB_ERROR_NONE;
+		if (DDB_ParseHeader(check, check->data, check->dataSize, check->dataSize) &&
+		    ddbError == DDB_ERROR_NONE)
+		{
+			if (language != 0)
+				*language = check->language;
+			if (target != 0)
+				*target = check->target;
+			if (version != 0)
+				*version = check->version;
+			result = true;
+		}
+	}
+	Free(check);
+	Free(memory);
+	return result;
+}
+#endif
+
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
 {
 	const uint32_t checkBufferSize = 512;
@@ -1281,6 +1325,20 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 		Free(buffer);
 		return false;
 	}
+
+	#if HAS_SNAPSHOTS
+	if (DDB_HasSnapshotExtension(filename))
+	{
+		if (DDB_CheckSnapshot(file, filename, target, language, version))
+		{
+			File_Close(file);
+			Free(check);
+			Free(buffer);
+			return true;
+		}
+		File_Seek(file, 0);
+	}
+	#endif
 
 	uint64_t fileSize = File_GetSize(file);
 	if (fileSize < 34 || fileSize > MAX_DDB_SIZE)
@@ -1390,6 +1448,7 @@ static uint32_t GuessDDBOffsetFromSnapshot(uint8_t* memory, size_t size, DDB_Mac
 				ddb->baseOffset = offset;
 				ddb->data = memory + offset;
 				ddb->dataSize = eof - offset;
+				ddb->version = (DDB_Version)memory[offset];
 				return true;
 			}
 		}

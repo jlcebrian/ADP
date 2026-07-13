@@ -1,0 +1,6 @@
+{
+    "fixture": "templos/msx/TEMPLOS-MSX 2.CAS",
+    "shared": "templos/part2-amiga",
+    "input": "input.txt",
+    "transcript": "expected.txt"
+}

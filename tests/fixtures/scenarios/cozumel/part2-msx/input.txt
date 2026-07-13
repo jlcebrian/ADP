@@ -1,0 +1,220 @@
+# Solución original (Spectrum): https://solutionarchive.com/file/id%2C24074/
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+# Cargar posición de la primera parte
+PART1ENDING.SAV
+
+s
+@save Roca
+s
+@save Bifurcacion
+se
+se
+se
+s
+s
+decir "ix chell"
+s
+dejar llave y pesos
+encender quinque
+o
+ex cascotes
+matar vibora con barra
+ex altar
+e
+e
+romper tumba con barra
+o
+dejar barra
+
+# Quemar el petroleo restante hasta que el quinque se apague
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+m
+
+abrir quinque y botella
+poner petroleo en quinque
+cerrar quinque
+encender quinque
+o
+vaciar botella en musgo
+quemar musgo
+ex altar
+mover piedra
+e
+e
+@save AlaEste
+ex tumba
+decir Zyanya "ven"
+decir Zyanya "ven"
+bajar
+@save Diosa1
+ex diosa
+@save Diosa2
+ex diosa
+coger frasco
+abrir frasco
+ex frasco
+beber elixir
+ex momia
+coger figurilla
+cerrar ojos
+subir
+o
+dejar todo
+coger figurilla
+n
+@save Templo
+n
+no
+ex charco
+coger collar
+no
+ex tierra
+coger collar
+no
+ex hojas
+coger collar
+so
+subir
+coger collar
+bajar
+so
+decir diosa "me alejo"
+ex piedras
+poner collar de Palenque
+coger collar
+frotar collar de Palenque
+
+# Dos turnos bloqueados ("eres uno con Ix Chell") hasta que actua el collar
+s
+s
+
+s
+e
+quitar sortija
+dar sortija a borracho
+ex loro
+coger jaula
+abrir jaula
+cerrar jaula
+o
+s
+s
+coger cascabel
+n
+o
+o
+n
+decir maton "en el templo"
+decir maton "diciendo ix chell"
+n
+abrir cajon
+meter figurilla en cajon
+cerrar cajon
+hablar Ratso
+abrir cajon
+sacar figurilla del cajon
+n
+@save Turk
+ex mono
+ex Turk
+dar cascabel a mono
+mostrar figurilla a Turk
+decir Turk "no"
+decir Turk "no"
+decir Turk "no"
+decir Turk "si"
+coger pesos
+s
+s
+dar pesos a loro
+@save Kuill
+e
+e
+n
+e
+coger pesos
+contar pesos
+o
+s
+e
+@save Dueno
+decir dueno "quiero comprar un barco"
+decir dueno "cuanto vale"
+mostrar pesos a dueno
+coger papeles
+o
+s
+s
+
+# Esperar en el embarcadero hasta que atraque La Yucatana
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+subir barco
+@key
+@key
+@save Final
+N

@@ -1,0 +1,5 @@
+{
+    "fixture": "jabato/pc/JABATO-PC-EGA.img",
+    "part": 2,
+    "shared": "jabato/part2-spectrum"
+}

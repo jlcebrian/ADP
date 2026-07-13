@@ -1,0 +1,326 @@
+Andrés Samudio
+Dirección:
+Manolo González
+Programación:
+Juan Antonio Darder
+Gráficos:    
+Carlos Marqués     
+Paco Zarco    
+PRESENTAN
+JABATO vs IMPERIO
+LIBERTAD
+(C) 1989 Aventuras A.D.
+De momento estás en una fría celda, junto a un fiambre bastante deteriorado. Tras los barrotes de tu puerta ves un lóbrego vestíbulo.
+A lo lejos, un corpulento carcelero se pasea por los pasillos.
+> I
+Tienes puesto un talismán.
+> EX TALISMAN (dorado y con poderes mgicos)
+Es de color dorado, tiene poderes mágicos.
+> EX FIAMBRE
+Es un preso fallecido por inanición y ya bastante pasadito. Poco queda de sus ropas medio desechas, pero lleva un raído cinturón de cuero.
+> COGER CINTURON
+Con muy poca consideración le quitas al muerto el cinturón.
+> EX PARED
+Mugrientas y fétidas paredes te rodean. Como toda ventilación hay solo un ventanuco. Un adoquín de la pared llama tu atención.
+> COGER ADOQUIN CON CINTURON
+Utilizando la fuerte hebilla consigues desprender el adoquín.
+> ESCONDER ADOQUIN
+Hábilmente, lo ocultas tras tu espalda para que el carcelero no se de cuenta de que lo tienes.
+> LLAMAR CARCELERO
+El carcelero se acerca, con cara de pocos amigos, a ver qué quieres.
+> GOLPEAR CARCELERO CON ADOQUIN
+Acabas de cometer un carcelericidio. 
+Las llaves caen tintineando (plink-piticlín) a su lado.
+> COGER LLAVERO CON CINTURON
+Usando el cinturón como un lazo, consigues coger el llavero.
+> ABRIR PUERTA
+La puerta está abierta.
+> SALIR
+El vestíbulo de la cárcel es poco acogedor. Sobre todo para el carcelero que yace muerto en el suelo. Además de tu celda, hay dos más, una a la derecha y otra a la izquierda. Hacia el Sur se oyen ruidos.
+Aquí hay una antorcha apagada y un adoquín.
+> COGER ANTORCHA
+Has cogido la antorcha apagada.
+> ABRIR PUERTA ESTE
+La puerta está abierta.
+> E
+Entras en otra fría celda y te encuentras con otro fiambre medio putrefacto.
+Aquí hay un chisquero.
+> COGER CHISQUERO
+Has cogido el chisquero.
+> O
+El vestíbulo de la cárcel es poco acogedor. Sobre todo para el carcelero que yace muerto en el suelo. Además de tu celda, hay dos más, una a la derecha y otra a la izquierda. Hacia el Sur se oyen ruidos.
+Aquí hay un adoquín.
+> ABRIR PUERTA OESTE
+La puerta está abierta.
+> O
+Ahora entras en una celda, pero está vacía, sin ningún oloroso habitante.
+Aquí hay una petaca.
+> COGER PETACA
+Has cogido la petaca.
+> E
+El vestíbulo de la cárcel es poco acogedor. Sobre todo para el carcelero que yace muerto en el suelo. Además de tu celda, hay dos más, una a la derecha y otra a la izquierda. Hacia el Sur se oyen ruidos.
+Aquí hay un adoquín.
+> EX CARCELERO
+Acabas de cometer un carcelericidio. El exgorila está espatarrao en el suelo y sólo lleva puestas sus ropas de romano.
+> COGER ROPAS
+Con muy poca consideración le quitas al muerto las ropas de romano.
+> PONER ROPAS
+Te has puesto las ropas de romano.
+> S
+Estás en el espartano cuartelillo de los guardas. Como único mueble destaca una mesa de noble madera que en estos momentos solo tiene varias jarras de cerveza.
+Beben y ríen despreocupados. Te han confundido con un carcelero.
+> EX DENTRO PETACA
+Es una petaca muy amplia.
+Dentro de ella hay unos polvos.
+> SACAR POLVOS DE PETACA
+Has cogido los polvos.
+> METER POLVOS EN CERVEZA
+Sin que los guardias, medio ebrios, se dieran cuenta, has puesto los polvos en una jarra de cerveza.
+Estás en el espartano cuartelillo de los guardas. Como único mueble destaca una mesa de noble madera que en estos momentos solo tiene varias jarras de cerveza.
+Beben y ríen despreocupados. Te han confundido con un carcelero.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Los guardias empiezan a emborracharse...
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Estás en el espartano cuartelillo de los guardas. Como único mueble destaca una mesa de noble madera que en estos momentos solo tiene varias jarras de cerveza. Los tres están totalmente drogados. Se escuchan fuertes ronquidos.
+> EX GUARDIAS
+Son los típicos guardianes carcelarios, rudos y de poco cerebro. Están frente a varias jarras de cerveza. Los tres están totalmente drogados. Se escuchan fuertes ronquidos. Uno de ellos tiene un llamativo anillo.
+> COGER ANILLO
+Has cogido el anillo.
+> S
+No se vé nada.
+> ENCENDER ANTORCHA
+Estás en un tortuoso y fétido corredor dentro de la cárcel.
+> S
+Estás en un corredor fétido y tortuoso dentro de la cárcel.
+> E
+Estás en un fétido y tortuoso corredor dentro de la cárcel.
+> S
+Estás en el exterior de la cárcel. Ves varias avenidas de la bella Roma Imperial.
+> E
+Estás frente a la Casa de las Vestales, bello edificio de corte clásico que da cobijo a éstas sacerdotisas. Hay una Vestal que te mira sorprendida.
+> S
+La Via Appia es la más importante calzada de comunicación entre la Ciudad Eterna y sus provincias.
+Aquí hay una rosa roja.
+> COGER ROSA
+Has cogido la rosa roja.
+> N
+Estás frente a la Casa de las Vestales, bello edificio de corte clásico que da cobijo a éstas sacerdotisas. Hay una Vestal que te mira sorprendida.
+> DAR ROSA
+Admirada por tu delicadeza, la bella vestal te deja pasar, y se va a plantarla.
+> ENTRAR
+Imprudentemente te has introducido en el inviolable patio de las intocables Vestales. Un personajillo de rostro familiar te sonríe bobaliconamente.
+Fideo dice: "Me alegro de verte. ¿Qué te cuentas?" 
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> SALIR
+Estás frente a la Casa de las Vestales, bello edificio de corte clásico que da cobijo a éstas sacerdotisas. Fideo está aquí.
+> O
+Estás en el exterior de la cárcel. Ves varias avenidas de la bella Roma Imperial. Fideo está aquí.
+> S
+Ante el templo de todos los dioses del Olimpo y maravilla de la arquitectura romana: El Panteón de Agripa. Fideo está aquí.
+> ENTRAR
+El interior del Panteón consiste en una inmensa bóveda que recibe la luz por un orificio superior. Fideo está aquí.
+Un extraño encapuchado te mira fijamente.
+Fideo dice: "Hola amigo Cuáles, he de pedirte un favor".
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Fideo dice: "Cuáles, ¿tienes algún dinero?. Escucha a cambio una melodía de nuestra tierra..."
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Fideo está cantando y tañendo su lira.
+Tras soportar el horrendo ruido, Cuáles susurra todo tembloroso: "Fi..Fideo, gr..gracias por tu canto, toma el dinero y déjame en paz".
+> DECIR FIDEO "DAME DINERO"
+Fideo dice: "Toma el montón de dinero, Jabato".
+Has cogido el montón de dinero.
+> SALIR
+Ante el templo de todos los dioses del Olimpo y maravilla de la arquitectura romana: El Panteón de Agripa. Fideo está aquí.
+> N
+Estás en el exterior de la cárcel. Ves varias avenidas de la bella Roma Imperial. Fideo está aquí.
+> O
+Estás ante el mayor monumento de Roma: El Coliseo. Numerosos pasillos y pasadizos te conducen al interior. Dentro podrás admirar la fuerza y agilidad de los gladiadores. Fideo está aquí.
+> ENTRAR
+Desde las seis filas de escalinatas del Coliseo, los espectadores tienen una buena vista de los dramas que ocurren en la arena. Fideo está aquí.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Los gladiadores se disponen a luchar. El público ruge de excitación.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+La lucha es desesperada y muy igualada porque ambos saben lo que le espera al perdedor.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+Tras un terrible duelo, ha vencido el gladiador llamado Taurus. La canalla que llena el circo pide la muerte del derrotado. El noble ganador se niega a matar a su leal contrincante, por ello... ¡lo van a vender como vil esclavo!
+> S
+La sala de subastas de esclavos es un triste lugar que huele a sudor, miseria y doliente humanidad. Fideo está aquí.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+¡Subastum iniciatum est!
+> COMPRAR TAURUS
+Tras un arduo regateo, consigues comprarlo.
+Taurus dice: "Jabato, nunca olvido un favor".
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> N
+Desde las seis filas de escalinatas del Coliseo, los espectadores tienen una buena vista de los dramas que ocurren en la arena. Aquí están tus dos amigos.
+> SALIR
+Estás ante el mayor monumento de Roma: El Coliseo. Numerosos pasillos y pasadizos te conducen al interior. Dentro podrás admirar la fuerza y agilidad de los gladiadores. Aquí están tus dos amigos.
+> E
+Estás en el exterior de la cárcel. Ves varias avenidas de la bella Roma Imperial. Aquí están tus dos amigos.
+> E
+Estás frente a la Casa de las Vestales, bello edificio de corte clásico que da cobijo a éstas sacerdotisas. Aquí están tus dos amigos.
+> S
+La Via Appia es la más importante calzada de comunicación entre la Ciudad Eterna y sus provincias. Aquí están tus dos amigos.
+> S
+Estás junto a la tumba de la patricia Cecilia Metella, el más bello monumento de la Via Appia. Un imponente gladiador te impide el paso.
+ Aquí están tus dos amigos.
+> DECIR TAURUS "LUCHA"
+Taurus dice: "Vale, Jabato". 
+Taurus emite un potente grito y se lanza a la lucha. Los dos colosos se traban en mortal combate. Por fin la fuerza y astucia de nuestro amigo se impone y de un golpe consigue vencer al otro gladiador.
+> S
+Ya estás en las afueras de Roma y alejándote de ella por la Via Appia. Aquí están tus dos amigos.
+> S
+Todo el lugar vibra de actividad, pues hay varias caravanas a punto de partir. Un malencarado sujeto dirige toda la operación. Aquí están tus dos amigos.
+Fideo reconoce a su amigo Manolaco, el conductor de la caravana, y ambos comienzan a recordar viejos tiempos.
+> SUBIR CARAVANA
+Fideo convence a su amigo el caravanero. Subís y la caravana se pone en marcha.
+Estás un poco apretujado dentro de uno de los carromatos de la caravana. Aquí están tus dos amigos.
+La caravana transcurre lentamente por los bellos campos cargados de tumbas de la Etruria.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+La caravana transcurre lentamente por las agrestes montañas de la Liguria.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+La caravana transcurre lentamente por los bellos pueblos de la Aquitania.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+La caravana transcurre lentamente por el seco paisaje del Sur de la Galia francesa.
+El largo viaje ha concluído.
+> BAJAR CARAVANA
+Llegas a un sereno y bucólico paraje de la Galia, cercano a la guarnición romana de Massilia. Al bajar de la caravana, esta prosigue su viaje y os deja en este paraje...
+Un anciano se aproxima, y con débil voz dice: "Cuidado forasteros, sin responder a mis adivinanzas duraréis poco en éste lugar". Aquí están tus dos amigos.
+Estereofónix dice: "Te lo digo y no me entiendes, te repito y no comprendes. Dime la respuesta".
+> DECIR DRUIDA "TE"
+Estereofónix dice: "Oui, mon Dieu! Deux points pour l'Spagne..."
+Estereofónix dice: "¿Quién es el patrono de los pollos? Dime la respuesta".
+> DECIR DRUIDA "PIO"
+Estereofónix dice: "Oui, mon Dieu! Deux points pour l'Spagne..."
+Estereofónix dice: "Verde como el campo, campo no es: Habla como el hombre, hombre no es. Dime la respuesta".
+> DECIR DRUIDA "LORO"
+Estereofónix dice: "Has acertado todas. Como premio, ten esta poción". Estereofónix te ofrece una poción mágica.
+> DEJAR TODO
+Has dejado la antorcha flameante.
+Has dejado la petaca.
+Has dejado el llavero.
+Has dejado el cinturón.
+Has dejado el chisquero.
+Has dejado el anillo.
+> QUITAR ROPAS
+Te has quitado las ropas de romano.
+> DEJAR ROPAS
+Has dejado las ropas de romano.
+> COGER TODO EXCEPTO ROPAS
+Has cogido la antorcha flameante.
+Has cogido la petaca.
+Has cogido el llavero.
+Has cogido el cinturón.
+Has cogido el chisquero.
+Has cogido el anillo.
+Has cogido la poción mágica.
+> O
+Estás profanando uno de los más sagrados santuarios megalíticos de los galos. Aquí están tus dos amigos.
+> MIRAR
+Los lelos guelelos galos os agalan a los tres y os llevan por la fuerza...
+El poblado de la tribu gala tiene una amplia plazoleta central rodeada por fuertes construcciones de variados estilos. El fortachón Oburrix mira a Taurus con evidente cabreo. Aquí están tus dos amigos.
+Tras unos momentos de confusión aparece el jefe de la tribu, ADix, quien te dice con típico acento galo: "Si quegeis salig de aquí con vida, tu amigo el fogtachón debegá luchag contga Obuggix".
+> DAR POCION A TAURUS
+Taurus dice: "¡Puaj, huele asqueroso!", y se la zampa de un trago.
+> DECIR TAURUS "LUCHA"
+Taurus dice: "Vale, Jabato". 
+Con su fuerza aumentada por la mágica poción, Taurus arremete contra Oburrix. El galo se defiende como puede, pero al final gime de dolor y pide compasión. Taurus ríe y con una patada en las enormes posaderas le perdona la vida.
+Admirado, ADix os dice: "Os habeigs ganado la libegtad. Mis hombges os acompañagán hasta Hispania".
+Y tras varias horas de viaje, os abandonan en Saguntum.
+Estás en la taberna de Monte Picayum, elegante hostal hispánicus. Un agradable fuego caldea la estancia. Aquí están tus dos amigos.
+Aquí hay un queso.
+> COGER QUESO
+Has cogido el queso.
+> S
+La fortaleza de Saguntum está rodeada por una amplia y rica vega. El gran ejército de Aníbal está sitiando la fortaleza de Saguntum.
+ Aquí están tus dos amigos.
+Aquí hay una jaula.
+> PONER ANILLO
+Te has puesto el anillo.
+> COGER JAULA
+Has cogido la jaula.
+> N
+Estás en la taberna de Monte Picayum, elegante hostal hispánicus. Un agradable fuego caldea la estancia. Aquí están tus dos amigos.
+> ABRIR JAULA
+La puerta está abierta.
+> METER QUESO EN JAULA
+El queso está en la jaula.
+> BAJAR
+El tenebroso, mohoso y soso sótano de la taberna está en un estado de abandono lamentable, muy propicio para refugio de todo tipo de alimañas. Aquí están tus dos amigos.
+Aquí hay un ratón.
+El ratón sale pitando al oir el menor ruido.
+> DEJAR JAULA
+Has dejado la jaula.
+> SUBIR
+Estás en la taberna de Monte Picayum, elegante hostal hispánicus. Un agradable fuego caldea la estancia. Aquí están tus dos amigos.
+Aquí hay un ratón.
+El ratón sale pitando al oir el menor ruido.
+> ESPERAR
+Reposas un rato. Luego la historia continúa.
+> BAJAR
+El tenebroso, mohoso y soso sótano de la taberna está en un estado de abandono lamentable, muy propicio para refugio de todo tipo de alimañas. Aquí están tus dos amigos.
+Aquí hay una jaula.
+> CERRAR JAULA
+La puerta está cerrada.
+> EX JAULA
+La puerta está cerrada.
+Dentro de ella hay un ratón.
+> COGER JAULA
+Has cogido la jaula.
+> SUBIR
+Estás en la taberna de Monte Picayum, elegante hostal hispánicus. Un agradable fuego caldea la estancia. Aquí están tus dos amigos.
+> S
+La fortaleza de Saguntum está rodeada por una amplia y rica vega. El gran ejército de Aníbal está sitiando la fortaleza de Saguntum.
+ Aquí están tus dos amigos.
+> ABRIR JAULA
+La puerta está abierta.
+¡El ratón se ha escapado!
+Los asustados elefantes se lanzan en estampida arrasando el campamento y provocando la huída de los soldados.
+La fortaleza de Saguntum está rodeada por una amplia y rica vega. Aquí están tus dos amigos.
+> SUBIR
+Te encuentras en el interior de la fortaleza. Aunque la población local mantiene el ánimo, se nota por doquier el cruel rastro de la guerra. Agradecidos, los saguntinos os vitorean. Aquí están tus dos amigos. Fideo fanfarronea sobre su valiente y forzuda actuación, y para celebrarlo, desentona una canción.
+Publio Cornelio Escipión te entrega un puñado de dinero y luego se une a la juerga.
+> COGER DINERO
+Has cogido el montón de dinero.
+> SALIR
+La fortaleza de Saguntum está rodeada por una amplia y rica vega. Aquí están tus dos amigos.
+> E
+Estás justo ante las puertas de acceso al interior del puerto. Cerca quedan los Altius Fornius del Mare Nostrum. El paso ante la gran puerta que conduce al interior del puerto está rodeado por piquetes en huelga de los Altius Fornius del Mare Nostrum.
+ Aquí están tus dos amigos.
+> DECIR TAURUS "LUCHA"
+Taurus dice: "Vale, Jabato". 
+Muy cabreado, Taurus se arroja violentamente contra la puerta y la deja toda despendolada. Los piquetes, impresionados, se retiran prudentemente.
+Estás justo ante las puertas de acceso al interior del puerto. Cerca quedan los Altius Fornius del Mare Nostrum. La puerta está abierta. Aquí están tus dos amigos.
+> ENTRAR
+Estás ante uno de los muchos barcos que se aprestan a partir de éste ocupado puerto marino. El capitán del barco te observa. Aquí están tus dos amigos.
+> DAR DINERO A CAPITAN
+El capitán dice: "Gracias. Ya podéis subir a mi barco".
+> SUBIR
+Por fin estás dentro del barco, libre del yugo opresor del Imperio y rumbo a Africa. Por tu mente pasan gratos recuerdos de tiempos más felices junto a tu amada Claudia y tu corazón se acelera al saberla más cercana.
+Enhorabuena, por fin has abandonado los dominios del Imperio Romano.
+En compañía de tus fieles amigos te diriges hacia nuevas aventuras en el continente Negro...
+Fideo no comparte la alegría general y dice sepulcralmente: "¡Inexes Loxiko!" y Taurus le sonríe.
+¿Vas a jugar otra vez?
+> n
+Adiós...

@@ -1,0 +1,6 @@
+{
+    "fixture": "chichen/spectrum/CHICHEN-SPECTRUM 1.tzx",
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

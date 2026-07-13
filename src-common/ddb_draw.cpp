@@ -367,111 +367,113 @@ static void GenericInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 	#undef DS_BG
 }
 
-static void SpectrumInnerFill (int16_t minX, int16_t maxX, int16_t y, uint8_t* pattern, int direction)
+static void SpectrumInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 {
 	#ifdef DISABLE_FILL
-	uint8_t* p = bitmap + y * stride + (minX >> 3);
-	*p |= 0x80 >> (minX & 7);
+	if (seedX >= 0 && seedX <= scrMaxX && seedY >= 0 && seedY <= scrMaxY)
+		bitmap[seedY * stride + (seedX >> 3)] |= 0x80 >> (seedX & 7);
 	return;
 	#endif
 
-	int16_t x = minX;
-	uint8_t* ptr = bitmap + y * stride + (x >> 3);
-	uint8_t mask = 0x80 >> (x & 7);
-	uint8_t cy = y & 7;
-	uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
+	if (seedX < 0 || seedX > scrMaxX || seedY < 0 || seedY > scrMaxY)
+		return;
 
-	if ((*ptr & mask) != 0)
+	uint32_t lines = (uint32_t)scrMaxY + 1;
+	if (yfillsLines < lines)
 	{
-		// Find left wall, to the right of the initial position
-		while ((*ptr & mask) != 0)
-		{
-			x++;
-			if (x > maxX) {
-				return;
-			}
-			mask >>= 1;
-			if (mask == 0)
-			{
-				attr++;
-				mask = 0x80;
-				ptr++;
-			}
-		}
-
-		minX  = x;
+		if (yfills != 0)
+			Free(yfills);
+		yfills = Allocate<int16_t>("Fill table", lines);
+		yfillsLines = yfills != 0 ? lines : 0;
 	}
-	else
+	if (yfills == 0)
+		return;
+
+	// Background is a clear pixel; painting ORs the pattern bit into the
+	// bitmap and refreshes the cell attribute. Pixels the pattern leaves
+	// clear stay background, so termination comes from the pass structure,
+	// not from the pixel state.
+	#define SB_BG(X,Y) ((X) >= 0 && (X) <= scrMaxX && (Y) >= 0 && (Y) <= scrMaxY && \
+	                    (bitmap[(Y) * stride + ((X) >> 3)] & (0x80 >> ((X) & 7))) == 0)
+
+	if (!SB_BG(seedX, seedY))
+		return;
+
+	for (uint32_t i = 0; i < lines; i++)
+		yfills[i] = 0;
+
+	struct { int16_t x, y; } stack[CPC_FILL_STACK];
+
+	for (int pass = 0; pass < 2; pass++)
 	{
-		// Find left wall
-		while ((*ptr & mask) == 0)
-		{
-			if (x == 0) break;
-			x--;
-			mask <<= 1;
-			if (mask == 0)
-			{
-				attr--;
-				mask = 0x01;
-				ptr--;
-			}
-		}
-		minX = x+1;
+		int adjDelta = pass == 0 ? +1 : -1;
+		int curX = seedX;
+		int curY = pass == 0 ? seedY : seedY - 1;
+		if (curY < 0 || curY > scrMaxY)
+			break;
+		if (!SB_BG(curX, curY))
+			break;
 
-		if ((*ptr & mask) != 0)
+		int  sp = 0;
+		int  budget = CPC_FILL_STACK;
+		bool endPass = false;
+
+		for (;;)
 		{
-			x++;
-			mask >>= 1;
-			if (mask == 0)
+			int y = curY;
+			int adjY = y + adjDelta;
+
+			int rx = curX;
+			while (rx + 1 <= scrMaxX && SB_BG(rx + 1, y)) rx++;
+			yfills[y] = (int16_t)rx;
+
+			int  cadj = (adjY < 0 || adjY > scrMaxY) ? (scrMaxX + 1) : yfills[adjY];
+			bool fillflag = false;
+			int  scanflag = 0;
+
+			for (int x = rx; x >= 0; x--)
 			{
-				attr++;
-				mask = 0x80;
-				ptr++;
+				if (!SB_BG(x, y))
+					break;
+				bitmap[y * stride + (x >> 3)] |= pattern[y & 7] & (0x80 >> (x & 7));
+				uint16_t aoff = (uint16_t)((y >> 3) * stride + (x >> 3));
+				attributes[aoff] = (attributes[aoff] & attrMask) | attrValue;
+				if (x == 0)
+					break;
+				if (fillflag)
+					continue;
+				if (cadj != 0 && cadj >= x)
+				{
+					fillflag = true;
+					continue;
+				}
+				bool adjBg = SB_BG(x, adjY);
+				if (scanflag == 0)
+				{
+					if (adjBg)
+					{
+						if (--budget == 0) { endPass = true; break; }
+						stack[sp].x = (int16_t)x;
+						stack[sp].y = (int16_t)adjY;
+						sp++;
+						scanflag = 1;
+					}
+				}
+				else if (!adjBg)
+				{
+					scanflag = 0;
+				}
 			}
+
+			if (endPass || sp == 0)
+				break;
+			sp--;
+			budget++;
+			curX = stack[sp].x;
+			curY = stack[sp].y;
 		}
 	}
-
-	// Fill to the right
-	while ((*ptr & mask) == 0)
-	{
-		*ptr |= (pattern[cy] & mask);
-		*attr = (*attr & attrMask) | attrValue;
-		x++;
-		if (x > scrMaxX) break;
-		mask >>= 1;
-		if (mask == 0)
-		{
-			attr++;
-			mask = 0x80;
-			ptr++;
-		}
-	}
-	if (x-1 > maxX)
-		maxX = x-1;
-
-	if (direction == -1 && y > 0)
-		SpectrumInnerFill(minX, x-1, y-1, pattern, -1);
-	else if (direction == 1 && y < scrMaxY)
-		SpectrumInnerFill(minX, x-1, y+1, pattern, 1);
-
-	if (maxX > x)
-	{
-		// Find next hole to fill
-		while ((*ptr & mask) != 0)
-		{
-			if (x == scrMaxX) return;
-			x++;
-			mask >>= 1;
-			if (mask == 0)
-			{
-				attr++;
-				mask = 0x80;
-				ptr++;
-			}
-		}
-		if (x <= maxX)
-			SpectrumInnerFill(x, maxX, y, pattern, direction);
-	}
+	#undef SB_BG
 }
 
 void VID_DrawPixel(int16_t x, int16_t y, uint8_t color)
@@ -548,12 +550,7 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	}
 	else
 	{
-		int color = VID_GetPixel(x, y);
-		if (color)
-			return;
-		SpectrumInnerFill(x, x, y, ch, 1);
-		if (y > 0)
-			SpectrumInnerFill(x, x, y-1, ch, -1);
+		SpectrumInnerFill(x, y, ch);
 	}
 }
 
@@ -1434,6 +1431,70 @@ bool DDB_HasVectorPicture (uint8_t picno)
 			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
 			return (*win & 0x80) && (*ptr != 7);
 		}
+	}
+}
+
+// True if the picture takes part in location display: unlike
+// DDB_HasVectorPicture, entries with an empty drawstring still count,
+// because their window setup (palette, ink, clear) must be applied
+bool DDB_HasVectorWindow (uint8_t picno)
+{
+	if (picno >= count)
+		return false;
+
+	if (locattr)
+	{
+		const uint8_t* att = vectorGraphicsRAM + locattr + picno;
+		return (*att & 0x80) != 0;
+	}
+
+	switch (vectorGraphicsMachine)
+	{
+		default:
+			return true;
+		case DDB_MACHINE_C64:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			return *win == 0;
+		}
+		case DDB_MACHINE_CPC:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			if (vectorGraphicsVersion != DDB_VERSION_1 && (*win & 0x80) != 0)
+				return false;
+			return *win != 0;
+		}
+		case DDB_MACHINE_MSX:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			return (*win & 0x80) != 0;
+		}
+		case DDB_MACHINE_SPECTRUM:
+		{
+			if (windefs == 0)
+				return true;
+			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+			return (*win & 0x80) != 0;
+		}
+	}
+}
+
+// Logical-to-real colour conversion table from the graphics database,
+// stored after a one byte prefix (global bright flag on Spectrum,
+// border colour on MSX/C64); NULL when no graphics database is loaded.
+// Spectrum tables have 8 entries, MSX and C64 tables have 16.
+const uint8_t* DDB_GetVectorInkMap ()
+{
+	if (vectorGraphicsRAM == 0 || coltab == 0)
+		return 0;
+	switch (vectorGraphicsMachine)
+	{
+		case DDB_MACHINE_SPECTRUM:
+		case DDB_MACHINE_MSX:
+		case DDB_MACHINE_C64:
+			return vectorGraphicsRAM + coltab + 1;
+		default:
+			return 0;
 	}
 }
 

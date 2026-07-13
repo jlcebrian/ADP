@@ -1,0 +1,147 @@
+# Solución original: CASA https://solutionarchive.com/file/id%2C24073/
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+@save Intro
+@key
+@key
+@key
+nadar costa
+@save Inicio
+e
+ex canoas
+coger pantalones
+e
+coger baston
+poner pantalones
+o
+s
+s
+s
+s
+e
+s
+coger barra
+n
+o
+n
+n
+n
+n
+o
+ex barril
+abrir barril
+ex barril
+sacar paquete del barril
+contar pesos
+e
+s
+s
+s
+o
+comprar aguacate y zapote
+s
+comprar vestido
+n
+e
+e
+poner peso en cepillo
+dar baston a cura
+e
+dar aguacate a cura
+o
+o
+s
+e
+llamar a puerta
+e
+@save Escuela
+ex pizarra
+ex mapa
+dar carta a maestro
+ex libro
+dar zapote a maestro
+poner botas
+o
+o
+n
+n
+n
+n
+e
+S
+ex cartelon
+ex tabernero
+ex borracho
+ex mujer
+decir tabernero "quiero ron"
+decir tabernero "pagar ron"
+dar vaso a borracho
+dar peso a borracho
+decir mujer "hola"
+besar mujer
+@save Mujer
+decir mujer "si"
+decir mujer "no"
+decir mujer "ayuda"
+dar vestido a mujer
+o
+s
+s
+s
+o
+comprar botella
+o
+comprar quinque y chisquero
+abrir caja
+ex caja
+cerrar caja
+abrir botella
+dejar barra
+coger tapon
+s
+e
+ex garrafa
+comprar petroleo
+dar botella a vendedor
+ex botella
+abrir quinque
+poner petroleo en quinque
+cerrar botella y quinque
+n
+o
+coger barra
+e
+e
+n
+abrir puerta
+o
+ex estera
+ex objeto
+dejar barra
+coger sortija
+poner sortija
+coger barra
+e
+s
+e
+e
+o
+o
+s
+e
+llamar a puerta
+e
+o
+o
+s
+@save Selva
+s
+s
+
+# ¿Quieres grabar posición?
+S
+PART1ENDING.SAV
+@save Final
+# ¿Quieres continuar?
+N
+

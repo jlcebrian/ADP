@@ -1,0 +1,399 @@
+# Solución (Spectrum): https://solutionarchive.com/file/id%2C24296/
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+@key
+@key
+
+@save Start
+ex puerta
+ex muros
+coger figura
+o
+o
+o
+coger piedra
+s
+s
+s
+s
+s
+ex urna
+poner piedra en urna
+coger onice
+@save Urna
+e
+ex simbolos
+mirar por onice
+dejar onice
+o
+s
+s
+coger vasija
+ex vasija
+n
+n
+n
+n
+n
+n
+n
+n
+e
+subir
+@save Guerreros
+coger lanceta
+e
+coger escudilla
+o
+bajar
+s
+e
+e
+s
+coger cacao
+n
+o
+dejar arana
+o
+o
+n
+n
+e
+ex estatua
+@save ChacMool
+poner cacao en escudilla
+poner escudilla en cuenco
+coger escudilla
+ex escudilla
+dejar vasija
+o
+s
+s
+coger anillo
+poner anillo
+e
+n
+subir
+girar anillo
+coger piedra
+bajar
+s
+o
+s
+s
+s
+s
+s
+poner piedra en urna
+coger rubi
+e
+mirar por rubi
+dejar rubi
+o
+s
+s
+girar anillo
+coger carbon
+n
+n
+poner carbon en urna
+coger brillante
+e
+mirar por brillante
+dejar brillante
+o
+n
+n
+n
+n
+n
+n
+o
+o
+n
+girar anillo
+ex cactus
+@save Estadio
+coger flor
+s
+e
+
+# Recuperar lo robado por Coatlicue
+coger anillo
+coger lanceta
+poner anillo
+
+e
+s
+s
+s
+s
+s
+so
+coger calabaza
+ex calabaza
+e
+n
+n
+n
+n
+n
+n
+n
+n
+ex arbol
+@save ViaSagrada
+sangrar arbol con lanceta
+llenar calabaza con resina
+s
+e
+poner calabaza en cuenco
+coger pelota
+o
+s
+o
+o
+n
+girar anillo
+coger llave
+s
+e
+e
+s
+dejar llave
+e
+s
+s
+girar anillo
+n
+o
+s
+s
+s
+o
+subir
+coger sol
+bajar
+e
+so
+coger tabacl
+ne
+n
+n
+n
+n
+n
+
+o
+
+# Segundo robo de Coatlicue
+coger anillo
+coger lanceta
+coger flor
+poner anillo
+o
+s
+girar anillo
+n
+e
+e
+n
+e
+poner hoja en vasija
+coger vasija
+poner vasija en cuenco
+coger vasija
+coger hoja
+hacer cigarro
+dejar vasija
+o
+s
+o
+o
+s
+girar anillo
+coger pipa
+n
+e
+e
+e
+s
+e
+coger arana
+e
+s
+ex belche
+coger corteza con lanceta
+dejar lanceta
+n
+o
+dejar arana
+o
+o
+n
+n
+e
+poner corteza en vasija
+coger vasija
+poner vasija en cuenco
+coger vasija
+ex vasija
+beber belche
+poner flor en vasija
+poner vasija en cuenco
+coger vasija
+ex vasija
+coger boton
+dejar vasija
+o
+n
+coger rosa
+s
+s
+ex conos
+tocar cono con rosa
+s
+s
+s
+s
+s
+s
+s
+s
+girar anillo
+coger borla
+n
+n
+e
+dejar pipa y borla
+o
+n
+n
+n
+n
+e
+girar anillo
+coger tarro
+ex tarro
+s
+girar anillo
+n
+n
+o
+o
+comer boton
+coger cuchillo
+o
+o
+s
+s
+s
+o
+coger manta
+e
+n
+n
+n
+n
+n
+n
+n
+cubrir disco
+@save CenoteSagrado
+bajar
+coger cilindro
+subir
+abrir cilindro
+verter pasta en cilindro
+ex cilindro
+coger codice
+dejar cilindro
+s
+s
+e
+poner cuchillo en cuenco
+coger cuchillo
+o
+s
+e
+subir
+girar anillo
+coger observador
+ex observador
+bajar
+o
+s
+s
+s
+s
+s
+s
+e
+coger borla y pipa
+poner borla en altar
+encender borla
+dejar pipa
+o
+n
+
+# Tercer robo de Coatlicue: recuperar todo en el Tzompantli
+n
+n
+n
+n
+n
+o
+@save Tzompantli
+coger todo
+poner anillo
+e
+s
+
+# Dejar el tarro a salvo antes de cruzar el Observatorio
+dejar tarro
+
+s
+s
+s
+s
+
+o
+subir
+mirar por observador n
+mirar por observador se
+@save Cupula
+ex codice
+bajar
+e
+n
+n
+n
+n
+
+# Coatlicue confisca todo al cruzar el Observatorio: recuperar el anillo
+n
+o
+coger anillo
+poner anillo
+e
+s
+
+coger tarro
+ex suelo
+ex pared
+ex ranura
+verter pasta en ranura
+coger llave
+meter llave en ranura
+ex losas
+# La combinacion depende de los relieves vistos por el observador (aguila=1, aguila=1)
+abrir 1 1
+bajar
+
+# Kukulkan solo permite bajar con la Rueda del Destino (el anillo puesto)
+dejar todo
+@save Losa
+bajar
+@key
+@save Final
+@exit

@@ -109,18 +109,35 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     # "shared" key: identical input, transcript, and in-game captures live once in
     # the shared scenario, and this one keeps only the files that differ (e.g. the
     # platform-specific loading screen). Shared scenario.json fields fill in as
-    # defaults; local fields and locally-present files always win.
-    shared_base: Path | None = None
-    if scenario.get("shared"):
-        shared_scenario_path = SCENARIOS / scenario["shared"] / "scenario.json"
-        if not shared_scenario_path.is_file():
-            print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: shared scenario not found: {scenario['shared']}")
+    # defaults; local fields and locally-present files always win. Shared
+    # scenarios may themselves have a "shared" key, forming a chain that is
+    # searched nearest-ancestor first.
+    shared_bases: list[Path] = []
+    shared_ref = scenario.get("shared")
+    seen_refs: set[str] = set()
+    while shared_ref:
+        if shared_ref in seen_refs:
+            print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: shared scenario cycle at: {shared_ref}")
             return False
-        shared_base = shared_scenario_path.parent
+        seen_refs.add(shared_ref)
+        shared_scenario_path = SCENARIOS / shared_ref / "scenario.json"
+        if not shared_scenario_path.is_file():
+            print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: shared scenario not found: {shared_ref}")
+            return False
+        shared_bases.append(shared_scenario_path.parent)
         shared_fields = json.loads(shared_scenario_path.read_text(encoding="utf-8"))
         for key in ("part", "input", "transcript", "timeout_seconds", "screenshot", "produces"):
             if scenario.get(key) is None and key in shared_fields:
                 scenario[key] = shared_fields[key]
+        shared_ref = shared_fields.get("shared")
+
+    def shared_file(name) -> Path | None:
+        """First existing file along the shared chain, nearest ancestor first."""
+        for shared_dir in shared_bases:
+            candidate = shared_dir / name
+            if candidate.exists():
+                return candidate
+        return None
 
     required = ("fixture", "input", "transcript")
     missing = [key for key in required if not scenario.get(key)]
@@ -129,12 +146,12 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
         return False
 
     def baseline(name) -> Path:
-        """Resolve a baseline file: the local scenario dir first, then the shared one."""
+        """Resolve a baseline file: the local scenario dir first, then the shared chain."""
         local = base / name
-        if shared_base is None or local.exists():
+        if local.exists():
             return local
-        shared = shared_base / name
-        return shared if shared.exists() else local
+        shared = shared_file(name)
+        return shared if shared is not None else local
 
     # A multi-disk game is supplied as several images, so "fixture" may be a list;
     # they are all mounted at once and listed in disk order (disk 1 first).
@@ -287,7 +304,7 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     actual = normalize_transcript(actual_path.read_text(encoding="utf-8"))
     if record:
         local_transcript = base / scenario["transcript"]
-        shared_transcript = shared_base / scenario["transcript"] if shared_base else None
+        shared_transcript = shared_file(scenario["transcript"])
         if shared_transcript is not None and shared_transcript.is_file() and \
                 normalize_transcript(shared_transcript.read_text(encoding="utf-8")) == actual:
             # Identical to the shared transcript: keep it shared, drop any local copy.
@@ -340,7 +357,7 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
                 return False
             if record:
                 local_target = base / name
-                shared_target = shared_base / name if shared_base else None
+                shared_target = shared_file(name)
                 if shared_target is not None and shared_target.is_file() and not images_differ(actual_frame_path, shared_target):
                     # Identical to the shared baseline: keep it shared, drop any local copy.
                     if local_target.exists():

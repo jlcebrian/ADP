@@ -1,0 +1,5 @@
+{
+    "fixture": [ "jabato/atarist/JABATO-ST 1.ST", "jabato/atarist/JABATO-ST 2.ST" ],
+    "part": 2,
+    "shared": "jabato/part2-amiga"
+}

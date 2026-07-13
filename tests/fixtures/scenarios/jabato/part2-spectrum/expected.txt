@@ -1,0 +1,334 @@
+JABATO EN AFRICA
+Dirección:
+Andrés Samudio
+Programación:
+Manuel González
+Gráficos:
+Carlos Marqués
+Juan Antonio Darder
+Paco Zarco
+(C) 1989 Aventuras A.D.
+Teclea la clave.
+> INEXES LOXIKO
+Cesarea, frontera entre costa y reinos interiores. Sus gentes mezclan todas las razas.
+> I 
+Tienes una antorcha apagada y una petaca.
+Llevas puesto un talismán y un anillo.
+> E
+El mercado bulle de transacciones, legales o no. Un vendedor te sonríe. Te encuentras a Fideo. Fideo dice: "Hola, Jabato".
+> EX MERCADO
+El vendedor te ofrece un chisquero por 2 debens.
+> DECIR FIDEO "DAME DINERO"
+Fideo dice: "Toma el montón de dinero".
+Has cogido el montón de dinero.
+> COMPRAR CHISQUERO
+El vendedor, sonriente, te dice: "Toma el chisquero".
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale". 
+> O
+Cesarea, frontera entre costa y reinos interiores. Sus gentes mezclan todas las razas. Fideo está aquí.
+> S
+Barrio de Cesarea bastante alejado del centro. Fideo está aquí.
+> S
+De la salida de Cesarea parten varias rutas. Al Sur se yerguen los Montes Atlas, y al Este está Egipto. Aquí están tus amigos.
+Taurus dice: "Hola, Jabato".
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale". 
+> S
+Hacia el Este, a varias jornadas, está Egipto. Un anciano te mira con sorpresa. Aquí están tus amigos.
+> DECIR ANCIANO "AYUDA"
+El anciano dice: "En vampiresca cueva, traga".
+> S
+Tortuosa senda del Atlas, rodeada de montañas y precipicios. Aquí están tus amigos.
+> E
+En el corazón del Atlas, cerca de la temible región del Cus. Aquí están tus amigos.
+> E
+Estas son las puertas de Morona. Pocos han entrado, jamás salió nadie. Una estatua bosteza. Aquí están tus amigos.
+> QUITAR TALISMAN
+Te has quitado el talismán.
+> METER TALISMAN EN ESTATUA
+La estatua se traga el talismán...
+> EX PUERTA
+Tiene una aldaba en cada hoja.
+> MOVER ALDABA
+Ñiieekk.
+> DECIR TAURUS "ESPERA"
+Taurus dice: "Vale". 
+> DECIR 
+Fideo dice: "Perdona, estaba despistado".
+> FIDEO "ESPERA"
+Fideo dice: "Vale". 
+> ENTRAR
+No se ve nada.
+> ENCENDER ANTORCHA
+El interior de la caverna es húmedo y frío. Huele a rancio y se oyen débiles gemidos.
+> E
+Un cristal divide la estancia. Tras él, el enano Maluva te lanza un hacha que rebota contra el cristal...(¿?)
+> S
+El hedor es insoportable en el comedero. Los vampiros sorben ávidamente la sangre de varios animales degollados.
+Una anciana vampira te ofrece sangre. 
+> BEBER SANGRE
+Te dice "Hezmano de zaaangre". Y se aleja renqueante.
+> S
+La guarida del jefe de ésta pocilga. 
+Marttus dice: "Dzime dzién ez ed dzeñó dzel deszierdto y dze la dznoshe", y se queda mirando tu yugular.
+> DECIR MARTTUS "MARTTUS"
+Marttus dice: "Lizto erezzz. Doma, bezbe ezsta zaaangre y magsdica os gicos goázgulos", y te da rojo engrudo de fétido olor.
+> BEBER SANGRE
+Marttus dice: "Mmmm, ziéntate...", con ávido babeo.
+> SENTAR
+Shruuup. Marttus bebe de tu yugular... te desvaneces.
+Duermes y sueñas con... 
+seguir a un buitre trae mala suerte... 
+la cola de un escorpión indica la ruta... 
+los pajaros son buenos navegantes... 
+atraviesa el desierto y no pierdas la compañía... 
+Claudia gime entre terribles garras... 
+De alucine, pero terminó. También recuerdas a Claudia en un Valle de Reyes...
+> N
+El hedor es insoportable en el comedero. Los vampiros sorben ávidamente la sangre de varios animales degollados.
+> O
+Mugrienta y repugnante cámara. Por los rincones hay fofos engendros.
+Aquí hay una cría de vampiro.
+> COGER CRIA
+Has cogido la cría de vampiro.
+> METER CRIA EN PETACA
+La cría de vampiro está en la petaca.
+> N
+El interior de la caverna es húmedo y frío. Huele a rancio y se oyen débiles gemidos.
+> SALIR
+Estas son las puertas de Morona. Pocos han entrado, jamás salió nadie. Aquí están tus amigos.
+Fideo dice: "¿Dónde vamos?"
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale". 
+Taurus dice: "Jabato, ¡eres el mejor!"
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale". 
+> O
+En el corazón del Atlas, cerca de la temible región del Cus. Aquí están tus amigos.
+> O
+Tortuosa senda del Atlas, rodeada de montañas y precipicios. Aquí están tus amigos.
+> N
+Hacia el Este, a varias jornadas, está Egipto. El anciano observa tu mordido cuello. Aquí están tus amigos.
+> E
+En el terrible desierto un buitre mira hacia el Sur. Aquí están tus amigos.
+> N
+Sol y arena por doquier. Aquí están tus amigos.
+> N
+Bajo el ardiente sol. Aquí están tus amigos.
+> N 
+Ignorando la mordedura del Sol, un escorpión se escurre hacia el Este. Aquí están tus amigos.
+> E
+Las dunas se extienden sin fin. Aquí están tus amigos.
+> E 
+Un pajarito vuela hacia el Norte huyendo del ardiente Sol. Aquí están tus amigos.
+> N
+Sin fin se extienden las dunas. Aquí están tus amigos.
+> N
+Se extienden las dunas sin fin. Aquí están tus amigos.
+> N 
+Alejandría, en el delta del Nilo, es la entrada al milenario Egipto. Aquí están tus amigos.
+> S
+El mercado ofrece una mezcla de traficantes honrados y buscavidas.
+El traficante dice: "¿Buscando algo?" Aquí están tus amigos.
+> DAR DINERO A TRAFICANTE
+El traficante dice: "Muy agradecido".
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale". 
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale". 
+> DECIR TRAFICANTE "LLEVAME A GIZEH"
+El traficante os lleva a las pirámides.
+Desde éstas piedras veinte siglos te contemplan. Estás ante las pirámides. Aquí están tus amigos.
+El traficante dice: "Tengo miedo... me voy".
+> E
+Junto a la Esfinge, símbolo inescrutable del eterno Egipto. Aquí están tus amigos.
+> E
+En una tienda Tuareg, oyendo sus desafinadas melodías.
+Los tuaregs cantan y bailan fatal. Aquí están tus amigos.
+> DECIR FIDEO "TOCA"
+Fideo dice: "Vale". 
+Fideo toca la lira y los tuaregs se alegran.
+> DECIR TUAREG "AYUDA"
+El tuareg dice: "Busca, compara, y si encuentras la mayor, entra. Bajo la Mujer-León, algo mola montón".
+El tuareg te da una botella de agua paralizadora.
+> COGER BOTELLA
+Has cogido la botellita de agua paralizadora.
+> O
+Junto a la Esfinge, símbolo inescrutable del eterno Egipto. Aquí están tus amigos.
+> O
+Desde éstas piedras veinte siglos te contemplan. Estás ante las pirámides. Aquí están tus amigos.
+> EX PIRAMIDES
+Hay tres, Kefrén, Keops y Micerinos.
+> ENTRAR KEOPS
+El interior del mausoleo está lleno de pasajes, corredores y túneles. Aquí están tus amigos.
+> E
+El interior del mausoleo está lleno de corredores, pasajes y túneles. Aquí están tus amigos.
+> BAJAR
+El interior del mausoleo está lleno de túneles, corredores y pasajes. Aquí están tus amigos.
+> BAJAR
+Has encontrado una tumba falsa. Aquí están tus amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale". 
+Taurus levanta la losa. Dentro hay una momia.
+> LEVANTAR MOMIA
+Sujetas la momia.
+En el fondo hay una pala.
+> DECIR FIDEO "COGE PALA"
+Fideo dice: "Vale". 
+Fideo coge la pala con mucho asco.
+> SUBIR
+La momia cae en la tumba.
+Cansado, Taurus suelta la losa.
+El interior del mausoleo está lleno de túneles, corredores y pasajes. Aquí están tus amigos.
+> SUBIR
+El interior del mausoleo está lleno de corredores, pasajes y túneles. Aquí están tus amigos.
+> O
+El interior del mausoleo está lleno de pasajes, corredores y túneles. Aquí están tus amigos.
+> SALIR
+Desde éstas piedras veinte siglos te contemplan. Estás ante las pirámides. Aquí están tus amigos.
+> E
+Junto a la Esfinge, símbolo inescrutable del eterno Egipto. Aquí están tus amigos.
+> DEJAR ANTORCHA
+Has dejado la antorcha flameante.
+> DECIR FIDEO "DAME PALA"
+Fideo dice: "Toma la pala".
+Has cogido la pala.
+> CAVAR
+Encuentras el ank.
+> DEJAR PALA
+Has dejado la pala.
+> COGER ANK
+Has cogido el ank.
+> COGER ANTORCHA
+Has cogido la antorcha flameante.
+> O
+Desde éstas piedras veinte siglos te contemplan. Estás ante las pirámides. Aquí están tus amigos.
+> ENTRAR KEOPS
+El interior del mausoleo está lleno de pasajes, corredores y túneles. Aquí están tus amigos.
+> E
+El interior del mausoleo está lleno de corredores, pasajes y túneles. Aquí están tus amigos.
+> BAJAR
+El interior del mausoleo está lleno de túneles, corredores y pasajes. Aquí están tus amigos.
+> E
+El interior del mausoleo está lleno de túneles, pasajes y corredores. Aquí están tus amigos.
+> BAJAR
+Estás junto a la tumba de un Faraón. De las muchas ofrendas sólo queda el catafalco. Aquí están tus amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale". 
+Taurus levanta la losa. Dentro hay una momia.
+> LEVANTAR MOMIA
+Sujetas la momia.
+El escarabajo escapa.
+> TIRAR BOTELLA
+La momia cae en la tumba.
+Cansado, Taurus suelta la losa.
+Al perder el agua, la botella se pulveriza.
+El escarabajo se petrifica.
+> COGER ESCARABAJO
+Has cogido el escarabajo.
+> SUBIR
+El interior del mausoleo está lleno de túneles, pasajes y corredores. Aquí están tus amigos.
+> O
+El interior del mausoleo está lleno de túneles, corredores y pasajes. Aquí están tus amigos.
+> SUBIR
+El interior del mausoleo está lleno de corredores, pasajes y túneles. Aquí están tus amigos.
+> O
+El interior del mausoleo está lleno de pasajes, corredores y túneles. Aquí están tus amigos.
+Aquí hay un adoquín.
+> SALIR
+Desde éstas piedras veinte siglos te contemplan. Estás ante las pirámides. Aquí están tus amigos.
+> O
+Otra vez el desierto, pero la vegetación indica que hay agua cerca. Aquí están tus amigos.
+> S
+Frente al Nilo, caudal vital para Egipto y fuente de su economía. Aquí hay un barquero con su barca. Aquí están tus amigos.
+> DAR DINERO A BARQUERO
+El barquero dice: "Muy agradecido".
+> SUBIR
+La barca surca el Nilo...
+El Valle de los Reyes, cercano a Tebas, ha sido siempre morada eterna de faraones. Aquí hay un barquero con su barca. Aquí están tus amigos.
+> BAJAR
+Has encontrado la entrada a la tumba de Tut'n'Come on. Aquí están tus amigos.
+> ENTRAR
+Por cotilla, Fideo se da un coscorrón al entrar.
+Dentro de la tumba de Tut'n'Come on, al lado de su sarcofagón. Aquí están tus amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "No puedo".
+Fideo se ríe.
+> DECIR FIDEO "AYUDA"
+Fideo dice: "Vale". 
+Fideo bombea la falsa barba, y se escuchan sonidos de potentes cerrojos al abrirse...
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale". 
+Taurus levanta la losa. Dentro hay una momia.
+> LEVANTAR MOMIA
+Sujetas la momia.
+Dentro está el cartouche de Tut.
+> DECIR FIDEO "COGE CARTOUCHE"
+Fideo dice: "Vale". 
+Fideo coge el cartouche con mucho asco.
+Fideo dice: "Me aburro Jaby", y tañe su lira. 
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale". 
+> SALIR
+La momia cae en la tumba.
+Cansado, Taurus suelta la losa.
+Has encontrado la entrada a la tumba de Tut'n'Come on. Aquí están tus amigos.
+> SUBIR
+El Valle de los Reyes, cercano a Tebas, ha sido siempre morada eterna de faraones. Aquí hay un barquero con su barca.
+Fideo dice: "Me aburro Jaby", y tañe su lira.  Aquí están tus amigos.
+Fideo dice: "¿Dónde vamos?"
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale". 
+> E
+En otro de los agrestes parajes del Valle de los Reyes. Aquí están tus amigos.
+> E
+Estás frente a la entrada del templo de la Reina Hatshepsut. Por fín descubres el Nido Madre de la vil secta Kepher. Aquí están tus amigos.
+> DEJAR TODO
+Has dejado la antorcha flameante.
+Has dejado la petaca.
+Has dejado el ank.
+Has dejado el montón de dinero.
+Has dejado el chisquero.
+Has dejado el escarabajo.
+> DECIR FIDEO "DAME CARTOUCHE"
+Fideo dice: "Toma el cartouche".
+Has cogido el cartouche.
+> MOSTRAR CARTOUCHE
+Ñiieekk.
+> DEJAR CARTOUCHE
+Has dejado el cartouche.
+> COGER TODO EXCEPTO CARTOUCHE
+Has cogido la antorcha flameante.
+Has cogido la petaca.
+Has cogido el ank.
+Has cogido el montón de dinero.
+Has cogido el chisquero.
+Has cogido el escarabajo.
+> ENTRAR
+Largo y tenebroso pasillo apretado entre dos salas hipóstilas.
+El escarabajo gigante Kepher te impide el paso. Aquí están tus amigos.
+> TIRAR ESCARABAJO
+Tiras el escarabajo.
+Al ver al escarabajo petrificado, el gigante huye hacia el interior.
+> BAJAR
+Ves a tu amada Claudia encadenada junto al temible Kepher.
+Pataleando frenética, chilla: "¡Quitádmeloooo!" Aquí están tus amigos.
+El anillo brilla.
+> SACAR CRIA DE PETACA
+Has cogido la cría de vampiro.
+El anillo brilla.
+¡La cría ataca a Kepher en los ojos!.
+> QUITAR ANILLO
+Te has quitado el anillo.
+¡El anillo se transforma en una afilada espada!
+¡La cría ataca a Kepher en los ojos!.
+> DECIR TAURUS "ROMPE CADENAS"
+Taurus dice: "Vale". 
+Taurus rompe las cadenas de Claudia.
+¡La cría ataca a Kepher en los ojos!.
+> MATAR KEPHER 
+Has logrado rescatar a la bella Claudia. La aventura ha valido la pena sólo por sentirla vibrar de felicidad entre tus brazos.
+¿Vas a jugar otra vez?
+> n
+Adios...

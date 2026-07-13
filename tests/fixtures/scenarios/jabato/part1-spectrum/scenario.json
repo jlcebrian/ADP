@@ -1,0 +1,7 @@
+{
+    "fixture": "jabato/spectrum/JABATO-SPECTRUM1.Z80",
+    "part": 1,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

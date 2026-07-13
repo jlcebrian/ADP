@@ -1,0 +1,947 @@
+****************************************
+        CHICHEN ITZA - II PARTE
+        =======================
+       Dirección: Andrés Samudio
+    Programación: Juan Manuel Medina
+          Gráficos: Paco Zarco
+             Carlos Marqués
+     Adaptación texto: Juanjo Muñoz
+          Pruebas: Eva Samitier
+****************************************
+Bajas al interior de la pirámide y la salida se cierra tras de ti.
+Clave de acceso:
+> rico papasito
+Oscuro.
+Estás a oscuras. No ves nada.
+Turno: 0
+> girar anillo
+Ves el pasado, el interior de la pirámide iluminado.
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. También puedes ver un tronco. 
+Turno: 1
+> e
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. También puedes ver una esfera. 
+Turno: 2
+> coger esfera
+Coges la esfera.
+Turno: 3
+> ex esfera 
+De cristal, con una ranura. 
+Turno: 4
+> o
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. También puedes ver un tronco. 
+Turno: 5
+> o
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. De la urna sale humo luminoso. Unos sacerdotes están ocupados con sus ritos. 
+Turno: 6
+> coger cazo 
+Coges el cazo.
+Turno: 7
+Los sacerdotes ven el cazo moverse solo, hacen una torpe reverencia y huyen a escape.
+> ex cazo 
+Tiene un asa y contiene pasta de Copal. 
+Turno: 8
+> poner esfera en soporte
+Pones la esfera en el soporte.
+Turno: 9
+El humo entra en la esfera llenándola.
+> coger esfera
+Coges la esfera luminosa.
+Turno: 10
+El humo escapa por la ranura.
+> tapar ranura con pasta
+Tapas la ranura con pasta. Pronto se endurece.
+Turno: 11
+> poner cazo en soporte
+Pones el cazo en el soporte.
+Turno: 12
+> e
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. También puedes ver un tronco. 
+Turno: 13
+> empujar tronco e
+Empujas el tronco.
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. También puedes ver un tronco. 
+Turno: 14
+> empujar tronco abajo
+Empujas el tronco.
+Pirámide. Segundo nivel.
+Desde esta amplia cámara puedes subir o bajar por la escalera que la cruza. Hacia el Sur hay un pasillo, bloqueado por una sólida puerta. También puedes ver un tronco. 
+Turno: 15
+> empujar tronco abajo
+Empujas el tronco.
+Pirámide. Tercer nivel.
+Estancia que puedes abandonar al Oeste o por arriba, a través de un pasadizo. También puedes ver un tronco y una alfombrilla. 
+Turno: 16
+> empujar tronco o 
+Empujas el tronco.
+Pirámide. Tercer nivel.
+Al igual que otras cámaras, esta tiene salida al Este y abajo, por un pasadizo escalonado. También puedes ver un tronco. 
+Turno: 17
+Has activado una trampa...
+¡Las paredes se aproximan!
+¡El tronco detiene los muros!
+> bajar
+Pirámide. Cuarto nivel.
+Estrechísima cámara, casi un cubículo, cuya única salida es hacia arriba por una escalerilla tallada en la roca. También puedes ver un ejemplar de los Anales de los Cakchiqueles. 
+Turno: 18
+> coger Anales
+Coges el ejemplar de los Anales de los Cakchiqueles.
+Turno: 19
+> subir
+Pirámide. Tercer nivel.
+Al igual que otras cámaras, esta tiene salida al Este y abajo, por un pasadizo escalonado. También puedes ver un tronco. 
+Turno: 20
+> e
+Pirámide. Tercer nivel.
+Estancia que puedes abandonar al Oeste o por arriba, a través de un pasadizo. También puedes ver una alfombrilla. 
+Turno: 21
+> coger alfombrilla
+Coges la alfombrilla.
+Turno: 22
+> subir
+Pirámide. Segundo nivel.
+Desde esta amplia cámara puedes subir o bajar por la escalera que la cruza. Hacia el Sur hay un pasillo, bloqueado por una sólida puerta. 
+Turno: 23
+Oyes mecanismos y el suelo vibra debajo de tí.
+> subir
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. 
+Turno: 24
+Ya no ves bien, el anillo se debilita.
+> coger hongo
+Coges el hongo.
+Turno: 25
+> ex hongo 
+Alucinógeno.
+Turno: 26
+> o
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 27
+> bajar
+Pirámide. Segundo nivel.
+De esta estancia sólo puedes salir por el pasadizo ascendente. En una pared ves cuatro nichos. 
+Turno: 28
+> poner Anales en nicho
+Pones el ejemplar de los Anales de los Cakchiqueles en el estante.
+Turno: 29
+La energia del anillo se agota y vuelves a tu tiempo.
+Pirámide. Segundo nivel.
+De esta estancia sólo puedes salir por el pasadizo ascendente. En una pared ves cuatro nichos. 
+Turno: 29
+> subir
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 30
+> o
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 31
+> bajar
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 32
+> bajar
+Pirámide. Tercer nivel.
+Ves salidas arriba por un pasadizo escalonado y el Este por un pasaje. Alrededor del pasadizo ves grabados de Tezcatlipoca. También puedes ver una cachiporra. 
+Turno: 33
+> coger cachiporra
+Coges la cachiporra.
+Turno: 34
+> subir
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 35
+> n 
+Tus pies se fríen...
+Retrocedes a saltos.
+Turno: 36
+> comer hongo 
+Al comer el hongo quedas insensible.
+Turno: 37
+> n
+Pasas sobre las hirvientes losas sin enterarte.
+Pirámide. Segundo nivel.
+Estrecha cámara de la que puedes salir al Sur o por un  pasadizo que sigue bajando. En una pared ves un canalón por el que se distribuye agua a otras salas. También puedes ver un bastón de mando. 
+Turno: 38
+> coger baston
+Coges el bastón de mando.
+Turno: 39
+> s
+Pasas sobre las hirvientes losas sin enterarte.
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 40
+> subir
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 41
+> e
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 42
+> e
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. 
+Turno: 43
+> bajar
+Pirámide. Segundo nivel.
+Desde esta amplia cámara puedes subir o bajar por la escalera que la cruza. Hacia el Sur hay un pasillo, bloqueado por una sólida puerta. 
+Turno: 44
+Poco a poco recobras la sensibilidad.
+> ex puerta 
+Caoba, la más dura madera. Los siglos la han cuasipetrificado. Está algo despegada del suelo y tiene una ranura.  Está cerrada.
+Turno: 45
+> meter alfombrilla debajo puerta
+Pasas la alfombrilla por debajo de la puerta. 
+Turno: 46
+> meter baston en ranura 
+Introduces el bastón de mando en la ranura, cayendo la llave al otro lado.
+Turno: 47
+> dejar baston
+Dejas el bastón de mando.
+Turno: 48
+> coger alfombra
+Coges la alfombrilla.
+Te traes con ella la llave, que cae al suelo.
+Turno: 49
+> coger llave
+Coges la llave.
+Turno: 50
+> abrir puerta
+Introduces la llave en la ranura y abres la puerta.
+Turno: 51
+> dejar llave
+Dejas la llave.
+Turno: 52
+> s
+Pirámide. Segundo nivel.
+Cámara estrecha comunicada hacia el Norte y desde cuyo suelo baja un pasillo escalonado. También puedes ver una vasija. 
+Turno: 53
+> coger vasija
+Coges la vasija.
+Turno: 54
+> ex vasija 
+Del tamaño de un coco, muy agrietada por debajo. 
+Turno: 55
+> bajar
+Pirámide. Tercer nivel.
+Una nueva sala, pero con la particularidad de tener una losa que sobresale del suelo entre dos argollas. 
+Turno: 56
+> meter cachiporra en argollas
+Empujas la losa y pones la porra entre las argollas. La losa baja y un pasaje se abre al Este. 
+Turno: 57
+> e
+Pirámide. Tercer nivel.
+Esta estrecha cámara está comunicada al Oeste y hacia abajo. También puedes ver una calavera. 
+Turno: 58
+> coger calavera
+Coges la calavera.
+Turno: 59
+> bajar
+Pirámide. Cuarto nivel.
+Estrechísima cámara, casi un cubículo, cuya única salida es hacia arriba por una escalerilla tallada en la roca. También puedes ver un ejemplar del Libro de los Señores de Totonicapan. 
+Turno: 60
+> coger Libro
+Coges el ejemplar del Libro de los Señores de Totonicapan.
+Turno: 61
+> subir
+Pirámide. Tercer nivel.
+Esta estrecha cámara está comunicada al Oeste y hacia abajo. 
+Turno: 62
+> o
+Pirámide. Tercer nivel.
+Una nueva sala, pero con la particularidad de tener una losa que sobresale del suelo entre dos argollas. También puedes ver una cachiporra. 
+Turno: 63
+> subir
+Pirámide. Segundo nivel.
+Cámara estrecha comunicada hacia el Norte y desde cuyo suelo baja un pasillo escalonado. 
+Turno: 64
+> n
+Pirámide. Segundo nivel.
+Desde esta amplia cámara puedes subir o bajar por la escalera que la cruza. Hacia el Sur hay un pasillo, bloqueado por una sólida puerta. También puedes ver una llave y un bastón de mando. 
+Turno: 65
+> subir
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. 
+Turno: 66
+> o
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 67
+> bajar
+Pirámide. Segundo nivel.
+De esta estancia sólo puedes salir por el pasadizo ascendente. En una pared ves cuatro nichos. 
+Turno: 68
+> poner Libro en nicho
+Pones el ejemplar del Libro de los Señores de Totonicapan en el estante.
+Turno: 69
+> subir
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 70
+> o
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 71
+> bajar
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 72
+> bajar
+Pirámide. Tercer nivel.
+Ves salidas arriba por un pasadizo escalonado y el Este por un pasaje. Alrededor del pasadizo ves grabados de Tezcatlipoca. 
+Turno: 73
+> e 
+La luz de la esfera se refleja en las paredes con tanta fuerza que te hace retroceder.
+Pirámide. Tercer nivel.
+Ves salidas arriba por un pasadizo escalonado y el Este por un pasaje. Alrededor del pasadizo ves grabados de Tezcatlipoca. 
+Turno: 74
+> cubrir esfera con alfombrilla
+Cubres la esfera luminosa con la alfombrilla.
+Turno: 75
+> e
+Pirámide. Tercer nivel.
+Esta estancia, dedicada a Tezcatlipoca, tiene las paredes formadas de pulida obsidiana. Un pasadizo escalonado conduce hacia abajo.
+Turno: 76
+> bajar
+Pirámide. Cuarto nivel.
+Estrechísima cámara, casi un cubículo, cuya única salida es hacia arriba por una escalerilla tallada en la roca. También puedes ver un ejemplar del Chilan Balam. 
+Turno: 77
+> coger Chilan Balam
+Coges el ejemplar del Chilan Balam.
+Turno: 78
+> subir
+Pirámide. Tercer nivel.
+Esta estancia, dedicada a Tezcatlipoca, tiene las paredes formadas de pulida obsidiana. Un pasadizo escalonado conduce hacia abajo.
+Turno: 79
+> o
+Pirámide. Tercer nivel.
+Ves salidas arriba por un pasadizo escalonado y el Este por un pasaje. Alrededor del pasadizo ves grabados de Tezcatlipoca. 
+Turno: 80
+> subir
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 81
+> subir
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 82
+> e
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 83
+> bajar
+Pirámide. Segundo nivel.
+De esta estancia sólo puedes salir por el pasadizo ascendente. En una pared ves cuatro nichos. 
+Turno: 84
+> poner Chilan en nicho
+Pones el ejemplar del Chilan Balam en el estante.
+Turno: 85
+> subir
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 86
+> e
+Pirámide. Primer nivel.
+En este lugar hay un pasillo que baja y una salida al Oeste. Las paredes están cubiertas de hongos. 
+Turno: 87
+> coger hongo
+Coges el hongo.
+Turno: 88
+> comer hongo
+Al comer el hongo quedas insensible.
+Turno: 89
+> coger hongo
+Coges el hongo.
+Turno: 90
+> o
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 91
+> o
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 92
+> bajar
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 93
+> n
+Pasas sobre las hirvientes losas sin enterarte.
+Pirámide. Segundo nivel.
+Estrecha cámara de la que puedes salir al Sur o por un  pasadizo que sigue bajando. En una pared ves un canalón por el que se distribuye agua a otras salas. 
+Turno: 94
+> ex canalon 
+Parte de un antiguo acueducto. Hay un agujero del tamaño de un coco por el que escapa el agua.
+Turno: 95
+> tapar agujero con vasija
+La vasija tapa el agujero, deteniendo el agua.
+Turno: 96
+Poco a poco recobras la sensibilidad.
+> bajar
+Pirámide. Tercer nivel.
+De esta sala puedes subir por el habitual pasadizo o salir al Oeste. 
+Turno: 97
+> o
+Pirámide. Tercer nivel.
+Cámara comunicada al Este y hacia abajo por un pasadizo. También puedes ver un mazo. 
+Turno: 98
+> coger mazo
+Coges el mazo.
+Turno: 99
+> bajar
+Pirámide. Cuarto nivel.
+Estrechísima cámara, casi un cubículo, cuya única salida es hacia arriba por una escalerilla tallada en la roca. También puedes ver un ejemplar del Popol Vuh. 
+Turno: 100
+> coger Popol Vuh
+Coges el ejemplar del Popol Vuh.
+Turno: 101
+> subir
+Pirámide. Tercer nivel.
+Cámara comunicada al Este y hacia abajo por un pasadizo. 
+Turno: 102
+> e
+Pirámide. Tercer nivel.
+De esta sala puedes subir por el habitual pasadizo o salir al Oeste. 
+Turno: 103
+> comer hongo
+Al comer el hongo quedas insensible.
+Turno: 104
+> subir
+Pirámide. Segundo nivel.
+Estrecha cámara de la que puedes salir al Sur o por un  pasadizo que sigue bajando. En una pared ves un canalón por el que se distribuye agua a otras salas. 
+Turno: 105
+> s
+Pasas sobre las hirvientes losas sin enterarte.
+Pirámide. Segundo nivel.
+Esta sala se encuentra en medio de la escalera, que puedes usar para subir o bajar. Al Norte hay otra salida, y el suelo, por acción de algún volcán, está incandescente. 
+Turno: 106
+> subir
+Pirámide. Primer nivel.
+Estrecha cámara comunicada al Este y con un pasadizo en el suelo. Ves una urna en un rincón y a un metro sobre ella un soporte sobre el que hay un cazo. 
+Turno: 107
+> e
+Pirámide. Primer nivel.
+Cámara comunicada por sus paredes Este y Oeste y con un pasadizo descendente. 
+Turno: 108
+> bajar
+Pirámide. Segundo nivel.
+De esta estancia sólo puedes salir por el pasadizo ascendente. En una pared ves cuatro nichos. 
+Turno: 109
+> poner Popol en nicho 
+Pones el ejemplar del Popol Vuh en el estante.
+Turno: 110
+El peso de los libros activa un mecanismo.
+Una losa se abre y ves un pasaje descendente.
+> bajar
+Pirámide. Quinto nivel.
+Gran sala con salidas hacia arriba y al Este. Un muro de reciente construcción bloquea la salida Oeste. 
+Turno: 111
+Poco a poco recobras la sensibilidad.
+> e
+Pirámide. Quinto nivel.
+Conducto inclinado. La parte alta queda al Este y la baja al Oeste. Hay una derivación al Norte. 
+Turno: 112
+> e
+Pirámide. Quinto nivel.
+Esta cámara tiene las paredes decoradas con el recorrido solar. También ves un gran sol dorado. 
+Turno: 113
+> ex sol 
+Enorme esfera que representa al sol. Las paredes de la habitación lo retienen menos por el Oeste, donde hay una cuña.
+Turno: 114
+> golpear cuna con mazo 
+La cuña salta. ¡El enorme sol se te viene encima!
+Turno: 115
+> o
+Pirámide. Quinto nivel.
+Conducto inclinado. La parte alta queda al Este y la baja al Oeste. Hay una derivación al Norte. 
+¡El enorme sol se te viene encima!
+Turno: 116
+> n 
+Pirámide. Xibalbá nivel.
+Estás en una pequeñísima habitación, quizá un trastero... 
+El sol pasa por tu lado y destroza el muro del fondo.
+Turno: 117
+> s
+Pirámide. Quinto nivel.
+Conducto inclinado. La parte alta queda al Este y la baja al Oeste. Hay una derivación al Norte. 
+Turno: 118
+> o
+Pirámide. Quinto nivel.
+Gran sala con salidas hacia arriba y al Este. Un muro de reciente construcción bloquea la salida Oeste. La bola abrió un agujero en el muro. 
+Turno: 119
+> dejar alfombrilla y mazo
+Dejas la alfombrilla.
+Turno: 120
+Dejas el mazo.
+Turno: 121
+> o 
+Caes.
+Caes por abismos de espacio y tiempo hasta Xibalbá, el infierno maya.
+Xibalbá.
+Gran caverna que se extiende al Oeste, hacia el Sur baja una rampa rocosa. 
+Turno: 122
+> .
+No es necesario en esta aventura.
+Turno: 122
+> s
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 123
+> e
+Xibalbá.
+Oscuro túnel lateral que comunica con la caverna principal por el Oeste y baja hacia el Sur. 
+Turno: 124
+> s 
+Xibalbá.
+En esta cueva terminal el ambiente está helado y la tristeza es infinita. El frío es la piel del enorme esqueleto Yum Kcimil.
+Turno: 125
+Del esqueleto emana intenso frío.
+El ser te mira y camina hacia tí.
+> n
+Xibalbá.
+Oscuro túnel lateral que comunica con la caverna principal por el Oeste y baja hacia el Sur. 
+Turno: 126
+La vida te vuelve...
+> o
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 127
+> s
+Xibalbá.
+Gran caverna que se extiende de Norte a Sur y baja en pendiente al Oeste. 
+Turno: 128
+> s
+Xibalbá.
+Gran caverna que se extiende al Norte y baja por una cuesta hacia el Oeste. 
+Turno: 129
+> o
+Xibalbá.
+Parte de la caverna muy inclinada, con una subida al Este y un fuerte declive al Noroeste. 
+Turno: 130
+> no
+Xibalbá.
+El agua chorrea por todas las paredes. 
+Turno: 131
+> dejar calavera
+Dejas la calavera.
+Turno: 132
+> m (Yum llega
+Pero... si no está.
+Turno: 133
+Yum llega.
+El esqueleto recoge la calavera y se detiene.
+> recoge la calavera y se detiene)
+No puedes hacerlo.
+Turno: 134
+Del esqueleto emana intenso frío.
+> se
+Xibalbá.
+Parte de la caverna muy inclinada, con una subida al Este y un fuerte declive al Noroeste. 
+Turno: 135
+La vida te vuelve...
+> e
+Xibalbá.
+Gran caverna que se extiende al Norte y baja por una cuesta hacia el Oeste. 
+Turno: 136
+> n
+Xibalbá.
+Gran caverna que se extiende de Norte a Sur y baja en pendiente al Oeste. 
+Turno: 137
+> n
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 138
+> n
+Xibalbá.
+Gran caverna que se extiende al Oeste, hacia el Sur baja una rampa rocosa. 
+Turno: 139
+> o
+Xibalbá.
+Gran caverna que se extiende de Este a Oeste. Al Norte un repecho baja a una zona más oscura. Al Sur, un peligroso desnivel cae hacia una laguna interior. 
+Turno: 140
+> n 
+Xibalbá.
+Oscuro rincón de la caverna con una estrecha rampa de subida al Sur. La desdicha parece rodear a Tezcatlipoca, negra sombra empuñando un escudo.
+Turno: 141
+El ser te mira y camina hacia tí.
+> s
+Xibalbá.
+Gran caverna que se extiende de Este a Oeste. Al Norte un repecho baja a una zona más oscura. Al Sur, un peligroso desnivel cae hacia una laguna interior. 
+Turno: 142
+> e
+Xibalbá.
+Gran caverna que se extiende al Oeste, hacia el Sur baja una rampa rocosa. 
+Turno: 143
+> s
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 144
+> s
+Xibalbá.
+Gran caverna que se extiende de Norte a Sur y baja en pendiente al Oeste. 
+Turno: 145
+> s
+Xibalbá.
+Gran caverna que se extiende al Norte y baja por una cuesta hacia el Oeste. 
+Turno: 146
+> o
+Xibalbá.
+Parte de la caverna muy inclinada, con una subida al Este y un fuerte declive al Noroeste. 
+Turno: 147
+> no
+Xibalbá.
+El agua helada forma pulidos espejos. Yum está aquí. Parece hipnotizado por la calavera. 
+Turno: 148
+Del esqueleto emana intenso frío.
+> m 
+Xibalbá.
+El agua helada forma pulidos espejos. Yum está aquí. Parece hipnotizado por la calavera. 
+Turno: 149
+Te estás helando...
+> m
+Xibalbá.
+El agua helada forma pulidos espejos. Yum está aquí. Parece hipnotizado por la calavera. 
+Turno: 150
+El hielo te congela.
+Tezca llega.
+Eternos rivales, no pueden vencerse físicamente, por lo que Tezcatlipoca alza su escudo y Yum Kcimil es absorbido.
+Tezca ve su reflejo en el hielo, perdiendo al instante su voluntad.
+El ser te mira y camina hacia tí.
+> coger espejo
+Coges el espejo.
+Turno: 151
+La vida te vuelve...
+Tezca te imita.
+> se 
+Xibalbá.
+Parte de la caverna muy inclinada, con una subida al Este y un fuerte declive al Noroeste. 
+Turno: 152
+Tezca te imita.
+> e
+Xibalbá.
+Gran caverna que se extiende al Norte y baja por una cuesta hacia el Oeste. 
+Turno: 153
+Tezca te imita.
+> n
+Xibalbá.
+Gran caverna que se extiende de Norte a Sur y baja en pendiente al Oeste. 
+Turno: 154
+Tezca te imita.
+> n
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 155
+Tezca te imita.
+> n
+Xibalbá.
+Gran caverna que se extiende al Oeste, hacia el Sur baja una rampa rocosa. 
+Turno: 156
+Tezca te imita.
+> o
+Xibalbá.
+Gran caverna que se extiende de Este a Oeste. Al Norte un repecho baja a una zona más oscura. Al Sur, un peligroso desnivel cae hacia una laguna interior. 
+Turno: 157
+Tezca te imita.
+> o 
+Xibalbá.
+Has llegado al final de la gran caverna Este-Oeste. El sol dorado está atascado aquí. 
+Turno: 158
+Tezca te imita.
+> empujar sol 
+Turno: 159
+El dios te imita, y su fuerza lanza la bola precipicio abajo.
+> e
+Xibalbá.
+Gran caverna que se extiende de Este a Oeste. Al Norte un repecho baja a una zona más oscura. Al Sur, un peligroso desnivel cae hacia una laguna interior. 
+Turno: 160
+Tezca llega.
+Tezca te imita.
+> e
+Xibalbá.
+Gran caverna que se extiende al Oeste, hacia el Sur baja una rampa rocosa. 
+Turno: 161
+Tezca te imita.
+> s
+Xibalbá.
+Gran caverna que se extiende al Sur. Una rampa sube hacia el Norte, al Oeste ves un lago interior y al Este una tenebrosa entrada. 
+Turno: 162
+Tezca te imita.
+> s
+Xibalbá.
+Gran caverna que se extiende de Norte a Sur y baja en pendiente al Oeste. 
+Turno: 163
+Tezca te imita.
+> o
+Xibalbá.
+Esta parte de la caverna continúa hacia el Oeste y tiene una rampa ascendente al Este. 
+Turno: 164
+Tezca te imita.
+> o 
+Xibalbá.
+La cascada no fluye, dejando ver una grieta al norte. 
+Turno: 165
+Tezca te imita.
+> n 
+Cruzas de nuevo a otra dimensión.
+Mas ahora notas que asciendes del tenebroso Xibalbá.
+Desierto.
+En este tórrido purgatorio de arena y sol es en el único lugar donde puedes encontrar cactus de tan extraña especie. 
+Turno: 166
+> .
+No es necesario en esta aventura.
+Turno: 166
+> ex cactus
+Erizados de púas.
+Turno: 167
+> coger puas
+Coges el puñado de púas de cactus.
+Turno: 168
+> e
+Desierto.
+En este tórrido purgatorio de arena y sol es en el único lugar donde puedes encontrar cactus de tan extraña especie. 
+Turno: 169
+> s
+Zona árida.
+Desde esta región árida y desolada, sólo las formaciones rocosas te contemplan. 
+Turno: 170
+> s
+Zona árida.
+Desde esta región árida y desolada, sólo las formaciones rocosas te contemplan. Hacia el Suroeste hay una enorme roca. 
+Turno: 171
+> so
+Zona árida.
+Al amparo de la roca se han formado numerosas rosas del desierto. 
+Turno: 172
+> coger rosa
+Coges la rosa del desierto.
+Turno: 173
+> ne
+Zona árida.
+Desde esta región árida y desolada, sólo las formaciones rocosas te contemplan. Hacia el Suroeste hay una enorme roca. 
+Turno: 174
+> e
+Zona árida.
+Desde esta región árida y desolada, sólo las formaciones rocosas te contemplan. 
+Turno: 175
+> s
+Oasis.
+Las datileras y la verde hierba son muestras de que en este oasis hay bastante humedad. 
+Turno: 176
+> coger datiles
+Coges el racimo de dátiles.
+Turno: 177
+> s
+Desierto.
+Otra vez el desierto. Hacia el Oeste se ve una columna de humo. 
+Turno: 178
+> e
+Zona volcánica.
+La calzada de los Gigantes está formada por formaciones de basalto amontonadas. 
+Turno: 179
+> s
+Zona volcánica.
+Te hallas en el centro de la calzada. 
+Turno: 180
+> s
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. De pronto, se yergue ante tí el gigante Sipac. También puedes ver un cesto. 
+Turno: 181
+> meter puas en datiles
+Clavas una púa en cada dátil.
+Turno: 182
+> poner datiles en cesto
+Pones el racimo de dátiles en el cesto.
+Turno: 183
+> o 
+Sipac te ve y se acerca agresivo. La cesta de dátiles llama su atención, y sin soltarte se los come. Al momento, te suelta y entre estertores cae al suelo, quedando incrustado en él y, como dice la mitología, "formando un nuevo volcán".
+Zona volcánica.
+Te has metido en la mismísima guarida de Sipac. Apesta a rancio y todo está muy desordenado. También puedes ver una espada, un trozo de cera, una botella y una jarra con miel. 
+Turno: 184
+> coger todo 
+La espada pesa demasiado y se te cae.
+Coges el trozo de cera.
+Coges la botella.
+Coges la jarra con miel.
+Turno: 185
+> e
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+Turno: 186
+> e
+Zona volcánica.
+En este lugar hay unas extrañísimas formaciones rocosas, algunas en grupos, otras en parejas y alguna que otra solitaria. 
+Turno: 187
+Un suave canto te atrae.
+> o
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+Turno: 188
+> hacer tapones 
+Haces un par de tapones con la cera. 
+Turno: 189
+> poner tapones
+Te pones los tapones de cera.
+Turno: 190
+> e
+Zona volcánica.
+En este lugar hay unas extrañísimas formaciones rocosas, algunas en grupos, otras en parejas y alguna que otra solitaria. 
+Turno: 191
+> ex rocas
+Una tiene grabado un cono.
+Turno: 192
+> ex cono
+Como los conos de Chichén Itzá.
+Turno: 193
+> tocar cono con rosa 
+Zyanya cobra vida ante tí, y tras aceptar tu flor te entrega un nuevo filtro, tras lo cual vuelve a su estado pétreo.
+Turno: 194
+> o
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto. 
+Turno: 195
+> quitar tapones
+Te quitas los tapones de cera.
+Turno: 196
+> dejar tapones
+Dejas los tapones de cera.
+Turno: 197
+> s
+Zona volcánica.
+Toda la ladera del volcán Sipác retumba y se estremece con el profundo rugido del gigante. Ante ti está Xiutecutli. 
+Turno: 198
+> preguntar Xiutecutli 
+Xiutecutli alza la mirada y dice "¿Puedes endulzar mi amarga vida?".
+Turno: 199
+> dar jarra a Xiutecutli 
+Xiutecutli exclama "¡Gracias, mortal!" y cogiendo el cuenco añade: "Toma mi máscara a cambio" marchándose a continuación.
+Turno: 200
+> n
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto y unos tapones de cera. 
+Turno: 201
+> o
+Zona volcánica.
+Te has metido en la mismísima guarida de Sipac. Apesta a rancio y todo está muy desordenado. También puedes ver una espada. 
+Turno: 202
+> beber filtro 
+Sientes que la fuerza te invade. Sin contenido, el frasco se pulveriza.
+Turno: 203
+> coger espada
+Coges la espada.
+Turno: 204
+> e
+Zona volcánica.
+El extremo sur de la calzada presenta la misma configuración geológica. Al sur se alza el imponente volcán Sipac. También puedes ver un cesto y unos tapones de cera. 
+Turno: 205
+> n
+Zona volcánica.
+Te hallas en el centro de la calzada. 
+Turno: 206
+> n
+Zona volcánica.
+La calzada de los Gigantes está formada por formaciones de basalto amontonadas. 
+Turno: 207
+> o
+Desierto.
+Otra vez el desierto. Hacia el Oeste se ve una columna de humo. 
+Turno: 208
+> poner mascara
+Te pones la máscara.
+Turno: 209
+> o 
+Zona volcánica.
+Por este Lugar Humeante se escapa de la tierra la furia volcánica en forma de tóxicos gases. 
+La máscara te protege del humo.
+Turno: 210
+> s
+Zona montañosa.
+Una alta muralla granítica se alza ante tí. Negros buitres giran en lo alto. 
+Turno: 211
+> quitar mascara
+Te quitas la máscara.
+Turno: 212
+> dejar mascara
+Dejas la máscara.
+Turno: 213
+> ex buitres 
+Rapaces enlutadas que vuelan sobre tí. Vaya... ése parece... ¡es Kuill! Y se está acercando... Te dice: "Ven... Aaark... Ven".
+Turno: 214
+> seguir Kuill
+Kuill se dirige hacia la montaña y te guía por senderos y caminos.
+Cuando te ve encaminado, vuelve con los suyos.
+Zona montañosa.
+Estás en la localidad del paso. 
+Turno: 215
+> so
+Paraíso.
+Un paradisiaco valle se abre frente a ti. 
+Turno: 216
+> e
+Paraíso.
+La imponente masa vegetal de Kappock, el Arbol de la Vida, domina todo este umbrío rincón. 
+Turno: 217
+> ex kappock
+Arbol central del paraiso, cargado de frutos de la vida.
+Turno: 218
+> coger frutas
+Coges las frutas de kappok.
+Turno: 219
+> o
+Paraíso.
+Un paradisiaco valle se abre frente a ti. 
+Turno: 220
+> o
+Paraíso.
+Recorres un frondoso sendero. 
+Turno: 221
+> o
+Paraíso.
+Estás en un yermo sendero. Guardando el paso al norte se encuentra Huitzilopochtli. 
+Turno: 222
+> n 
+Lo intentas, pero el gran Huitzilopochtli te alcanza. Te escudas con el espejo. El dios se ve reflejado y queda desconcertado.
+Turno: 223
+> matar Huitzilipochtli
+De un tremendo mandoble has decapitado a todo un inmortal dios mitológico.
+Turno: 224
+> n
+Paraíso.
+Estás en el Lugar del Olvido, donde vagan los "muertos en muerte". 
+Turno: 225
+Los muertos en muerte avanzan sobre ti.
+> dar frutas a muertos
+Tras recibir lo que desean, te dejan en paz.
+Turno: 226
+> n
+Paraíso.
+Estás en lo alto de una pequeña loma desde la cual desciende una rampa hasta la puerta del palacio de Kukulkán. 
+Turno: 227
+> vaciar botella en suelo
+Vacías la botella sobre la rampa, formando un reguero en ésta.
+Sin contenido, el frasco se pulveriza.
+Turno: 228
+> dejar esfera 
+Dejas la esfera luminosa.
+Turno: 229
+La esfera baja rodando por la rampa impregnándose con el liquido y creciendo al avanzar.
+Cuando alcanza el templo se estrella contra la puerta, destrozándose ambas.
+> n
+Paraíso.
+Estás al final de la rampa, ante la puerta del palacio. 
+Turno: 230
+> n 
+Paraíso.
+Te encuentras frente Kukulkán. El dios agradece con su sonrisa tu valor y te hace un obsequio, una pequeña petaca.
+"Mortal, este objeto contiene todos los males y desdichas que te esperan en tu larga vida."
+Con una sonrisa, el dios desaparece.
+Abres la petaca con manos temblorosas para examinar su contenido...
+ ¡ESTA VACIA! 
+¿Lo intentas otra vez? (Si/No)
+> n

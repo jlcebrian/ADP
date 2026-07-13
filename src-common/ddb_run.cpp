@@ -189,21 +189,58 @@ void DDB_SetupInkMap (DDB_Interpreter* i)
 			break;
 
 		case DDB_MACHINE_SPECTRUM:
-			// TODO: Honor ink map from drawstring database
 			for (int n = 0; n < 16; n++)
 				i->inkMap[n] = n;
-			if (i->ddb->version != DDB_VERSION_PAWS) {
+			if (i->ddb->version != DDB_VERSION_PAWS)
+			{
 				i->inkMap[0] = 0;
 				i->inkMap[1] = 7;
 				i->inkMap[7] = 1;
+				#if HAS_DRAWSTRING
+				// Logical colours are converted through an 8-entry table
+				// in the graphics database, preserving the bright bit
+				const uint8_t* map = DDB_GetVectorInkMap();
+				if (map != 0)
+				{
+					for (int n = 0; n < 16; n++)
+						i->inkMap[n] = (map[n & 7] & 0x07) | (n & 0x08);
+				}
+				#endif
 			}
 			break;
 
 		case DDB_MACHINE_C64:
-		case DDB_MACHINE_MSX:
 			for (int n = 0; n < 16; n++)
 				i->inkMap[n] = n;
+			#if HAS_DRAWSTRING
+			{
+				// Same conversion as MSX, with C64 hardware colours
+				const uint8_t* map = DDB_GetVectorInkMap();
+				if (map != 0)
+				{
+					for (int n = 0; n < 16; n++)
+						i->inkMap[n] = map[n] & 0x0F;
+				}
+			}
+			#endif
 			break;
+
+		case DDB_MACHINE_MSX:
+		{
+			for (int n = 0; n < 16; n++)
+				i->inkMap[n] = n;
+			#if HAS_DRAWSTRING
+			// Logical colours are converted to TMS9918 colours through
+			// a table in the graphics database
+			const uint8_t* map = DDB_GetVectorInkMap();
+			if (map != 0)
+			{
+				for (int n = 0; n < 16; n++)
+					i->inkMap[n] = map[n] & 0x0F;
+			}
+			#endif
+			break;
+		}
 
 		case DDB_MACHINE_IBMPC:
 			if (logicScreenMode == ScreenMode_Text)
@@ -1752,11 +1789,14 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			#endif
 			{
 				DDB_ClearWindow(i, &i->win);
-				uint8_t attributes = VID_GetAttributes();
-				bool found = DDB_DrawVectorPicture(locno);
-				if (found)
-					i->flags[Flag_HasPicture] = 128;
-				VID_SetAttributes(attributes);
+				if (DDB_HasVectorWindow(locno))
+				{
+					uint8_t attributes = VID_GetAttributes();
+					bool found = DDB_DrawVectorPicture(locno);
+					if (found)
+						i->flags[Flag_HasPicture] = 128;
+					VID_SetAttributes(attributes);
+				}
 			}
 		}
 		else

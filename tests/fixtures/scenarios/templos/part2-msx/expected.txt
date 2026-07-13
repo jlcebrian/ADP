@@ -1,0 +1,752 @@
+ ****************************************
+        TEMPLOS SAGRADOS II PARTE
+        ========================
+       Dirección: Andrés Samudio
+              Programación:
+           Juan Luis Cervera
+           Juan Manuel Medina
+                Gráficos:
+           José Luis Masmano
+             Carlos Marqués
+               Paco Zarco
+ ****************************************
+Viajas desde Tulum por un canal subterraneo.
+Al rato ves la luz de la salida que se acerca. Te deslizas por la pequeña caida al final del tunel.
+Clave de acceso:
+> tur kos bon 
+                        LAGUNETA DE MACANXOC
+El agua es fría y está rizada por la brisa. Escasa vegetación la rodea. Estás subido en la balsa. 
+ Turno: 0
+> esperar
+El tiempo pasa...
+ Turno: 1
+> esperar
+El tiempo pasa...
+ Turno: 2
+> esperar
+El tiempo pasa...
+ Turno: 3
+> esperar
+El tiempo pasa...
+ Turno: 4
+> esperar
+El tiempo pasa...
+ Turno: 5
+> esperar
+El tiempo pasa...
+ Turno: 6
+> esperar
+El tiempo pasa...
+ Turno: 7
+> esperar
+El tiempo pasa...
+ Turno: 8
+> esperar
+El tiempo pasa...
+ Turno: 9
+> esperar
+El tiempo pasa...
+ Turno: 10
+> esperar
+El tiempo pasa...
+ Turno: 11
+Los nudos se aflojan y la balsa comienza a perder rigidez.
+> saltar
+Saltas y el impulso hace que la balsa empiece a alejarse.
+ Turno: 12
+> agarrar balsa
+La agarras antes de que se aleje mucho.
+ Turno: 13
+> empujar balsa 
+Empujas la balsa.
+                        ORILLA
+Te encuentras rodeado de juncos y cañas de todo tipo. Tienes asida la balsa.
+Empujas la balsa encallándola en la costa.
+ Turno: 14
+> subir
+Subes de nuevo a la balsa.
+ Turno: 15
+> saltar
+Abandonas la embarcación.
+                        PANTANO
+Estás en la zona pantanosa que rodea la laguna de Macanxoc. Sólo juncos y cañas resisten el inclemente sol. 
+ Turno: 16
+> ex canas
+Grámineas de fino tallo.
+ Turno: 17
+> coger canas 
+Coges el manojo de cañas.
+ Turno: 18
+Empiezas a hundirte en el cenagoso fondo.
+> o
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 19
+> n
+                        CASA DE LOS EXCAVADORES
+Esta casucha ha permanecido abandonada por varios años. A través del roto tejado se ve el cielo. Cerca a una pared hay una mesa de trabajo. 
+ Turno: 20
+> ex mesa
+Muy pesada y sólida. Tiene un cajón. 
+ Turno: 21
+> ex cajon
+De madera. Está cerrado.
+ Turno: 22
+> abrir cajon
+Abres el cajón.
+ Turno: 23
+> ex cajon
+De madera. Dentro hay una plomada. 
+ Turno: 24
+> coger plomada
+Coges la plomada.
+ Turno: 25
+> ex plomada
+Resistente cuerda con un plomo en un extremo.
+ Turno: 26
+> subir mesa
+Estás subido en la mesa. 
+ Turno: 27
+> subir tejado 
+                        CASA DE LOS EXCAVADORES
+Te hayas encaramado sobre el techo de la caseta. También puedes ver una botella. 
+ Turno: 28
+> coger botella
+Coges la botella.
+ Turno: 29
+> bajar
+                        CASA DE LOS EXCAVADORES
+Esta casucha ha permanecido abandonada por varios años. A través del roto tejado se ve el cielo. Cerca a una pared hay una mesa de trabajo. Estás subido en la mesa. 
+ Turno: 30
+> bajar
+Te bajas.
+ Turno: 31
+> romper botella
+La rompes en mil pedazos, el fondo queda entero.
+ Turno: 32
+> coger vidrio
+Coges el fondo de botella.
+ Turno: 33
+> ex vidrio
+Grueso y translúcido.
+ Turno: 34
+> s
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 35
+> o
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 36
+> n
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 37
+> o
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 38
+> n
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 39
+> o
+                        ESTANCIAS
+Los nichos y las plataformas de esta estancia sugieren que fue un lugar de reposo. También puedes ver un mango de una pala. 
+ Turno: 40
+> coger mango
+Coges el mango de una pala.
+ Turno: 41
+> e
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 42
+> s
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 43
+> o
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 44
+> so
+                        RUINAS OESTE
+Algunas piedras, invadidas por la selva, marcan las antiguas paredes. Al Norte queda la pirámide, al Sur la laguna y al Este la única entrada a una explanada. 
+ Turno: 45
+> s
+                        ORILLA DE SACAKAL
+La orillas de esta laguneta, rodeada por fuertes juncos de totora, son menos fangosas. En la orilla hay una barca encallada. 
+ Turno: 46
+> ex barca
+Un tronco excavado. Está vacía.
+ Turno: 47
+> empujar barca
+De un empujón desencallas la barca. La embarcación flota cerca. 
+ Turno: 48
+> subir
+Tu impulso hace que la barca empiece a moverse.
+                        LAGUNA DE SACAKAL
+En este lago de templadas aguas hay una fuerte corriente. Estás subido en la barca. 
+ Turno: 49
+> m
+                        LAGUNA DE SACAKAL
+En este lago de templadas aguas hay una fuerte corriente. Estás subido en la barca. 
+ Turno: 50
+> m 
+                        LAGUNA DE SACAKAL
+En este lago de templadas aguas hay una fuerte corriente. Estás subido en la barca. 
+ Turno: 51
+La corriente te arrastra...
+                        CANALES
+Está flanqueado por altas paredes rocosas llenas de matorrales. Estás subido en la barca. 
+ Turno: 51
+> ex matorrales
+Entre la maleza ves la hoja de una pala.
+ Turno: 52
+> coger hoja
+Coges la hoja de una pala.
+ Turno: 53
+La corriente te arrastra...
+                        LAGUNETA DE MACANXOC
+El agua es fría y está rizada por la brisa. Escasa vegetación la rodea. Estás subido en la barca. 
+ Turno: 53
+> hacer pala
+Con habilidad haces una pala.
+ Turno: 54
+> dejar todo en barca
+El manojo de cañas está en la barca.
+El fondo de botella está en la barca.
+La plomada está en la barca.
+La pala está en la barca.
+ Turno: 55
+> saltar
+Saltas y el impulso hace que la barca empiece a alejarse.
+ Turno: 56
+> agarrar barca
+La agarras antes de que se aleje mucho.
+ Turno: 57
+> empujar barca
+Empujas la barca.
+                        ORILLA
+Te encuentras rodeado de juncos y cañas de todo tipo. Tienes asida la barca.
+Empujas la barca encallándola en la costa.
+ Turno: 58
+> subir
+Subes de nuevo a la barca.
+ Turno: 59
+> coger todo
+Coges el manojo de cañas.
+Coges el fondo de botella.
+Coges la plomada.
+Coges la pala.
+ Turno: 60
+> saltar
+Abandonas la embarcación.
+                        PANTANO
+Estás en la zona pantanosa que rodea la laguna de Macanxoc. Sólo juncos y cañas resisten el inclemente sol. 
+ Turno: 61
+> o
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 62
+> o
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 63
+> n
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 64
+> n
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 65
+> e
+                        PISCINA
+Frente a una piscina con agua sucia. Al otro lado de la piscina hay una escalera apoyada en la pared. 
+ Turno: 66
+> ex piscina
+Hay siniestras sombras bajo las sucias aguas.
+ Turno: 67
+> girar plomada 
+Giras la plomada sobre tu cabeza. La plomada pasa rozando la escalera.
+ Turno: 68
+> girar plomada 
+Giras la plomada sobre tu cabeza. La plomada pasa rozando la escalera.
+ Turno: 69
+> girar plomada 
+Giras la plomada sobre tu cabeza. ¡Al fin! La plomada se engancha a la escalera.
+ Turno: 70
+> tirar plomada
+De un tirón arrastras la escalera. Queda atravesada sobre la piscina. La plomada se suelta.
+ Turno: 71
+> cruzar escalera
+                        PISCINA
+Estás en el lado Este de la Piscina. La escalera está atravesada sobre la piscina. También puedes ver una caracola. 
+ Turno: 72
+> coger caracola
+Coges la caracola.
+ Turno: 73
+> cruzar escalera
+                        PISCINA
+Frente a una piscina con agua sucia. La escalera está atravesada sobre la piscina. 
+ Turno: 74
+> dejar plomada
+Dejas la plomada.
+ Turno: 75
+> coger escalera
+Coges la escalera.
+ Turno: 76
+> o
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 77
+> s
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 78
+> o
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 79
+> subir
+                        DESCANSILLO
+Llegas a una terraza a media altura de la pirámide. En la pared están grabados varios moluscos y otra fauna marina. 
+ Turno: 80
+> soplar caracola
+Soplas la caracola y la sólida pared de la pirámide se desvanece dejando frente a ti un abismo.
+ Turno: 81
+> dejar caracola y canas
+Dejas la caracola.
+ Turno: 82
+Dejas el manojo de cañas.
+ Turno: 83
+> encender canas con vidrio
+Usas la base de la botella como lente y enciendes el manojo de cañas. Haces una antorcha con las cañas.
+ Turno: 84
+> coger canas
+Coges el manojo de cañas encendidas.
+ Turno: 85
+> saltar
+Saltas al vacío con gran valor.
+Flotas suavemente hasta el fondo.
+                        TUMBA VIOLADA
+De lo que antes fuera sitio de reposo real sólo queda un vacío nicho central. 
+ Turno: 86
+> ex nicho
+Lugar de reposo real excavado en piedra.
+ Turno: 87
+> dejar canas
+Dejas el manojo de cañas encendidas.
+ Turno: 88
+> entrar
+Una losa cierra la puerta del nicho.
+                        NICHO
+Te encuentras en un pequeño espacio mortuorio. Un rayito de luz entra por una rendija en la pared. También puedes ver un Idolo de basalto. 
+ Turno: 89
+> coger idolo 
+Coges el Idolo de basalto.
+ Turno: 90
+> ex idolo
+Figura de basalto del dios Chac-Mool con su gorro y orejeras.
+ Turno: 91
+> ex pared 
+Es una losa grande. Está suelta.
+ Turno: 92
+> mover losa
+La losa bascula.
+ Turno: 93
+> salir
+Al arrastrarte desnivelas la losa.
+                        EXPLANADA DE SACRIFICIOS
+Es un recinto cerrado por tres de sus lados. El suelo es de roca pura y en el centro destaca un círculo. La losa se cierra. 
+ Turno: 94
+> o
+                        RUINAS OESTE
+Algunas piedras, invadidas por la selva, marcan las antiguas paredes. Al Norte queda la pirámide, al Sur la laguna y al Este la única entrada a una explanada. 
+ Turno: 95
+> ne
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 96
+> e
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 97
+> s
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 98
+> e
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 99
+> e
+                        PANTANO
+Estás en la zona pantanosa que rodea la laguna de Macanxoc. Sólo juncos y cañas resisten el inclemente sol. 
+ Turno: 100
+> coger canas
+Coges el manojo de cañas.
+ Turno: 101
+> o
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 102
+> o
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 103
+> n
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 104
+> n
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 105
+> ex pared 
+Está muy oscuro para distinguir nada.
+ Turno: 106
+> s
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga. 
+ Turno: 107
+> dejar todo
+Dejas el manojo de cañas.
+Dejas el Idolo de basalto.
+Dejas el fondo de botella.
+Dejas la pala.
+Dejas la escalera.
+ Turno: 108
+> coger vidrio y idolo
+Coges el fondo de botella.
+ Turno: 109
+Coges el Idolo de basalto.
+ Turno: 110
+> encender canas con vidrio
+Usas la base de la botella como lente y enciendes el manojo de cañas. Haces una antorcha con las cañas.
+ Turno: 111
+> coger canas
+Coges el manojo de cañas encendidas.
+ Turno: 112
+> n
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. 
+ Turno: 113
+> ex pared 
+Hay un curioso orificio.
+ Turno: 114
+> ex orificio
+Circular y con dos salientes a los lados.
+ Turno: 115
+> insertar idolo 
+Vale. Oyes un chasquido...
+Y una losa cede y se entreabre.
+ Turno: 116
+> empujar losa
+Con un chirrido, la losa cede.
+ Turno: 117
+> entrar
+                        SALA DE RITOS
+En este lugar, de oscuros rincones y bajo techo, hay una atmósfera mágica y terrible. También puedes ver un cazo y un cuchillo ceremonial. 
+ Turno: 118
+El manojo de cañas encendidas parpadea.
+> coger cazo y cuchillo
+Coges el cazo.
+ Turno: 119
+Coges el cuchillo ceremonial.
+ Turno: 120
+> ex cazo 
+Un cuenco de obsidiana. Contiene una poción mágica.
+ Turno: 121
+> salir
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. En la pared del fondo hay una entrada. El ídolo está en el orificio. 
+ Turno: 122
+El manojo de cañas encendidas se consume por completo.
+> s
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un trozo de soga, una pala y una escalera. 
+ Turno: 123
+> coger pala
+Coges la pala.
+ Turno: 124
+> dejar cuchillo
+Dejas el cuchillo ceremonial.
+ Turno: 125
+> s
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 126
+> e
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 127
+> e
+                        PANTANO
+Estás en la zona pantanosa que rodea la laguna de Macanxoc. Sólo juncos y cañas resisten el inclemente sol. 
+ Turno: 128
+> coger canas
+Coges el manojo de cañas.
+ Turno: 129
+> o
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 130
+> s
+                        FRENTE A UN MONTICULO
+La lomita no es un fenómeno geológico natural. Parece haber sido apilada por los primitivos habitantes. Escasa vegetación cubre sus flancos. Hay una nube de abejas en esta zona.
+ Turno: 131
+Oyes un zumbido.
+Unas abejas se acercan y te pican.
+> dejar canas
+Dejas el manojo de cañas.
+ Turno: 132
+Las abejas te siguen picando.
+> encender canas con vidrio
+Usas la base de la botella como lente y enciendes el manojo de cañas. Haces una antorcha con las cañas.
+El humo espanta las abejas.
+ Turno: 133
+> coger canas
+Coges el manojo de cañas encendidas.
+ Turno: 134
+> subir
+                        SOBRE EL MONTICULO
+Desde aquí puedes ver una parte del complejo de Cobá. Al Noroeste, están la Pirámide y el Palacete. Más cerca está la Plaza Central y hacia el Este y Oeste, las lagunetas. Algo brilla sobre la Estela. 
+ Turno: 135
+> ex suelo
+De tierra apisonada.
+ Turno: 136
+> cavar
+Cavas hasta llegar a una zona más blanda.
+ Turno: 137
+> cavar 
+Descubres la entrada a un pasadizo.
+ Turno: 138
+> entrar
+                        PASADIZO
+Estás en un pasadizo descendente, obviamente artificial. Un derrumbe bloquea el paso. 
+ Turno: 139
+> ex pasadizo
+De las paredes emergen unas raices secas.
+ Turno: 140
+El manojo de cañas encendidas parpadea.
+> coger raices
+Coges el montón de raices secas.
+ Turno: 141
+> quitar piedras
+Apartas algunas piedras del derrumbe.
+ Turno: 142
+> ex derrumbe 
+Hay un pasadizo en medio.
+ Turno: 143
+> salir
+                        SOBRE EL MONTICULO
+Desde aquí puedes ver una parte del complejo de Cobá. Al Noroeste, están la Pirámide y el Palacete. Más cerca está la Plaza Central y hacia el Este y Oeste, las lagunetas. Algo brilla sobre la Estela. Ves un pasadizo. 
+ Turno: 144
+El manojo de cañas encendidas se consume por completo.
+> bajar
+                        FRENTE A UN MONTICULO
+La lomita no es un fenómeno geológico natural. Parece haber sido apilada por los primitivos habitantes. Escasa vegetación cubre sus flancos. Hay una nube de abejas en esta zona.
+ Turno: 145
+Oyes un zumbido.
+Unas abejas se acercan y te pican.
+> dejar raices
+Dejas el montón de raices secas.
+ Turno: 146
+Las abejas te siguen picando.
+> encender raices con vidrio
+Usas la base de la botella como lente y enciendes el montón de raices secas. 
+El humo espanta las abejas.
+ Turno: 147
+> n
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 148
+> e
+                        PANTANO
+Estás en la zona pantanosa que rodea la laguna de Macanxoc. Sólo juncos y cañas resisten el inclemente sol. 
+ Turno: 149
+> coger canas
+Coges el manojo de cañas.
+ Turno: 150
+> o
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 151
+> s
+                        FRENTE A UN MONTICULO
+La lomita no es un fenómeno geológico natural. Parece haber sido apilada por los primitivos habitantes. Escasa vegetación cubre sus flancos. Hay una nube de abejas en esta zona pero el humo las mantiene a raya. También puedes ver un manojo de raices ardiendo. 
+ Turno: 152
+El manojo de raices ardiendo parpadea.
+> subir
+                        SOBRE EL MONTICULO
+Desde aquí puedes ver una parte del complejo de Cobá. Al Noroeste, están la Pirámide y el Palacete. Más cerca está la Plaza Central y hacia el Este y Oeste, las lagunetas. Algo brilla sobre la Estela. Ves un pasadizo. 
+ Turno: 153
+> dejar canas
+Dejas el manojo de cañas.
+ Turno: 154
+> encender canas con vidrio
+Usas la base de la botella como lente y enciendes el manojo de cañas. Haces una antorcha con las cañas.
+ Turno: 155
+> coger canas
+Coges el manojo de cañas encendidas.
+ Turno: 156
+> entrar
+                        PASADIZO
+Estás en un pasadizo descendente, obviamente artificial. Al fondo hay un derrumbe con algunas piedras retiradas. 
+ Turno: 157
+> entrar
+                        CAMARA
+Estás en un minúsculo nicho, apenas puedes moverte. También puedes ver un Idolo de barro y una oveja. 
+ Turno: 158
+> coger idolo y oveja
+Coges el Idolo de barro.
+ Turno: 159
+Coges la oveja.
+ Turno: 160
+> salir
+                        PASADIZO
+Estás en un pasadizo descendente, obviamente artificial. Al fondo hay un derrumbe con algunas piedras retiradas. 
+ Turno: 161
+> salir
+                        SOBRE EL MONTICULO
+Desde aquí puedes ver una parte del complejo de Cobá. Al Noroeste, están la Pirámide y el Palacete. Más cerca está la Plaza Central y hacia el Este y Oeste, las lagunetas. Algo brilla sobre la Estela. Ves un pasadizo. 
+ Turno: 162
+El manojo de cañas encendidas parpadea.
+> dar cazo a oveja 
+La oveja despierta y te mira.
+ Turno: 163
+> bajar
+                        FRENTE A UN MONTICULO
+La lomita no es un fenómeno geológico natural. Parece haber sido apilada por los primitivos habitantes. Escasa vegetación cubre sus flancos. Hay una nube de abejas en esta zona pero el humo las mantiene a raya. 
+ Turno: 164
+> n
+                        RUINAS ESTE
+Esta parte de Cobá está muy deteriorada. Enormes bloques marcan lo que antaño fueran paredes. Al Norte hay una casucha de madera. 
+ Turno: 165
+> o
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 166
+El manojo de cañas encendidas se consume por completo.
+> n
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un cuchillo ceremonial, un trozo de soga y una escalera. 
+ Turno: 167
+> dejar cazo y vidrio
+Dejas el cazo.
+ Turno: 168
+Dejas el fondo de botella.
+ Turno: 169
+> coger cuchillo y escalera
+Coges el cuchillo ceremonial.
+ Turno: 170
+Coges la escalera.
+ Turno: 171
+> o
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 172
+> so
+                        RUINAS OESTE
+Algunas piedras, invadidas por la selva, marcan las antiguas paredes. Al Norte queda la pirámide, al Sur la laguna y al Este la única entrada a una explanada. 
+ Turno: 173
+> e
+                        EXPLANADA DE SACRIFICIOS
+Es un recinto cerrado por tres de sus lados. El suelo es de roca pura y en el centro destaca un círculo. 
+ Turno: 174
+> dejar oveja en circulo
+La oveja se tumba en el círculo.
+ Turno: 175
+> sacrificar oveja 
+Sacrificas a la ovejita. 
+La oveja se convierte en polvo y forma en el aire la imagen de una bella mujer. Luego se desvanece.
+Arcanas fuerzas actúan sobre la selva invasora.
+El Sabke Real resurge y el camino al Oeste queda abierto.
+ Turno: 176
+> o
+                        RUINAS OESTE
+Algunas piedras, invadidas por la selva, marcan las antiguas paredes. Al Norte queda la pirámide, al Sur la laguna y al Este la única entrada a una explanada. 
+ Turno: 177
+> ne
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 178
+> e
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un cazo, un trozo de soga y un fondo de botella. 
+ Turno: 179
+> s
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. 
+ Turno: 180
+> ex estela
+Es Maya y llena de símbolos.
+ Turno: 181
+> ex simbolos
+Totalmente deteriorados.
+ Turno: 182
+> apoyar escalera en estela
+La escalera está apoyada a la Estela. 
+ Turno: 183
+> dejar cuchillo y pala
+Dejas el cuchillo ceremonial.
+ Turno: 184
+Dejas la pala.
+ Turno: 185
+> subir
+Te subes.
+ Turno: 186
+> m
+                        RUINAS
+En esta zona hay bloques por todas partes pero lo que llama la atención es una imponente estela Maya. También puedes ver un cuchillo ceremonial y una pala. La escalera está apoyada a la Estela. Estás subido en la escalera. Sobre la estela hay un Idolo de Oro.
+ Turno: 187
+> coger idolo 
+Coges el Idolo dorado.
+ Turno: 188
+> n
+Te bajas.
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un cazo, un trozo de soga y un fondo de botella. 
+ Turno: 189
+> n
+                        SALON CUBIERTO
+Esta estancia del palacete es la única que conserva el techo. En la semipenumbra ves una puerta a cada lado y al frente una pared de enormes bloques. En la pared del fondo hay una entrada. El ídolo está en el orificio. 
+ Turno: 190
+> coger idolo del orificio
+Coges el Idolo de basalto.
+ Turno: 191
+> s
+                        PLAZA ESTE
+Esta explanada sirvió de mercado pero ahora solo quedan las rocas del suelo. Hacia el Norte quedan los restos de un palacete. También puedes ver un cazo, un trozo de soga y un fondo de botella. 
+ Turno: 192
+> o
+                        PLAZA OESTE
+La explanada central llega hasta la gran pirámide. Al Sur queda una altísima pared y al Norte el Palacete. 
+ Turno: 193
+> so
+                        RUINAS OESTE
+Algunas piedras, invadidas por la selva, marcan las antiguas paredes. Al Norte queda la pirámide, al Sur la laguna y al Este la única entrada a una explanada. 
+ Turno: 194
+> o
+                        CAMINO DE SABKE
+Sobre el Sabke Real, calzada de piedra que va al Oeste. 
+ Turno: 195
+> o 
+                        CAMINO DE SABKE
+El Sabke atraviesa ahora una pacífica zona boscosa. Bajo una Ceiba, espera una mujer. 
+ Turno: 196
+La mujer te dice: "No puedes pasar si no me das tu objeto más preciado".
+> dar idolo de barro a mujer
+La mujer te dice: "Gracias".
+Devolveré el verdadero Itzán Ná a su sitio de honor. 
+Xtabai se va y te deja el paso franco.
+ Turno: 197
+> o
+                        CAMINO DE SABKE
+Desde el Sabke, al fondo de un valle, se ve la mítica Chichén Itzá, meta final de tus aventuras.
+Pero eso será otra historia... 
+¿Lo intentas otra vez? (Si/No)
+> n
+Adios...
