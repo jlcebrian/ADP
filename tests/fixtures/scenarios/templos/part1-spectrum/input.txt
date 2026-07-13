@@ -1,0 +1,278 @@
+@save Intro
+@key
+@save Inicio
+i
+coger cuerda
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+esperar
+@key
+@save Tormenta
+coger remo
+atar cuerda a remo
+tirar remo 
+leer papel
+dar cuerda a indio
+dar papel a indio
+bajar 
+coger red
+ex red
+subir 
+@save Templo
+e
+ex piedra
+n
+ex vasijas
+ex escombros
+coger hachuela
+ex hachuela
+dejar red
+s
+o
+n
+ex arbol
+ex suelo
+coger fruta
+ex bambu
+cortar bambu
+o
+coger palo
+ex cactus
+@save Cactus
+coger espina 
+n
+ex liana
+cortar liana
+ex monos
+poner pua en fruta
+poner fruta en cana
+n 
+soplar cana
+ex mono 
+n
+ex suelo
+excavar 
+dejar todo
+bajar
+ex estacas
+coger estaca
+lanzar estaca
+subir
+coger todo
+ne
+matar jaguar con estaca
+atar hachuela en palo 
+dejar estaca
+so
+s
+cortar liana
+n
+Dejar todo
+coger hacha
+talar tronco 
+talar tronco 
+talar tronco 
+talar tronco 
+dejar hacha
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+so
+coger tronco
+ne
+dejar tronco
+n 
+ex agujeros
+ex muro norte
+ex muro oeste
+ex muro este 
+ex bloques 
+s
+so
+s
+s
+e
+s
+e
+n
+coger red
+coger cuenta  con red
+s
+o
+n
+o
+n
+n
+ne
+n
+empujar bloque norte izquierda
+empujar bloque norte derecha
+o 
+coger tableta 
+dejar tableta 
+coger tableta
+o
+empujar bloque norte izquierda
+empujar bloque norte derecha
+empujar bloque este derecha
+n 
+dejar tableta 
+coger cuenta
+n
+coger tableta 
+n
+coger tableta 
+empujar bloque este izquierda
+empujar bloque sur derecha
+e
+coger tableta 
+e
+empujar bloque oeste izquierda
+empujar bloque oeste derecha
+dejar tableta Manik
+coger cuenta
+s
+coger tableta 
+s
+coger tableta 
+empujar bloque sur
+o 
+ex suelo 
+e
+Dejar tableta Ik
+coger cuenta
+n
+n
+o
+o
+dejar tableta Kan
+coger cuenta
+s
+s
+s
+dejar tableta Akbal
+coger cuenta
+e
+dejar tableta Lamat
+coger cuenta
+o
+ex selva 
+ex selva 
+ex selva 
+coger tableta
+n
+levantar losa suelta
+coger tableta 
+n
+n
+e
+dejar tableta Cimi
+coger cuenta
+e
+s
+dejar tableta 
+coger cuenta
+s
+o 
+coger cuenta 
+dejar collar en bloque
+@save Collar
+n
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+coger tronco
+n
+n
+o
+n
+dejar tronco
+s
+e
+s
+s
+so
+coger liana
+ne
+n
+n
+o
+n
+dejar liana
+coger tronco 
+s
+dejar tronco
+n
+coger liana
+hacer balsa
+s
+e
+s
+s
+so
+coger hacha
+s
+cortar liana
+n
+ne
+n
+n
+o
+atar liana a tronco
+n
+atar liana a balsa
+ex liana
+tirar balsa por cenote
+@save Cenote
+dejar todo
+bajar por liana 
+subir balsa
+ex balsa
+desatar liana de balsa
+@key
+@key
+@save Final
+N

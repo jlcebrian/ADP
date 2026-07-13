@@ -1,0 +1,5 @@
+{
+    "fixture": [ "templos/spectrum/TEMPLOS-SPECTRUM 1.dsk" ],
+    "part": 2,
+    "shared": "templos/part2-amiga"
+}

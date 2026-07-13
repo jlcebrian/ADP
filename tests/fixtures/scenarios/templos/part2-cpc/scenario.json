@@ -1,0 +1,6 @@
+{
+    "fixture": "templos/cpc/TEMPLOS-CPC 2.cdt",
+    "shared": "templos/part2-amiga",
+    "input": "input.txt",
+    "transcript": "expected.txt"
+}

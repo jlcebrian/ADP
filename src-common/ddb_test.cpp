@@ -63,6 +63,17 @@ static void ProcessDirectives(bool allowCaptures)
 {
 	while (input != 0 && input < inputEnd)
 	{
+		if (IsDirective("@exit"))
+		{
+			// End the run cleanly at this input point: take no further input,
+			// let the player loop exit via exitGame. Used by headless screenshot
+			// tests to bail out after a capture without finishing (or hanging in)
+			// the game.
+			ConsumeLine();
+			input = inputEnd;
+			VID_Quit();
+			return;
+		}
 		if (IsDirective("@interactive") || IsDirective("@stop"))
 		{
 			ConsumeStopDirective();

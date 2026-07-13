@@ -728,6 +728,196 @@ static bool LoadSnapshotFromTZX (File* file)
 }
 
 // ----------------------------------------------------------------------------
+//  CDT Tape file support (Amstrad CPC)
+// ----------------------------------------------------------------------------
+//
+// A .cdt is a TZX-family tape. CPC DAAD games use a custom turbo loader whose
+// payload is a single large data block holding, contiguously, the text database
+// (DDB) followed by the graphics database (GDB). At runtime the interpreter's
+// INIT code (ClassicDAAD CPC/DCPCI.ASM) keeps the DDB at 0x2880 and LDDR-relocates
+// the GDB upward so it ends flush at GDBEND (0xA600), placing the graphics footer
+// at 0x9DEF and the charset at 0x9E00. We reconstruct that final RAM image so the
+// standard snapshot loaders (GuessDDBOffsetFromSnapshot + DDB_LoadVectorGraphics)
+// read both text and graphics unchanged.
+
+#define CPC_DDB_BASE    0x2880
+#define CPC_GFX_FOOTER  0x9DEF   // 'start' field of the graphics footer
+#define CPC_GFX_ENDING  0x9DFB   // 0xFFFF sentinel
+#define CPC_GFX_CHARS   0x9E00   // charset (fixed in this interpreter version)
+#define CPC_GFX_END     0xA600   // GDBEND: first byte after the graphics database
+
+// Mirror of DDB_LoadVectorGraphics()'s CPC validation applied at the fixed footer
+// address: a candidate that passes here is guaranteed to load as graphics.
+static bool CPC_GraphicsFooterValid(const uint8_t* mem, uint32_t size)
+{
+	if (size < CPC_GFX_END)
+		return false;
+	uint16_t start   = read16(mem + CPC_GFX_FOOTER, true);
+	uint16_t table   = read16(mem + CPC_GFX_FOOTER + 2, true);
+	uint16_t windefs = read16(mem + CPC_GFX_FOOTER + 4, true);
+	uint16_t coltab  = read16(mem + CPC_GFX_FOOTER + 10, true);
+	uint16_t ending  = read16(mem + CPC_GFX_ENDING, true);
+	uint8_t  count   = mem[CPC_GFX_FOOTER + 14];
+	if (ending != 0xFFFF) return false;
+	if (table < start || CPC_GFX_CHARS < start || coltab < start) return false;
+	if ((uint32_t)windefs + 8*count >= size) return false;
+	if (mem[windefs + 8*count] != 0xFF) return false;
+	return true;
+}
+
+static bool LoadSnapshotFromCDT(File* file)
+{
+	char header[10];
+	File_Seek(file, 0);
+	if (File_Read(file, header, 10) != 10 || StrComp(header, "ZXTape!\x1A", 8) != 0)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	// Scan the tape and remember the largest data block: the custom loader's
+	// payload. The firmware records that carry the BASIC loader are all small.
+	uint64_t fileSize = File_GetSize(file);
+	uint64_t payloadOffset = 0;
+	uint32_t payloadLength = 0;
+	bool done = false;
+	while (!done && File_GetPosition(file) < fileSize)
+	{
+		uint8_t blockType;
+		if (File_Read(file, &blockType, 1) != 1)
+			break;
+
+		uint32_t dataLength = 0;
+		uint32_t skipBefore = 0;
+		bool     isData = false;
+		switch (blockType)
+		{
+			case 0x10: { uint8_t h[4];  File_Read(file, h, 4);  dataLength = h[2] | (h[3]<<8); isData = true; break; }
+			case 0x11: { uint8_t h[18]; File_Read(file, h, 18); dataLength = h[15] | (h[16]<<8) | (h[17]<<16); isData = true; break; }
+			case 0x12: skipBefore = 4; break;                                              // pure tone
+			case 0x13: { uint8_t n; File_Read(file,&n,1); skipBefore = 2*n; break; }        // pulse sequence
+			case 0x14: { uint8_t h[10]; File_Read(file,h,10); dataLength = h[7]|(h[8]<<8)|(h[9]<<16); isData = true; break; } // pure data
+			case 0x20: skipBefore = 2; break;                                              // pause
+			case 0x21: { uint8_t l; File_Read(file,&l,1); skipBefore = l; break; }          // group start
+			case 0x22: break;                                                              // group end
+			case 0x2A: skipBefore = 4; break;                                              // stop the tape (48K)
+			case 0x2B: skipBefore = 5; break;                                              // set signal level
+			case 0x30: { uint8_t l; File_Read(file,&l,1); skipBefore = l; break; }          // text description
+			case 0x31: { uint8_t d; File_Read(file,&d,1); uint8_t l; File_Read(file,&l,1); skipBefore = l; break; } // message
+			case 0x32: { uint8_t l[2]; File_Read(file,l,2); skipBefore = l[0]|(l[1]<<8); break; } // archive info
+			case 0x33: { uint8_t n; File_Read(file,&n,1); skipBefore = 3*n; break; }        // hardware type
+			case 0x35: { uint8_t nm[16]; File_Read(file,nm,16); uint8_t l[4]; File_Read(file,l,4); skipBefore = l[0]|(l[1]<<8)|(l[2]<<16)|(l[3]<<24); break; } // custom info
+			default:
+				// Unknown block; stop scanning and use whatever payload we found.
+				done = true;
+				break;
+		}
+		if (done)
+			break;
+
+		uint64_t dataPos = File_GetPosition(file) + skipBefore;
+		if (isData && dataLength > payloadLength)
+		{
+			payloadLength = dataLength;
+			payloadOffset = dataPos;
+		}
+		File_Seek(file, dataPos + dataLength);
+	}
+
+	if (payloadLength == 0)
+	{
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	uint8_t* payload = Allocate<uint8_t>("CDT payload", payloadLength);
+	if (payload == 0)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+	File_Seek(file, payloadOffset);
+	if (File_Read(file, payload, payloadLength) != payloadLength)
+	{
+		Free(payload);
+		DDB_SetError(DDB_ERROR_READING_FILE);
+		return false;
+	}
+
+	// Locate the DDB signature (version 1/2, CPC machine nibble, 0x5F).
+	uint32_t ddbOffset = 0;
+	bool ddbFound = false;
+	for (uint32_t o = 0; o + 3 < payloadLength; o++)
+	{
+		if ((payload[o] == 1 || payload[o] == 2) &&
+		    (payload[o+1] >> 4) == DDB_MACHINE_CPC &&
+		    payload[o+2] == 0x5F)
+		{
+			ddbOffset = o;
+			ddbFound = true;
+			break;
+		}
+	}
+	if (!ddbFound || ddbOffset > CPC_DDB_BASE)
+	{
+		Free(payload);
+		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
+		return false;
+	}
+
+	// Place the payload so the DDB lands at 0x2880; the graphics sit contiguously
+	// after it, not yet relocated.
+	if (!AllocateSnapshot(65536))
+	{
+		Free(payload);
+		return false;
+	}
+	MemClear(snapshotRAM, 65536);
+	uint32_t base = CPC_DDB_BASE - ddbOffset;
+	uint32_t copyLen = payloadLength;
+	if (base + copyLen > 65536)
+		copyLen = 65536 - base;
+	MemCopy(snapshotRAM + base, payload, copyLen);
+	Free(payload);
+
+	// Replay the interpreter's LDDR relocation. Look for the graphics footer (the
+	// 0xFFFF sentinel preceded by an ascending address table) above the DDB, shift
+	// the graphics up so the sentinel lands at CPC_GFX_ENDING, and keep the first
+	// placement that passes the graphics validation.
+	uint8_t* work = Allocate<uint8_t>("CDT reloc", 65536);
+	if (work == 0)
+		return true; // text is still usable without the relocation
+	for (uint32_t e = CPC_DDB_BASE + 12; e + 3 < CPC_GFX_ENDING; e++)
+	{
+		if (snapshotRAM[e] != 0xFF || snapshotRAM[e+1] != 0xFF)
+			continue;
+		uint16_t start   = read16(snapshotRAM + e - 12, true);
+		uint16_t table   = read16(snapshotRAM + e - 10, true);
+		uint16_t windefs = read16(snapshotRAM + e - 8, true);
+		// The footer's address fields all point into the graphics DB (>= start,
+		// <= charset); table and windefs are not ordered relative to each other.
+		if (!(start >= 0x400 && start <= table && start <= windefs &&
+		      table <= CPC_GFX_CHARS && windefs <= CPC_GFX_CHARS))
+			continue;
+		uint32_t shift = CPC_GFX_ENDING - e;
+		if (shift == 0 || shift > 0x1000 || start < shift)
+			continue;
+
+		MemCopy(work, snapshotRAM, 65536);
+		// Move [start-shift .. CPC_GFX_END-shift) up by shift (high bytes first).
+		for (uint32_t i = CPC_GFX_END - start; i-- > 0; )
+			work[start + i] = work[start - shift + i];
+		if (CPC_GraphicsFooterValid(work, 65536))
+		{
+			MemCopy(snapshotRAM, work, 65536);
+			break;
+		}
+	}
+	Free(work);
+	return true;
+}
+
+// ----------------------------------------------------------------------------
 //  RAW file support
 // ----------------------------------------------------------------------------
 
@@ -899,6 +1089,13 @@ bool DDB_LoadSnapshot (File* file, const char* filename, uint8_t** ram, size_t* 
 			return false;
 
 		return DetachSnapshot(ram, size, machine, DDB_MACHINE_SPECTRUM);
+	}
+	else if (CheckExtension(filename, "cdt"))
+	{
+		if (!LoadSnapshotFromCDT(file))
+			return false;
+
+		return DetachSnapshot(ram, size, machine, DDB_MACHINE_CPC);
 	}
 	else if (CheckExtension(filename, "sta"))
 	{

@@ -8,6 +8,9 @@
 #endif
 
 #define MAX_DDB_SIZE	 65536
+// Upper bound for a raw container (disk/tape image) we are willing to read into
+// memory to scan for an embedded DDB (see DDB_Load's carve fallback).
+#define MAX_CONTAINER_SIZE (8*1024*1024)
 #define MAX_PROC_STACK 	 16
 #define HISTORY_SIZE     1024
 #define UNDO_BUFFER_SIZE 512
@@ -879,7 +882,7 @@ extern bool             DDB_LoadSnapshot         (File* file, const char* filena
 #endif
 
 #if HAS_DRAWSTRING
-extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, const uint8_t* data, size_t size);
+extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, DDB_Version version, const uint8_t* data, size_t size);
 extern bool             DDB_HasVectorPicture     (uint8_t picno);
 extern bool             DDB_DrawVectorPicture    (uint8_t picno);
 extern bool             DDB_HasVectorDatabase    ();

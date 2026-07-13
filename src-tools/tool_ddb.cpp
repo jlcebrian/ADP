@@ -298,6 +298,18 @@ static DDB* LoadDDBFromInput(const char* inputFileName, const char** resolvedDDB
 			DDB_SetWarningHandler(PrintWarning);
 		}
 
+		// No bare DDB file on the disk (e.g. a copy-protected 8-bit original
+		// whose loader keeps the database embedded in a binary). Unmount and
+		// carve the raw disk image for an embedded DDB.
+		File_UnmountDisk();
+		*mountedDiskImage = false;
+		DDB* carved = DDB_Load(inputFileName);
+		if (carved != 0)
+		{
+			*resolvedDDBFileName = inputFileName;
+			return carved;
+		}
+
 		DDB_SetError(DDB_ERROR_NO_DDBS_FOUND);
 		return 0;
 	}

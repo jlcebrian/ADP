@@ -2065,7 +2065,7 @@ PlayerState DDB_RunPlayerAsync(const char* location)
 		VID_Finish();
 		return state = Player_Error;
 	}
-	if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+	if (!ddb->drawString && DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
 	{
 		DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
 		VID_ShowError(DDB_GetErrorString());
@@ -2414,7 +2414,7 @@ bool DDB_RunPlayer()
 			autoloadState = 0;
 		}
 
-		if (DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
+		if (!ddb->drawString && DDB_SupportsDataFile(ddb->version, ddb->target) && !VID_LoadDataFile(ddbFileName))
 		{
 			DebugPrintf("VID_LoadDataFile(%s) failed: %s\n", ddbFileName, DDB_GetErrorString());
 			VID_ShowError(DDB_GetErrorString());

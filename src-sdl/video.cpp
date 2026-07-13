@@ -1858,6 +1858,29 @@ bool VID_SaveScreenshot(const char* fileName)
 	return saved;
 }
 
+bool VID_SaveGraphicsSnapshot(const char* fileName)
+{
+	if (fileName == 0 || fileName[0] == 0 || graphicsBuffer == 0 || screenWidth == 0 || screenHeight == 0)
+		return false;
+
+	SDL_Surface* frame = SDL_CreateRGBSurfaceWithFormat(0, screenWidth, screenHeight, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (frame == 0)
+		return false;
+
+	uint32_t* pixels = (uint32_t*)frame->pixels;
+	for (int y = 0; y < screenHeight; y++)
+	{
+		uint32_t* row = (uint32_t*)((uint8_t*)pixels + y * frame->pitch);
+		const uint8_t* source = graphicsBuffer + y * screenWidth;
+		for (int x = 0; x < screenWidth; x++)
+			row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+	}
+
+	bool saved = SDL_SaveBMP(frame, fileName) == 0;
+	SDL_FreeSurface(frame);
+	return saved;
+}
+
 void VID_InnerLoop()
 {
 	Uint32 now = SDL_GetTicks();
@@ -2240,9 +2263,6 @@ bool VID_LoadDataFile(const char* fileName)
 	charset16Available = false;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
-	memcpy(charset, DefaultCharset, 1024);
-	memcpy(charset + 1024, DefaultCharset, 1024);
-	charsetInitialized = true;
 
 	if (dmg != NULL)
 	{
@@ -2292,6 +2312,12 @@ bool VID_LoadDataFile(const char* fileName)
 			dmg->targetHeight == 400 &&
 			(dmg->dat5Flags & DMG_DAT5_FLAG_2X) != 0);
 	}
+
+	// Only reset the charset once a data file is confirmed, so a snapshot's
+	// custom charset is kept when no data file exists.
+	memcpy(charset, DefaultCharset, 1024);
+	memcpy(charset + 1024, DefaultCharset, 1024);
+	charsetInitialized = true;
 
 	bool fontLoaded = false;
 	fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||

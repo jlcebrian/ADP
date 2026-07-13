@@ -392,7 +392,7 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     return True
 
 
-def run_host(ddb: Path, games: set[str], inventory: bool, scenario: Path | None, record: bool, trace: bool, interactive: bool, skip_timed_pauses: bool) -> int:
+def run_host(ddb: Path, games: set[str], inventory: bool, scenario: Path | None, record: bool, trace: bool, interactive: bool, skip_timed_pauses: bool, jobs: int = 1) -> int:
     manifest = load_manifest()
     if manifest.get("format") != 1:
         print("Unsupported fixture manifest format", file=sys.stderr)
@@ -404,12 +404,31 @@ def run_host(ddb: Path, games: set[str], inventory: bool, scenario: Path | None,
         print("No fixture images selected", file=sys.stderr)
         return 2
     RESULTS.mkdir(exist_ok=True)
-    failures = sum(not run_probe(ddb, probe, RESULTS) for probe in probes)
+
+    # The ddb tool is single-threaded and each scenario/probe runs in its own
+    # result directory against static fixtures/baselines, so independent runs can
+    # execute concurrently. Use processes, not threads: the screenshot comparison
+    # is CPU-bound Python (PIL) and would serialize under the GIL. Interactive runs
+    # stay serial (they share the terminal); record mode only ever runs a single
+    # scenario, so parallelism never races on shared baseline writes.
+    from functools import partial
+    workers = 1 if interactive else max(1, jobs)
+
+    def run_parallel(items, worker) -> int:
+        if workers <= 1 or len(items) <= 1:
+            return sum(not worker(item) for item in items)
+        from concurrent.futures import ProcessPoolExecutor
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            return sum(not ok for ok in pool.map(worker, items))
+
+    failures = run_parallel(probes, partial(run_probe, ddb, results=RESULTS))
     if not inventory:
         scenarios = sorted(SCENARIOS.rglob("scenario.json"))
         if games:
             scenarios = [path for path in scenarios if path.relative_to(SCENARIOS).parts[0] in games]
-        failures += sum(not run_scenario(ddb, scenario, RESULTS, trace=trace, interactive=interactive, skip_timed_pauses=skip_timed_pauses) for scenario in scenarios)
+        failures += run_parallel(scenarios, partial(run_scenario, ddb, results=RESULTS,
+                                                    trace=trace, interactive=interactive,
+                                                    skip_timed_pauses=skip_timed_pauses))
     label = "inventory" if inventory else "baseline"
     print(f"Probed {len(probes)} {label} fixture image(s): {len(probes) - failures} passed, {failures} failed")
     return 1 if failures else 0
@@ -436,6 +455,8 @@ def main() -> int:
     parser.add_argument("--trace", action="store_true", help="enable interpreter tracing in scenario run logs")
     parser.add_argument("--interactive", action="store_true", help="show the game and hand scripted tests to live input")
     parser.add_argument("--skip-timed-pauses", action="store_true", help="skip finite PAUSE condacts in a scenario run")
+    parser.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 1,
+                        help="run this many scenarios/probes in parallel (default: CPU count; 1 = serial)")
     args = parser.parse_args()
 
     if args.suite == "dos":
@@ -453,7 +474,7 @@ def main() -> int:
         if not scenario.is_file():
             print(f"Scenario not found: {scenario}", file=sys.stderr)
             return 2
-    return run_host(args.ddb, set(args.game), args.inventory, scenario, args.record, args.trace, args.interactive, args.skip_timed_pauses)
+    return run_host(args.ddb, set(args.game), args.inventory, scenario, args.record, args.trace, args.interactive, args.skip_timed_pauses, args.jobs)
 
 
 if __name__ == "__main__":

@@ -1233,6 +1233,7 @@ static bool DDB_HasSnapshotExtension(const char* filename)
 		StrIComp(dot, ".z80") == 0 ||
 		StrIComp(dot, ".sna") == 0 ||
 		StrIComp(dot, ".tzx") == 0 ||
+		StrIComp(dot, ".cdt") == 0 ||
 		StrIComp(dot, ".sta") == 0 ||
 		StrIComp(dot, ".vsf") == 0 ||
 		StrIComp(dot, ".tap") == 0 ||
@@ -1623,6 +1624,76 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 
 #endif
 
+// Scan a raw container (a disk/tape image, or a loader binary read off a
+// mounted disk) for an embedded DDB and, if a valid one is found, report its
+// byte range and load address.
+//
+// A DDB is plain, position-fixed data: its internal offset tables are absolute
+// addresses relative to a per-machine load address, and it stores its own end
+// pointer, so it can be lifted out of any container where it sits contiguous
+// and uncompressed. That is exactly how the original 8-bit disks and tapes
+// store it -- so this recovers the database regardless of the copy-protected or
+// unusual loader in front of it, which we never need to run.
+static bool DDB_FindEmbeddedDDB(const uint8_t* container, uint32_t containerSize,
+                                uint32_t* outOffset, uint32_t* outSize, uint16_t* outBaseOffset)
+{
+	if (containerSize < 36)
+		return false;
+
+	for (uint32_t o = 0; o + 36 <= containerSize; o++)
+	{
+		// DAAD signature in memory: version byte (1 or 2), machine nibble in the
+		// high bits of the next byte, then the null-word char 0x5F ('_').
+		uint8_t version = container[o];
+		if ((version != 1 && version != 2) || container[o+2] != 0x5F)
+			continue;
+
+		DDB_Machine machine = (DDB_Machine)(container[o+1] >> 4);
+		uint16_t base = DDB_GetBaseOffsetForMachine(machine);
+		if (base == 0)
+			continue;	// no known load address for this target (or IBM PC)
+
+		uint32_t sizeFieldOffset = o + (version == 1 ? 30 : 32);
+		if (sizeFieldOffset + 2 > containerSize)
+			continue;
+
+		// The database carries its end address; the length is that minus the
+		// load address. All 8-bit targets are little-endian, but try both.
+		for (int endianTry = 0; endianTry < 2; endianTry++)
+		{
+			bool littleEndian = (endianTry == 0);
+			uint16_t declaredEnd = read16(container + sizeFieldOffset, littleEndian);
+			if (declaredEnd <= base)
+				continue;
+
+			uint32_t logicalSize = (uint32_t)declaredEnd - base;
+			if (logicalSize < DDB_GetMinimumHeaderSize((DDB_Version)version) ||
+			    (uint64_t)o + logicalSize > containerSize)
+				continue;
+
+			// Validate the header offset tables against this candidate; this is
+			// what rejects the false positives a 3-byte signature would let
+			// through, and disambiguates when a disk holds several copies.
+			DDB probe;
+			MemClear(&probe, sizeof(probe));
+			probe.version    = (DDB_Version)version;
+			probe.target     = machine;
+			probe.data       = (uint8_t*)container + o;
+			probe.dataSize   = logicalSize;
+			probe.baseOffset = base;
+			probe.littleEndian = littleEndian;
+			if (DDB_IsPlausibleHeaderLayout(&probe, littleEndian, declaredEnd))
+			{
+				*outOffset     = o;
+				*outSize       = logicalSize;
+				*outBaseOffset = base;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 DDB* DDB_Load(const char* filename)
 {
 	ddbError = DDB_ERROR_NONE;
@@ -1637,6 +1708,7 @@ DDB* DDB_Load(const char* filename)
 	uint64_t fileSize = File_GetSize(file);
 	uint8_t* memory = 0;
 	uint8_t* data = 0;
+	bool containerLoaded = false;
 
 	DDB* ddb = Allocate<DDB>("DDB", 1, true);
 	if (ddb == 0)
@@ -1687,7 +1759,7 @@ DDB* DDB_Load(const char* filename)
 		}
 
 		#if HAS_DRAWSTRING
-		if (DDB_LoadVectorGraphics(snapshotMachine, memory, ramSize))
+		if (DDB_LoadVectorGraphics(snapshotMachine, ddb->version, memory, ramSize))
 			ddb->drawString = true;
 		#endif
 
@@ -1701,11 +1773,14 @@ DDB* DDB_Load(const char* filename)
 	{
 		ddbError = DDB_ERROR_NONE;
 
-		if (fileSize > MAX_DDB_SIZE)
+		// Allow files larger than a single DDB: they may be a disk/tape image or
+		// a loader binary with the database embedded inside, which we carve out
+		// below when the plain offset-0 parse fails.
+		if (fileSize > MAX_CONTAINER_SIZE)
 		{
 			ddbError = DDB_ERROR_INVALID_FILE;
-			DebugPrintf("Invalid DDB file size for %s: %lu bytes (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_DDB_SIZE);
-			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", MAX_DDB_SIZE);
+			DebugPrintf("Invalid DDB file size for %s: %lu bytes (max %u)\n", filename, (unsigned long)fileSize, (unsigned)MAX_CONTAINER_SIZE);
+			DDB_Warning("Invalid DDB file: too big (max size: %d)\n", MAX_CONTAINER_SIZE);
 			File_Close(file);
 			Free(ddb);
 			return 0;
@@ -1719,6 +1794,9 @@ DDB* DDB_Load(const char* filename)
 			File_Close(file);
 			return 0;
 		}
+		// A failed snapshot probe (e.g. a .cas/.tap that isn't a real snapshot)
+		// leaves the file position at EOF; rewind before reading the container.
+		File_Seek(file, 0);
 		if (File_Read(file, memory, fileSize) != fileSize)
 		{
 			ddbError = DDB_ERROR_READING_FILE;
@@ -1733,10 +1811,38 @@ DDB* DDB_Load(const char* filename)
 		ddb->memory   = memory;
 		ddb->data     = data;
 		ddb->dataSize = fileSize;
+		containerLoaded = true;
 	}
 
-	if (!DDB_ParseHeader(ddb, data, ddb->dataSize, ddb->dataSize))
+	// Parse the header exactly once. DDB_ParseHeader byte-swaps parts of the data
+	// in place (e.g. the extended object-attributes table for v2+), so calling it
+	// twice would corrupt the database. For a container (or an oversized file)
+	// that is not a bare DDB at offset 0, scan it for an embedded database and
+	// parse the carved range instead.
+	bool parsed = false;
+	if (!containerLoaded || fileSize <= MAX_DDB_SIZE)
+		parsed = DDB_ParseHeader(ddb, data, ddb->dataSize, ddb->dataSize);
+
+	if (!parsed && containerLoaded)
 	{
+		uint32_t carveOffset = 0, carveSize = 0;
+		uint16_t carveBase = 0;
+		if (DDB_FindEmbeddedDDB(memory, (uint32_t)fileSize, &carveOffset, &carveSize, &carveBase))
+		{
+			ddbError        = DDB_ERROR_NONE;
+			data            = memory + carveOffset;
+			ddb->data       = data;
+			ddb->dataSize   = carveSize;
+			ddb->baseOffset = carveBase;
+			DebugPrintf("Carved embedded DDB at offset 0x%X (%u bytes) from %s\n",
+				(unsigned)carveOffset, (unsigned)carveSize, filename);
+			parsed = DDB_ParseHeader(ddb, data, ddb->dataSize, ddb->dataSize);
+		}
+	}
+
+	if (!parsed)
+	{
+		ddbError = ddbError == DDB_ERROR_NONE ? DDB_ERROR_INVALID_FILE : ddbError;
 		Free(memory);
 		Free(ddb);
 		return 0;
@@ -1781,6 +1887,46 @@ DDB* DDB_Load(const char* filename)
 		Free(ddb);
 		return 0;
 	}
+
+	#if HAS_DRAWSTRING
+	// Disk based Spectrum releases ship the vector graphics as a separate .SDG
+	// file next to the database, loading flush against the top of memory
+	if (ddb->target == DDB_MACHINE_SPECTRUM && !ddb->drawString)
+	{
+		char sdgName[FILE_MAX_PATH];
+		StrCopy(sdgName, sizeof(sdgName), filename);
+		char* ext = (char*)StrRChr(sdgName, '.');
+		if (ext != 0)
+		{
+			StrCopy(ext, sizeof(sdgName) - (ext - sdgName), ".SDG");
+			File* sdg = File_Open(sdgName, ReadOnly);
+			if (sdg == 0)
+			{
+				StrCopy(ext, sizeof(sdgName) - (ext - sdgName), ".sdg");
+				sdg = File_Open(sdgName, ReadOnly);
+			}
+			if (sdg != 0)
+			{
+				uint64_t sdgSize = File_GetSize(sdg);
+				if (sdgSize > 0 && sdgSize <= 65536)
+				{
+					uint8_t* ram = Allocate<uint8_t>("Spectrum graphics RAM", 65536, true);
+					if (ram != 0)
+					{
+						uint32_t base = (uint32_t)(65536 - sdgSize);
+						if (File_Read(sdg, ram + base, sdgSize) == sdgSize &&
+						    DDB_LoadVectorGraphics(DDB_MACHINE_SPECTRUM, ddb->version, ram, 65536))
+							ddb->drawString = true;
+						else
+							Free(ram);
+					}
+				}
+				File_Close(sdg);
+			}
+		}
+	}
+	#endif
+
 	return ddb;
 }
 

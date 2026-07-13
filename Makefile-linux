@@ -84,17 +84,23 @@ ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRC
 
 all: $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)
 
+# Test defaults (override on the command line, e.g. FAST=0 or JOBS=6).
+# FAST=1 skips finite timed pauses; JOBS=4 runs scenarios in parallel (the
+# suite is CPU/memory-bandwidth bound, so ~4 is the sweet spot on 6 cores).
+FAST ?= 1
+JOBS ?= 4
+
 test: test-host
 
 test-host: $(OUTDIR)/ddb
 
-	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,) $(if $(JOBS),--jobs $(JOBS),)
 
 test-dos:
-	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --suite dos
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --suite dos $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,) $(if $(JOBS),--jobs $(JOBS),)
 
 test-inventory: $(OUTDIR)/ddb
-	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --inventory
+	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb --inventory $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,) $(if $(JOBS),--jobs $(JOBS),)
 
 test-game: $(OUTDIR)/ddb
 	@test -n "$(SCENARIO)" || (echo "Usage: make -f Makefile-linux test-game SCENARIO=chichen/part1-amiga [FAST=1] [RECORD=1] [TRACE=1] [INTERACTIVE=1]"; exit 2)
