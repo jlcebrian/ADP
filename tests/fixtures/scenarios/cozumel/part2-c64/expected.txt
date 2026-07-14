@@ -1,0 +1,705 @@
+DIOSA de COZUMEL - Parte II
+Debes cargar una posición.
+Nombre: PART1ENDING.SAV
+                    Camino sur
+Es el que comunica San Marcos con el resto de la isla. Aquí está Zyanya. 
+131
+> dejar todo
+Dejas la caja de cerillas.
+Dejas el quinqué.
+Dejas la botella.
+Dejas la llave.
+Dejas los billetes.
+Dejas la barra de hierro.
+132
+> quitar sortija
+Te quitas la sortija.
+133
+> coger caja
+Coges la caja de cerillas.
+134
+> abrir caja
+Abres la caja de cerillas.
+135
+> poner sortija en caja
+La sortija está en la caja de cerillas.
+136
+> coger quinque y botella y barra
+Coges el quinqué.
+137
+Coges la botella.
+138
+Coges la barra de hierro.
+139
+> s
+                    La roca
+Esta zona es sombría debido a la gran roca que domina el paisaje. Aquí está Zyanya. 
+140
+> s
+                    Bifurcación
+Al norte queda San Marcos, al suroeste El Cedral y al sureste un sendero. Aquí está Zyanya. 
+141
+> se
+                    Senda
+Hace mucho calor y huele a madera húmeda. Aquí está Zyanya. 
+142
+> se
+Las botas dificultan tu avance.
+                    Senda
+Avanzas con dificultad por el encharcado suelo. Aquí está Zyanya. 
+143
+> se
+                    Senda
+Vas rodeado de vegetación y ruidos de jungla. Aquí está Zyanya. 
+144
+> s
+                    Templo
+Estás en un claro de la selva, frente a un templo. Aquí está Zyanya. 
+145
+> s
+Un campo de fuerza te rechaza. Una voz susurra: "Di las palabras... ".
+146
+> decir "ix chell"
+El campo desaparece.
+147
+> s
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Aquí está Zyanya. 
+148
+> dejar todo
+Dejas la caja de cerillas.
+Dejas el quinqué.
+Dejas la botella.
+Dejas la barra de hierro.
+149
+> coger caja y barra
+Coges la caja de cerillas.
+150
+Coges la barra de hierro.
+151
+> sacar cerilla de caja
+Coges la cerilla.
+152
+> dejar caja
+Dejas la caja de cerillas.
+153
+> e
+                    Oscuro
+Está oscuro.
+154
+> encender cerilla
+Enciendes la cerilla.
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+155
+> romper tumba con barra
+La losa cae y se rompe.
+156
+> o
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una caja de cerillas, un quinqué y una botella. Aquí está Zyanya. 
+157
+Te quemas. Todo te cae.
+> coger caja y botella
+Coges la caja de cerillas.
+158
+Coges la botella.
+159
+> sacar cerilla de caja
+Coges la cerilla.
+160
+> dejar caja
+Dejas la caja de cerillas.
+161
+> abrir botella
+Abres la botella. El tapón se cae. 
+162
+> encender cerilla
+Enciendes la cerilla.
+163
+> o
+                    Ala oeste
+La luz crea sombras en las paredes. Ves un altar rodeado de cascotes. Aquí está Zyanya. 
+164
+> vaciar botella en musgo
+Vacías la botella en el musgo.
+165
+Te quemas. Todo te cae.
+                    Oscuro
+Está oscuro.
+165
+> e
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una caja de cerillas, un quinqué, un tapón y una barra de hierro. Aquí está Zyanya. 
+166
+> coger caja
+Coges la caja de cerillas.
+167
+> sacar cerilla de caja
+Coges la cerilla.
+168
+> dejar caja
+Dejas la caja de cerillas.
+169
+> encender cerilla
+Enciendes la cerilla.
+170
+> o
+                    Ala oeste
+La luz crea sombras en las paredes. Ves un altar rodeado de cascotes. Hay una botella. Aquí está Zyanya. 
+171
+> quemar musgo
+Suelta vapores...
+172
+Te quemas.
+                    Oscuro
+Está oscuro.
+172
+La oscuridad es peligrosa.
+> e
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una caja de cerillas, un quinqué, un tapón y una barra de hierro. Aquí está Zyanya. 
+173
+> coger caja y quinque y barra
+Coges la caja de cerillas.
+174
+Coges el quinqué.
+175
+Coges la barra de hierro.
+176
+> sacar cerilla de caja
+Coges la cerilla.
+177
+> encender cerilla y quinque
+Enciendes la cerilla.
+178
+Enciendes el quinqué.
+179
+> dejar cerilla
+Apagas la cerilla. Dejas la cerilla.
+180
+> o
+                    Ala oeste
+La luz crea sombras en las paredes. Ves un altar rodeado de cascotes. Hay una botella. Aquí está Zyanya. 
+181
+> ex cascotes
+De piedra.
+Molestas varias serpientes.
+182
+Una víbora te mira cabreada.
+> matar vibora con barra
+Con la barra de hierro atacas a la serpiente, matándola.
+183
+> mover piedra
+Mecanismos operan en otra localidad.
+184
+> e
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay un tapón. Aquí está Zyanya. 
+185
+> e
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+186
+Zyanya dice: "Tengo miedo".
+> decir Zyanya "ven"
+Hablas con Zyanya. Te dice: "Tengo miedo, yo no bajo".
+187
+> decir Zyanya "ven"
+Hablas con Zyanya. Te dice: "Te seguiré, pero mantente cerca".
+188
+> bajar
+                    Sepulcro
+En la cámara sepulcral está la Diosa del Amor. Aquí está Zyanya. 
+189
+La loseta se cierra.
+> ex diosa
+Es muy hermosa.
+La Diosa abre sus ojos.
+190
+> ex diosa
+Es muy hermosa.
+191
+Su mirada te llega al alma.
+Zyanya, al verte pasmao, te ofrece un frasco.
+> coger frasco
+Coges el frasco.
+192
+El amor te ciega.
+> abrir frasco
+Abres el frasco.
+193
+El amor te ciega.
+> beber elixir
+Bebes el elixir.
+Ves que la diosa es una momia.
+194
+Sin elixir, el frasco se desintegra.
+> ex momia
+Bien curada. Ahora ves una figurilla junto a la momia.
+195
+> coger figurilla
+Coges la figurilla de Jade.
+196
+> cerrar ojos
+La loseta se abre.
+197
+> subir
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+198
+> o
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay un tapón. Aquí está Zyanya. 
+199
+> dejar quinque
+Dejas el quinqué encendido.
+200
+"Puff", se apaga el quinqué encendido.
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay un quinqué y un tapón. Aquí está Zyanya. 
+200
+> n
+                    Templo
+Estás en un claro de la selva, frente a un templo. Aquí está Zyanya. 
+201
+Zyanya dice: "Ahora tendremos suerte".
+> dejar barra
+Dejas la barra de hierro.
+202
+> n
+                    Senda
+Vas rodeado de vegetación y ruidos de jungla. Aquí está Zyanya. 
+203
+> no
+* Ix Chell *
+                    Senda
+Avanzas con dificultad por el encharcado suelo y tropiezas con algo. Aquí está Zyanya. 
+204
+> ex charco
+Ves un collar Bonampak.
+205
+> coger collar
+Coges el collar de Bonampak.
+206
+> no
+Vuelve el recuerdo.
+                    Senda
+Hace mucho calor y huele a madera húmeda, pisas tierra blanda. Aquí está Zyanya. 
+207
+> ex tierra
+Encuentras un collar Yaxchilán.
+208
+> coger collar
+Coges el collar de Yaxchilán.
+209
+> no
+Añoras a Ix Chell.
+                    Bifurcación
+Al norte queda San Marcos, al suroeste El Cedral y al sureste un sendero, ves un montón de hojas. Aquí está Zyanya. 
+210
+> ex hojas
+Hallas un collar Uaxactun.
+211
+> coger collar
+Coges el collar de Uaxactun.
+212
+> so
+Deseas volver a ella.
+                    Camino
+Estás rodeado de altos árboles y una seca masa de malezas. Algo brilla en una rama. Aquí está Zyanya. 
+213
+> subir
+Zyanya dice: "¡No soy una mona!".
+Alcanzas la rama.
+                    Arbol
+Desde lo alto ves el pueblo de El Cedral. Hay un collar de Palenque. 
+214
+> coger collar
+Coges el collar de Palenque.
+215
+> bajar
+                    Camino
+Estás rodeado de altos árboles y una seca masa de malezas. Aquí está Zyanya. 
+216
+> so
+Te llama y vas hacia ella...
+                    La Diosa
+La hermosa diosa te pregunta: "¿Vuelves o te alejas?".
+217
+> decir diosa "me alejo"
+                    Camino
+A éste lugar solitario llegan los ruidos del pueblo. Cerca hay unas piedras apiladas. Aquí está Zyanya. 
+218
+> ex piedras
+Deslapidas un collar Uxmal.
+219
+> poner collar de Palenque
+Te pones el collar de Palenque.
+El collar de Palenque está frío y vibra.
+220
+> coger collar
+Coges el collar de Uxmal.
+221
+El collar de Palenque ahora está helado y vibra más.
+> frotar collar de Palenque
+Frotas el collar de Palenque y oyes: "Tuya es la fuerza de la Gran Desilusión".
+222
+> s
+Imposible alejarte más de Ix Chell.
+223
+> s
+Imposible alejarte más de Ix Chell.
+224
+El collar actúa, mareándote. El collar se funde... ¡Quedas libre del embrujo!
+El espectro de Ix Chell exclama: "Mortal, estaré entre tí y tus anhelos".
+Zyanya se torna en una parodia pétrea de la diosa.
+Los collares desaparecen.
+> s
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+225
+> e
+                    Porche de casa
+Estás en el porche de la atrancada casa. Un borracho grita a un loro enjaulado: "Cállate Kuill". 
+226
+Kuill dice: "socorro".
+> sacar sortija de caja
+Coges la sortija.
+227
+Kuill dice: "carcelero".
+> dar sortija a borracho
+El borracho dice: "Era de mamá. Te regalo mi loro Kuill".
+228
+> ex loro
+Es cagón.
+229
+Kuill dice: "socorro".
+> coger jaula
+Coges la jaula.
+230
+Kuill dice: "socorro".
+> abrir jaula
+Abres la jaula. Kuill sale y sube a tu hombro.
+231
+Kuill dice: "por fin libre".
+> cerrar jaula
+Cierras la jaula.
+232
+Kuill dice: "por fin libre".
+> o
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. Kuill está en tu hombro. 
+233
+> s
+                    Calle
+En El Cedral se respira actividad y comercio. Kuill está en tu hombro. 
+234
+Kuill dice: "por fin libre".
+> s
+                    Calle
+Al final de la calle central oyes el mar. Hay un cascabel. Kuill está en tu hombro. 
+235
+> coger cascabel
+Coges el cascabel.
+236
+> n
+                    Calle
+En El Cedral se respira actividad y comercio. Kuill está en tu hombro. 
+237
+> o
+                    Camino
+Une el pueblo con la hacienda del rico Turk. Kuill está en tu hombro. 
+238
+Kuill dice: "por fin libre".
+> o
+                    Patio
+El patio es el lugar de reunión de los matones del jefe. Aquí están el guardaespaldas y el matón. Kuill está en tu hombro. 
+239
+Kuill dice: "por fin libre".
+Una voz dice: "Ratso, ven".
+Ratso entra.
+> n
+El matón dice: "20 pesos y pasas".
+240
+Kuill dice: "por fin libre".
+El matón dice: "¿Dónde hallaste eso?", indicando el jade.
+> decir maton "en el templo"
+Hablas con el matón. Te dice: "¿Cómo entraste?".
+241
+Kuill dice: "por fin libre".
+> decir maton "diciendo ix chell"
+Hablas con el matón.  Se vá al este.
+242
+> n
+                    Salón
+Estás junto a un aparador. La puerta al despacho queda al norte. Hay un cajón. Kuill está en tu hombro. 
+243
+> abrir cajon
+Abres el cajón.
+244
+Kuill dice: "por fin libre".
+> meter figurilla en cajon
+La figurilla de Jade está en el cajón.
+245
+Kuill dice: "por fin libre".
+> cerrar cajon
+Cierras el cajón.
+246
+Ratso llega.
+> hablar Ratso
+Hablas con el guardaespaldas. No te entiende.
+247
+Kuill te caga.
+Ratso grita: "Jefesito, un tipejo te quié vé". Se oye una respuesta y Ratso dice: "Tira pá entro" y se vá.
+> abrir cajon
+Abres el cajón.
+248
+> sacar figurilla del cajon
+Coges la figurilla de Jade.
+249
+> n
+                    Despacho
+Big Turk tiene su oficina bien decorada. Un gordo sonríe y te estudia. Un mono se te acerca. Kuill está en tu hombro. 
+250
+> ex mono
+Loco y muy mimado.
+251
+> ex Turk
+Un elegante gordo.
+252
+Kuill te caga.
+Big Turk dice: "¿Vendes algo?".
+> dar cascabel a mono
+El mono se aleja con el cascabel.
+253
+Big Turk dice: "¿Vendes algo?".
+> mostrar figurilla a Turk
+Big Turk dice: "Hmmm, interesante. Te doy 100 pesos mejicanos".
+254
+> decir Turk "no"
+Hablas con Big Turk. Casi llorando, dice: "Te doy 150 pesos mejicanos".
+255
+> decir Turk "no"
+Hablas con Big Turk. Infartado, gime: "Mi última oferta. Te doy 200 pesos mejicanos".
+256
+> decir Turk "no"
+Hablas con Big Turk. "Mami no comerá", ruge. Luego musita: "Te doy 250 pesos mejicanos".
+257
+Kuill te caga.
+> decir Turk "si"
+Hablas con Big Turk. Big Turk coge la figurilla y te dá 250 pesos.
+258
+Kuill dice: "por fin libre".
+> coger pesos
+Coges los billetes.
+259
+> s
+                    Salón
+Estás junto a un aparador. La puerta al despacho queda al norte. Hay un cajón. Kuill está en tu hombro. 
+260
+> s
+                    Patio
+El patio es el lugar de reunión de los matones del jefe. Kuill está en tu hombro. 
+261
+Kuill dice: "por fin libre".
+> dar pesos a loro
+Kuill coge el dinero.
+Kuill dice: "pasta".
+Kuill huye.
+262
+> e
+                    Camino
+Une el pueblo con la hacienda del rico Turk. 
+263
+> e
+                    Calle
+En El Cedral se respira actividad y comercio. 
+264
+> n
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+265
+> e
+                    Porche de casa
+Estás en el porche de la atrancada casa. Hay unos billetes. Aquí está el borracho. 
+266
+> coger pesos
+Coges los billetes.
+267
+> contar pesos
+Mejicanos. Hay 250 pesos.
+268
+> o
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+269
+> s
+                    Calle
+En El Cedral se respira actividad y comercio. 
+270
+> e
+                    Casa
+Las decoradas paredes hablan de una vida dedicada al mar. Frente a una mesa hay un cozumelano. Aquí está el dueño del barco. 
+271
+> decir dueno "quiero comprar un barco"
+Hablas con el dueño del barco. Te dice: "Paga en dinero".
+272
+> decir dueno "cuanto vale"
+Hablas con el dueño del barco. Te dice: "Muestra cuanto tienes".
+273
+> mostrar pesos a dueno
+El dueño dice: "Toma los papeles de La Yucatana.".
+274
+> coger papeles
+Coges el papel.
+275
+> o
+                    Calle
+En El Cedral se respira actividad y comercio. 
+276
+> s
+                    Calle
+Al final de la calle central oyes el mar. 
+277
+> s
+                    Embarcadero
+El mar está tranquilo y a lo lejos se ven barcas de pesca. 
+278
+> ex barco
+¡No está a tu alcance!
+279
+> ex barco
+¡No está a tu alcance!
+280
+> ex barco
+¡No está a tu alcance!
+281
+> ex barco
+¡No está a tu alcance!
+282
+> ex barco
+¡No está a tu alcance!
+283
+> ex barco
+¡No está a tu alcance!
+284
+> ex barco
+¡No está a tu alcance!
+285
+> ex barco
+¡No está a tu alcance!
+286
+> ex barco
+¡No está a tu alcance!
+287
+> ex barco
+¡No está a tu alcance!
+288
+> ex barco
+¡No está a tu alcance!
+289
+> ex barco
+¡No está a tu alcance!
+290
+> ex barco
+¡No está a tu alcance!
+291
+> ex barco
+¡No está a tu alcance!
+292
+> ex barco
+¡No está a tu alcance!
+293
+> ex barco
+¡No está a tu alcance!
+294
+> ex barco
+¡No está a tu alcance!
+295
+> ex barco
+¡No está a tu alcance!
+296
+> ex barco
+¡No está a tu alcance!
+297
+> ex barco
+¡No está a tu alcance!
+298
+> ex barco
+¡No está a tu alcance!
+299
+Llega un barco.
+> ex barco
+No es La Yucatana.
+300
+> ex barco
+No es La Yucatana.
+301
+> ex barco
+No es La Yucatana.
+302
+El barco sale.
+> ex barco
+¡No está a tu alcance!
+303
+> ex barco
+¡No está a tu alcance!
+304
+> ex barco
+¡No está a tu alcance!
+305
+> ex barco
+¡No está a tu alcance!
+306
+> ex barco
+¡No está a tu alcance!
+307
+> ex barco
+¡No está a tu alcance!
+308
+> ex barco
+¡No está a tu alcance!
+309
+Llega un barco.
+> ex barco
+No es La Yucatana.
+310
+> ex barco
+No es La Yucatana.
+311
+> ex barco
+No es La Yucatana.
+312
+> ex barco
+No es La Yucatana.
+313
+> ex barco
+No es La Yucatana.
+314
+> ex barco
+No es La Yucatana.
+315
+> ex barco
+No es La Yucatana.
+316
+> ex barco
+No es La Yucatana.
+317
+> ex barco
+No es La Yucatana.
+318
+El barco sale.
+Llega un barco.
+> ex barco
+Es La Yucatana, la conduce un nativo.
+319
+> subir barco
+Das el contrato, el remero dice: "Nos vamos".
+Con un aleteo, aterriza Kuill en tu hombro.
+                    Yucatana
+Estás en la Yucatana con Kuill. Adormecido, te diriges hacia nuevas aventuras...
+¡Felicidades! Terminaste la DIOSA. Te esperamos en los Templos Sagrados.
+¿Otra vez? (S/N)
+> N
+Adios...

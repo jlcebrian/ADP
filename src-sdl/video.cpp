@@ -1044,15 +1044,16 @@ void VID_DrawCharacter (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 		if (paper == 255)
 		{
-			// MSX colours are a full nibble; keep the whole paper nibble intact
-			uint8_t keep = screenMachine == DDB_MACHINE_MSX ? 0xF0 : 0x37;
+			// MSX and C64 colours are a full nibble; keep the paper nibble intact
+			uint8_t keep = (screenMachine == DDB_MACHINE_MSX ||
+			                screenMachine == DDB_MACHINE_C64) ? 0xF0 : 0x37;
 			*attr = (*attr & keep) | ink | xattr;
 			if (rot > 8-width)
 				attr[1] = (attr[1] & keep) | ink | xattr;
 		}
 		else
 		{
-			if (screenMachine != DDB_MACHINE_MSX)
+			if (screenMachine != DDB_MACHINE_MSX && screenMachine != DDB_MACHINE_C64)
 				paper &= 7;
 			*attr = ink | (paper << paperShift) | xattr;
 			if (rot > 8-width)

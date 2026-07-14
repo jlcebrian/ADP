@@ -1,0 +1,5 @@
+{
+    "fixture": "templos/c64/TEMPLOS-C64 2.DDB",
+    "shared": "templos/part2-amiga",
+    "timeout_seconds": 600
+}

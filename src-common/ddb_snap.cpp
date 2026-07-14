@@ -673,6 +673,75 @@ static bool LoadSnapshotFromTZX (File* file)
 				break;
 			}
 
+			case 0x12: // Pure tone
+			{
+				File_Seek(file, File_GetPosition(file) + 4);
+				break;
+			}
+
+			case 0x13: // Pulse sequence
+			{
+				uint8_t pulseCount;
+				File_Read(file, &pulseCount, 1);
+				File_Seek(file, File_GetPosition(file) + pulseCount * 2);
+				break;
+			}
+
+			case 0x14: // Pure data block (custom speed loaders)
+			{
+				// Same payload conventions as a standard block, but the
+				// blocks carry two trailing bytes after the data instead
+				// of a single checksum
+				uint8_t blockHeader[10];
+				File_Read(file, blockHeader, 10);
+				uint32_t length = blockHeader[7] | (blockHeader[8] << 8) | (blockHeader[9] << 16);
+				if (expectingDataBlock)
+				{
+					uint8_t flags;
+					File_Read(file, &flags, 1);
+					File_Read(file, snapshotRAM + dataAddress, length-3);
+					File_Seek(file, File_GetPosition(file) + 2);
+					expectingDataBlock = false;
+					blockCount++;
+				}
+				else if (length == 20)
+				{
+					uint8_t data[20];
+					if (File_Read(file, data, 20) != 20)
+					{
+						DDB_SetError(DDB_ERROR_INVALID_FILE);
+						return false;
+					}
+					if (data[0] == 0 && data[1] == 3)	// Header block for a CODE file
+					{
+						dataAddress = read16(data + 14, true);
+						expectingDataBlock = true;
+					}
+				}
+				else if (length >= 32768 && blockCount > 0)
+				{
+					// Desperate attempt to find game data in a headerless block
+					// (Cozumel part 2): assume it fills memory up to the top
+					dataAddress = 65536 - (length-3);
+					uint8_t flags;
+					File_Read(file, &flags, 1);
+					File_Read(file, snapshotRAM + dataAddress, length-3);
+					File_Seek(file, File_GetPosition(file) + 2);
+					blockCount++;
+				}
+				else
+				{
+					File_Seek(file, File_GetPosition(file) + length);
+				}
+				break;
+			}
+
+			case 0x20: // Pause / stop the tape
+			{
+				File_Seek(file, File_GetPosition(file) + 2);
+				break;
+			}
+
 			case 0x2A: // Stop the tape in 48K mode
 			{
 				File_Seek(file, File_GetPosition(file) + 4);

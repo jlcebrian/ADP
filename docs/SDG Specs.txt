@@ -351,8 +351,9 @@
     .CDG	Commodore 64 Graphics Database file format
 ───────────────────────────────────────────────────────────────────────────────
 
-    The C64 version of the SDG file is similar to the Spectrum version,
-    except the end of memory is at 0xCBFF:
+    The C64 file header follows the same scheme as the Spectrum version,
+    but is located at the end of the graphics area (the color RAM copy
+    at 0xCC00 follows it, then the bitmap at 0xE000):
 
     ADDRESS		SIZE		DESCRIPTION
 
@@ -361,11 +362,145 @@
     0xCBF1		2			Pointer to the table of picture addresses
     0xCBF3		2			Pointer to the window definitions (6 bytes each)
     0xCBF5		2			Pointer to extra data (1 byte, always FF)
-    0xCBF7		2			Pointer to character set (2048 bytes)
-    0xCBF9		2			Pointer to the color palette (17 bytes)
+    0xCBF7		2			Pointer to the shade table (8 bytes per entry)
+    0xCBF9		2			Pointer to the color conversion table (17 bytes)
     0xCBFB		2			Contains FF FF
     0xCBFD		1			Number of pictures
     0xCBFE		2			Contains 00 00
+
+    Note there is no character set pointer: the slot the other platforms
+    use for it holds the shade table instead. Shade numbers index this
+    table without masking (entries beyond 63 are valid), so the effective
+    table size depends on the game data.
+
+    ───────────────
+      WINDOW LIST
+    ───────────────
+
+    Window definitions are 6 bytes per picture:
+
+    OFFSET		DESCRIPTION
+
+    0			Flags (0 = location picture, nonzero = subroutine)
+    1			Colors: ink in the high nibble, paper in the low
+                nibble (the same layout as the hardware color cells)
+    2			Start row (in cells)
+    3			Start column (in cells)
+    4			Height (in cells)
+    5			Width (in cells)
+
+    ────────────────────
+      PICTURE ENCODING
+    ────────────────────
+
+    The command stream differs significantly from the Spectrum encoding.
+    The lowest 3 bits of the first byte are the command number. X
+    coordinates and displacements are 9 bits wide (the screen is 320
+    pixels wide): bit 3 of the command byte holds the 9th (high) bit.
+
+        COMMAND		SIZE    DESCRIPTION
+
+        0   INK     1       Sets the drawing (foreground) color.
+
+                            0   Bit 0-2     Command number (0)
+                                Bit 3-6     Color (0-15)
+                                Bit 7       1: Transparent ink. Color
+                                            cells written while drawing
+                                            keep their ink value.
+
+        1   PAPER   1       Sets the background color. Same encoding as
+                            INK (bits 3-6 = color, bit 7 = transparent).
+
+        2   RETURN  1       End of picture / return from subroutine.
+
+        3   GOSUB   2       Draws another picture as a subroutine
+                            (10 levels maximum).
+
+                            0   Bit 0-2     Command number (3)
+                                Bit 3-5     Scale (0 = unscaled, else
+                                            displacements are multiplied
+                                            by scale/8)
+                                Bit 6       Flip Y (XORed with current)
+                                Bit 7       Flip X (XORed with current)
+                            1               Picture number
+
+        4   PLOT    3       Plots a point at an absolute coordinate and
+                            moves the cursor there. Flips and scale do
+                            not apply. (0,0) is the top-left corner.
+
+                            0   Bit 0-2     Command number (4)
+                                Bit 3       X coordinate bit 8
+                                Bit 6       INVERSE flag
+                                Bit 7       OVER flag
+                            1               X coordinate (low 8 bits)
+                            2               Y coordinate
+
+                            OVER=0 INVERSE=0    set the pixel
+                            OVER=1 INVERSE=0    XOR the pixel
+                            OVER=0 INVERSE=1    clear the pixel
+                            OVER=1 INVERSE=1    move only; neither the
+                                                pixel nor the color cell
+                                                is modified
+
+        5   LINE    3       Draws a line with a relative displacement,
+                            scaled and flipped by the current GOSUB
+                            state. OVER/INVERSE as per PLOT, but both
+                            set means a move (no drawing).
+
+                            0   Bit 0-2     Command number (5)
+                                Bit 3       X displacement bit 8
+                                Bit 4       1: Y is negative
+                                Bit 5       1: X is negative
+                                Bit 6       INVERSE flag
+                                Bit 7       OVER flag
+                            1               X displacement (low 8 bits)
+                            2               Y displacement
+
+        6   FILL    3-4     Fills an area with a solid or patterned
+                            flood fill. The seed position is a relative
+                            displacement from the cursor (scaled and
+                            flipped like LINE); the cursor itself does
+                            not move. If the seed pixel is already set,
+                            the command does nothing.
+
+                            0   Bit 0-2     Command number (6)
+                                Bit 3       X displacement bit 8
+                                Bit 4       1: Y is negative
+                                Bit 5       1: X is negative
+                                Bit 6       1: Invert the shade pattern
+                                Bit 7       0: Solid fill (3 bytes)
+                                            1: Patterned fill (4 bytes)
+                            1               X displacement (low 8 bits)
+                            2               Y displacement
+                            3               Shade table entry (only if
+                                            bit 7 is set)
+
+        7   BLOCK   4-5     Two commands selected by bit 7:
+
+                            Bit 7 = 1: sets the color cells of a
+                            rectangular area to the current INK/PAPER
+                            (like the Spectrum BLOCK):
+
+                            0   Bit 0-2     Command number (7)
+                                Bit 7       1
+                            1               Start line (cell row)
+                            2               Start column
+                            3               Height in cells
+                            4               Width in cells
+
+                            Bit 7 = 0: stamps a single 8x8 pattern from
+                            the shade table at a character cell:
+
+                            0   Bit 0-2     Command number (7)
+                                Bit 5       INVERSE flag (pattern is
+                                            complemented)
+                                Bit 6       OVER flag (pattern is XORed
+                                            over the existing pixels
+                                            instead of replacing them)
+                                Bit 7       0
+                            1               Line (cell row)
+                            2               Column
+                            3               Shade table entry
 
 
 ───────────────────────────────────────────────────────────────────────────────

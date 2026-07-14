@@ -110,6 +110,7 @@ n
 n
 o
 o
+@save Jaguar
 n
 girar anillo
 ex cactus

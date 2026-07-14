@@ -1,0 +1,5 @@
+{
+    "fixture": "chichen/c64/CHICHEN-C64 2.DDB",
+    "shared": "chichen/part2-amiga",
+    "timeout_seconds": 600
+}

@@ -1,0 +1,1004 @@
+**************************************
+       TEMPLOS SAGRADOS I PARTE
+       ========================
+      Dirección: Andrés Samudio
+   Programación: Juan Manuel Medina
+         Gráficos: Paco Zarco
+            Carlos Marqués
+**************************************
+                       MAR
+Te encuentras a bordo de una barca que navega entre Cozumel y tierras yucatanas. El mar está algo picado. Aquí están Cipactli y Kuill. También puedes ver una cuerda. 
+Turno: 0
+> coger cuerda
+Coges la cuerda.
+Turno: 1
+> m
+                       MAR
+Te encuentras a bordo de una barca que navega entre Cozumel y tierras yucatanas. El mar está algo picado. Aquí están Cipactli y Kuill. 
+Turno: 2
+Espesas nubes negras ocultan el horizonte.
+> esperar
+El tiempo pasa...
+Turno: 3
+> esperar
+El tiempo pasa...
+Turno: 4
+El cielo nublado y los fuertes truenos anuncian tormenta.
+> esperar
+El tiempo pasa...
+Turno: 5
+> esperar
+El tiempo pasa...
+Turno: 6
+"Vamos a tener mal tiempo", murmura el indio.
+> esperar
+El tiempo pasa...
+Turno: 7
+> esperar
+El tiempo pasa...
+Turno: 8
+La tormenta estalla y el mar se encrespa.
+De repente, la barca escora fuertemente y Cipactli cae al mar.
+                       MAR
+Te encuentras a bordo de una barca que navega entre Cozumel y tierras yucatanas. Estás en medio de una tormenta. Aquí está Kuill. Cipactli está en el agua. También puedes ver un remo. 
+Turno: 8
+> esperar
+El tiempo pasa...
+Turno: 9
+> coger remo
+Coges el remo.
+Turno: 10
+> atar cuerda a remo
+Atas el remo con la cuerda.
+Turno: 11
+> tirar remo 
+Tiras al mar el remo atado a la cuerda.
+Cipactli lo alcanza y con tu ayuda vuelve a la barca. Agotado recoge sus cosas.
+Pasa el tiempo.
+Al fín llegáis a la playa.
+                       MAR
+Te encuentras a bordo de una barca que navega entre Cozumel y tierras yucatanas. Sobre la roca que bordea la playa hay un pequeño templo. Aquí están Cipactli y Kuill. 
+Turno: 12
+> leer papel
+Pone: El portador es el dueño de la Yucatana. 
+Turno: 13
+> dar cuerda a indio
+Cipactli te dice: "Gracias".
+Turno: 14
+> dar papel a indio
+Cipactli te dice: "Gracias".
+Turno: 15
+> bajar 
+El indio te deja bajar y se va con la barca. Kuill emprende el vuelo.
+                       PLAYA
+Sobre la roca que bordea la playa hay un pequeño templo. También puedes ver una red. 
+Turno: 16
+> subir 
+                       FRENTE AL TEMPLO
+¡Otra vez ante un templo Maya! Recuerdas tus pasadas aventuras en Cozumel. 
+Turno: 17
+> e
+                       SALA DERRUIDA
+Estás en una sala con parte del techo derrumbado. Hay un bloque de piedra con un dibujo. 
+Turno: 18
+> ex piedra
+Es la espiral cuadrada de las Estancias.
+Turno: 19
+> n
+                       ALTAR
+En esta habitación para ritos hay varias vasijas y unos escombros junto a un altar. También puedes ver una cuenta del Imix. 
+La cuenta del Imix está... ¡FLOTANDO sobre el altar!
+Turno: 20
+> ex vasijas
+Rotas y muy pesadas.
+Turno: 21
+> ex escombros
+Piedras sueltas.
+Encuentras una hachuela.
+Turno: 22
+> coger hachuela
+Coges la hachuela.
+Turno: 23
+> ex hachuela
+Un afilado pedazo de obsidiana. 
+Turno: 24
+> s
+                       SALA DERRUIDA
+Estás en una sala con parte del techo derrumbado. Hay un bloque de piedra con un dibujo. 
+Turno: 25
+> o
+                       FRENTE AL TEMPLO
+¡Otra vez ante un templo Maya! Recuerdas tus pasadas aventuras en Cozumel. 
+Turno: 26
+> n
+                       SELVA
+En este terreno la vegetación es abundante. Hay árboles con frutos, cañas de bambú y juncos. 
+Turno: 27
+> ex arbol
+Es un Curaris lleno de frutos.
+Turno: 28
+> ex suelo
+Lleno de humus y hojas podridas.
+Encuentras una fruta caida del árbol.
+Turno: 29
+> coger fruta
+Coges la fruta.
+Turno: 30
+> ex bambu
+De fino tallo leñoso.
+Turno: 31
+> cortar bambu
+Con la ayuda de la hachuela cortas la caña.
+Coges la caña.
+Turno: 32
+> o
+                       SELVA
+Estás en un terreno semidesértico, donde sólo crecen algunos chaparrales y cactus. También puedes ver un palo. 
+Turno: 33
+> coger palo
+Coges el palo.
+Turno: 34
+> ex cactus
+Lleno de espinas.
+Turno: 35
+> coger espina 
+Coges la púa de cactus.
+Turno: 36
+> n
+                       SELVA
+Otra zona de bosque variado. Hay cocoteros y árboles con lianas. 
+Una banda de monos domina esta parte de la selva.
+Turno: 37
+> ex liana
+Cuelgan de los árboles.
+Turno: 38
+> cortar liana
+Con la ayuda de la hachuela cortas la liana.
+Coges la liana.
+Turno: 39
+> ex monos
+Muchos. El jefe tiene un cascabel al cuello. ¡Reconoces a Maccaccus!
+Turno: 40
+> poner pua en fruta
+Vale.
+La púa se impregna del jugo de la fruta.
+Turno: 41
+> poner fruta en cana
+La fruta atravesada por una púa de cactus está en la caña.
+Turno: 42
+> n 
+Los monos te acribillan a cocotazos. Huyes presto.
+Turno: 43
+> soplar cana
+La fruta sale disparada.
+Aciertas a Maccaccus quien cae y se desnuca. Al ver el monicidio los demás huyen.
+Turno: 44
+> ex mono 
+Es un monocadaver. 
+Turno: 45
+> n
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. 
+Turno: 46
+> ex suelo
+Muy reciente para una selva.
+Turno: 47
+> excavar 
+Descubres un foso.
+Turno: 48
+> dejar todo
+Dejas la caña.
+Dejas la hachuela.
+Dejas el palo.
+Dejas la liana.
+Turno: 49
+> bajar
+                       SELVA
+Este foso estacado, es una trampa eficaz para felinos y antropoides despistados. 
+Turno: 50
+> ex estacas
+Muy afiladas.
+Una está suelta.
+Turno: 51
+> coger estaca
+Coges la estaca.
+Turno: 52
+> lanzar estaca
+¡Allá va la estaca! Cae fuera del foso.
+Turno: 53
+> subir
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, una hachuela, un palo, una liana y una estaca. 
+Turno: 54
+> coger todo
+Coges la caña.
+Coges la hachuela.
+Coges el palo.
+Coges la liana.
+Coges la estaca.
+Turno: 55
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. 
+Unos los rugidos de un felino.
+Turno: 56
+¡Un enorme jaguar salta hacia ti!
+> matar jaguar con estaca
+Hundes la estaca en las entrañas de la fiera que cae muerta.
+Turno: 57
+> quitar piel de jaguar
+Con la ayuda de la hachuela consigues la piel de jaguar.
+Coges la piel de jaguar.
+Turno: 58
+> atar hachuela en palo 
+Con la hachuela, el palo y la liana haces un hacha.
+Turno: 59
+> dejar estaca
+Dejas la estaca.
+Turno: 60
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. 
+Turno: 61
+> s
+                       SELVA
+Otra zona de bosque variado. Hay cocoteros y árboles con lianas. También puedes ver una fruta atravesada por una púa de cactus, un cascabel y un mono muerto. 
+Turno: 62
+> cortar liana
+Con la ayuda del hacha cortas la liana.
+Coges la liana.
+Turno: 63
+> n
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. 
+Turno: 64
+> dejar todo
+Dejas la caña.
+Dejas el hacha.
+Dejas la liana.
+Dejas la piel de jaguar.
+Turno: 65
+> coger hacha
+Coges el hacha.
+Turno: 66
+> talar tronco 
+Con la ayuda del hacha cortas el tronco rugoso.
+Turno: 67
+> talar tronco 
+Con la ayuda del hacha cortas el tronco liso.
+Turno: 68
+> talar tronco 
+Con la ayuda del hacha cortas el tronco recto.
+Turno: 69
+> talar tronco 
+Con la ayuda del hacha cortas el tronco grueso.
+Turno: 70
+> dejar hacha
+Dejas el hacha.
+Turno: 71
+> coger tronco
+Coges el tronco rugoso.
+Turno: 72
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca y un jaguar despellejado. 
+Turno: 73
+> dejar tronco
+Dejas el tronco rugoso.
+Turno: 74
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha, una liana, una piel de jaguar, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 75
+> coger tronco
+Coges el tronco liso.
+Turno: 76
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado y un tronco rugoso. 
+Turno: 77
+> dejar tronco
+Dejas el tronco liso.
+Turno: 78
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha, una liana, una piel de jaguar, un tronco recto y un tronco grueso. 
+Turno: 79
+> coger tronco
+Coges el tronco recto.
+Turno: 80
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, un tronco rugoso y un tronco liso. 
+Turno: 81
+> dejar tronco
+Dejas el tronco recto.
+Turno: 82
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha, una liana, una piel de jaguar y un tronco grueso. 
+Turno: 83
+> coger tronco
+Coges el tronco grueso.
+Turno: 84
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, un tronco rugoso, un tronco liso y un tronco recto. 
+Turno: 85
+> dejar tronco
+Dejas el tronco grueso.
+Turno: 86
+> n 
+Turno: 87
+                       PLAZOLETA
+Has llegado a las Mágicas Estancias Interconexas, donde puede ocurrir cualquier cosa.
+Desde lo alto, a vista de loro, se observa que...
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. 
+Turno: 87
+> ex acantilado
+¡No está a tu alcance!
+Turno: 88
+> ex orificios
+Atraviesan los muros a dos alturas. Los más altos quedan fuera de alcance.
+Turno: 89
+> ex muro norte
+De la pared Norte sobresalen dos bloques de piedra.
+Turno: 90
+> ex muro oeste
+De la pared Oeste sobresalen dos bloques de piedra.
+Turno: 91
+> ex bloques
+Sobresalen un poco, pero encajan perfectamente.
+Turno: 92
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, un tronco rugoso, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 93
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha, una liana y una piel de jaguar. 
+Turno: 94
+> coger piel
+Coges la piel de jaguar.
+Turno: 95
+> s
+                       SELVA
+Otra zona de bosque variado. Hay cocoteros y árboles con lianas. También puedes ver una fruta atravesada por una púa de cactus, un cascabel y un mono muerto. 
+Turno: 96
+> s
+                       SELVA
+Estás en un terreno semidesértico, donde sólo crecen algunos chaparrales y cactus. 
+Turno: 97
+> e
+                       SELVA
+En este terreno la vegetación es abundante. Hay árboles con frutos, cañas de bambú y juncos. 
+Turno: 98
+> s
+                       FRENTE AL TEMPLO
+¡Otra vez ante un templo Maya! Recuerdas tus pasadas aventuras en Cozumel. 
+Turno: 99
+> e
+                       SALA DERRUIDA
+Estás en una sala con parte del techo derrumbado. Hay un bloque de piedra con un dibujo. 
+Turno: 100
+> n
+                       ALTAR
+En esta habitación para ritos hay varias vasijas y unos escombros junto a un altar. También puedes ver una cuenta del Imix. 
+La cuenta del Imix está... ¡FLOTANDO sobre el altar!
+Turno: 101
+> coger cuenta con piel
+Con la ayuda de la piel atrapas la cuenta.
+Coges la cuenta del Imix.
+Turno: 102
+> s
+                       SALA DERRUIDA
+Estás en una sala con parte del techo derrumbado. Hay un bloque de piedra con un dibujo. 
+Turno: 103
+> o
+                       FRENTE AL TEMPLO
+¡Otra vez ante un templo Maya! Recuerdas tus pasadas aventuras en Cozumel. 
+Turno: 104
+> n
+                       SELVA
+En este terreno la vegetación es abundante. Hay árboles con frutos, cañas de bambú y juncos. 
+Turno: 105
+> o
+                       SELVA
+Estás en un terreno semidesértico, donde sólo crecen algunos chaparrales y cactus. 
+Turno: 106
+> n
+                       SELVA
+Otra zona de bosque variado. Hay cocoteros y árboles con lianas. También puedes ver una fruta atravesada por una púa de cactus, un cascabel y un mono muerto. 
+Turno: 107
+> n
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha y una liana. 
+Turno: 108
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, un tronco rugoso, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 109
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. 
+Turno: 110
+> empujar bloque norte izquierda
+Oyes mecanismos ocultos.
+Turno: 111
+> empujar bloque norte derecha
+Oyes mecanismos ocultos.
+Turno: 112
+> o 
+                       ESTANCIA
+Los muros te rodean por tres lados, excepto por el Sur, donde la selva forma una barrera. También puedes ver una tableta del Chicchan. 
+Turno: 113
+> coger tableta 
+Coges la tableta del Chicchan.
+Turno: 114
+> dejar tableta 
+Dejas la tableta del Chicchan.
+La tableta del Chicchan empieza a desvanecerse, pero recobra su solidez normal.
+Turno: 115
+> coger tableta
+Coges la tableta del Chicchan.
+Turno: 116
+> o
+                       ESTANCIA
+Hay muros al Norte y Este. Al Sur queda la selva y al Oeste termina la pared de un precipicio de montaña. 
+Turno: 117
+> empujar bloque norte izquierda
+Oyes mecanismos ocultos.
+Turno: 118
+> empujar bloque norte derecha
+Oyes mecanismos ocultos.
+Turno: 119
+> empujar bloque este derecha
+Oyes mecanismos ocultos.
+Turno: 120
+> n
+                       ESTANCIA
+La ladera de montaña cierra el lado Oeste. En los otros tres lados están los muros. 
+Turno: 121
+> dejar tableta 
+Dejas la tableta del Chicchan.
+La tableta del Chicchan se transforma en una cuenta de jade.
+Turno: 122
+> coger cuenta
+Coges la cuenta del Chicchan.
+Turno: 123
+La cuenta del Chicchan se une a la cuenta del Imix.
+> n
+                       ESTANCIA
+De los tres muros el único que no tiene agujeros es el del Este. La ladera de montaña cubre el lado Oeste. También puedes ver una tableta del Manik. 
+Turno: 124
+> coger tableta 
+Coges la tableta del Manik.
+Turno: 125
+> n
+                       ESTANCIA
+Al Norte reaparece de nuevo la espesa selva. Al Sur y Este, muros. La ladera de montaña cubre el Oeste. También puedes ver una tableta del Ik. 
+Turno: 126
+> coger tableta 
+Coges la tableta del Ik.
+Turno: 127
+> empujar bloque este izquierda
+Oyes mecanismos ocultos.
+Turno: 128
+> empujar bloque sur derecha
+Oyes mecanismos ocultos.
+Turno: 129
+> e
+                       ESTANCIA
+Muros en tres de los lados y al Norte la espesa selva que cierra el cuadrado. También puedes ver una tableta del Akbal. 
+Turno: 130
+> coger tableta 
+Coges la tableta del Akbal.
+Turno: 131
+> e
+                       ESTANCIA
+Muros en dos de los lados, la espesa selva al Norte y una magnífica panorámica marítima al Este. 
+Turno: 132
+> empujar bloque oeste izquierda
+Oyes mecanismos ocultos.
+Turno: 133
+> empujar bloque oeste derecha
+Oyes mecanismos ocultos.
+Turno: 134
+> dejar tableta Manik
+Dejas la tableta del Manik.
+La tableta del Manik se transforma en una cuenta de jade.
+Turno: 135
+> coger cuenta
+Coges la cuenta del Manik.
+Turno: 136
+La cuenta del Manik se une a la cuenta del Chicchan.
+> s
+                       ESTANCIA
+Sólo la magnífica panorámica marina rompe la monotonía de los muros. También puedes ver una tableta del Kan. 
+Turno: 137
+> coger tableta 
+Coges la tableta del Kan.
+Turno: 138
+> s
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. También puedes ver una tableta del Lamat. 
+Turno: 139
+> coger tableta 
+Coges la tableta del Lamat.
+Turno: 140
+> empujar bloque sur
+Oyes mecanismos ocultos.
+Turno: 141
+> o 
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver una cuenta del Oc. 
+La cuenta del Oc... ¡levita a unos cinco metros!
+Turno: 142
+> ex suelo 
+Un bloque sobresale entre las losas.
+Turno: 143
+> e.
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 144
+> Dejar tableta Ik
+Dejas la tableta del Ik.
+La tableta del Ik se transforma en una cuenta de jade.
+Turno: 145
+> coger cuenta
+Coges la cuenta del Ik.
+Turno: 146
+La cuenta del Ik se une a la cuenta del Manik.
+> n
+                       ESTANCIA
+Sólo la magnífica panorámica marina rompe la monotonía de los muros. 
+Turno: 147
+> n
+                       ESTANCIA
+Muros en dos de los lados, la espesa selva al Norte y una magnífica panorámica marítima al Este. 
+Turno: 148
+> o
+                       ESTANCIA
+Muros en tres de los lados y al Norte la espesa selva que cierra el cuadrado. 
+Turno: 149
+> o
+                       ESTANCIA
+Al Norte reaparece de nuevo la espesa selva. Al Sur y Este, muros. La ladera de montaña cubre el Oeste. 
+Turno: 150
+> dejar tableta Kan
+Dejas la tableta del Kan.
+La tableta del Kan se transforma en una cuenta de jade.
+Turno: 151
+> coger cuenta
+Coges la cuenta del Kan.
+Turno: 152
+La cuenta del Kan se une a la cuenta del Ik.
+> s
+                       ESTANCIA
+De los tres muros el único que no tiene agujeros es el del Este. La ladera de montaña cubre el lado Oeste. 
+Turno: 153
+> s
+                       ESTANCIA
+La ladera de montaña cierra el lado Oeste. En los otros tres lados están los muros. 
+Turno: 154
+Pisas una losa que está suelta.
+> s
+                       ESTANCIA
+Hay muros al Norte y Este. Al Sur queda la selva y al Oeste termina la pared de un precipicio de montaña. 
+Turno: 155
+> dejar tableta Akbal
+Dejas la tableta del Akbal.
+La tableta del Akbal se transforma en una cuenta de jade.
+Turno: 156
+> coger cuenta
+Coges la cuenta del Akbal.
+Turno: 157
+La cuenta del Akbal se une a la cuenta del Kan.
+> e
+                       ESTANCIA
+Los muros te rodean por tres lados, excepto por el Sur, donde la selva forma una barrera. 
+Turno: 158
+> dejar tableta 
+Dejas la tableta del Lamat.
+La tableta del Lamat se transforma en una cuenta de jade.
+Turno: 159
+> coger cuenta
+Coges la cuenta del Lamat.
+Turno: 160
+La cuenta del Lamat se une a la cuenta del Akbal.
+> o
+                       ESTANCIA
+Hay muros al Norte y Este. Al Sur queda la selva y al Oeste termina la pared de un precipicio de montaña. 
+Turno: 161
+> ex selva 
+Impenetrable.
+Turno: 162
+> ex selva 
+Impenetrable.
+Turno: 163
+> ex selva 
+Impenetrable.
+Rebuscando encuentras la tableta del Muluc.
+Turno: 164
+> coger tableta
+Coges la tableta del Muluc.
+Turno: 165
+> n
+                       ESTANCIA
+La ladera de montaña cierra el lado Oeste. En los otros tres lados están los muros. 
+Turno: 166
+> levantar losa suelta
+Vale.
+Encuentras la tableta del Cimi.
+Turno: 167
+> coger tableta 
+Coges la tableta del Cimi.
+Turno: 168
+> n
+                       ESTANCIA
+De los tres muros el único que no tiene agujeros es el del Este. La ladera de montaña cubre el lado Oeste. 
+Turno: 169
+> n
+                       ESTANCIA
+Al Norte reaparece de nuevo la espesa selva. Al Sur y Este, muros. La ladera de montaña cubre el Oeste. 
+Turno: 170
+> e
+                       ESTANCIA
+Muros en tres de los lados y al Norte la espesa selva que cierra el cuadrado. 
+Turno: 171
+> dejar tableta Cimi
+Dejas la tableta del Cimi.
+La tableta del Cimi se transforma en una cuenta de jade.
+Turno: 172
+> coger cuenta
+Coges la cuenta del Cimi.
+Turno: 173
+La cuenta del Cimi se une a la cuenta del Lamat.
+> e
+                       ESTANCIA
+Muros en dos de los lados, la espesa selva al Norte y una magnífica panorámica marítima al Este. 
+Turno: 174
+> s
+                       ESTANCIA
+Sólo la magnífica panorámica marina rompe la monotonía de los muros. 
+Turno: 175
+> dejar tableta 
+Dejas la tableta del Muluc.
+La tableta del Muluc se transforma en una cuenta de jade.
+Turno: 176
+> coger cuenta
+Coges la cuenta del Muluc.
+Turno: 177
+La cuenta del Muluc se une a la cuenta del Cimi.
+> s
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 178
+> o 
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver una cuenta del Oc. 
+La cuenta del Oc levita más bajo.
+Turno: 179
+> coger cuenta 
+La cuenta del Oc se une a las demás formando un collar.
+Turno: 180
+> dejar collar en bloque
+El peso del collar nivela el bloque. Oyes roces pétreos.
+Turno: 181
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. 
+Turno: 182
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 183
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 184
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 185
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, un tronco rugoso, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 186
+> dejar piel
+Dejas la piel de jaguar.
+Turno: 187
+> coger tronco
+Coges el tronco rugoso.
+Turno: 188
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 189
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 190
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 191
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. 
+Turno: 192
+> dejar tronco
+Dejas el tronco rugoso.
+Turno: 193
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 194
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 195
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 196
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, una piel de jaguar, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 197
+> coger tronco
+Coges el tronco liso.
+Turno: 198
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 199
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 200
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 201
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver un tronco rugoso. 
+Turno: 202
+> dejar tronco
+Dejas el tronco liso.
+Turno: 203
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 204
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 205
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 206
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, una piel de jaguar, un tronco recto y un tronco grueso. 
+Turno: 207
+> coger tronco
+Coges el tronco recto.
+Turno: 208
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 209
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 210
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 211
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver un tronco rugoso y un tronco liso. 
+Turno: 212
+> dejar tronco
+Dejas el tronco recto.
+Turno: 213
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 214
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 215
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 216
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado, una piel de jaguar y un tronco grueso. 
+Turno: 217
+> coger tronco
+Coges el tronco grueso.
+Turno: 218
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 219
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 220
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 221
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver un tronco rugoso, un tronco liso y un tronco recto. 
+Turno: 222
+> dejar tronco
+Dejas el tronco grueso.
+Turno: 223
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 224
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 225
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 226
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado y una piel de jaguar. 
+Turno: 227
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña, un hacha y una liana. 
+Turno: 228
+> coger liana
+Coges la liana.
+Turno: 229
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado y una piel de jaguar. 
+Turno: 230
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 231
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 232
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 233
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver un tronco rugoso, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 234
+> dejar liana
+Dejas la liana.
+Turno: 235
+> coger tronco 
+Coges el tronco rugoso.
+Turno: 236
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar. 
+Turno: 237
+> dejar tronco
+Dejas el tronco rugoso.
+Turno: 238
+> n
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver una liana, un tronco liso, un tronco recto y un tronco grueso. 
+Turno: 239
+> coger liana
+Coges la liana.
+Turno: 240
+> hacer balsa
+Atando los troncos con la liana haces una balsa.
+Turno: 241
+> s
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar y un tronco rugoso. 
+Turno: 242
+> e
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 243
+> s
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 244
+> s
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado y una piel de jaguar. 
+Turno: 245
+> so
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña y un hacha. 
+Turno: 246
+> coger hacha
+Coges el hacha.
+Turno: 247
+> s
+                       SELVA
+Otra zona de bosque variado. Hay cocoteros y árboles con lianas. También puedes ver una fruta atravesada por una púa de cactus, un cascabel y un mono muerto. 
+Turno: 248
+> cortar liana
+Con la ayuda del hacha cortas la liana.
+Coges la liana.
+Turno: 249
+> n
+                       SELVA
+Un claro rodeado por vegetación tropical entremezclada con árboles de madera de balsa. También puedes ver una caña. 
+Turno: 250
+> ne
+                       SELVA
+Estás en medio de la densa selva, rodeado de árboles de todo tipo. También puedes ver una estaca, un jaguar despellejado y una piel de jaguar. 
+Turno: 251
+> n
+                       PLAZOLETA
+Estás en una plazoleta rodeada al Norte, Este y Oeste por muros de piedra en los que hay unos agujeros y algunos bloques que sobresalen. La selva queda al Sur. Ahora hay unos peldaños en la pared norte. 
+Turno: 252
+> n
+                       ESTANCIA
+La caida al mar, al Este, cierra el cuadrado iniciado por los tres muros. 
+Turno: 253
+> o
+                       ESTANCIA
+Cuatro muros con agujeros te rodean. También puedes ver un collar y un tronco rugoso. 
+Turno: 254
+> atar liana a tronco
+Atas el tronco rugoso con la liana.
+Turno: 255
+> n
+El tronco rugoso se atasca.
+                       CENOTE
+Es una estrecha cornisa alrededor de un Cenote con agua turbia. Rodeándolo todo hay cuatro muros con agujeros. También puedes ver una balsa. 
+Turno: 256
+> atar liana a balsa
+Atas la balsa con la liana.
+Turno: 257
+> ex liana
+Un bejuco flexible. Está atada alrededor del tronco rugoso y de la balsa. 
+Turno: 258
+> tirar balsa por cenote
+La liana sujeta La balsa, que queda flotando.
+Turno: 259
+> dejar todo
+Dejas el hacha.
+Dejas la liana.
+Turno: 260
+> bajar por liana 
+Lo haces.
+                       CENOTE
+Las lisas paredes del Cenote te rodean. De lo alto cuelga una liana. Estás nadando. También puedes ver una balsa. 
+Turno: 261
+> subir balsa
+Vale.
+Turno: 262
+> ex balsa
+Es una balsa hecha con tres troncos. Tiene una liana atada.
+Turno: 263
+> desatar liana de balsa 
+Desatas la balsa.
+La corriente arrastra la balsa hacia un oculto túnel.
+Navegas por un canal sumergido rumbo a nuevas aventuras.
+¡TUR KOS BON!
+¿Lo intentas otra vez? (Si/No)
+> n
+Adios...

@@ -431,7 +431,13 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 			if (!first)
 				print("                        ");
 			print("%-12s", DDB_GetCondactName((DDB_Condact)condact));
-			if (parameters > 0)
+			if (condact == CONDACT_CALL && parameters == 2)
+			{
+				// The two parameter bytes form a 16 bit address
+				print("%u", code[0] | (code[1] << 8));
+				code += 2;
+			}
+			else if (parameters > 0)
 			{
 				if (indirection)
 					print("[%d]", *code++);

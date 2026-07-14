@@ -1,0 +1,6 @@
+{
+    "fixture": "cozumel/spectrum/COZUMEL-SPECTRUM 1.tzx",
+    "shared": "cozumel/part1-msx",
+    "produces": "PART1ENDING.SAV",
+    "timeout_seconds": 600
+}

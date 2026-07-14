@@ -1,0 +1,740 @@
+DIOSA de COZUMEL - Parte II
+Debes cargar una posición.
+Nombre: PART1ENDING.SAV
+                    Camino sur
+Es el que comunica San Marcos con el resto de la isla. Aquí está Zyanya. 
+131
+> s
+                    La roca
+Esta zona es sombría debido a la gran roca que domina el paisaje. Aquí está Zyanya. 
+132
+> s
+                    Bifurcación
+Al norte queda San Marcos, al suroeste El Cedral y al sureste un sendero. Aquí está Zyanya. 
+133
+> se
+                    Senda
+Hace mucho calor y huele a madera húmeda. Aquí está Zyanya. 
+134
+> se
+Las botas dificultan tu avance.
+                    Senda
+Avanzas con dificultad por el encharcado suelo. Aquí está Zyanya. 
+135
+> se
+                    Senda
+Vas rodeado de vegetación y ruidos de jungla. Aquí está Zyanya. 
+136
+> s
+                    Templo
+Estás en un claro de la selva, frente a un templo. Aquí está Zyanya. 
+137
+> s
+Un campo de fuerza te rechaza. Una voz susurra: "Di las palabras... ".
+138
+> decir "ix chell"
+El campo desaparece.
+139
+> s
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Aquí está Zyanya. 
+140
+> dejar llave y pesos
+Dejas la llave.
+141
+Dejas los billetes.
+142
+> encender quinque
+Enciendes el quinqué.
+143
+> o
+                    Ala oeste
+La luz crea sombras en las paredes. Ves un altar rodeado de cascotes. Aquí está Zyanya. 
+144
+> ex cascotes
+De piedra.
+Molestas varias serpientes.
+145
+Una víbora te mira cabreada.
+> matar vibora con barra
+Con la barra de hierro atacas a la serpiente, matándola.
+146
+> ex altar
+De alabastro. Un musgo lo cubre.
+147
+> e
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave. Aquí está Zyanya. 
+148
+> e
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+149
+> romper tumba con barra
+La losa cae y se rompe.
+150
+> o
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave. Aquí está Zyanya. 
+151
+> dejar barra
+Dejas la barra de hierro.
+152
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+153
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+154
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+155
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+156
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+157
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+158
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+159
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+160
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+161
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+162
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+163
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+164
+"Puff", se apaga el quinqué encendido.
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+164
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+165
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+166
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+167
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+168
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+169
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+170
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+171
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+172
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+173
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+174
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+175
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+176
+> m
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave y una barra de hierro. Aquí está Zyanya. 
+177
+> abrir quinque y botella
+Abres el quinqué.
+178
+Abres la botella. El tapón se cae. 
+179
+> poner petroleo en quinque
+Llenas el quinqué desde la botella.
+180
+> cerrar quinque
+Cierras el quinqué.
+181
+> encender quinque
+Enciendes el quinqué.
+182
+Se derrama un poco de petróleo de la botella.
+> o
+                    Ala oeste
+La luz crea sombras en las paredes. Ves un altar rodeado de cascotes. Hay una serpiente aplastada. Aquí está Zyanya. 
+183
+> vaciar botella en musgo
+Vacías la botella en el musgo.
+184
+> quemar musgo
+Suelta vapores...
+185
+> ex altar
+De alabastro. En el centro hay una piedra.
+186
+> mover piedra
+Mecanismos operan en otra localidad.
+187
+> e
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave, un tapón y una barra de hierro. Aquí está Zyanya. 
+188
+> e
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+189
+Zyanya dice: "Tengo miedo".
+> ex tumba
+Un pasadizo desciende.
+Zyanya dice: "Tengo miedo, yo no bajo".
+190
+> decir Zyanya "ven"
+Hablas con Zyanya. Te dice: "Tengo miedo, yo no bajo".
+191
+> decir Zyanya "ven"
+Hablas con Zyanya. Te dice: "Te seguiré, pero mantente cerca".
+192
+> bajar
+                    Sepulcro
+En la cámara sepulcral está la Diosa del Amor. Aquí está Zyanya. 
+193
+La loseta se cierra.
+> ex diosa
+Es muy hermosa.
+La Diosa abre sus ojos.
+194
+> ex diosa
+Es muy hermosa.
+195
+Su mirada te llega al alma.
+Zyanya, al verte pasmao, te ofrece un frasco.
+> coger frasco
+Coges el frasco.
+196
+El amor te ciega.
+> abrir frasco
+Abres el frasco.
+197
+El amor te ciega.
+> ex frasco
+De vidrio. Dentro hay elixir.
+198
+El amor te ciega.
+> beber elixir
+Bebes el elixir.
+Ves que la diosa es una momia.
+199
+Sin elixir, el frasco se desintegra.
+> ex momia
+Bien curada. Ahora ves una figurilla junto a la momia.
+200
+> coger figurilla
+Coges la figurilla de Jade.
+201
+> cerrar ojos
+La loseta se abre.
+202
+> subir
+                    Ala este
+Es una olvidada estancia presidida por una tumba. Aquí está Zyanya. 
+203
+"Puff", se apaga el quinqué encendido.
+                    Oscuro
+Está oscuro.
+203
+> o
+                    Pórtico
+Hay una suave penumbra, el techo es bajo. A los lados, oscuras entradas presagian misterio. Hay una llave, un tapón y una barra de hierro. Aquí está Zyanya. 
+204
+> dejar todo
+Dejas el quinqué.
+Dejas la botella.
+Dejas el chisquero.
+Dejas la figurilla de Jade.
+205
+> coger figurilla
+Coges la figurilla de Jade.
+206
+> n
+                    Templo
+Estás en un claro de la selva, frente a un templo. Aquí está Zyanya. 
+207
+Zyanya dice: "Ahora tendremos suerte".
+> n
+                    Senda
+Vas rodeado de vegetación y ruidos de jungla. Aquí está Zyanya. 
+208
+> no
+* Ix Chell *
+                    Senda
+Avanzas con dificultad por el encharcado suelo y tropiezas con algo. Aquí está Zyanya. 
+209
+> ex charco
+Ves un collar Bonampak.
+210
+> coger collar
+Coges el collar de Bonampak.
+211
+> no
+Vuelve el recuerdo.
+                    Senda
+Hace mucho calor y huele a madera húmeda, pisas tierra blanda. Aquí está Zyanya. 
+212
+> ex tierra
+Encuentras un collar Yaxchilán.
+213
+> coger collar
+Coges el collar de Yaxchilán.
+214
+> no
+Añoras a Ix Chell.
+                    Bifurcación
+Al norte queda San Marcos, al suroeste El Cedral y al sureste un sendero, ves un montón de hojas. Aquí está Zyanya. 
+215
+> ex hojas
+Hallas un collar Uaxactun.
+216
+> coger collar
+Coges el collar de Uaxactun.
+217
+> so
+Deseas volver a ella.
+                    Camino
+Estás rodeado de altos árboles y una seca masa de malezas. Algo brilla en una rama. Aquí está Zyanya. 
+218
+> subir
+Zyanya dice: "¡No soy una mona!".
+Alcanzas la rama.
+                    Arbol
+Desde lo alto ves el pueblo de El Cedral. Hay un collar de Palenque. 
+219
+> coger collar
+Coges el collar de Palenque.
+220
+> bajar
+                    Camino
+Estás rodeado de altos árboles y una seca masa de malezas. Aquí está Zyanya. 
+221
+> so
+Te llama y vas hacia ella...
+                    La Diosa
+La hermosa diosa te pregunta: "¿Vuelves o te alejas?".
+222
+> decir diosa "me alejo"
+                    Camino
+A éste lugar solitario llegan los ruidos del pueblo. Cerca hay unas piedras apiladas. Aquí está Zyanya. 
+223
+> ex piedras
+Deslapidas un collar Uxmal.
+224
+> poner collar de Palenque
+Te pones el collar de Palenque.
+El collar de Palenque está frío y vibra.
+225
+> coger collar
+Coges el collar de Uxmal.
+226
+El collar de Palenque ahora está helado y vibra más.
+> frotar collar de Palenque
+Frotas el collar de Palenque y oyes: "Tuya es la fuerza de la Gran Desilusión".
+227
+> s
+Imposible alejarte más de Ix Chell.
+228
+> s
+Imposible alejarte más de Ix Chell.
+229
+El collar actúa, mareándote. El collar se funde... ¡Quedas libre del embrujo!
+El espectro de Ix Chell exclama: "Mortal, estaré entre tí y tus anhelos".
+Zyanya se torna en una parodia pétrea de la diosa.
+Los collares desaparecen.
+> s
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+230
+> e
+                    Porche de casa
+Estás en el porche de la atrancada casa. Un borracho grita a un loro enjaulado: "Cállate Kuill". 
+231
+> quitar sortija
+Te quitas la sortija.
+232
+Kuill dice: "carcelero".
+> dar sortija a borracho
+El borracho dice: "Era de mamá. Te regalo mi loro Kuill".
+233
+> ex loro
+Es cagón.
+234
+Kuill dice: "socorro".
+> coger jaula
+Coges la jaula.
+235
+Kuill dice: "socorro".
+> abrir jaula
+Abres la jaula. Kuill sale y sube a tu hombro.
+236
+Kuill dice: "por fin libre".
+> cerrar jaula
+Cierras la jaula.
+237
+Kuill dice: "por fin libre".
+> o
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. Kuill está en tu hombro. 
+238
+> s
+                    Calle
+En El Cedral se respira actividad y comercio. Kuill está en tu hombro. 
+239
+Kuill dice: "por fin libre".
+> s
+                    Calle
+Al final de la calle central oyes el mar. Hay un cascabel. Kuill está en tu hombro. 
+240
+> coger cascabel
+Coges el cascabel.
+241
+> n
+                    Calle
+En El Cedral se respira actividad y comercio. Kuill está en tu hombro. 
+242
+> o
+                    Camino
+Une el pueblo con la hacienda del rico Turk. Kuill está en tu hombro. 
+243
+Kuill dice: "por fin libre".
+> o
+                    Patio
+El patio es el lugar de reunión de los matones del jefe. Aquí están el guardaespaldas y el matón. Kuill está en tu hombro. 
+244
+Kuill dice: "por fin libre".
+Una voz dice: "Ratso, ven".
+Ratso entra.
+> n
+El matón dice: "20 pesos y pasas".
+245
+Kuill dice: "por fin libre".
+El matón dice: "¿Dónde hallaste eso?", indicando el jade.
+> decir maton "en el templo"
+Hablas con el matón. Te dice: "¿Cómo entraste?".
+246
+Kuill dice: "por fin libre".
+> decir maton "diciendo ix chell"
+Hablas con el matón.  Se vá al este.
+247
+> n
+                    Salón
+Estás junto a un aparador. La puerta al despacho queda al norte. Hay un cajón. Kuill está en tu hombro. 
+248
+> abrir cajon
+Abres el cajón.
+249
+Kuill dice: "por fin libre".
+> meter figurilla en cajon
+La figurilla de Jade está en el cajón.
+250
+Kuill dice: "por fin libre".
+> cerrar cajon
+Cierras el cajón.
+251
+Ratso llega.
+> hablar Ratso
+Hablas con el guardaespaldas. No te entiende.
+252
+Kuill te caga.
+Ratso grita: "Jefesito, un tipejo te quié vé". Se oye una respuesta y Ratso dice: "Tira pá entro" y se vá.
+> abrir cajon
+Abres el cajón.
+253
+> sacar figurilla del cajon
+Coges la figurilla de Jade.
+254
+> n
+                    Despacho
+Big Turk tiene su oficina bien decorada. Un gordo sonríe y te estudia. Un mono se te acerca. Kuill está en tu hombro. 
+255
+> ex mono
+Loco y muy mimado.
+256
+> ex Turk
+Un elegante gordo.
+257
+Kuill te caga.
+Big Turk dice: "¿Vendes algo?".
+> dar cascabel a mono
+El mono se aleja con el cascabel.
+258
+Big Turk dice: "¿Vendes algo?".
+> mostrar figurilla a Turk
+Big Turk dice: "Hmmm, interesante. Te doy 100 pesos mejicanos".
+259
+> decir Turk "no"
+Hablas con Big Turk. Casi llorando, dice: "Te doy 150 pesos mejicanos".
+260
+> decir Turk "no"
+Hablas con Big Turk. Infartado, gime: "Mi última oferta. Te doy 200 pesos mejicanos".
+261
+> decir Turk "no"
+Hablas con Big Turk. "Mami no comerá", ruge. Luego musita: "Te doy 250 pesos mejicanos".
+262
+Kuill te caga.
+> decir Turk "si"
+Hablas con Big Turk. Big Turk coge la figurilla y te dá 250 pesos.
+263
+Kuill dice: "por fin libre".
+> coger pesos
+Coges los billetes.
+264
+> s
+                    Salón
+Estás junto a un aparador. La puerta al despacho queda al norte. Hay un cajón. Kuill está en tu hombro. 
+265
+> s
+                    Patio
+El patio es el lugar de reunión de los matones del jefe. Kuill está en tu hombro. 
+266
+Kuill dice: "por fin libre".
+> dar pesos a loro
+Kuill coge el dinero.
+Kuill dice: "pasta".
+Kuill huye.
+267
+> e
+                    Camino
+Une el pueblo con la hacienda del rico Turk. 
+268
+> e
+                    Calle
+En El Cedral se respira actividad y comercio. 
+269
+> n
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+270
+> e
+                    Porche de casa
+Estás en el porche de la atrancada casa. Hay unos billetes. Aquí está el borracho. 
+271
+> coger pesos
+Coges los billetes.
+272
+> contar pesos
+Mejicanos. Hay 250 pesos.
+273
+> o
+                    Calle
+Es la entrada a El Cedral, al norte queda la selva y al este hay una casa. 
+274
+> s
+                    Calle
+En El Cedral se respira actividad y comercio. 
+275
+> e
+                    Casa
+Las decoradas paredes hablan de una vida dedicada al mar. Frente a una mesa hay un cozumelano. Aquí está el dueño del barco. 
+276
+> decir dueno "quiero comprar un barco"
+Hablas con el dueño del barco. Te dice: "Paga en dinero".
+277
+> decir dueno "cuanto vale"
+Hablas con el dueño del barco. Te dice: "Muestra cuanto tienes".
+278
+> mostrar pesos a dueno
+El dueño dice: "Toma los papeles de La Yucatana.".
+279
+> coger papeles
+Coges el papel.
+280
+> o
+                    Calle
+En El Cedral se respira actividad y comercio. 
+281
+> s
+                    Calle
+Al final de la calle central oyes el mar. 
+282
+> s
+                    Embarcadero
+El mar está tranquilo y a lo lejos se ven barcas de pesca. 
+283
+> ex barco
+¡No está a tu alcance!
+284
+> ex barco
+¡No está a tu alcance!
+285
+> ex barco
+¡No está a tu alcance!
+286
+> ex barco
+¡No está a tu alcance!
+287
+> ex barco
+¡No está a tu alcance!
+288
+> ex barco
+¡No está a tu alcance!
+289
+> ex barco
+¡No está a tu alcance!
+290
+> ex barco
+¡No está a tu alcance!
+291
+> ex barco
+¡No está a tu alcance!
+292
+> ex barco
+¡No está a tu alcance!
+293
+> ex barco
+¡No está a tu alcance!
+294
+> ex barco
+¡No está a tu alcance!
+295
+> ex barco
+¡No está a tu alcance!
+296
+> ex barco
+¡No está a tu alcance!
+297
+> ex barco
+¡No está a tu alcance!
+298
+> ex barco
+¡No está a tu alcance!
+299
+> ex barco
+¡No está a tu alcance!
+300
+> ex barco
+¡No está a tu alcance!
+301
+> ex barco
+¡No está a tu alcance!
+302
+> ex barco
+¡No está a tu alcance!
+303
+> ex barco
+¡No está a tu alcance!
+304
+Llega un barco.
+> ex barco
+No es La Yucatana.
+305
+> ex barco
+No es La Yucatana.
+306
+> ex barco
+No es La Yucatana.
+307
+El barco sale.
+> ex barco
+¡No está a tu alcance!
+308
+> ex barco
+¡No está a tu alcance!
+309
+> ex barco
+¡No está a tu alcance!
+310
+> ex barco
+¡No está a tu alcance!
+311
+> ex barco
+¡No está a tu alcance!
+312
+> ex barco
+¡No está a tu alcance!
+313
+> ex barco
+¡No está a tu alcance!
+314
+Llega un barco.
+> ex barco
+No es La Yucatana.
+315
+> ex barco
+No es La Yucatana.
+316
+> ex barco
+No es La Yucatana.
+317
+> ex barco
+No es La Yucatana.
+318
+> ex barco
+No es La Yucatana.
+319
+> ex barco
+No es La Yucatana.
+320
+> ex barco
+No es La Yucatana.
+321
+> ex barco
+No es La Yucatana.
+322
+> ex barco
+No es La Yucatana.
+323
+El barco sale.
+Llega un barco.
+> ex barco
+Es La Yucatana, la conduce un nativo.
+324
+> ex barco
+Es La Yucatana, la conduce un nativo.
+325
+> subir barco
+Das el contrato, el remero dice: "Nos vamos".
+Con un aleteo, aterriza Kuill en tu hombro.
+                    Yucatana
+Estás en la Yucatana con Kuill. Adormecido, te diriges hacia nuevas aventuras...
+¡Felicidades! Terminaste la DIOSA. Te esperamos en los Templos Sagrados.
+¿Otra vez? (S/N)
+> N
+Adios...

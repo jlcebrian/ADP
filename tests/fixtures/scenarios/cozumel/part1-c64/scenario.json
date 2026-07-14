@@ -1,0 +1,6 @@
+{
+    "fixture": "cozumel/c64/COZUMEL-C64 1.DDB",
+    "shared": "cozumel/part1-msx",
+    "produces": "PART1ENDING.SAV",
+    "timeout_seconds": 600
+}

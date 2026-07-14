@@ -1,0 +1,226 @@
+# Solución original (PC, misma variante con cerillas que C64):
+# https://solutionarchive.com/file/id%2C24073/
+# Autor original: boldir (https://solutionarchive.com/profile/id%2C980/)
+
+# Cargar posición de la primera parte
+PART1ENDING.SAV
+
+# Esconder la sortija en la caja de cerillas para burlar a los ladrones de la roca
+dejar todo
+quitar sortija
+coger caja
+abrir caja
+poner sortija en caja
+coger quinque y botella y barra
+
+s
+@save Roca
+s
+@save Bifurcacion
+se
+se
+se
+s
+s
+decir "ix chell"
+s
+
+# El quinqué sólo se enciende con cerillas (hay 4 en la caja). Cada cerilla
+# arde 3 turnos y al apagarse quema la mano ("Todo te cae"), así que cada
+# viaje a las alas está medido para que la quemadura pille en la penumbra
+# del pórtico. Las cerillas prenden incluso a oscuras.
+
+# Cerilla 1: romper la tumba del ala este (la quemadura suelta la barra
+# ya de vuelta en el pórtico)
+dejar todo
+coger caja y barra
+sacar cerilla de caja
+dejar caja
+e
+encender cerilla
+romper tumba con barra
+o
+
+# Cerilla 2: empapar el musgo del ala oeste con el petróleo
+coger caja y botella
+sacar cerilla de caja
+dejar caja
+abrir botella
+encender cerilla
+o
+vaciar botella en musgo
+e
+
+# Cerilla 3: prender el musgo
+coger caja
+sacar cerilla de caja
+dejar caja
+encender cerilla
+o
+quemar musgo
+e
+
+# Cerilla 4: encender el quinqué (22 turnos justos para la víbora y la cripta)
+coger caja y quinque y barra
+sacar cerilla de caja
+encender cerilla y quinque
+dejar cerilla
+o
+ex cascotes
+matar vibora con barra
+mover piedra
+e
+e
+@save AlaEste
+decir Zyanya "ven"
+decir Zyanya "ven"
+bajar
+@save Diosa1
+ex diosa
+@save Diosa2
+ex diosa
+coger frasco
+abrir frasco
+beber elixir
+ex momia
+coger figurilla
+cerrar ojos
+subir
+o
+dejar quinque
+n
+# La barra ya no hace falta y el límite de carga son 7 objetos:
+# sin soltarla no se puede coger el collar de Palenque
+dejar barra
+@save Templo
+n
+no
+ex charco
+coger collar
+no
+ex tierra
+coger collar
+no
+ex hojas
+coger collar
+so
+subir
+coger collar
+bajar
+so
+decir diosa "me alejo"
+ex piedras
+poner collar de Palenque
+coger collar
+frotar collar de Palenque
+
+# Dos turnos bloqueados ("eres uno con Ix Chell") hasta que actua el collar
+s
+s
+
+s
+e
+sacar sortija de caja
+dar sortija a borracho
+ex loro
+coger jaula
+abrir jaula
+cerrar jaula
+o
+s
+s
+coger cascabel
+n
+o
+o
+n
+# Al ver la figurilla de jade, el matón pregunta dónde la hallaste
+decir maton "en el templo"
+decir maton "diciendo ix chell"
+n
+abrir cajon
+meter figurilla en cajon
+cerrar cajon
+hablar Ratso
+abrir cajon
+sacar figurilla del cajon
+n
+@save Turk
+ex mono
+ex Turk
+dar cascabel a mono
+mostrar figurilla a Turk
+decir Turk "no"
+decir Turk "no"
+decir Turk "no"
+decir Turk "si"
+coger pesos
+s
+s
+dar pesos a loro
+@save Kuill
+e
+e
+n
+e
+coger pesos
+contar pesos
+o
+s
+e
+@save Dueno
+decir dueno "quiero comprar un barco"
+decir dueno "cuanto vale"
+mostrar pesos a dueno
+coger papeles
+o
+s
+s
+
+# Esperar en el embarcadero hasta que atraque La Yucatana
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+ex barco
+subir barco
+@key
+@key
+@save Final
+N

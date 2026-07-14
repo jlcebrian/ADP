@@ -54,8 +54,10 @@ static const uint8_t* udgs;
 static const uint8_t* shades = 0;
 static bool mixShades = false;
 
-static uint16_t cursorX;
-static uint16_t cursorY;
+// The drawing position is not clamped to the screen: pictures move and
+// draw through off-screen coordinates and rely on per-pixel clipping
+static int16_t cursorX;
+static int16_t cursorY;
 
 static int cpcUserX;
 static int cpcUserY;
@@ -185,30 +187,82 @@ void VID_SetFlash (uint8_t value)
 
 void VID_MoveTo (uint16_t x, uint16_t y)
 {
-	if (x > scrMaxX) x = scrMaxX;
-	if (y > scrMaxY) y = scrMaxY;
-	cursorX = x;
-	cursorY = y;
+	if (vectorGraphicsMachine != DDB_MACHINE_C64)
+	{
+		if (x > scrMaxX) x = scrMaxX;
+		if (y > scrMaxY) y = scrMaxY;
+	}
+	cursorX = (int16_t)x;
+	cursorY = (int16_t)y;
+}
+
+// Relative move arithmetic of the Spectrum/MSX interpreters, which work
+// in 8 bit registers with the Y origin at the bottom of the screen:
+// X wraps modulo 256 and Y wraps modulo the 176 line drawing area, with
+// a single correction applied per move (moving down past the bottom adds
+// 176 back, moving up past line 175 subtracts 176 once)
+static void ZXRelativeMove (int16_t dx, int16_t dy, int16_t* px, int16_t* py)
+{
+	uint8_t xi = (uint8_t)(*px + dx);
+	uint8_t yi = (uint8_t)(175 - *py);
+	int     up = -dy;					// Positive displacements go up
+
+	if (up >= 0)
+	{
+		int sum = yi + up;
+		yi = (uint8_t)sum;
+		if (sum > 255 || yi >= 176)
+			yi = (uint8_t)(yi - 176);
+	}
+	else
+	{
+		if (-up > yi)
+			yi = (uint8_t)(yi + up - 80);
+		else
+			yi = (uint8_t)(yi + up);
+	}
+	*px = xi;
+	*py = 175 - yi;
 }
 
 void VID_MoveBy (int16_t x, int16_t y)
 {
-	if (x < 0 && cursorX < -x)
+	if (vectorGraphicsMachine == DDB_MACHINE_C64)
+	{
+		// The 6502 interpreters keep an unclamped position and clip
+		// each pixel individually
+		cursorX += x;
+		cursorY += y;
+		return;
+	}
+	if (vectorGraphicsMachine == DDB_MACHINE_MSX)
+	{
+		// Verified against the MSX interpreter; the Spectrum ones shipped
+		// with earlier revisions of this code and keep the clamping
+		// behavior below, which matches all verified captures
+		ZXRelativeMove(x, y, &cursorX, &cursorY);
+		return;
+	}
+	// Unsigned comparisons preserve the historical wrap-around behavior
+	// of the Z80 interpreters for off-screen positions
+	if (x < 0 && (uint16_t)cursorX < (uint16_t)-x)
 		cursorX = 0;
 	else
 		cursorX += x;
-	if (y < 0 && cursorY < -y)
+	if (y < 0 && (uint16_t)cursorY < (uint16_t)-y)
 		cursorY = 0;
 	else
 		cursorY += y;
-	if (cursorX > scrMaxX)
+	if ((uint16_t)cursorX > scrMaxX)
 		cursorX = scrMaxX;
-	if (cursorY > scrMaxY)
+	if ((uint16_t)cursorY > scrMaxY)
 		cursorY = scrMaxY;
 }
 
 void VID_SetAttribute()
 {
+	if (cursorX < 0 || cursorX > scrMaxX || cursorY < 0 || cursorY > scrMaxY)
+		return;
 	uint16_t offset = (cursorY >> 3) * stride + (cursorX >> 3);
 	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
 }
@@ -233,6 +287,9 @@ int VID_GetPixel()
 
 void VID_DrawPixel(uint8_t color)
 {
+	if (cursorX < 0 || cursorX > scrMaxX || cursorY < 0 || cursorY > scrMaxY)
+		return;
+
 	if (pixelMode)
 	{
 		graphicsBuffer[screenWidth*cursorY + cursorX] = color;
@@ -402,7 +459,10 @@ static void SpectrumInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 	for (uint32_t i = 0; i < lines; i++)
 		yfills[i] = 0;
 
-	struct { int16_t x, y; } stack[CPC_FILL_STACK];
+	struct { int16_t x, y; } stack[80];
+	// The 6502 interpreters keep the run queue on the CPU stack, which
+	// holds far more entries than the Z80 table
+	int stackLimit = vectorGraphicsMachine == DDB_MACHINE_C64 ? 74 : CPC_FILL_STACK;
 
 	for (int pass = 0; pass < 2; pass++)
 	{
@@ -415,7 +475,7 @@ static void SpectrumInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 			break;
 
 		int  sp = 0;
-		int  budget = CPC_FILL_STACK;
+		int  budget = stackLimit;
 		bool endPass = false;
 
 		for (;;)
@@ -500,16 +560,38 @@ void VID_DrawPixel(int16_t x, int16_t y, uint8_t color)
 	attributes[offset] = (attributes[offset] & attrMask) | attrValue;
 }
 
-void VID_PatternFill(int16_t x, int16_t y, int pattern)
+void VID_PatternFill(int16_t x, int16_t y, int pattern, bool invert)
 {
 	uint8_t ch[8];
 
-	x += cursorX;
-	if (x < 0) x = 0;
-	if (x > scrMaxX) x = scrMaxX;
-	y += cursorY;
-	if (y < 0) y = 0;
-	if (y > scrMaxY) y = scrMaxY;
+	if (vectorGraphicsMachine == DDB_MACHINE_MSX)
+	{
+		// The seed position uses the same wrapping arithmetic as
+		// relative moves (the cursor itself is not updated)
+		int16_t sx = cursorX, sy = cursorY;
+		ZXRelativeMove(x, y, &sx, &sy);
+		x = sx;
+		y = sy;
+		if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
+			return;
+	}
+	else if (vectorGraphicsMachine == DDB_MACHINE_C64)
+	{
+		x += cursorX;
+		y += cursorY;
+		// An off-screen seed abandons the fill
+		if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
+			return;
+	}
+	else
+	{
+		x += cursorX;
+		y += cursorY;
+		if (x < 0) x = 0;
+		if (x > scrMaxX) x = scrMaxX;
+		if (y < 0) y = 0;
+		if (y > scrMaxY) y = scrMaxY;
+	}
 
 	if (pattern >= 0)
 	{
@@ -528,6 +610,10 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern)
 	else
 	{
 		for (int n = 0; n < 8; n++) ch[n] = 0xFF;
+	}
+	if (invert)
+	{
+		for (int n = 0; n < 8; n++) ch[n] ^= 0xFF;
 	}
 
 	if (pixelMode)
@@ -802,28 +888,37 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 			return false;
 
 		case DDB_MACHINE_C64:
-			if (*ptr == 0x02)
+			if ((*ptr & 0x07) == 0x02)
+			{
+				// Balance the depth counter bumped at entry
+				depth--;
 				return false;
+			}
 			for (;;)
 			{
 				switch (*ptr & 0x07)
 				{
-					case 0:
-						// TODO: THIS IS GUESSWORK AND PROBABLY WRONG !!!!!
+					case 0:		// INK (bit 7 selects transparent)
+					{
+						uint8_t value = (*ptr & 0x80) ? 16 : (*ptr >> 3) & 0x0F;
 						#ifdef TRACE_VECTOR
-						TRACE("%02X INK %d\n", ptr[0], ptr[0] >> 3);
+						TRACE("%02X INK %d\n", ptr[0], value);
 						#endif
-						VID_SetInk(*ptr >> 3);
+						VID_SetInk(value);
 						ptr += 1;
 						break;
+					}
 
-					case 1:
+					case 1:		// PAPER (bit 7 selects transparent)
+					{
+						uint8_t value = (*ptr & 0x80) ? 16 : (*ptr >> 3) & 0x0F;
 						#ifdef TRACE_VECTOR
-						TRACE("%02X PAPER %d\n", ptr[0], ptr[0] >> 3);
+						TRACE("%02X PAPER %d\n", ptr[0], value);
 						#endif
-						VID_SetPaper(*ptr >> 3);
+						VID_SetPaper(value);
 						ptr += 1;
 						break;
+					}
 
 					case 2:		// RETURN
 						#ifdef TRACE_VECTOR
@@ -851,23 +946,21 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						break;
 					}
 
-					case 4:		// PLOT
+					case 4:		// PLOT (absolute; flips do not apply)
 					{
 						int x = ptr[1] | ((ptr[0] & 0x08) << 5);
 						int y = ptr[2];
-						if (flipX) x = scrMaxX - x;
-						if (flipY) y = scrMaxY - y;
 
 						#ifdef TRACE_VECTOR
 						TRACE("%02X PLOT    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
 						VID_MoveTo(x, y);
-						switch (*ptr & 0xC0)		// Inverse + Over flags
+						switch (*ptr & 0xC0)		// Over + Inverse flags
 						{
 							case 0x00: VID_DrawPixel(1); break;
-							case 0x40: VID_DrawPixel(255); break;
-							case 0x80: VID_DrawPixel(0); break;
-							case 0xC0: VID_SetAttribute(); break;
+							case 0x80: VID_DrawPixel(255); break;
+							case 0x40: VID_DrawPixel(0); break;
+							case 0xC0: break;
 						}
 						ptr += 3;
 						break;
@@ -875,7 +968,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 					case 5: // LINE
 					{
-						int x = ptr[1];
+						int x = ptr[1] | ((ptr[0] & 0x08) << 5);
 						int y = ptr[2];
 
 						#ifdef TRACE_VECTOR
@@ -895,11 +988,11 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						#ifdef TRACE_VECTOR
 						TRACE("       (%d, %d)\n", x, y);
 						#endif
-						switch (*ptr & 0xC0)		// Inverse + Over flags
+						switch (*ptr & 0xC0)		// Over + Inverse flags
 						{
 							case 0x00: VID_DrawLine(x, y, 1); break;
-							case 0x40: VID_DrawLine(x, y, 255); break;
-							case 0x80: VID_DrawLine(x, y, 0); break;
+							case 0x80: VID_DrawLine(x, y, 255); break;
+							case 0x40: VID_DrawLine(x, y, 0); break;
 							case 0xC0: VID_MoveBy(x, y); break;
 						}
 						ptr += 3;
@@ -908,9 +1001,12 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 					case 6:							// FILL/SHADE
 					{
-						int x = ptr[1];
+						int x = ptr[1] | ((ptr[0] & 0x08) << 5);
 						int y = ptr[2];
 						int p = (*ptr & 0x80) ? ptr[3] : -1;
+						bool invert = (*ptr & 0x80) != 0 && (*ptr & 0x40) != 0;
+						x = x * scale / 8;
+						y = y * scale / 8;
 						if (flipX) x = -x;
 						if (flipY) y = -y;
 						if (*ptr & 0x20) x = -x;
@@ -922,23 +1018,51 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						else
 							TRACE("%02X FILL    %02X %02X         (%d, %d)\n", ptr[0], ptr[1], ptr[2], x, y);
 						#endif
-						VID_PatternFill(x, y, p);
+						VID_PatternFill(x, y, p, invert);
 						ptr += p == -1 ? 3 : 4;
 						break;
 					}
 
-					case 7:		// BLOCK
+					case 7:		// BLOCK / CHAR
 					{
-						uint8_t y0 = ptr[1];
-						uint8_t x0 = ptr[2];
-						uint8_t y1 = y0+ptr[3];
-						uint8_t x1 = x0+ptr[4];
+						if ((*ptr & 0x80) == 0)
+						{
+							// Stamp an 8x8 pattern from the shade table at a
+							// character cell; bit 6 = over (XOR), bit 5 = inverse
+							uint8_t line = ptr[1];
+							uint8_t col  = ptr[2];
+							uint8_t form = ptr[3];
+							#ifdef TRACE_VECTOR
+							TRACE("%02X CHAR    %02X %02X %02X      cell(%d,%d) form %d\n", ptr[0], ptr[1], ptr[2], ptr[3], col, line, form);
+							#endif
+							if (line*8 < scrMaxY && col*8 < scrMaxX)
+							{
+								const uint8_t* src = shades + 8*form;
+								uint8_t over = (*ptr & 0x40) ? 0xFF : 0x00;
+								uint8_t inv  = (*ptr & 0x20) ? 0xFF : 0x00;
+								for (int row = 0; row < 8; row++)
+								{
+									uint8_t* out = bitmap + (line*8 + row) * stride + col;
+									*out = ((*out & over) ^ src[row]) ^ inv;
+								}
+								uint16_t aoff = (uint16_t)(line * stride + col);
+								attributes[aoff] = (attributes[aoff] & attrMask) | attrValue;
+							}
+							ptr += 4;
+						}
+						else
+						{
+							uint8_t y0 = ptr[1];
+							uint8_t x0 = ptr[2];
+							uint8_t y1 = y0+ptr[3];
+							uint8_t x1 = x0+ptr[4];
 
-						#ifdef TRACE_VECTOR
-						TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
-						#endif
-						VID_AttributeFill(x0, y0, x1, y1);
-						ptr += 5;
+							#ifdef TRACE_VECTOR
+							TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d)-(%d,%d)\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x0, y0, x1, y1);
+							#endif
+							VID_AttributeFill(x0, y0, x1, y1);
+							ptr += 5;
+						}
 						break;
 					}
 				}
@@ -946,7 +1070,11 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 		case DDB_MACHINE_CPC:
 			if (*ptr == 0x40)
+			{
+				// Balance the depth counter bumped at entry
+				depth--;
 				return false;
+			}
 			for (;;)
 			{
 				switch ((*ptr & 0x0E) >> 1)
@@ -1410,7 +1538,7 @@ bool DDB_HasVectorPicture (uint8_t picno)
 		case DDB_MACHINE_C64:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
-			return (*win == 0) && (*ptr != 0x02);
+			return (*win == 0) && (*ptr & 0x07) != 0x02;
 		}
 		case DDB_MACHINE_CPC:
 		{
@@ -1530,6 +1658,8 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 		case DDB_MACHINE_C64:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			// A zero flag byte marks a location picture; bit 7 marks
+			// a subroutine (both versions)
 			if (win[0] == 0)
 			{
 				int row    = win[2];
@@ -1537,9 +1667,15 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 				int height = win[4];
 				int width  = win[5];
 
-				VID_SetInk(win[1] & 0x0F);
-				VID_SetPaper((win[1] >> 4) & 0x0F);
+				// The window color byte holds ink in the high nibble
+				VID_SetInk((win[1] >> 4) & 0x0F);
+				VID_SetPaper(win[1] & 0x0F);
 				VID_Clear(col*8, row*8, width*8, height*8, 0);
+				if (vectorGraphicsVersion != DDB_VERSION_1)
+				{
+					// Version 2 window clears also paint the cell colors
+					VID_AttributeFill(col, row, col+width-1, row+height-1);
+				}
 			}
 			else
 			{
@@ -1820,6 +1956,11 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			scrMaxX = 319;
 			scrMaxY = 199;
 			stride  = 40;
+			transparentColor = 16;
+
+			// Version 2 databases use a 192 line drawing area
+			if (version != DDB_VERSION_1)
+				scrMaxY = 191;
 			VID_SetCharset(data + chset);
 			shades = vectorGraphicsRAM + chset;
 

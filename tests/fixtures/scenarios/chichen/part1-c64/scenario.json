@@ -1,0 +1,5 @@
+{
+    "fixture": "chichen/c64/CHICHEN-C64 1.DDB",
+    "shared": "chichen/part1-spectrum",
+    "timeout_seconds": 600
+}

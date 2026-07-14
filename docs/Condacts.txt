@@ -51,6 +51,23 @@ PAPER	n
 
 
 
+CALL    address                             (Condact 0x65)
+
+    Transfers execution to a machine code routine at the given address,
+    used with code embedded in the database. The parameter is a single
+    16 bit little-endian address (0-65535) — the only condact with a
+    word-sized parameter, so it occupies 3 bytes in the process stream.
+    Inline data bytes may follow the condact as static parameters for
+    the routine.
+
+    ADP treats CALL as a no-op: the only known use in a published game
+    is Aventura Espacial part 1 (C64), where process 6 calls a 5
+    instruction routine embedded in the database that enables the
+    machine's keyboard auto-repeat (a purely local input tweak with no
+    game logic effect).
+
+
+
 MOUSE   flagno  op                  (Condact 0x56, replaces version 1 PROMPT)
 
     This condact requires two parameters. The second parameter is a

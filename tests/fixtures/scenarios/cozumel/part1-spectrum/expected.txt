@@ -1,0 +1,496 @@
+DIOSA de COZUMEL - Parte I
+                    Náufrago
+Estás a merced de las olas y cerca a varias ominosas aletas. A lo lejos ves la costa de Cozumel. 
+0/0
+> nadar costa
+¡A tiempo! Había tiburones.
+                    Playa oeste
+En la desierta playa sólo se escucha el batir de las olas. 
+0/1
+> e
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. 
+0/2
+> ex canoas
+Todo está en pésimo estado.
+Encuentras unos mojados pantalones cortos.
+0/3
+> coger pantalones
+Coges los pantalones cortos.
+0/4
+> e
+                    Playa este
+Esta zona abandonada es raramente visitada. Solo mar, arena y sol te rodean. Hay un bastón. 
+1/5
+> coger baston
+Coges el bastón.
+1/6
+> poner pantalones
+Te pones los pantalones cortos.
+¡Brrr! Están empapados.
+1/7
+> o
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. 
+1/8
+> s
+                    Plaza
+Esta Plaza es el corazón de San Marcos. Al norte quedan las playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+1/9
+> s
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. 
+1/10
+> s
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+1/11
+> s
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. 
+1/12
+> e
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. 
+1/13
+> s
+                    Aula
+Sólo queda el eco de voces infantiles y unos cuantos pupitres. Hay una barra de hierro. 
+1/14
+> coger barra
+Coges la barra de hierro.
+1/15
+> n
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. 
+1/16
+> o
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. 
+1/17
+> n
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+2/18
+> n
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. 
+2/19
+> n
+                    Plaza
+Esta Plaza es el corazón de San Marcos. Al norte quedan las playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+2/20
+> n
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. 
+2/21
+> o
+                    Playa oeste
+En la desierta playa sólo se escucha el batir de las olas. Hay un barril. 
+2/22
+> ex barril
+De madera y muy desajustado. Está cerrado.
+2/23
+> abrir barril
+Usas la barra de hierro. Con un chasquido abres el barril.
+2/24
+> ex barril
+De madera y muy desajustado. Dentro hay un paquete. 
+2/25
+> sacar paquete del barril
+Coges el paquete.
+2/26
+El paquete se deshace y te quedas con unos pesos mejicanos.
+> contar pesos
+Mejicanos. Hay 88 pesos.
+2/27
+> e
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. 
+2/28
+> s
+                    Plaza
+Esta Plaza es el corazón de San Marcos. Al norte quedan las playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+2/29
+> s
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. 
+2/30
+> s
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+2/31
+> o
+                    Mercado
+Hay una red de tiendecitas. Estás frente a una que ofrece frutas y objetos de vidrio. Hay una botella, un aguacate y un zapote. Aquí está el vendedor. 
+5/32
+> comprar aguacate y zapote
+Compras el aguacate, por 5 pesos. Coges el aguacate.
+5/33
+Compras el zapote, por 5 pesos. Coges el zapote.
+5/34
+> s
+                    Mercado
+En ésta tenducha se pueden comprar pocas, pero muy variadas cosas. Hay una garrafa, un vestido y una camisa. Aquí está el vendedor. 
+5/35
+> comprar vestido
+Compras el vestido, por 25 pesos. Coges el vestido.
+5/36
+> n
+                    Mercado
+Hay una red de tiendecitas. Estás frente a una que ofrece frutas y objetos de vidrio. Hay una botella. Aquí está el vendedor. 
+5/37
+> e
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+5/38
+> e
+                    Iglesia
+Los rayos atraviesan las vidrieras creando un ambiente de serena paz. Al fondo hay una puerta y al lado un cepillo para limosnas. Un cura cojea apoyándose en los bancos. 
+5/39
+> poner peso en cepillo
+Metes un peso.
+5/40
+> dar baston a cura
+El cura dice: "¡Gracias! Lo perdí hace tiempo".
+5/41
+El cura dice: "Gracias. Debes estar hambriento, sígueme".
+El cura pasa a la sacristía.
+> e
+                    Sacristía
+La habitación está adornada con piadosos cuadros y otras cosas propias del culto. Aquí está el cura. 
+11/42
+El cura dice: "Haré un cocido Cozumelano... ¡Lo siento! Falta el fruto más importante...".
+> dar aguacate a cura
+El cura dice: "Gracias".
+11/43
+Hace un guisado de iguana y aguacate y te lo ofrece.
+Lo devoras mientras el cura escribe una carta.
+Retirando los platos el cura dice: "Mi sabio amigo te ayudará si le llevas ésta carta".
+Coges el sobre.
+> o
+                    Iglesia
+Los rayos atraviesan las vidrieras creando un ambiente de serena paz. Al fondo hay una puerta y al lado un cepillo para limosnas. 
+15/44
+> o
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+15/45
+> s
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. 
+15/46
+> e
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. 
+15/47
+> llamar a puerta
+Una seca voz dice: "Entreee".
+15/48
+> e
+                    Despacho
+Es un lugar desordenado. En la pared hay una pizarra y un mapa. Un personaje lee. El maestro dice: "Buenos dias, forastero".
+15/49
+> ex pizarra
+Pone algo como I* *h*l*, muy borroso.
+15/50
+> ex mapa
+De la región.
+15/51
+> dar carta a maestro
+El maestro dice: "¡Carta del cura!". Abre el sobre y la lee, luego susurra: "Busque en el templo de IX CHELL, Diosa del Amor. Recuérdelo y tenga cuidado".
+15/52
+> ex libro
+El título es: "FRUTOS TROPICALES"
+15/53
+> dar zapote a maestro
+El maestro dice: "Gracias". Viéndote descalzo, añade: "Póngase mis botas". Coges las botas.
+15/54
+> poner botas
+Te pones las botas.
+15/55
+> o
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. 
+15/56
+> o
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. 
+15/57
+> n
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. 
+15/58
+> n
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. 
+15/59
+> n
+                    Plaza
+Esta Plaza es el corazón de San Marcos. Al norte quedan las playas, al este hay una puerta y hacia el sur se extiende el poblacho. 
+25/60
+> n
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. 
+25/61
+> e
+                    Playa este
+Esta zona abandonada es raramente visitada. Solo mar, arena y sol te rodean. 
+25/62
+> S
+                    Taberna
+Este lugar de San Marcos es el más frecuentado por sus aburridos habitantes. En una pared hay un cartel. Tras la barra está el tabernero. Una mujer, algo nerviosa, te mira. Un ruidoso borracho intenta abrazarte. 
+25/63
+> ex cartelon
+WHISKY  - 5 pesos
+RON     - 4   "
+TEQUILA - 3   "
+AGUA    - 2   "
+25/64
+El tabernero dice: "¿Qué vá a tomar?".
+El borracho dice: "¡Beber es vivir!".
+> ex tabernero
+Malencarado y malhumorado.
+25/65
+El borracho dice: "¡Beber es vivir!".
+> ex borracho
+Alegre y pesado.
+25/66
+El borracho dice: "¡Beber es vivir!".
+> ex mujer
+Tímida y bonita, de dulces rasgos indios.
+25/67
+El tabernero limpia un vaso.
+El borracho dice: "¡Pués, que bien!".
+> decir tabernero "quiero ron"
+Hablas con el tabernero. Te dice: "Aquí tiene".
+Coges el vaso.
+25/68
+El borracho dice: "¡Pués, que bien!".
+> decir tabernero "pagar ron"
+Hablas con el tabernero. El tabernero dice: "Gracias".
+25/69
+El borracho dice: "¡Pués, que bien!".
+> dar vaso a borracho
+Das el vaso al borracho. Lo bebe con avidez.
+25/70
+El borracho dice: "Dame dinerito".
+> dar peso a borracho
+Das el billete al borracho. El borracho dice: "Pareces cansado, ten la llave de mi casa". Coges la llave.
+25/71
+El tabernero dice: "¿Qué vá a tomar?".
+> decir mujer "hola"
+Hablas con la chica. Te dice: "Hola cariño...".
+25/72
+El tabernero dice: "¿Qué vá a tomar?".
+> besar mujer
+Besas a la chica. Te dice: "Hola cariño...".
+25/73
+El tabernero limpia un vaso.
+La chica dice: "¿Vienes conmigo?".
+> decir mujer "si"
+Hablas con la chica. El tabernero observa como váis hacia la puerta. Y salís a la playa.
+                    Playa este
+Esta zona abandonada es raramente visitada. Solo mar, arena y sol te rodean. Aquí está la chica. La chica te sonríe. Te dice: "Mis favores cuestan 30 pesos. ¿Me los das?". 
+25/74
+> decir mujer "no"
+Hablas con la chica. Te dice: "Hago ésto obligada por el tabernero. ¡Ojalá pudiera salir de ésta miseria!".
+25/75
+> decir mujer "ayuda"
+Hablas con la chica. Te dice: "¡No con ésta ropa!".
+25/76
+> dar vestido a mujer
+La chica dice: "Gracias. Eres una gran persona, te acompañaré siempre". Vase, se cambia y vuelve.
+25/77
+> o
+                    Embarcadero
+Viejas canoas se pudren al sol y un decrépito muelle aún resiste las olas. La chica llega. 
+25/78
+> s
+                    Plaza
+Esta Plaza es el corazón de San Marcos. Al norte quedan las playas, al este hay una puerta y hacia el sur se extiende el poblacho. La chica llega. 
+25/79
+> s
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. La chica llega. 
+38/80
+> s
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. La chica llega. 
+38/81
+> o
+                    Mercado
+Hay una red de tiendecitas. Estás frente a una que ofrece frutas y objetos de vidrio. La chica llega. Hay una botella. Aquí está el vendedor. 
+38/82
+> comprar botella
+Compras la botella, por 10 pesos. Coges la botella.
+38/83
+> o
+                    Mercado
+Te detienes frente a varios puestos donde se pueden encontrar cosas insólitas. La chica llega. Hay un quinqué, una manta y un chisquero. Aquí está el vendedor. 
+38/84
+> comprar quinque y chisquero
+Compras el quinqué, por 25 pesos. Coges el quinqué.
+38/85
+Compras el chisquero, por 4 pesos. Coges el chisquero.
+38/86
+> abrir caja
+¡No está a tu alcance!
+38/87
+> ex caja
+No puedes hacerlo.
+38/88
+> cerrar caja
+¡No está a tu alcance!
+38/89
+> abrir botella
+Abres la botella. El tapón se cae. 
+38/90
+> dejar barra
+Dejas la barra de hierro.
+38/91
+> coger tapon
+Coges el tapón.
+38/92
+> s
+                    Mercado
+Frente a un puesto de chatarrería y armas de fuego. La chica llega. Hay un machete, un rifle y unas municiones. Aquí está el vendedor. 
+38/93
+> e
+                    Mercado
+En ésta tenducha se pueden comprar pocas, pero muy variadas cosas. La chica llega. Hay una garrafa y una camisa. Aquí está el vendedor. 
+38/94
+> ex garrafa
+Es una vasija ancha con largo cuello. Dentro hay petróleo.
+38/95
+> comprar petroleo
+Compras petróleo, por 6 pesos. El vendedor dice: "Déme algo llenable".
+38/96
+> dar botella a vendedor
+El vendedor llena la botella desde la garrafa.
+38/97
+> ex botella
+De vidrio. Dentro hay petróleo.
+38/98
+> abrir quinque
+Abres el quinqué.
+38/99
+> poner petroleo en quinque
+Llenas el quinqué desde la botella.
+38/100
+> cerrar botella y quinque
+Cierras la botella.
+38/101
+Cierras el quinqué.
+38/102
+> n
+                    Mercado
+Hay una red de tiendecitas. Estás frente a una que ofrece frutas y objetos de vidrio. La chica llega. Aquí está el vendedor. 
+38/103
+> o
+                    Mercado
+Te detienes frente a varios puestos donde se pueden encontrar cosas insólitas. La chica llega. Hay una manta y una barra de hierro. Aquí está el vendedor. 
+38/104
+> coger barra
+Coges la barra de hierro.
+38/105
+> e
+                    Mercado
+Hay una red de tiendecitas. Estás frente a una que ofrece frutas y objetos de vidrio. La chica llega. Aquí está el vendedor. 
+38/106
+> e
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. La chica llega. 
+43/107
+> n
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. La chica llega. 
+43/108
+> abrir puerta
+Abres la puerta.
+43/109
+> o
+                    Casa Borracho
+El abandono y la suciedad son señales de que su dueño prefiere otros lugares. La chica llega. Hay una estera. 
+43/110
+> ex estera
+Al moverla, cae un objeto.
+43/111
+> ex objeto
+Una sortija.
+43/112
+> dejar barra
+Dejas la barra de hierro.
+43/113
+> coger sortija
+Coges la sortija.
+43/114
+> poner sortija
+Te pones la sortija.
+43/115
+> coger barra
+Coges la barra de hierro.
+43/116
+> e
+                    Calle
+La polvorienta calle principal se prolonga hacia el sur. Al Oeste hay una puerta. La plaza queda al norte. La chica llega. 
+43/117
+> s
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. La chica llega. 
+43/118
+> e
+                    Iglesia
+Los rayos atraviesan las vidrieras creando un ambiente de serena paz. Al fondo hay una puerta y al lado un cepillo para limosnas. La chica llega. 
+46/119
+> e
+                    Sacristía
+La habitación está adornada con piadosos cuadros y otras cosas propias del culto. La chica llega. Aquí está el cura. 
+46/120
+El cura dice: "Hola hermana", mirando a Zyanya, "Te veo feliz".
+> o
+                    Iglesia
+Los rayos atraviesan las vidrieras creando un ambiente de serena paz. Al fondo hay una puerta y al lado un cepillo para limosnas. Zyanya llega. 
+46/121
+> o
+                    Calle
+Se extiende de norte a sur entre la iglesita colonial y el mercado. Zyanya llega. 
+46/122
+> s
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. Zyanya llega. 
+46/123
+> e
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. Zyanya llega. 
+46/124
+> llamar a puerta
+Una seca voz dice: "Entreee".
+46/125
+> e
+                    Despacho
+Es un lugar desordenado. En la pared hay una pizarra y un mapa. Zyanya llega. Aquí está el maestro. 
+46/126
+> o
+El sabio mira a Zyanya y le dá algo, diciendo "Para el mal de amores".
+                    Recibidor
+Estás en una lóbrega estancia con una arcada al sur y una puerta al este. Zyanya llega. 
+46/127
+> o
+                    Calle
+Llegas al extremo sur de la calle, tienes el mercado a un lado y la escuela al otro. Zyanya llega. 
+46/128
+> s
+                    Salida del pueblo
+En el extremo sur del pueblo. La selva empieza a ganar terreno. Zyanya llega. 
+46/129
+> s
+                    Camino del sur
+Estás en el camino que comunica con otras partes de la isla, la vegetación te rodea. Zyanya llega. 
+50/130
+> s
+Vas a entrar a la Zona II. Necesitas salvar tu posición. ¿Quieres grabarla? (Si/No)
+> S
+Nombre: PART1ENDING.SAV
+Posición salvada. ¿Continúas en Zona I? (Si/No)
+> N

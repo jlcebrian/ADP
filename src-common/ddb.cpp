@@ -498,7 +498,7 @@ static DDB_CondactMap version2Condacts[128] = {
 	{ CONDACT_BACKAT, 		  0 },		// 0x62
 	{ CONDACT_PRINTAT,		  2 },		// 0x63
 	{ CONDACT_WHATO,  		  0 },		// 0x64
-	{ CONDACT_CALL,   		  1 },		// 0x65
+	{ CONDACT_CALL,   		  2 },		// 0x65 (a 16 bit address, in two single-byte parameters)
 	{ CONDACT_PUTO,   		  1 },		// 0x66
 	{ CONDACT_NOTDONE,		  0 },		// 0x67
 	{ CONDACT_AUTOP,  		  1 },		// 0x68
@@ -1948,6 +1948,44 @@ DDB* DDB_Load(const char* filename)
 	}
 
 	#if HAS_DRAWSTRING
+	// Commodore 64 vector graphics as a separate .CDG file next to the
+	// database, loading flush against the color RAM base at 0xCC00 (the
+	// graphics footer then lands at its fixed 0xCBED position)
+	if (ddb->target == DDB_MACHINE_C64 && !ddb->drawString)
+	{
+		char cdgName[FILE_MAX_PATH];
+		StrCopy(cdgName, sizeof(cdgName), filename);
+		char* ext = (char*)StrRChr(cdgName, '.');
+		if (ext != 0)
+		{
+			StrCopy(ext, sizeof(cdgName) - (ext - cdgName), ".CDG");
+			File* cdg = File_Open(cdgName, ReadOnly);
+			if (cdg == 0)
+			{
+				StrCopy(ext, sizeof(cdgName) - (ext - cdgName), ".cdg");
+				cdg = File_Open(cdgName, ReadOnly);
+			}
+			if (cdg != 0)
+			{
+				uint64_t cdgSize = File_GetSize(cdg);
+				if (cdgSize > 0 && cdgSize <= 0xCC00)
+				{
+					uint8_t* ram = Allocate<uint8_t>("C64 graphics RAM", 65536, true);
+					if (ram != 0)
+					{
+						uint32_t base = (uint32_t)(0xCC00 - cdgSize);
+						if (File_Read(cdg, ram + base, cdgSize) == cdgSize &&
+						    DDB_LoadVectorGraphics(DDB_MACHINE_C64, ddb->version, ram, 65536))
+							ddb->drawString = true;
+						else
+							Free(ram);
+					}
+				}
+				File_Close(cdg);
+			}
+		}
+	}
+
 	// Disk based Spectrum releases ship the vector graphics as a separate .SDG
 	// file next to the database, loading flush against the top of memory
 	if (ddb->target == DDB_MACHINE_SPECTRUM && !ddb->drawString)
