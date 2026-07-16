@@ -1,0 +1,7 @@
+{
+    "fixture": "espacial/amiga/ESPACIAL-AMIGA.ADF",
+    "part": 1,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

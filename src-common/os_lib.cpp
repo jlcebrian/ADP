@@ -238,6 +238,18 @@ static uint32_t randState[31];
 static uint8_t randFront;
 static uint8_t randRear;
 static bool randInitialized = false;
+static uint32_t randDefaultSeed = 1;
+static bool randSeedChosen = false;
+
+void RandSetDefaultSeed(uint32_t seed)
+{
+	randSeedChosen = true;
+	// Explicit seed selection (e.g. the --random-seed option): applies now and
+	// also after any RandReset (part hand-offs re-seed with the same value, so
+	// a chosen seed stays reproducible across the whole run)
+	randDefaultSeed = seed == 0 ? 1 : seed;
+	randInitialized = false;
+}
 
 void RandReset()
 {
@@ -266,10 +278,23 @@ void RandSeed(uint32_t seed)
 	}
 }
 
+// Seed from the clock unless a seed was explicitly chosen (--random-seed or
+// a @reseed directive). Normal play must NOT be deterministic: a fixed seed
+// can freeze a game's dice against the player (the Espacial part 2 endgame
+// becomes unwinnable, for example). The test framework selects its fixed
+// seed explicitly instead.
+void RandSeedFromClock(uint32_t entropy)
+{
+	if (randSeedChosen)
+		return;
+	RandSeed(entropy | 1);
+	randSeedChosen = true;
+}
+
 uint32_t RandInt(uint32_t min, uint32_t max)
 {
 	if (!randInitialized)
-		RandSeed(1);
+		RandSeed(randDefaultSeed);
 	randState[randFront] += randState[randRear];
 	uint32_t value = randState[randFront] >> 1;
 	randFront = (randFront + 1) % 31;

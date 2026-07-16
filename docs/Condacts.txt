@@ -97,3 +97,64 @@ MOUSE   flagno  op                  (Condact 0x56, replaces version 1 PROMPT)
             1       Left mouse button is down
             2       Right mouse button is down
             4       Middle mouse button is down
+
+SFX     value  op                   (Condact 0x12, two parameters)
+
+    Direct sound-chip access. The interpretation of the second
+    parameter is platform dependent; the first parameter is the value
+    to apply.
+
+    8-bit machines (Spectrum 128K/+2/+3, CPC, MSX, C64): the second
+    parameter is a sound chip REGISTER number and the condact writes
+    the first parameter into it, immediately and with no queuing. The
+    game itself is responsible for silencing the chip afterwards.
+
+            Machine     Chip        Registers   Access path
+
+            Spectrum    AY-3-8912   0-13        ports 0xFFFD/0xBFFD
+            CPC         AY-3-8912   0-13        firmware SOUND REGISTER
+            MSX         AY-3-8910   0-13        BIOS WRTPSG
+            C64         SID         0-24        direct store, unchecked
+
+    Register numbers outside the valid range are ignored (except on
+    C64, where the write happens regardless). On 48K Spectrums, which
+    have no AY chip, the condact is a no-op: the interpreter only
+    enables the sound patch vector when it detects a 128K machine.
+    The Plus/4 interpreter stubs it out entirely.
+
+    16-bit machines (verified in the Atari ST interpreter): a second
+    parameter of 255 plays the sample currently held in the picture
+    buffer, if the buffered resource is a sample (the first parameter
+    is ignored). Any other second parameter uses the low two bits of
+    the FIRST parameter to configure the console: bit 0 enables the
+    keyboard click, bit 1 enables key auto-repeat.
+
+    Example: Aventura Espacial part 3 produces its "white noise"
+    portrait transition on the AY machines with this sequence (while
+    rapidly printing random-pattern messages 157-161 to the portrait
+    window for the visual counterpart):
+
+            SFX 15 6        ; R6  noise period = 15
+            SFX 15 8        ; R8  channel A volume = 15
+            SFX 247 7       ; R7  mixer = %11110111, noise only on A
+            ... visual noise loop ...
+            SFX 0 6         ; noise period 0
+            SFX 0 8         ; volume 0
+            SFX 255 7       ; mixer: everything off
+
+    The audible duration is implicit: it lasts as long as the game
+    logic between the ON and OFF writes takes to run.
+
+    The C64 version of the same game writes SID registers instead
+    (attack/decay, frequency, control and the master volume register
+    24), one register per SFX call, mirroring the AY sequences.
+
+    ADP status: the 16-bit forms (sample playback and key click) are
+    implemented. The 8-bit register writes are currently ignored.
+    ADP already contains an AY register-level synthesizer used for
+    the Atari ST EXTERN PSG streams (DDB_PSGState, DDB_RenderPSGTicks
+    in ddb_psg.cpp, 50Hz ticks at 12.5kHz), so Spectrum/CPC/MSX SFX
+    support only needs a persistent live PSG state fed by CONDACT_SFX
+    register writes and streamed continuously through the audio
+    backend, instead of the current render-in-advance stream path.
+    C64 SFX would additionally need a SID synthesizer.

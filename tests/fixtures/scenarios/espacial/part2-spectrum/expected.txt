@@ -1,0 +1,204 @@
+                 ESPACIAL
+          (La CONGA vs el CELO)
+          I - EXPLORANDO MUNDOS
+        Dirección : Andrés Samudio
+     Programación : Juan Manuel Medina
+         Gráficos : Carlos Marqués
+                    Juan A. Darder
+          Dibujos : Vicente Misas
+         (C) AVENTURAS A.D. -1990-
+                  ----
+Elegido entre millones, sabiamente entrenado en el ANILLO DORADO y graduado como uno de los más prometedores comandos, sales en busca de aventuras.
+Tu primera misión es recorrer la galaxia. Entre sus exóticas razas se encuentran ocultos tus selectos COPOYOS.
+Si has contactado con ellos, actuarás como su ENCEN en la próxima y definitiva misión.
+                  ----
+     Sector 0 - ZOCE
+Estás en la Zona de Con- tacto Exterior. De aquí parten y llegan todas las misiones. La UA-V se cierra aislándote.
+Ves un reluciente VEECO.
+>
+SACAR DE 
+UPM-CO 
+PD-AA 
+Has cogido el PD-AA.
+>
+ABRIR 
+PD-AA
+Un HODOSE se forma en el interior del PD-AA.
+Pronto el HODOSE comienza parpadear y a desvanecerse.
+>
+EXAMINAR 
+HODOSE
+MISION COD. GA-3346-4E 
+     AGENTE KK4465
+ 1- Contacte COPOYOS en
+       coordenadas
+  LNM     UFD     UUY
+  EWQ     RTS     BOD
+  SWY     FCD     POI
+  OPK     IUO     YTX
+2- Espere nuevas instrucciones.
+En cuestión de segundos el HODOSE se apaga y el PD-AA se desmoleculariza en tus manos.
+>
+ABRIR 
+UA-E-VEECO
+Al contacto con la TIGA, el mecanismo del OPTOLOCK se activa y la UA-E-VEECO se abre con un silbido.
+>
+SALIDAS 
+SUBIR
+     DEPO - VEECO
+El Depósito tiene gran importancia en un pequeño vehículo. Está atiborrado de paneles defensores y material de vital importancia. A un lado hay una alargada caja supersellada.
+Además hay un brillante CAFU central y un COSASU.
+>
+ABRIR 
+CAFU
+Está abierto.
+>
+SACAR DE 
+CAFU 
+DIPAS 
+Has cogido el DIPAS.
+>
+SACAR DE 
+CAFU 
+PRILU 
+Has cogido el PRILU.
+>
+SALIDAS 
+CARLINGA
+Este planeta está formado por truncados cañones pétreos. La ausencia de vegetación es total. Destacan bellas formaciones de durísimo cristal. Algunos emiten débiles secuencias lumínicas.
+>
+USAR 
+PRILU
+Active secuencia cromática.
+VIOLETA 
+BLANCO 
+PLATEADO 
+Un Petreo se desprende de la formación rocosa y se te aproxima.
+Este planeta está formado por truncados cañones pétreos. La ausencia de vegetación es total. Destacan bellas formaciones de durísimo cristal. Algunos emiten débiles secuencias lumínicas.
+Aquí está Pirito.
+>
+USAR 
+DIPAS
+Has dejado a Pirito en Animación Suspendida, sus moléculas pasan directamente al DEPO de tu VEECO.
+>
+ABRIR 
+UA-E-VEECO
+Al contacto con la TIGA, el mecanismo del OPTOLOCK se activa y la UA-E-VEECO se abre con un silbido.
+>
+SALIDAS 
+SUBIR
+     DEPO - VEECO
+El Depósito tiene gran importancia en un pequeño vehículo. Está atiborrado de paneles defensores y material de vital importancia. A un lado hay una alargada caja supersellada.
+Además hay un brillante CAFU central y un COSASU.
+>
+DEJAR 
+PRILU
+Has dejado el PRILU.
+>
+SACAR DE 
+CAFU 
+ELSON 
+Has cogido el ELSON.
+>
+SALIDAS 
+CARLINGA
+PARADISO es famoso por sus cúpulas. Estás frente a una de ellas. De una abertura superior salen unos bellos seres alados que te contemplan fijamente.
+>
+USAR 
+ELSON
+Un refulgente angelical cesa en sus evoluciones aéreas y se te acerca.
+PARADISO es famoso por sus cúpulas. Estás frente a una de ellas. De una abertura superior salen unos bellos seres alados que te contemplan fijamente.
+Aquí está Nimbus.
+>
+USAR 
+DIPAS
+Has dejado a Nimbus en Animación Suspendida, sus moléculas pasan directamente al DEPO de tu VEECO.
+>
+USAR 
+TIGA
+Al contacto con la TIGA, el mecanismo del OPTOLOCK se activa y la UA-E-VEECO se abre con un silbido.
+>
+SALIDAS 
+SUBIR
+     DEPO - VEECO
+El Depósito tiene gran importancia en un pequeño vehículo. Está atiborrado de paneles defensores y material de vital importancia. A un lado hay una alargada caja supersellada.
+Además hay un brillante CAFU central, un COSASU y un PRILU.
+>
+DEJAR 
+ELSON
+Has dejado el ELSON.
+>
+SACAR DE 
+CAFU 
+MAPUL 
+Has cogido el MAPUL.
+>
+SALIDAS 
+CARLINGA
+Humeantes charcos excavados en inertes rocas sirven de habitat a los seres de ésta civilización. Del pútrido légamo salen a curiosear unos grandes saurios.
+>
+USAR 
+MAPUL
+Active emisión olfativa.
+SULFíDRICO 
+BUTAZONITO 
+SULFíDRICO 
+Un pesado Saurio sale de su charco y se te aproxima.
+Humeantes charcos excavados en inertes rocas sirven de habitat a los seres de ésta civilización. Del pútrido légamo salen a curiosear unos grandes saurios.
+Aquí está Dinus.
+>
+USAR 
+DIPAS
+Has dejado a Dinus en Animación Suspendida, sus moléculas pasan directamente al DEPO de tu VEECO.
+>
+USAR 
+TIGA
+Al contacto con la TIGA, el mecanismo del OPTOLOCK se activa y la UA-E-VEECO se abre con un silbido.
+>
+SALIDAS 
+SUBIR
+Bajas de la nave y caminas entre los rascacielos de la ciudad. En un FOCOEX cercano subes a una RAMAUT.
+Pronto aparece un grupo de SERPOS.
+Están inactivados.
+>
+SACAR DE 
+UPM-CO 
+CHAPO 
+Has cogido el CHAPO.
+>
+USAR 
+CHAPO 
+ROMI 
+El CHAPO está en el ZOCHA.
+El ROMI activado te limpia el traje mientras emite una curiosa secuencia de pitiditos no del todo carente de ritmo.
+>
+ESCUCHAR 
+BIPBOPBIPBOPBOPBIPBOPBOP BOPBOPBOPBOPBIPBIPBIPBOP BOPBIPBOPBOPBIPBIPBOPBOP
+>
+SACAR DE 
+SERPO 
+CHAPO 
+El SERPO se inactiva.
+Has cogido el CHAPO.
+>
+USAR 
+CHAPO 
+XI-KA+ 
+El CHAPO está en el ZOCHA.
+La XI-KA+ se mueve y dice: COMUNICO ENTRADA EN SERVICIO.
+>
+USAR 
+DIPAS
+Has dejado a XI-KA+ en Animación Suspendida, sus moléculas pasan directamente al DEPO de tu VEECO.
+>
+USAR 
+TIGA
+Al contacto con la TIGA, el mecanismo del OPTOLOCK se activa y la UA-E-VEECO se abre con un silbido.
+En algún sitio se activa una alarma de detección de NO-SERPOS.
+>
+SALIDAS 
+SUBIR
+Te aproximas a la OSCURA AMENAZA. Procedes con la reanimación y transmutación de los COPOYOS a su superficie.
+La MIFI va a comenzar.
+ORDENES-CLAVE: 
+CANES VENATICI

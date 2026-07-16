@@ -888,6 +888,8 @@ extern bool             DDB_HasVectorWindow      (uint8_t picno);
 extern const uint8_t*   DDB_GetVectorInkMap      ();
 extern bool             DDB_DrawVectorPicture    (uint8_t picno);
 extern bool             DDB_HasVectorDatabase    ();
+extern bool             DDB_VectorPictureInRange (uint8_t picno);
+extern bool             DDB_GetVectorPictureWindow (uint8_t picno, int* x, int* y, int* w, int* h);
 extern bool             DDB_WriteVectorDatabase  (const char* filename);
 
 #if HAS_PAWS

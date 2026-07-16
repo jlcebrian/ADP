@@ -51,6 +51,7 @@ typedef enum
 	CLI_OPTION_INTERACTIVE,
 	CLI_OPTION_SKIP_TIMED_PAUSES,
 	CLI_OPTION_PART,
+	CLI_OPTION_RANDOM_SEED,
 	CLI_OPTION_PART_CAPTURE,
 	CLI_OPTION_NO_MESSAGE_SAMPLES,
 	CLI_OPTION_HELP,
@@ -428,6 +429,7 @@ void ShowHelp()
 	printf("       --capture FILE      Save the final logical framebuffer when running\n");
 	printf("       --interactive       Use live input after scripted test input ends\n");
 	printf("       --skip-timed-pauses Skip finite PAUSE condacts when running\n");
+	printf("       --random-seed N     Use N as the random number seed (default: 1)\n");
 	printf("       --part N            Auto-select part N in the part selector (test mode)\n");
 	printf("       --part-capture FILE Save a screenshot of the part selector (test mode)\n");
     printf("   -h, --help              Show this help\n\n");
@@ -709,6 +711,7 @@ int main (int argc, char *argv[])
 		{ 0, "interactive", CLI_OPTION_INTERACTIVE, CLI_OPTION_NONE },
 		{ 0, "skip-timed-pauses", CLI_OPTION_SKIP_TIMED_PAUSES, CLI_OPTION_NONE },
 		{ 0, "part", CLI_OPTION_PART, CLI_OPTION_REQUIRED_VALUE },
+		{ 0, "random-seed", CLI_OPTION_RANDOM_SEED, CLI_OPTION_REQUIRED_VALUE },
 		{ 0, "part-capture", CLI_OPTION_PART_CAPTURE, CLI_OPTION_REQUIRED_VALUE },
 		{ 'S', "no-message-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
 		{ 'S', "no-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
@@ -756,6 +759,9 @@ int main (int argc, char *argv[])
 	const char* captureFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_CAPTURE);
 	bool interactiveTestInput = CLI_HasOption(&commandLine, CLI_OPTION_INTERACTIVE);
 	bool skipTimedPauses = CLI_HasOption(&commandLine, CLI_OPTION_SKIP_TIMED_PAUSES);
+	const char* randomSeedOption = CLI_GetOptionValue(&commandLine, CLI_OPTION_RANDOM_SEED);
+	if (randomSeedOption != 0)
+		RandSetDefaultSeed((uint32_t)atoi(randomSeedOption));
 	const char* partOption = CLI_GetOptionValue(&commandLine, CLI_OPTION_PART);
 	const char* partCaptureFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_PART_CAPTURE);
 	int partSelection = partOption != 0 ? atoi(partOption) : 0;
@@ -912,52 +918,196 @@ int main (int argc, char *argv[])
 
 	if (action == ACTION_EXTRACT)
 	{
-		const char* outputFileName = optionalOutputFileName != 0 ? optionalOutputFileName : ChangeExtension(inputFileName, ".ddb");
-		if (!force)
-		{
-			File* outputFile = File_Open(outputFileName, ReadOnly);
-			if (outputFile)
-			{
-				File_Close(outputFile);
-				fprintf(stderr, "Error: Output file '%s' already exists (use -f to force overwrite)\n", outputFileName);
-				return 1;
-			}
-		}
-		if (!DDB_Write(ddb, outputFileName))
-		{
-			fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
-			if (mountedDiskImage)
-				File_UnmountDisk();
-			return 1;
-		}
-		printf("DDB file written to '%s'\n", outputFileName);
+		char outputBase[FILE_MAX_PATH];
+		StrCopy(outputBase, sizeof(outputBase),
+			optionalOutputFileName != 0 ? optionalOutputFileName : inputFileName);
+		char* baseDot = (char*)StrRChr(outputBase, '.');
+		if (baseDot != 0 && baseDot > (char*)StrRChr(outputBase, '/'))
+			*baseDot = 0;
 
-		#if HAS_DRAWSTRING
-		if (DDB_HasVectorDatabase())
+		// Graphics companions shipped next to a database on a disk: the DMG
+		// variants for the 16-bit targets plus the 8-bit vector databases
+		static const char* companionExtensions[] =
 		{
-			const char* extension = ".bin";
-			switch (ddb->target)
+			".dat", ".DAT", ".ega", ".EGA", ".cga", ".CGA", ".vga", ".VGA",
+			".sga", ".SGA", ".sdg", ".SDG", ".cdg", ".CDG", ".adg", ".ADG",
+			".mdg", ".MDG", 0
+		};
+
+		int failures = 0;
+		int written = 0;
+
+		// Collect every database in a mounted disk image so a multi-part game
+		// extracts as GAMENAME1.*, GAMENAME2.*... (a single part keeps the
+		// plain GAMENAME.* name)
+		char partNames[8][FILE_MAX_PATH];
+		int partCount = 0;
+		if (mountedDiskImage)
+		{
+			FindFileResults results;
+			if (File_FindFirst("*", &results))
 			{
-				case DDB_MACHINE_SPECTRUM: extension = ".sdg"; break;
-				case DDB_MACHINE_C64:      extension = ".cdg"; break;
-				case DDB_MACHINE_CPC:      extension = ".adg"; break;
-				case DDB_MACHINE_MSX:      extension = ".mdg"; break;
-				default: break;
+				DDB_SetWarningHandler(IgnoreDDBWarning);
+				do
+				{
+					if (results.attributes & FileAttribute_Directory)
+						continue;
+					if (partCount < 8 && DDB_Check(results.fileName, 0, 0, 0))
+						StrCopy(partNames[partCount++], FILE_MAX_PATH, results.fileName);
+				}
+				while (File_FindNext(&results));
+				DDB_SetWarningHandler(PrintWarning);
 			}
-			outputFileName = ChangeExtension(inputFileName, extension);
-			if (!DDB_WriteVectorDatabase(outputFileName))
-			{
-				fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
-				if (mountedDiskImage)
-					File_UnmountDisk();
-				return 1;
-			}
-			printf("Vector database written to '%s'\n", outputFileName);
 		}
-		#endif
+		if (partCount == 0)
+		{
+			// Carved container, snapshot or bare DDB: single database, no
+			// on-disk companions to copy
+			StrCopy(partNames[0], FILE_MAX_PATH, loadedDDBFileName);
+			partCount = 1;
+		}
+
+		for (int part = 0; part < partCount; part++)
+		{
+			DDB* partDDB = ddb;
+			if (StrComp(partNames[part], loadedDDBFileName) != 0)
+			{
+				partDDB = DDB_Load(partNames[part]);
+				if (partDDB == 0)
+				{
+					// A file that passed the cheap DDB_Check but fails a full
+					// load is a false candidate (e.g. a .SCR whose first bytes
+					// resemble a header), not an extraction failure
+					fprintf(stderr, "Skipping %s: %s\n", partNames[part], DDB_GetErrorString());
+					continue;
+				}
+			}
+
+			char outputFileName[FILE_MAX_PATH];
+			if (partCount > 1)
+				snprintf(outputFileName, sizeof(outputFileName), "%s%d.ddb", outputBase, part + 1);
+			else
+				snprintf(outputFileName, sizeof(outputFileName), "%s.ddb", outputBase);
+
+			bool skip = false;
+			if (!force)
+			{
+				File* outputFile = File_Open(outputFileName, ReadOnly);
+				if (outputFile)
+				{
+					File_Close(outputFile);
+					fprintf(stderr, "Error: Output file '%s' already exists (use -f to force overwrite)\n", outputFileName);
+					failures++;
+					skip = true;
+				}
+			}
+			if (!skip)
+			{
+				if (!DDB_Write(partDDB, outputFileName))
+				{
+					fprintf(stderr, "Writing %s: Error: %s\n", outputFileName, DDB_GetErrorString());
+					failures++;
+				}
+				else
+				{
+					printf("DDB file written to '%s'\n", outputFileName);
+					written++;
+				}
+			}
+
+			#if HAS_DRAWSTRING
+			// A vector database found alongside (or inside) this part: write
+			// it with the platform's extension
+			if (!skip && partDDB->drawString && DDB_HasVectorDatabase())
+			{
+				const char* extension = ".bin";
+				switch (partDDB->target)
+				{
+					case DDB_MACHINE_SPECTRUM: extension = ".sdg"; break;
+					case DDB_MACHINE_C64:      extension = ".cdg"; break;
+					case DDB_MACHINE_CPC:      extension = ".adg"; break;
+					case DDB_MACHINE_MSX:      extension = ".mdg"; break;
+					default: break;
+				}
+				char vectorFileName[FILE_MAX_PATH];
+				StrCopy(vectorFileName, sizeof(vectorFileName), ChangeExtension(outputFileName, extension));
+				if (!DDB_WriteVectorDatabase(vectorFileName))
+				{
+					fprintf(stderr, "Writing %s: Error: %s\n", vectorFileName, DDB_GetErrorString());
+					failures++;
+				}
+				else
+					printf("Vector database written to '%s'\n", vectorFileName);
+			}
+			#endif
+
+			// Copy graphics companion files shipped next to the database in
+			// the disk image (e.g. PART1.DAT for the 16-bit targets)
+			if (!skip && mountedDiskImage)
+			{
+				char writtenExtensions[8][8];
+				int writtenCount = 0;
+				for (const char** ext = companionExtensions; *ext != 0; ext++)
+				{
+					char companionName[FILE_MAX_PATH];
+					StrCopy(companionName, sizeof(companionName), ChangeExtension(partNames[part], *ext));
+					File* companion = File_Open(companionName, ReadOnly);
+					if (companion == 0)
+						continue;
+					uint64_t size = File_GetSize(companion);
+					uint8_t* buffer = Allocate<uint8_t>("Companion file", (size_t)size);
+					if (buffer == 0 || File_Read(companion, buffer, size) != size)
+					{
+						fprintf(stderr, "Reading %s: Error\n", companionName);
+						File_Close(companion);
+						if (buffer) Free(buffer);
+						failures++;
+						continue;
+					}
+					File_Close(companion);
+
+					char lowered[8];
+					int li = 0;
+					for (const char* c = *ext; *c != 0 && li < 7; c++)
+						lowered[li++] = (*c >= 'A' && *c <= 'Z') ? (char)(*c + 32) : *c;
+					lowered[li] = 0;
+					// A case-insensitive filesystem matches both ".dat" and
+					// ".DAT": copy each companion once
+					bool alreadyWritten = false;
+					for (int w = 0; w < writtenCount; w++)
+						if (StrComp(writtenExtensions[w], lowered) == 0)
+							alreadyWritten = true;
+					if (alreadyWritten)
+					{
+						Free(buffer);
+						continue;
+					}
+					if (writtenCount < 8)
+						StrCopy(writtenExtensions[writtenCount++], 8, lowered);
+					char companionOutput[FILE_MAX_PATH];
+					StrCopy(companionOutput, sizeof(companionOutput), ChangeExtension(outputFileName, lowered));
+					File* output = File_Create(companionOutput);
+					if (output == 0 || File_Write(output, buffer, size) != size)
+					{
+						fprintf(stderr, "Writing %s: Error\n", companionOutput);
+						failures++;
+					}
+					else
+						printf("Graphics data written to '%s'\n", companionOutput);
+					if (output) File_Close(output);
+					Free(buffer);
+					// Only one companion per case family is expected; keep
+					// scanning so mixed-mode PC releases copy all DMG variants
+				}
+			}
+
+			if (partDDB != ddb)
+				DDB_Close(partDDB);
+		}
+
 		if (mountedDiskImage)
 			File_UnmountDisk();
-		return 0;
+		return failures > 0 || written == 0 ? 1 : 0;
 	}
 
 	DDB_ScreenMode screenMode = DDB_GetDefaultScreenMode(ddb->target);

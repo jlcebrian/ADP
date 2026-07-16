@@ -1,0 +1,5 @@
+{
+    "fixture": "original/msx/ORIGINAL-MSX 2.CAS",
+    "shared": "original/part2-amiga",
+    "timeout_seconds": 600
+}

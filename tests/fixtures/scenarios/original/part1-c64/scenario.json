@@ -1,0 +1,5 @@
+{
+    "fixture": "original/c64/ORIGINAL-C64 1.DDB",
+    "shared": "original/part1-amiga",
+    "timeout_seconds": 600
+}

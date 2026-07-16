@@ -1,0 +1,5 @@
+{
+    "fixture": "espacial/c64/ESPACIAL-C64 1.DDB",
+    "shared": "espacial/part2-spectrum",
+    "timeout_seconds": 600
+}

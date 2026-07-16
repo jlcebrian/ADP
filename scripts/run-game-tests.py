@@ -211,9 +211,36 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
             return False
         part_capture = result_dir / "captures" / "part-selector.bmp"
         part_capture.parent.mkdir(parents=True, exist_ok=True)
+    defines: dict[str, list[str]] = {}
     for line in input_path.read_text(encoding="utf-8").splitlines(keepends=True):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith(("@define ", "@menu ", "@key", "@inkey", "@mute ", "@unmute ", "@waittext ", "@chance ", "@let ")):
+            # Inline comments are allowed on directive lines only
+            stripped = stripped.split("#", 1)[0].rstrip()
+            if not stripped:
+                continue
+        if stripped.startswith("@define "):
+            parts = stripped.split()
+            if len(parts) < 3:
+                print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: invalid define '{stripped}'")
+                return False
+            defines[parts[1]] = parts[2:]
+            continue
+        if stripped.startswith("@menu ") or stripped.startswith("@key "):
+            head, *args = stripped.split()
+            expanded: list[str] = []
+            for token in args:
+                if token in defines:
+                    expanded.extend(defines[token])
+                else:
+                    expanded.append(token)
+            input_lines.append(" ".join([head] + expanded) + "\n")
+            continue
+        if stripped == "@key":
+            # A bare @key that carried an inline comment must be re-emitted clean
+            input_lines.append("@key\n")
             continue
         if stripped in ("@interactive", "@stop") and not interactive:
             print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: {stripped} requires --interactive")
@@ -236,6 +263,13 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
             capture_index += 1
         else:
             input_lines.append(line)
+    # A script that never ends the run would hang until the timeout: ensure a
+    # final @exit -- except in interactive runs, where exhausting the script
+    # (or an explicit @interactive/@stop) hands control to live input
+    if not interactive and \
+       not any(l.strip() == "@exit" for l in input_lines) and \
+       not any(l.strip() in ("@interactive", "@stop") for l in input_lines):
+        input_lines.append("@exit\n")
     if part_capture is not None:
         # Registered after the scripted captures so the numbered baselines are
         # verified first; the part selector is a separate startup checkpoint.
@@ -243,6 +277,9 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
         capture_names["part-selector"] = "part-selector.png"
     generated_input.write_text("".join(input_lines), encoding="utf-8")
     command = [str(ddb), "-o", str(actual_path), "-i", str(generated_input)]
+    random_seed = scenario.get("randomSeed")
+    if random_seed is not None:
+        command += ["--random-seed", str(random_seed)]
     if trace:
         command.insert(1, "-v")
     if interactive:

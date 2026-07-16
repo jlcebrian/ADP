@@ -1,0 +1,6 @@
+{
+    "fixture": "espacial/msx/ESPACIAL-MSX.dsk",
+    "part": 2,
+    "shared": "espacial/part3-spectrum",
+    "timeout_seconds": 600
+}

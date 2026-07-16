@@ -1,0 +1,104 @@
+# Solución original: project CASA https://www.solutionarchive.com/file/id%2C24430/ de boldir, 2023
+
+# Órdenes del menú principal (posiciones fijas)
+@define SALIDAS 1
+@define INVENTARIO 2
+@define ESPERAR 3
+@define MIRAR 4
+@define ESCUCHAR 5
+@define HABLAR 6
+@define USAR 7
+@define EXAMINAR 8
+@define COGER P1
+@define DEJAR P2
+@define ABRIR P3
+@define CERRAR P4
+@define PONERSE P5
+@define QUITARSE P6
+@define METER P7
+@define SACAR P8
+
+# La ventana 3 es la de menús: sin esto el transcript se llena de redibujados
+@mute 3
+
+@save Intro
+@key
+@key
+@save Inicios
+@menu SALIDAS SALIR
+@save Fuera
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ENTRAR
+@save Bar
+@menu HABLAR
+@menu HABLAR
+@menu SALIDAS SALIR
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS SUBIR
+@menu QUITARSE TODO
+@save Almacenamiento
+@menu DEJAR UPI-T
+@menu DEJAR UPM-T
+@menu COGER UPM-CO
+@menu COGER UPS-CO
+@menu COGER UVIR
+@menu PONERSE TODO
+@menu SACAR UPM-CO MAGOLLA 
+@menu SACAR UPM-CO UPP-M
+@menu PONERSE UPP-M
+@menu EXAMINAR P MAGOLLA
+@menu SALIDAS BAJAR
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS ENTRAR
+@menu HABLAR
+@menu SALIDAS SALIR
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS SUBIR
+@menu USAR MAGOLLA
+@menu COGER UPI-CO
+@menu PONERSE UPI-CO
+@menu SALIDAS BAJAR
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS GIRO
+@menu SALIDAS ENTRAR
+@menu HABLAR
+@menu SALIDAS SALIR
+@menu SALIDAS ANTIGIRO
+@menu ABRIR UA-S
+@menu SALIDAS ENTRAR
+@save Descanso
+@menu USAR MAGOLLA
+@menu SACAR UFAP PD-AA
+@menu METER UPM-CO PD-AA
+@menu SALIDAS SALIR
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS ANTIGIRO
+@menu SALIDAS SUBIR
+@key
+@menu USAR TIGA
+@menu SALIDAS ENTRAR
+@menu CERRAR UA-E
+@save Despegue
+@key
+@key
+@key
+@key
+@key
+@save Final
+@key
+@menu ADIOS
+S
+

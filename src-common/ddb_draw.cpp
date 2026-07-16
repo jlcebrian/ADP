@@ -187,7 +187,11 @@ void VID_SetFlash (uint8_t value)
 
 void VID_MoveTo (uint16_t x, uint16_t y)
 {
-	if (vectorGraphicsMachine != DDB_MACHINE_C64)
+	// The 6502 interpreters and the CPC firmware keep an unclamped
+	// position and clip each pixel individually, so off-screen positions
+	// must survive here for the next stroke to start from the right place
+	if (vectorGraphicsMachine != DDB_MACHINE_C64 &&
+	    vectorGraphicsMachine != DDB_MACHINE_CPC)
 	{
 		if (x > scrMaxX) x = scrMaxX;
 		if (y > scrMaxY) y = scrMaxY;
@@ -227,10 +231,11 @@ static void ZXRelativeMove (int16_t dx, int16_t dy, int16_t* px, int16_t* py)
 
 void VID_MoveBy (int16_t x, int16_t y)
 {
-	if (vectorGraphicsMachine == DDB_MACHINE_C64)
+	if (vectorGraphicsMachine == DDB_MACHINE_C64 ||
+	    vectorGraphicsMachine == DDB_MACHINE_CPC)
 	{
-		// The 6502 interpreters keep an unclamped position and clip
-		// each pixel individually
+		// The 6502 interpreters and the CPC firmware keep an unclamped
+		// position and clip each pixel individually
 		cursorX += x;
 		cursorY += y;
 		return;
@@ -336,10 +341,20 @@ static void GenericInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 	if (yfills == 0)
 		return;
 
+	bool cpcFill = vectorGraphicsMachine == DDB_MACHINE_CPC;
 	int16_t clipX0 = winMinX > 0 ? winMinX : 0;
 	int16_t clipY0 = winMinY > 0 ? winMinY : 0;
 	int16_t clipX1 = winMaxX < scrMaxX ? winMaxX : scrMaxX;
 	int16_t clipY1 = winMaxY < scrMaxY ? winMaxY : scrMaxY;
+	if (cpcFill)
+	{
+		// The original engine bounds fills by the screen edges and the
+		// 184-line picture area only, never by the current window
+		clipX0 = 0;
+		clipY0 = 0;
+		clipX1 = scrMaxX;
+		clipY1 = 183 < scrMaxY ? 183 : scrMaxY;
+	}
 
 	const uint8_t seed = graphicsBuffer[screenWidth * seedY + seedX];
 	#define DS_BG(X,Y) ((X) >= clipX0 && (X) <= clipX1 && (Y) >= clipY0 && (Y) <= clipY1 && \
@@ -384,8 +399,25 @@ static void GenericInnerFill (int16_t seedX, int16_t seedY, uint8_t* pattern)
 			{
 				if (!DS_BG(x, y))
 					break;
-				graphicsBuffer[screenWidth * y + x] =
-					(pattern[y & 7] & (0x80 >> (x & 7))) ? ink : paper;
+				if (cpcFill)
+				{
+					// The pattern rows are screen-encoded bytes: for the pixel
+					// at x&3 within a screen byte, one bit selects whether the
+					// low colour bit comes from the ink or the paper and
+					// another selects the high bit, so a pattern can produce
+					// blend colours. Rows are indexed by the fill-space y,
+					// which counts upwards from screen line 183
+					int n = x & 3;
+					uint8_t m = pattern[(183 - y) & 7];
+					uint8_t lo = ((m >> (7 - n)) & 1) != 0 ? ink : paper;
+					uint8_t hi = ((m >> (3 - n)) & 1) != 0 ? ink : paper;
+					graphicsBuffer[screenWidth * y + x] = (lo & 1) | (hi & 2);
+				}
+				else
+				{
+					graphicsBuffer[screenWidth * y + x] =
+						(pattern[y & 7] & (0x80 >> (x & 7))) ? ink : paper;
+				}
 				if (x == 0)
 					break;
 				if (fillflag)
@@ -583,6 +615,16 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern, bool invert)
 		if (x < 0 || x > scrMaxX || y < 0 || y > scrMaxY)
 			return;
 	}
+	else if (vectorGraphicsMachine == DDB_MACHINE_CPC)
+	{
+		x += cursorX;
+		y += cursorY;
+		// An off-screen seed skips the fill entirely (the original engine
+		// validates the position and the 184-line picture area before
+		// filling, never clamping)
+		if (x < 0 || x > scrMaxX || y < 0 || y > 183)
+			return;
+	}
 	else
 	{
 		x += cursorX;
@@ -640,65 +682,58 @@ void VID_PatternFill(int16_t x, int16_t y, int pattern, bool invert)
 	}
 }
 
-static void CPC_FirmwareLine(int x0, int y0, int x1, int y1, uint8_t color)
+static void CPC_FirmwareLine(int x0p, int y0p, int x1p, int y1p, uint8_t color)
 {
-	if (x0 > x1)
-	{
-		int t;
-		t = x0; x0 = x1; x1 = t;
-		t = y0; y0 = y1; y1 = t;
-	}
-	int dx    = x1 - x0;
-	int dy    = y1 - y0;
-	int ady   = dy < 0 ? -dy : dy;
-	int ystep = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+	// Matches the line drawer in the 6128 firmware (the 464 ROM uses a
+	// different run-slicing algorithm that distributes the same number of
+	// pixels with a different phase). It is a midpoint walk over pixel
+	// coordinates with y growing upwards, canonicalized so the major axis
+	// always increases by re-anchoring at the target endpoint and flipping
+	// both step directions. Both endpoints are plotted, and the error term
+	// starts at -ceil(major/2). Plotting is clipped to the 184-line
+	// picture area like the original graphics window.
+	int x0 = x0p, y0 = 199 - y0p;
+	int x1 = x1p, y1 = 199 - y1p;
 
-	if (dx >= ady)
+	int dx = x1 - x0, dy = y1 - y0;
+	int adx = dx < 0 ? -dx : dx;
+	int ady = dy < 0 ? -dy : dy;
+	int sx = dx < 0 ? -1 : 1;
+	int sy = dy < 0 ? -1 : 1;
+
+	bool xMajor = ady < adx;
+	int major = xMajor ? adx : ady;
+	int minor = xMajor ? ady : adx;
+
+	int px = x0, py = y0;
+	if ((xMajor ? dx : dy) < 0)
 	{
-		int div = ady + 1;
-		int q   = (dx + 1) / div;
-		int r   = (dx + 1) % div;
-		int err = div >> 1;
-		int x = x0, y = y0;
-		for (int i = 0; i < div; i++)
-		{
-			int run = q;
-			err += r;
-			if (err >= div) { err -= div; run++; }
-			for (int k = 0; k < run; k++)
-				VID_DrawPixel(x + k, y, color);
-			x += run;
-			y += ystep;
-		}
+		px = x1;
+		py = y1;
+		sx = -sx;
+		sy = -sy;
 	}
-	else
+
+	int err = -((major + 1) >> 1);
+	for (int i = 0; i <= major; i++)
 	{
-		if (y0 > y1)
+		if (py >= 16 && py <= 199)
+			VID_DrawPixel(px, 199 - py, color);
+		err += minor;
+		if (err >= 0)
 		{
-			int t;
-			t = x0; x0 = x1; x1 = t;
-			t = y0; y0 = y1; y1 = t;
+			err -= major;
+			if (xMajor)
+				py += sy;
+			else
+				px += sx;
 		}
-		int adx   = x1 > x0 ? x1 - x0 : x0 - x1;
-		int xstep = x1 >= x0 ? 1 : -1;
-		int div = adx + 1;
-		int q   = (y1 - y0 + 1) / div;
-		int r   = (y1 - y0 + 1) % div;
-		int err = div >> 1;
-		int x = x0, y = y0;
-		for (int i = 0; i < div; i++)
-		{
-			int run = q;
-			err += r;
-			if (err >= div) { err -= div; run++; }
-			for (int k = 0; k < run; k++)
-				VID_DrawPixel(x, y + k, color);
-			y += run;
-			x += xstep;
-		}
+		if (xMajor)
+			px += sx;
+		else
+			py += sy;
 	}
 }
-
 void VID_DrawLine(int16_t incx, int16_t incy, uint8_t color)
 {
 	int x = cursorX;
@@ -1111,7 +1146,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						}
 						break;
 
-					case 1:		// TEXT (TODO)
+					case 1:		// TEXT
 					{
 						uint16_t x = ptr[1] | ((ptr[0] & 0x80) << 1);
 						uint16_t y = ptr[2];
@@ -1120,7 +1155,21 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						#ifdef TRACE_VECTOR
 						TRACE("%02X TEXT                  (char %d at %d,%d)\n\n", ptr[0], c, x, y);
 						#endif
-						// TODO: Print character
+						// Stamp an 8x8 character from the graphics charset at
+						// the given position (the coordinates address the
+						// glyph's top-left pixel), drawing set bits in the
+						// current ink over the current paper
+						{
+							const uint8_t* glyph = vectorGraphicsRAM + chset + c * 8;
+							int px = x;
+							int py = scrMaxY - y;
+							for (int row = 0; row < 8; row++)
+							{
+								for (int col = 0; col < 8; col++)
+									VID_DrawPixel(px + col, py + row,
+										(glyph[row] & (0x80 >> col)) != 0 ? ink : paper);
+							}
+						}
 						ptr += 4;
 						break;
 					}
@@ -1167,7 +1216,10 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						int x, y;
 						if ((c & 0x01) != 0)
 						{
-							x = ((ptr[1] >> 4) & 0x0F) | ((ptr[0] & 0x80) >> 3);
+							// The high bit of the opcode extends the X offset the
+							// same way as in the long form (adding 256), even
+							// though the short form only carries a nibble
+							x = ((ptr[1] >> 4) & 0x0F) | ((ptr[0] & 0x80) << 1);
 							y = ptr[1] & 0x0F;
 
 							#ifdef TRACE_VECTOR
@@ -1269,7 +1321,26 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 					}
 					case 7:		// BLOCK
 					{
-						// TODO
+						// Fills a rectangle with the current ink. The operands
+						// give the top-left corner as a raw screen address in
+						// the standard CPC layout, then the height in scan
+						// lines and the width in bytes (4 mode-1 pixels each)
+						uint16_t address = ptr[1] | (ptr[2] << 8);
+						uint8_t  height  = ptr[3];
+						uint8_t  width   = ptr[4];
+
+						uint16_t offset = address - 0xC000;
+						int y = (offset / 0x800) + ((offset % 0x800) / 80) * 8;
+						int x = ((offset % 0x800) % 80) * 4;
+
+						#ifdef TRACE_VECTOR
+						TRACE("%02X BLOCK   %02X %02X %02X %02X   (%d,%d) %dx%d\n", ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], x, y, width*4, height);
+						#endif
+						for (int row = 0; row < height; row++)
+						{
+							for (int cx = 0; cx < width*4; cx++)
+								VID_DrawPixel(x + cx, y + row, ink);
+						}
 						ptr += 5;
 						break;
 					}
@@ -1542,22 +1613,27 @@ bool DDB_HasVectorPicture (uint8_t picno)
 		}
 		case DDB_MACHINE_CPC:
 		{
-			// In version 2 databases bit 7 marks a subroutine entry
-			// (inverted from the Spectrum convention)
+			// Bit 7 marks a subroutine entry (inverted from the Spectrum
+			// convention) in version 1 databases too: subroutines never take
+			// part in location display, but an explicit draw still renders
+			// them "as they stand"
 			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
-			if (vectorGraphicsVersion != DDB_VERSION_1 && (*win & 0x80) != 0)
+			if ((*win & 0x80) != 0)
 				return false;
 			return (*win != 0) && (*ptr != 0x40);
 		}
 		case DDB_MACHINE_MSX:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
-			return (*win & 0x80) && (*ptr != 7);
+			return (*win & 0x80) != 0;
 		}
 		case DDB_MACHINE_SPECTRUM:
 		{
+			// The original interpreter validates only the count and the
+			// windef location bit; entries without it fail the condact
+			// (but still become the current picture, see CONDACT_PICTURE)
 			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
-			return (*win & 0x80) && (*ptr != 7);
+			return (*win & 0x80) != 0;
 		}
 	}
 }
@@ -1588,7 +1664,7 @@ bool DDB_HasVectorWindow (uint8_t picno)
 		case DDB_MACHINE_CPC:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
-			if (vectorGraphicsVersion != DDB_VERSION_1 && (*win & 0x80) != 0)
+			if ((*win & 0x80) != 0)
 				return false;
 			return *win != 0;
 		}
@@ -1604,6 +1680,63 @@ bool DDB_HasVectorWindow (uint8_t picno)
 			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
 			return (*win & 0x80) != 0;
 		}
+	}
+}
+
+// The window rectangle a picture display applies (pixel coordinates): the
+// original interpreters redefine the current text window to the picture's
+// window from the graphics database, so a later CLS clears the picture
+// area rather than the whole screen. Returns false for subroutine entries
+// and machines where this does not apply.
+bool DDB_GetVectorPictureWindow (uint8_t picno, int* x, int* y, int* w, int* h)
+{
+	if (vectorGraphicsRAM == 0 || picno >= count)
+		return false;
+	switch (vectorGraphicsMachine)
+	{
+		case DDB_MACHINE_CPC:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			if ((win[0] & 0x80) != 0 || win[0] == 0)
+				return false;
+			*x = win[5] * 8;
+			*y = win[4] * 8;
+			*w = win[7] * 8;
+			*h = win[6] * 8;
+			return true;
+		}
+		case DDB_MACHINE_MSX:
+		{
+			const uint8_t* win = vectorGraphicsRAM + windefs + 6*picno;
+			if ((win[0] & 0x80) != 0x80)
+				return false;
+			// Columns come in 6-pixel units; round out to whole cells like
+			// the clear does
+			int col8 = (win[3]*6) / 8;
+			int width8 = (win[3]*6 + win[5]*6 + 7) / 8 - col8;
+			*x = col8 * 8;
+			*y = win[2] * 8;
+			*w = width8 * 8;
+			*h = win[4] * 8;
+			return true;
+		}
+		case DDB_MACHINE_SPECTRUM:
+		{
+			if (windefs == 0)
+				return false;
+			const uint8_t* win = vectorGraphicsRAM + windefs + 5*picno;
+			if ((win[0] & 0x80) != 0x80)
+				return false;
+			int col8 = (win[2]*6) / 8;
+			int width8 = (win[2]*6 + win[4]*6 + 7) / 8 - col8;
+			*x = col8 * 8;
+			*y = win[1] * 8;
+			*w = width8 * 8;
+			*h = win[3] * 8;
+			return true;
+		}
+		default:
+			return false;
 	}
 }
 
@@ -1677,11 +1810,9 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 					VID_AttributeFill(col, row, col+width-1, row+height-1);
 				}
 			}
-			else
-			{
-				// Subroutine
-				return false;
-			}
+			// Overlay entries (nonzero window byte) are drawn as they
+			// stand: no palette, window or clear, composing over the
+			// current screen
 			cursorX = 0;
 			cursorY = scrMaxY;
 
@@ -1693,9 +1824,20 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 		case DDB_MACHINE_CPC:
 		{
 			const uint8_t* win = vectorGraphicsRAM + windefs + 8*picno;
+			if ((win[0] & 0x80) != 0)
+			{
+				// A subroutine entry is drawn "as it stands": no palette,
+				// window or clear is applied, the drawing composes over the
+				// current screen state (e.g. the intro portrait)
+				cursorX = 0;
+				cursorY = scrMaxY;
+				cpcUserX = 0;
+				cpcUserY = 0;
+				return DrawVectorSubroutine(picno, 0, false, false);
+			}
 			if (win[0] == 0)
 			{
-				// Subroutine
+				// No window: nothing to draw
 				return false;
 			}
 			else
@@ -1708,8 +1850,7 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 				int col    = win[5];
 				int height = win[6];
 				int width  = win[7];
-				VID_Clear(col*8, row*8, width*8, height*8, 0);
-
+VID_Clear(col*8, row*8, width*8, height*8, 0);
 				winMinX = col*8;
 				winMinY = row*8;
 				winMaxX = col*8 + width*8 - 1;
@@ -1750,11 +1891,9 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 				VID_Clear(col8*8, row*8, width8*8, height*8, 0);
 				VID_AttributeFill(col8, row, col8+width8-1, row+height-1);
 			}
-			else
-			{
-				// Subroutine
-				return false;
-			}
+			// Entries without the location bit are overlays drawn as they
+			// stand: no palette, window or clear, composing over the
+			// current screen
 			cursorX = 0;
 			cursorY = scrMaxY;
 
@@ -1818,6 +1957,14 @@ bool DDB_DrawVectorPicture (uint8_t picno)
 bool DDB_HasVectorDatabase()
 {
 	return vectorGraphicsRAM != 0;
+}
+
+// True if the picture number is inside the vector database's table: the
+// original interpreters make a failing PICTURE condact update the current
+// picture anyway as long as the number is in range
+bool DDB_VectorPictureInRange (uint8_t picno)
+{
+	return vectorGraphicsRAM != 0 && picno < count;
 }
 
 bool DDB_WriteVectorDatabase(const char* filename)
@@ -1924,6 +2071,10 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 	vectorGraphicsVersion = version;
 	pixelMode = false;
 
+	// A failed validation must not leave a half-initialized database behind:
+	// DDB_HasVectorDatabase() would report one with garbage bounds
+	vectorGraphicsRAM = 0;
+
 	mixShades = false;
 
 	switch (target)
@@ -1933,7 +2084,6 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			if (size < 65536)
 				return false;
 
-			vectorGraphicsRAM = data;
 			start   = read16LE(data + 0xCBEF);
 			table   = read16LE(data + 0xCBF1);
 			windefs = read16LE(data + 0xCBF3);
@@ -1961,6 +2111,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			// Version 2 databases use a 192 line drawing area
 			if (version != DDB_VERSION_1)
 				scrMaxY = 191;
+			vectorGraphicsRAM = data;
 			VID_SetCharset(data + chset);
 			shades = vectorGraphicsRAM + chset;
 
@@ -1972,7 +2123,6 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			if (size < 65536)
 				return false;
 
-			vectorGraphicsRAM = data;
 			pixelMode = true;
 
 			start   = read16LE(data + 0x9DEF);
@@ -1996,6 +2146,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			ending  = chset + 2048 - 1;
 			scrMaxX = 319;
 			scrMaxY = 183;
+			vectorGraphicsRAM = data;
 			VID_SetCharset(data + chset);
 			shades = vectorGraphicsRAM + chset;
 
@@ -2007,7 +2158,6 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			if (size < 65536)
 				return false;
 
-			vectorGraphicsRAM = data;
 
 			spare   = read16LE(data + 0xAFED);
 			start   = read16LE(data + 0xAFEF);
@@ -2028,11 +2178,15 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			if (ending != 0xFFFF)
 				return false;
 
+			// The footer lives at 0xAFED-0xAFFF: include it so a written
+			// .mdg file is a valid, reloadable database
+			ending  = 0xAFFF;
 			scrMaxX = 255;
 			scrMaxY = 175;
 			stride  = 32;
 			transparentColor = 16;
 
+			vectorGraphicsRAM = data;
 			VID_SetCharset(data + chset);
 			shades = vectorGraphicsRAM + chset;
 
@@ -2044,7 +2198,6 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			if (size < 65536)
 				return false;
 
-			vectorGraphicsRAM = data;
 
 			spare   = read16LE(data + 0xFFED);
 			start   = read16LE(data + 0xFFEF);
@@ -2077,6 +2230,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 			stride  = 32;
 			transparentColor = 8;
 
+			vectorGraphicsRAM = data;
 			VID_SetCharset(data + chset);
 			shades = vectorGraphicsRAM + chset;
 

@@ -1407,8 +1407,10 @@ bool DDB_SupportsDataFile(DDB_Version version, DDB_Machine target)
 		return false;
 	#endif
 
+	// Spectrum is not here: its graphics ship as a .SDG loaded by DDB_Load
+	// (drawString), never as a DMG .dat, so probing one just prints a
+	// misleading "data file not found" for every tape-based game
 	return
-		target == DDB_MACHINE_SPECTRUM ||
 		target == DDB_MACHINE_AMIGA ||
 		target == DDB_MACHINE_ATARIST ||
 		target == DDB_MACHINE_PCW ||
@@ -1445,11 +1447,36 @@ static uint32_t GuessDDBOffsetFromSnapshot(uint8_t* memory, size_t size, DDB_Mac
 			uint16_t eof = read16(memory + eofOffset, true);
 			if (eof <= size && eof > offset + 32)
 			{
-				ddb->baseOffset = offset;
-				ddb->data = memory + offset;
-				ddb->dataSize = eof - offset;
-				ddb->version = (DDB_Version)memory[offset];
-				return true;
+				// The signature is only three bytes and graphics data can
+				// match it by chance: trial-parse a scratch copy (the parser
+				// byte-swaps in place) and keep scanning on failure
+				uint32_t candidateSize = eof - offset;
+				uint8_t* copy = Allocate<uint8_t>("DDB candidate", candidateSize);
+				DDB* trial = Allocate<DDB>("DDB candidate header", 1, true);
+				bool valid = false;
+				if (copy != 0 && trial != 0)
+				{
+					MemCopy(copy, memory + offset, candidateSize);
+					trial->baseOffset = offset;
+					void (*savedHandler)(const char*) = warningHandler;
+					warningHandler = 0;
+					DDB_Error savedError = ddbError;
+					valid = DDB_ParseHeader(trial, copy, candidateSize, candidateSize);
+					ddbError = savedError;
+					warningHandler = savedHandler;
+				}
+				if (copy != 0)
+					Free(copy);
+				if (trial != 0)
+					Free(trial);
+				if (valid)
+				{
+					ddb->baseOffset = offset;
+					ddb->data = memory + offset;
+					ddb->dataSize = candidateSize;
+					ddb->version = (DDB_Version)memory[offset];
+					return true;
+				}
 			}
 		}
 
@@ -1982,6 +2009,98 @@ DDB* DDB_Load(const char* filename)
 					}
 				}
 				File_Close(cdg);
+			}
+		}
+	}
+
+	// MSX releases ship the vector graphics either as an extracted .MDG
+	// (a memory slice ending at 0xAFFF, like the one DDB_WriteVectorDatabase
+	// produces) or, on original disks, as a companion BLOAD image next to
+	// the database (PART11.BIN + PART12.BIN): the BLOAD payload ends in a
+	// relocation stub that places the graphics flush against 0xAFFF, so
+	// the database slice is recovered by finding the footer whose start
+	// field equals its own base address
+	if (ddb->target == DDB_MACHINE_MSX && !ddb->drawString)
+	{
+		char mdgName[FILE_MAX_PATH];
+		StrCopy(mdgName, sizeof(mdgName), filename);
+		char* ext = (char*)StrRChr(mdgName, '.');
+		if (ext != 0)
+		{
+			StrCopy(ext, sizeof(mdgName) - (ext - mdgName), ".MDG");
+			File* mdg = File_Open(mdgName, ReadOnly);
+			if (mdg == 0)
+			{
+				StrCopy(ext, sizeof(mdgName) - (ext - mdgName), ".mdg");
+				mdg = File_Open(mdgName, ReadOnly);
+			}
+			if (mdg != 0)
+			{
+				uint64_t mdgSize = File_GetSize(mdg);
+				if (mdgSize > 0 && mdgSize <= 0xB000)
+				{
+					uint8_t* ram = Allocate<uint8_t>("MSX graphics RAM", 65536, true);
+					if (ram != 0)
+					{
+						uint32_t base = (uint32_t)(0xB000 - mdgSize);
+						if (File_Read(mdg, ram + base, mdgSize) == mdgSize &&
+						    DDB_LoadVectorGraphics(DDB_MACHINE_MSX, ddb->version, ram, 65536))
+							ddb->drawString = true;
+						else
+							Free(ram);
+					}
+				}
+				File_Close(mdg);
+			}
+		}
+		if (!ddb->drawString && ext != 0)
+		{
+			// Companion BLOAD image: same name with the last character of
+			// the stem incremented (PART11.BIN -> PART12.BIN)
+			StrCopy(mdgName, sizeof(mdgName), filename);
+			ext = (char*)StrRChr(mdgName, '.');
+			if (ext != 0 && ext > mdgName && ext[-1] == '1')
+			{
+				ext[-1] = '2';
+				File* bin = File_Open(mdgName, ReadOnly);
+				if (bin != 0)
+				{
+					uint64_t binSize = File_GetSize(bin);
+					if (binSize > 26 && binSize <= 65536)
+					{
+						uint8_t* raw = Allocate<uint8_t>("MSX graphics BIN", (size_t)binSize);
+						if (raw != 0)
+						{
+							if (File_Read(bin, raw, binSize) == binSize && raw[0] == 0xFE)
+							{
+								const uint8_t* payload = raw + 7;
+								uint32_t psize = (uint32_t)(binSize - 7);
+								for (uint32_t n = psize; n >= 0x13 + 32; n--)
+								{
+									uint16_t base = (uint16_t)(0xB000 - n);
+									const uint8_t* footer = payload + n - 0x13;
+									uint16_t fstart  = read16LE(footer + 2);
+									uint16_t fending = read16LE(footer + 14);
+									if (fstart != base || fending != 0xFFFF)
+										continue;
+									uint8_t* ram = Allocate<uint8_t>("MSX graphics RAM", 65536, true);
+									if (ram != 0)
+									{
+										MemCopy(ram + base, payload, n);
+										if (DDB_LoadVectorGraphics(DDB_MACHINE_MSX, ddb->version, ram, 65536))
+										{
+											ddb->drawString = true;
+											break;
+										}
+										Free(ram);
+									}
+								}
+							}
+							Free(raw);
+						}
+					}
+					File_Close(bin);
+				}
 			}
 		}
 	}

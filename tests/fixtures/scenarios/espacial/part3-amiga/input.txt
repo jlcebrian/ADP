@@ -1,0 +1,289 @@
+@define COGER P1
+@define DEJAR P2
+@define ABRIR P3
+@define CERRAR P4
+@define METER P7
+@define SACAR P8
+
+# La ventana 3 es la de menús: sin esto el transcript se llena de redibujados
+@mute 3
+
+CANES VENATICI
+
+# Seleccionar PIRITO - USAR INTUICION Y SALIDAS (cualquier dirección) hasta que 
+# detecte al interior de la O.A. - ABRIR UA-PP - SALIDAS BAJAR - ABRIR UA-E - 
+# SALIDAS ENTRAR-ESTE-VOLAR - CERRAR ASPCHUP - SALIDAS BAJAR-ESTE-BAJAR-VOLAR - 
+# USAR INTUICION - SALIDAS ESTE - CORTO - Seleccionar NIMBUS - COGER ELPREPU - 
+# SALIDAS OESTE-BAJAR - USAR ELPREPU - SALIDAS VOLAR - ABRIR UA-E - CORTO.
+
+# El selector de personaje es un prompt de texto: se teclea el dígito
+@menu PIRITO
+@save Pirito
+@menu USAR INTUICION
+@menu SALIDAS NORTE
+@menu USAR INTUICION
+@menu ABRIR UA-PP
+@menu SALIDAS BAJAR
+@save Habitacio
+@menu ABRIR UA-E
+@menu SALIDAS ENTRAR
+@menu SALIDAS ESTE
+@menu SALIDAS VOLAR
+@save Volando
+@menu CERRAR ASPCHUP
+@menu SALIDAS BAJAR
+@menu SALIDAS ESTE
+@menu SALIDAS BAJAR
+@menu SALIDAS VOLAR
+@menu USAR INTUICION
+@menu SALIDAS ESTE
+@menu CORTO
+
+@menu NIMBUS
+@save Nimbus
+@menu COGER ELPREPU
+@menu SALIDAS OESTE
+@menu SALIDAS BAJAR
+@menu USAR ELPREPU
+@menu SALIDAS VOLAR
+@menu ABRIR UA-E
+@menu CORTO
+
+# Seleccionar DINUS - SALIDAS ESTE-ESTE - USAR MATETRA - ESPERAR - CORTO - 
+# Seleccionar PIRITO - USAR INTUICION - SALIDAS HOLOMAPA - CORTO - 
+# Seleccionar XI-KA+ - USAR EMIMA - COGER ROZUMBO - USAR EMIMA - DEJAR ROZUMBO - 
+# CORTO - Seleccionar DINUS - USAR MATETRA - CORTO - Seleccionar XI-KA+ - 
+# USAR EMIMA - COGER BOLOREX - USAR EMIMA - CORTO.
+
+@menu DINUS
+@save Dinus
+@menu SALIDAS ESTE
+@menu SALIDAS ESTE
+@menu USAR MATETRA
+@menu ESPERAR
+@menu CORTO
+
+@menu PIRITO
+@menu USAR INTUICION
+@menu SALIDAS HOLOMAPA
+@menu CORTO
+
+@menu XI-KA+
+@save XiKa
+@menu USAR EMIMA
+@menu COGER ROZUMBO
+@menu USAR EMIMA
+@menu DEJAR ROZUMBO
+@menu CORTO
+
+@menu DINUS
+@menu USAR MATETRA
+@menu CORTO
+
+@menu XI-KA+
+@menu USAR EMIMA
+@menu COGER BOLOREX
+@menu USAR EMIMA
+@menu CORTO
+
+# Seleccionar DINUS - USAR MATETRA - CORTO - Seleccionar XI-KA+ - USAR EMIMA - 
+# DEJAR BOLOREX - COGER ROEMILAS - USAR EMIMA - DEJAR ROEMILAS - USAR EMIMA - 
+# COGER BOLOREX - USAR EMIMA - CORTO - Seleccionar DINUS - USAR MATETRA - 
+# SALIDAS HOLOMAPA - CORTO.
+
+@menu DINUS
+@menu USAR MATETRA
+@menu CORTO
+
+@menu XI-KA+
+@menu USAR EMIMA
+@menu DEJAR BOLOREX
+@menu COGER ROEMILAS
+@menu USAR EMIMA
+@menu DEJAR ROEMILAS
+@menu USAR EMIMA
+@menu COGER BOLOREX
+@menu USAR EMIMA
+@menu CORTO
+
+@menu DINUS
+@menu USAR MATETRA
+@menu SALIDAS HOLOMAPA
+@menu CORTO
+
+# Seleccionar XI-KA+ - USAR EMIMA - DEJAR BOLOREX  - USAR EMIMA - COGER ROZUMBO - 
+# USAR EMIMA - DEJAR ROZUMBO - COGER BOLOREX - USAR EMIMA - DEJAR BOLOREX - 
+# COGER ROEMILAS - USAR EMIMA - DEJAR ROEMILAS - USAR EMIMA - COGER BOLOREX - 
+# USAR EMIMA - DEJAR BOLOREX - USAR EMIMA - USAR EMIMA - CORTO.
+
+@menu XI-KA+
+@menu USAR EMIMA
+@menu DEJAR BOLOREX
+@menu USAR EMIMA
+@menu COGER ROZUMBO
+@menu USAR EMIMA
+@menu DEJAR ROZUMBO
+@menu COGER BOLOREX
+@menu USAR EMIMA
+@menu DEJAR BOLOREX
+@menu COGER ROEMILAS
+@menu USAR EMIMA
+@menu DEJAR ROEMILAS
+@menu USAR EMIMA
+@menu COGER BOLOREX
+@menu USAR EMIMA
+@menu DEJAR BOLOREX
+@menu USAR EMIMA
+@menu USAR EMIMA
+@menu CORTO
+
+# Seleccionar PIRITO - USAR EMIMA - CORTO - Seleccionar NIMBUS - USAR EMIMA - 
+# CORTO - Seleccionar DINUS - USAR EMIMA - SALIDAS OESTE - ABRIR UA-AB - CORTO - 
+# Seleccionar XI-KA+ - ABRIR UA-AB - EXAMINAR TERMOR - USAR INTERPROTER - CORTO - 
+# Seleccionar DINUS - USAR TERMOR (repite hasta que hay un informe de cambio en la 
+# posición de una UA-HO) - CORTO - Seleccionar PIRITO - SALIDAS VOLAR - 
+# USAR INTUICION - CORTO.
+
+@menu PIRITO
+@menu USAR EMIMA
+@menu CORTO
+
+@menu NIMBUS
+@menu USAR EMIMA
+@menu CORTO
+
+@menu DINUS
+@menu USAR EMIMA
+@menu SALIDAS OESTE
+@menu ABRIR UA-AB
+@menu CORTO
+
+@menu XI-KA+
+@menu ABRIR UA-AB
+@menu EXAMINAR TERMOR
+@menu USAR INTEPROTER
+@menu CORTO
+
+@menu DINUS
+@menu USAR TERMOR
+# repite hasta que hay un informe de cambio en la posición de una UA-HO
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu CORTO
+
+@menu PIRITO
+@menu SALIDAS VOLAR
+@menu USAR INTUICION
+@menu CORTO
+
+# Seleccionar NIMBUS - SAVE/LOAD SAVE RAM - USAR VIBROCANTO NORTE (si el aire 
+# escapa, LOAD RAM y prueba otra direccion) - SALIDAS CRISTAL-BAJAR - CORTO - 
+# Seleccionar DINUS - EXAMINAR UA-S (si la está cerrada, USAR TERMOR hasta que se 
+# abra) - ESPERAR - CORTO - Seleccionar XI-KA+ - SALIDAS OESTE-NORTE-NORTE - 
+# COGER SEMIBOM 07 - SALIDAS SUR-SUR-OESTE-OESTE - COGER SEMIBON 03 - 
+# SALIDAS ESTE-ESTE - DEJAR LASER - ESPERAR - CORTO.
+
+@menu NIMBUS
+@save Vibrocanto
+@menu USAR VIBROCANTO SUR
+@menu SALIDAS CRISTAL
+@menu SALIDAS BAJAR
+@menu CORTO
+
+@menu DINUS
+@menu EXAMINAR UA-S
+@menu ESPERAR
+@menu CORTO
+
+@menu XI-KA+
+@menu SALIDAS OESTE
+@menu SALIDAS NORTE
+@menu SALIDAS NORTE
+@save Depósito
+@menu COGER SEMIBOM-07
+@menu SALIDAS SUR
+@menu SALIDAS SUR
+@save Encrucijada
+@menu SALIDAS OESTE
+@menu SALIDAS OESTE
+@menu COGER SEMIBOM-03
+@menu SALIDAS ESTE
+@menu SALIDAS ESTE
+@menu DEJAR LASER
+@menu ESPERAR
+@menu CORTO
+
+# Seleccionar NIMBUS - ESPERAR - CORTO - Seleccionar PIRITO - SALIDAS BAJAR - 
+# USAR INTUICION - SALIDAS SUBIR-BAJAR - CORTO - Seleccionar NIMBUS - 
+# SALIDAS BAJAR - USAR SUDOR (repite hasta haber desconectado todos los circuitos) 
+# - Seleccionar DINUS - USAR TERMOR (repite hasta que hay un informe de cambio en 
+# la posición de una UA-VTD) - CORTO - Seleccionar XI-KA+ - SALIDAS BAJAR - 
+# METER EN CUBICELO TODO - SALIDAS SUBIR - COGER LASER - CORTO.
+
+@menu NIMBUS
+@menu ESPERAR
+@menu CORTO
+
+@menu PIRITO
+@menu SALIDAS BAJAR
+@menu USAR INTUICION
+@menu SALIDAS SUBIR
+@menu SALIDAS BAJAR
+@menu CORTO
+
+@menu NIMBUS
+@menu SALIDAS BAJAR
+@menu USAR SUDOR
+@menu USAR SUDOR
+@menu USAR SUDOR
+@menu USAR SUDOR
+@menu USAR SUDOR
+
+@menu DINUS
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu USAR TERMOR
+@menu CORTO
+
+@menu XI-KA+
+@menu SALIDAS BAJAR
+@menu METER CUBICELO TODO
+@menu SALIDAS SUBIR
+@menu COGER LASER
+@menu CORTO
+
+# Seleccionar DINUS - USAR TERMOR (repite hasta que hay un informe de cambio en la 
+# posición de una UA-VTD) - CORTO - Seleccionar XI-KA+ - SALIDAS BAJAR - 
+# USAR LASER - Seleccionar DINUS... (¡Vaya ironía! ¡Todo esto va a estallar y yo 
+# estoy aquí en medio! ¡Esto me pasa por COPOYO! Informe final: Bajas: Copoyos 
+# 1,2,3,4; Oscura Amenaza destruida; !Opa acercandose a VEECO! ¡Colision 
+# inminente!)
+
+@menu DINUS
+@menu USAR TERMOR
+@menu CORTO
+
+@menu XI-KA+
+@menu SALIDAS BAJAR
+@menu USAR LASER
+
+@menu DINUS
+# Las pausas del final se saltan solas: la animacion IN MEMORIAM cicla tintas
+# en bucle hasta detectar una tecla en un INKEY, que consume este @inkey
+@inkey
+@save Final
+@menu ADIOS
+S

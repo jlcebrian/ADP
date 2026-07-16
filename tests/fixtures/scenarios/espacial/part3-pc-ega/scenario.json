@@ -1,0 +1,7 @@
+{
+    "fixture": "espacial/pc/ESPACIAL-PC.img",
+    "screen": "ega",
+    "part": 3,
+    "shared": "espacial/part3-amiga",
+    "timeout_seconds": 600
+}

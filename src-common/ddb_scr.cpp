@@ -6,6 +6,8 @@
 
 #if !defined(NO_BUFFERING)
 
+#include <ddb_wintext.h>
+
 static bool smoothScrolling = true;
 
 #define COMMAND_BUFFER_BLOCKS
@@ -87,6 +89,9 @@ void SCR_WaitForKey()
 
 void SCR_DrawCharacter(int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 {
+	#if HAS_WINDOWTEXT
+	WinText_AddSpan(x, y, &ch, 1, charWidth[ch]);
+	#endif
 	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
@@ -105,6 +110,14 @@ void SCR_DrawCharacter(int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 
 void SCR_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper)
 {
+	#if HAS_WINDOWTEXT
+	{
+		int pixelWidth = 0;
+		for (uint16_t n = 0; n < length; n++)
+			pixelWidth += charWidth[text[n]];
+		WinText_AddSpan(x, y, text, length, pixelWidth);
+	}
+	#endif
 	if (buffering)
 	{
 		for (uint16_t n = 0; n < length; n++)
@@ -182,6 +195,9 @@ void SCR_GetPictureInfo(bool* fixed, int16_t* x, int16_t* y, int16_t* w, int16_t
 
 void SCR_Clear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 {
+	#if HAS_WINDOWTEXT
+	WinText_ClearRect(x, y, w, h);
+	#endif
 	if (buffering)
 	{
 		SCR_CommandData* c = SCR_AddCommandToBuffer();
@@ -201,6 +217,9 @@ void SCR_Clear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 
 void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t paper, bool smooth)
 {
+	#if HAS_WINDOWTEXT
+	WinText_Scroll(x, y, w, h, lines);
+	#endif
 	if(smoothScrolling && smooth)
 		buffering = true;
 	if (buffering)
@@ -300,9 +319,9 @@ bool SCR_AnyKey()
 }
 
 #if HAS_TESTMODE
-bool SCR_AnyKeyForWait(bool allowCaptures)
+bool SCR_AnyKeyForMore(bool allowCaptures)
 {
-	return DDB_TestIsActive() ? DDB_TestAnyKeyForWait(allowCaptures) : SCR_AnyKey();
+	return DDB_TestIsActive() ? DDB_TestAnyKeyForMore(allowCaptures) : SCR_AnyKey();
 }
 #endif
 

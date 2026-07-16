@@ -1,0 +1,9 @@
+{
+    "fixture": [
+        "espacial/atarist/ESPACIAL-ST 1.st",
+        "espacial/atarist/ESPACIAL-ST 3.st"
+    ],
+    "part": 3,
+    "shared": "espacial/part3-amiga",
+    "timeout_seconds": 600
+}

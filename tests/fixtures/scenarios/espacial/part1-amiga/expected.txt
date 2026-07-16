@@ -1,0 +1,352 @@
+                     ESPACIAL
+              (La CONGA vs el CELO)
+        PRIMERA PARTE : EN EL ANILLO DORADO
+                     Dirección
+                  Andrés  Samudio
+               Programación y sonido
+                Juan Manuel Medina
+                     Gráficos
+                  Carlos Marqués
+                Juan Antonio Darder
+             (C) AVENTURAS A.D. -1990-
+         Sector 4 - ZOED                    En la Zona Educacional toda la atención está centrada alrededor del sabio GRAMAGAL, quien, frente al Monitor del Espacio Profundo, instruye a los diversos CORREADS.
+Has terminado el período de Ins- trucción. Ya eres un COSME.
+>
+SALIDAS 
+SALIR
+         Sector 4 - ZOT
+Frente a una entrada con un INVI superior.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 3 - ZOT
+Esta Zona de Tránsito es una de las más concurridas, por ello tiene en el suelo un amplio MIESINF. En una de las paredes están grabadas las letras A.D.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+>
+SALIDAS 
+ENTRAR
+         Sector 4 - ZOES
+Las vaporizaciones de PEAS produ- cen una densa atmósfera y hacen que la Zona de Esparcimiento esté casi siempre en penumbra. Algunos CORME, de otra unidad, celebran su vuelta mientras un ocupado ROMI mantiene el orden.
+Además hay un RL-B y un RL-C.
+El ROMI dice: UN COSME NO TIENE YA PERMISO PARA DISFRUTAR DE LA ZOES, CAMBIE DE ZONA, POR FAVOR.
+>
+HABLAR 
+Preguntas al ROMI por tu TIGA. El suele encontrarlo todo.
+LO SIENTO, SEÑOR - responde - NO DISPONGO DE DATOS SUFICIENTES PARA CONTESTARLE.
+>
+HABLAR 
+Das al ROMI tu número de identifi- cación. Busca en su banco de datos y dice: ESPERE, POR FAVOR. Al poco rato vuelve y te entrega la TIGA extraviada.
+>
+SALIDAS 
+SALIR
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 2 - ZOT
+Frente a una UA-S con OPTOLOCK. En el bajo techo hay un MIESUP.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 2 - ZOT
+En ésta solitaria Zona de Tránsito hay una pequeña PMM, quizá único recuerdo de algunos valientes COMUCOS.
+Las luces de atención parpadean y se oye el penetrante gemido que anuncia la llegada de un VEECO.
+VEECO =  Vehículo Espacial de Ex- ploración y Combate.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 1 - ZOT
+Frente a una amplia entrada con un elegante INVI a un lado y un moderno HOZOOVIAC del otro.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 1 - ZOT
+Frente a la UTV con un INVI supe- rior. Por éstos pasillos del Pri- mer Sector suelen patrullar algu- nos BLOQUEATORS e INTERCEPTORS.
+>
+SALIDAS 
+SUBIR
+De modo automático la UTV se acti- va transportándote hacia la ZONA DE CONTACTO CON EL EXTERIOR. La gravedad disminuye al acercarte al eje de rotación de la base.
+Has llegado a la ZOAV.
+         Sector 0 - ZOAV
+En la Zona de Almacenamiento y de Vestuario hay que prepararse para afrontar los rigores del espacio exterior. Hay varias estanterías con equipo. En un extremo hay una UA-E con un un llamativo INVI.
+Además hay unas UPI-CO, una UPM-CO, una UPS-CO y una UVIR.
+>
+QUITARSE 
+TODO
+Te has quitado las UPI-T.
+Te has quitado la UPM-T.
+>
+DEJAR 
+UPI-T
+Has dejado las UPI-T.
+>
+DEJAR 
+UPM-T
+Has dejado la UPM-T.
+>
+COGER 
+UPM-CO
+Has cogido la UPM-CO.
+>
+COGER 
+UPS-CO
+Has cogido la UPS-CO.
+>
+COGER 
+UVIR
+Has cogido la UVIR.
+>
+PONERSE 
+TODO
+Te has puesto la UPM-CO.
+Te has puesto la UPS-CO.
+No puedes ponerte la TIGA.
+Te has puesto la UVIR.
+>
+SACAR DE 
+UPM-CO 
+MAGOLLA 
+Has cogido la MAGOLLA.
+>
+SACAR DE 
+UPM-CO 
+UPP-M 
+Has cogido las UPP-M.
+>
+PONERSE 
+UPP-M
+Te has puesto las UPP-M.
+>
+EXAMINAR 
+MAGOLLA
+Magneto LLave. 
+Lleva un MICROINVI adosado que in- dica que está magnetizada.
+>
+SALIDAS 
+BAJAR
+De modo automático la UTV se acti- va transportándote hacia la periferia de la base. Poco a poco vuelves a ser tan pesado como de costumbre.
+Has llegado a la ZOT del Sector 1.
+         Sector 1 - ZOT
+Frente a la UTV con un INVI supe- rior. Por éstos pasillos del Pri- mer Sector suelen patrullar algu- nos BLOQUEATORS e INTERCEPTORS.
+>
+SALIDAS 
+GIRO
+         Sector 1 - ZOT
+Frente a una amplia entrada con un elegante INVI a un lado y un moderno HOZOOVIAC del otro.
+Toda la estructura vibra al trans- mitir la enorme potencia generada por el despegue de un gran KRUGUER
+KRUGUER = Crucero de Guerra.
+>
+SALIDAS 
+GIRO
+         Sector 2 - ZOT
+En ésta solitaria Zona de Tránsito hay una pequeña PMM, quizá único recuerdo de algunos valientes COMUCOS.
+>
+SALIDAS 
+GIRO
+         Sector 2 - ZOT
+Frente a una UA-S con OPTOLOCK. En el bajo techo hay un MIESUP.
+Antes no lo había notado pero... ¡Menudo pie me lleva por el pasi- llo que se estremece al ritmo de mis caderas! Es fantástico.
+>
+SALIDAS 
+GIRO
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+>
+SALIDAS 
+ENTRAR
+         Sector 4 - ZOES
+Las vaporizaciones de PEAS produ- cen una densa atmósfera y hacen que la Zona de Esparcimiento esté casi siempre en penumbra. Algunos CORME, de otra unidad, celebran su vuelta mientras un ocupado ROMI mantiene el orden.
+Además hay un RL-B y un RL-C.
+El ROMI dice: UN COSME NO TIENE YA PERMISO PARA DISFRUTAR DE LA ZOES, CAMBIE DE ZONA, POR FAVOR.
+>
+HABLAR 
+Informo al ROMI del fallo de la MAGOLLA. La examina y dice: HA SI- DO EXPUESTA A UN FUERTE CAMPO MAG- NETICO. INICIO SECUENCIA DE REPA- RACION.
+La introduce en su Orificio Multiuso. 
+REPARACION POSITIVA.
+Y el utilísimo ROMI te devuelve la MAGOLLA.
+>
+SALIDAS 
+SALIR
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+Sólo los refuerzos estructurales de ángulo maleable rompen la mono- tonía de éstos pasillos de circun- valación.
+>
+SALIDAS 
+GIRO
+         Sector 3 - ZOT
+Esta Zona de Tránsito es una de las más concurridas, por ello tiene en el suelo un amplio MIESINF. En una de las paredes están grabadas las letras A.D.
+Toda la estructura vibra al trans- mitir la enorme potencia generada por el despegue de un gran KRUGUER
+KRUGUER = Crucero de Guerra.
+>
+SALIDAS 
+GIRO
+         Sector 4 - ZOT
+Frente a una entrada con un INVI superior.
+>
+SALIDAS 
+GIRO
+         Sector 4 - ZOT              Pasas frente a varias dependencias exclusivas para los CG. De momento te están vedadas hasta que tengas el rango suficiente.
+>
+SALIDAS 
+GIRO
+         Sector 1 - ZOT
+Frente a la UTV con un INVI supe- rior. Por éstos pasillos del Pri- mer Sector suelen patrullar algu- nos BLOQUEATORS e INTERCEPTORS.
+Un CORREMICO sale de la UTV en es- tado de trance y con el UPM-CO aún humeante. Saluda mecánicamente y con pasos de zombie se dirige a su ZODE.
+Dicen que por éstos pasillos aún vagan los alucinados fantasmas de algunos miembros del equipo de A.D.
+>
+SALIDAS 
+SUBIR
+De modo automático la UTV se acti- va transportándote hacia la ZONA DE CONTACTO CON EL EXTERIOR. La gravedad disminuye al acercarte al eje de rotación de la base.
+Has llegado a la ZOAV.
+         Sector 0 - ZOAV
+En la Zona de Almacenamiento y de Vestuario hay que prepararse para afrontar los rigores del espacio exterior. Hay varias estanterías con equipo. En un extremo hay una UA-E con un un llamativo INVI.
+Además hay unas UPI-T, unas UPI-CO y una UPM-T.
+>
+USAR 
+MAGOLLA
+Acercando la MAGOLLA a las UPI-CO consigues que se desprendan de la pared.
+>
+COGER 
+UPI-CO
+Has cogido las UPI-CO.
+>
+PONERSE 
+UPI-CO
+Te has puesto las UPI-CO.
+>
+SALIDAS 
+BAJAR
+De modo automático la UTV se acti- va transportándote hacia la periferia de la base. Poco a poco vuelves a ser tan pesado como de costumbre.
+Has llegado a la ZOT del Sector 1.
+         Sector 1 - ZOT
+Frente a la UTV con un INVI supe- rior. Por éstos pasillos del Pri- mer Sector suelen patrullar algu- nos BLOQUEATORS e INTERCEPTORS.
+>
+SALIDAS 
+GIRO
+         Sector 1 - ZOT
+Frente a una amplia entrada con un elegante INVI a un lado y un moderno HOZOOVIAC del otro.
+Toda la estructura vibra al trans- mitir la enorme potencia generada por el despegue de un gran KRUGUER
+KRUGUER = Crucero de Guerra.
+>
+SALIDAS 
+GIRO
+         Sector 2 - ZOT
+En ésta solitaria Zona de Tránsito hay una pequeña PMM, quizá único recuerdo de algunos valientes COMUCOS.
+>
+SALIDAS 
+GIRO
+         Sector 2 - ZOT
+Frente a una UA-S con OPTOLOCK. En el bajo techo hay un MIESUP.
+>
+SALIDAS 
+GIRO
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+>
+SALIDAS 
+ENTRAR
+         Sector 4 - ZOES
+Las vaporizaciones de PEAS produ- cen una densa atmósfera y hacen que la Zona de Esparcimiento esté casi siempre en penumbra. Algunos CORME, de otra unidad, celebran su vuelta mientras un ocupado ROMI mantiene el orden.
+Además hay un RL-B y un RL-C.
+El ROMI dice: UN COSME NO TIENE YA PERMISO PARA DISFRUTAR DE LA ZOES, CAMBIE DE ZONA, POR FAVOR.
+>
+HABLAR 
+Informo al ROMI del fallo de la MAGOLLA. La examina y dice: HA SI- DO EXPUESTA A UN FUERTE CAMPO MAG- NETICO. INICIO SECUENCIA DE REPA- RACION.
+La introduce en su Orificio Multiuso. 
+REPARACION POSITIVA.
+Y el utilísimo ROMI te devuelve la MAGOLLA.
+>
+SALIDAS 
+SALIR
+         Sector 3 - ZOT
+Te encuentras frente a la entrada de la ZOES, desde dentro llegan fuertes risas de CORME y, si estás de mala suerte, puedes ver salir algún ebrio COFRATO en su ronda final antes de abandonar la base.
+Un ejército de ROMA aparece y lo dejan todo, tú incluido, lavado, engrasado, pulido y abrillantado. Luego, los Robots de Mantenimiento se dirigen con presteza a otra sección.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 2 - ZOT
+Frente a una UA-S con OPTOLOCK. En el bajo techo hay un MIESUP.
+>
+ABRIR 
+UA-S
+Al contacto con la TIGA, el meca- nismo del OPTOLOCK se activa y la UA-S se abre.
+>
+SALIDAS 
+ENTRAR
+         Sector 2 - ZODE              Aunque sobrias, las Zonas de Des- canso son muy acogedoras, con có- modos muebles y la imprescindible URSU.
+Además hay una UFAP.
+>
+USAR 
+MAGOLLA
+Introduces la MAGOLLA en el lector magnético de la UFAP. Está abierto.
+La MAGOLLA ha quedado atascada en el LECMA.
+>
+SACAR DE 
+UFAP 
+PD-AA 
+Has cogido el PD-AA.
+>
+METER EN 
+UPM-CO 
+PD-AA 
+El PD-AA está en la UPM-CO.
+>
+SALIDAS 
+SALIR
+         Sector 2 - ZOT
+Frente a una UA-S con OPTOLOCK. En el bajo techo hay un MIESUP.
+Toda la estructura vibra al trans- mitir la enorme potencia generada por el despegue de un gran KRUGUER
+KRUGUER = Crucero de Guerra.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 2 - ZOT
+En ésta solitaria Zona de Tránsito hay una pequeña PMM, quizá único recuerdo de algunos valientes COMUCOS.
+Las luces de atención parpadean y se oye el penetrante gemido que anuncia la llegada de un VEECO.
+VEECO =  Vehículo Espacial de Ex- ploración y Combate.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 1 - ZOT
+Frente a una amplia entrada con un elegante INVI a un lado y un moderno HOZOOVIAC del otro.
+>
+SALIDAS 
+ANTIGIRO
+         Sector 1 - ZOT
+Frente a la UTV con un INVI supe- rior. Por éstos pasillos del Pri- mer Sector suelen patrullar algu- nos BLOQUEATORS e INTERCEPTORS.
+>
+SALIDAS 
+SUBIR
+De modo automático la UTV se acti- va transportándote hacia la ZONA DE CONTACTO CON EL EXTERIOR. La gravedad disminuye al acercarte al eje de rotación de la base.
+Has llegado a la ZOAV.
+         Sector 0 - ZOAV
+En la Zona de Almacenamiento y de Vestuario hay que prepararse para afrontar los rigores del espacio exterior. Hay varias estanterías con equipo. En un extremo hay una UA-E con un un llamativo INVI.
+Además hay unas UPI-T y una UPM-T.
+>
+USAR 
+TIGA
+Al contacto con la TIGA, el meca- nismo del OPTOLOCK se activa y la UA-S se abre.
+>
+SALIDAS 
+ENTRAR
+         Sector 0 - ZOCA              La Zona de Cambio Atmosférico tie- ne gruesas y acolchadas paredes. Hay una UA-E y una UA-V con un INVI superior.
+>
+CERRAR 
+UA-E
+Cierras la UA-E-ZOAV. La ZOCA está sellada. Se activan automecanismos y, con un silbido en decrecendo, la cámara se vacía de aire.
+Al alcanzar el vacío total, la UA-E-ZOCE se abre.
+Con paso decidido vas a cruzar ese umbral que te aparta del acogedor Anillo Dorado para enfrentarte a lo desconocido.
+Comienza la verdadera misión... 
+    FIN DE LA PRIMERA PARTE
+    PARA PASAR A LA SEGUNDA
+    UTILIZA LA ORDEN-CLAVE
+    "PSI LIRAE".
+Turnos consumidos: 61.
+>
+ADIOS 
+¿Seguro? (S/N) S

@@ -1,0 +1,5 @@
+{
+    "fixture": "jabato/msx/JABATO-MSX 2.CAS",
+    "shared": "jabato/part2-spectrum",
+    "timeout_seconds": 600
+}

@@ -35,10 +35,28 @@ static bool SkipTimedPauses(const DDB_Interpreter* i)
 	#endif
 }
 
-static bool AnyKeyForWait(bool allowCaptures = true)
+#if HAS_TESTMODE
+void DDB_TestSetFlag(uint8_t flag, uint8_t value)
+{
+	if (interpreter != 0)
+		interpreter->flags[flag] = value;
+}
+#endif
+
+static bool TranscriptMuted(DDB_Interpreter* i)
 {
 	#if HAS_TESTMODE
-	return SCR_AnyKeyForWait(allowCaptures);
+	return DDB_TestWindowMuted(i->curwin);
+	#else
+	(void)i;
+	return false;
+	#endif
+}
+
+static bool AnyKeyForMore(bool allowCaptures = true)
+{
+	#if HAS_TESTMODE
+	return SCR_AnyKeyForMore(allowCaptures);
 	#else
 	(void)allowCaptures;
 	return SCR_AnyKey();
@@ -624,7 +642,8 @@ bool DDB_NewLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 
 bool DDB_NewLine (DDB_Interpreter* i)
 {
-	DDB_TranscriptNewLine();
+	if (!TranscriptMuted(i))
+		DDB_TranscriptNewLine();
 	return DDB_NewLineAtWindow(i, &i->win);
 }
 
@@ -942,7 +961,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 					// The renderer discards a separator at the right edge so the
 					// next line does not start with it. It is still part of the
 					// logical message and must remain in the transcript.
-					if (transcriptFile)
+					if (transcriptFile && !TranscriptMuted(i))
 						WriteTranscriptChar(ch);
 					w->posX = maxX;
 					n++;
@@ -967,7 +986,7 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		drawnChars += (uint32_t)spanLength;
 		#endif
 
-		if (transcriptFile)
+		if (transcriptFile && !TranscriptMuted(i))
 		{
 			for (int spanIndex = 0; spanIndex < spanLength; spanIndex++)
 				WriteTranscriptChar(spanChars[spanIndex]);
@@ -1659,6 +1678,28 @@ static bool Absent(DDB_Interpreter* i, uint8_t objno)
 		i->objloc[objno] != Loc_Worn);
 }
 
+
+#if HAS_DRAWSTRING
+// The original interpreters set the current text window to the drawn
+// picture's window, so the game's own CLS before the next picture only
+// clears the graphics area (text printed below survives)
+static void AdoptVectorPictureWindow(DDB_Interpreter* i, uint8_t picno)
+{
+	int x, y, w, h;
+	if (!DDB_GetVectorPictureWindow(picno, &x, &y, &w, &h))
+		return;
+	DDB_Window* win = &i->win;
+	win->x = x;
+	win->y = y;
+	win->width = w;
+	win->height = h;
+	win->posX = x;
+	win->posY = y;
+	i->windef[i->curwin] = *win;
+	DDB_CalculateCells(i, win, &i->cellX, &i->cellW);
+}
+#endif
+
 void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 {
 	if (locno == 255)
@@ -1796,6 +1837,7 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 					if (found)
 						i->flags[Flag_HasPicture] = 128;
 					VID_SetAttributes(attributes);
+					AdoptVectorPictureWindow(i, locno);
 				}
 			}
 		}
@@ -1862,7 +1904,11 @@ static void UpdatePos (DDB_Interpreter* i, int process, int entry, int offset)
 
 static bool MovePlayer (DDB_Interpreter* i, uint8_t flag)
 {
-	uint8_t locno = i->flags[Flag_Locno];
+	// MOVE routes the location held in the given flag through the current
+	// verb's connections. For flag 38 that is the player's own movement, but
+	// any other flag moves an NPC: Espacial part 3 makes companions follow
+	// the player with MOVE [n] over each character's location flag.
+	uint8_t locno = i->flags[flag];
 	if (locno >= i->ddb->numLocations)
 		return false;
 	uint8_t* ptr = i->ddb->locConnections[locno];
@@ -3211,6 +3257,16 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			{
 				uint32_t value = RandInt(0, 100);
 				ok = value < param0;
+				#if HAS_TESTMODE
+				// A scripted override replaces the outcome but the roll above
+				// still consumed its random number, so the stream stays
+				// aligned with an unforced run
+				if (DDB_TestChanceForced(&ok, (*code & 0x80) != 0, code[1]))
+				{
+					TRACE("%sCHANCE %u: [forced by script]\n", ok ? "" : "[Failed] ", param0);
+					break;
+				}
+				#endif
 				TRACE("%sCHANCE %u: %u\n", ok ? "" : "[Failed] ", param0, value);
 				break;
 			}
@@ -3655,6 +3711,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						uint8_t attributes = VID_GetAttributes();
 						DDB_DrawVectorPicture(param0);
 						VID_SetAttributes(attributes);
+						AdoptVectorPictureWindow(i, param0);
 						#endif
 
 						// TODO: Did Original do this? Check
@@ -3669,8 +3726,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
+						// The original interpreters update the current picture
+						// before validating the windef flag, so a failing
+						// PICTURE still changes what a later DISPLAY draws
+						// (Espacial 3 relies on this for its portraits)
 						ok = DDB_HasVectorPicture(param0);
-						if (ok)
+						if (DDB_VectorPictureInRange(param0))
 							i->currentPicture = param0;
 						#endif
 					}
@@ -3707,6 +3768,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						uint8_t attributes = VID_GetAttributes();
 						DDB_DrawVectorPicture(i->currentPicture);
 						VID_SetAttributes(attributes);
+						AdoptVectorPictureWindow(i, i->currentPicture);
 						#endif
 					}
 					else
@@ -3835,6 +3897,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						if (ok) {
 							SCR_GetKey(&i->flags[Flag_Key1], &i->flags[Flag_Key2], 0);
 						}
+
 						i->keyCheckInProgress = false;
 						i->keyChecked = true;
 						i->keyPressed = ok;
@@ -3980,6 +4043,14 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					SCR_PlaySample(i->currentPicture, &durationMs);
 
 					DDB_Flush(i);
+					if (SkipTimedPauses(i))
+					{
+						// The sample keeps playing, but the interpreter
+						// does not wait for it
+						TRACE("[skipped]");
+						i->done = true;
+						break;
+					}
 					i->state = DDB_PAUSED;
 					SCR_GetMilliseconds(&i->pauseStart);
 					UpdatePos(i, process, entry, offset + params + 1);
@@ -4189,7 +4260,7 @@ static void StepFunction(int elapsed)
 	{
 		if (waitingForKey)
 		{
-							if (!AnyKeyForWait())
+			if (!AnyKeyForMore(true))
 			{
 				if (i->timeout)
 				{
@@ -4256,7 +4327,18 @@ static void StepFunction(int elapsed)
 
 			// Only the infinite ("press any key") pause is a settled input point;
 			// finite pauses drive animations, so defer scripted captures there.
-			if (AnyKeyForWait(i->pauseFrames == 65535))
+			// While scripted input is feeding, finite pauses do not consume
+			// keys at all: fast mode skips them outright, so consuming input
+			// here would make a script's behavior depend on the FAST setting.
+			#if HAS_TESTMODE
+			if (i->pauseFrames != 65535 && DDB_TestHasScriptedInput())
+			{
+				if (i->pauseFrames < 0 || current - i->pauseStart >= (uint32_t)i->pauseFrames * 16)
+					i->state = DDB_RUNNING;
+				break;
+			}
+			#endif
+			if (AnyKeyForMore(i->pauseFrames == 65535))
 			{
 				i->state = DDB_RUNNING;
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
@@ -4277,7 +4359,7 @@ static void StepFunction(int elapsed)
 		}
 
 		case DDB_WAITING_FOR_KEY:
-							if (AnyKeyForWait())
+							if (AnyKeyForMore())
 			{
 				SCR_GetKey(&i->lastKey1, &i->lastKey2, 0);
 				DDB_PlayClick(i, true);

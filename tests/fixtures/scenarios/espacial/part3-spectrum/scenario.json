@@ -1,0 +1,5 @@
+{
+    "fixture": "espacial/spectrum/ESPACIAL-SPECTRUM 2.tzx",
+    "shared": "espacial/part3-amiga",
+    "timeout_seconds": 600
+}

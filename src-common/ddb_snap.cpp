@@ -658,8 +658,20 @@ static bool LoadSnapshotFromTZX (File* file)
 				{
 					if (length >= 32768 && blockCount > 0)
 					{
-						// Desperate attempt to find game data in a headerless block (Cozumel)
-						dataAddress = 65535 - (length-2);
+						// Desperate attempt to find game data in a headerless
+						// block. If the payload tail carries the SDG footer
+						// signature (FF FF count 00 00) the block loads flush
+						// against the top of memory, landing the footer at
+						// 0xFFED (Espacial); otherwise use the historical
+						// one-below placement (Cozumel)
+						uint8_t tail[5];
+						uint64_t payloadStart = File_GetPosition(file) + 1;
+						File_Seek(file, payloadStart + (length-2) - 5);
+						File_Read(file, tail, 5);
+						File_Seek(file, payloadStart - 1);
+						bool flushTop = tail[0] == 0xFF && tail[1] == 0xFF &&
+						                tail[3] == 0x00 && tail[4] == 0x00;
+						dataAddress = (flushTop ? 65536 : 65535) - (length-2);
 						uint8_t flags, checksum;
 						File_Read(file, &flags, 1);
 						File_Read(file, snapshotRAM + dataAddress, length-2);
@@ -756,9 +768,10 @@ static bool LoadSnapshotFromTZX (File* file)
 
 			case 0x30: // Text description
 			{
+				// [1 byte: length][length bytes: text]
 				uint8_t length;
 				File_Read(file, &length, 1);
-				File_Seek(file, File_GetPosition(file) + length + 1);
+				File_Seek(file, File_GetPosition(file) + length);
 				break;
 			}
 

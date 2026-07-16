@@ -2100,7 +2100,11 @@ void VID_MainLoop (DDB_Interpreter* interpreter, void (*callback)(int elapsed))
 			#if HAS_TESTMODE
 			!VID_IsFastMode() &&
 			#endif
-			(buffering || (interpreter != NULL && interpreter->state == DDB_VSYNC)))
+			(buffering || (interpreter != NULL && (interpreter->state == DDB_VSYNC ||
+			// INKEY polls cost one frame on the original interpreters; without
+			// this, INKEY-driven game loops (the Espacial arcade) run at CPU
+			// speed instead of frame rate
+			                                       interpreter->state == DDB_CHECKING_KEY))))
 		{
 			if (now - ticks < 20)
 				SDL_Delay(now + 20 - ticks);
@@ -2496,7 +2500,7 @@ bool VID_Initialize (DDB_Machine machine, DDB_Version version, DDB_ScreenMode mo
 
 	if (charsetInitialized == false)
 	{
-		memcpy(charset, DefaultCharset, 1024);
+			memcpy(charset, DefaultCharset, 1024);
 		memcpy(charset + 1024, DefaultCharset, 1024);
 		charsetInitialized = true;
 	}

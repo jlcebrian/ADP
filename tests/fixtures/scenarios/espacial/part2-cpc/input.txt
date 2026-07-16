@@ -1,0 +1,194 @@
+# GUION EN CONSTRUCCION (parte 2 en 8 bits): verificado hasta Tecnodia
+# completa (CHAPO/ROMI/XI-KA+); muere o desincroniza en el tramo final
+# (comunicado 164/014/076 + salto 170/193/184). Confirmado con el dump:
+# el juego de 8 bits es un remake compacto (cada planeta una localidad,
+# SUBIR 11 como unica conexion); el armado final es EQ 133-135=170/193/184
+# (desarmar DESPUES del salto) y el peligro en vuelo es CHANCE 42.
+# Renombrar scenario.json.wip a scenario.json para continuar.
+# Solución original: project CASA https://www.solutionarchive.com/file/id%2C24430/ de boldir, 2023
+
+# La ventana 3 es la de menús: sin esto el transcript se llena de redibujados
+@mute 3
+
+# El arcade no aporta a esta prueba y su coreografia depende de la geometria
+# de vuelo de cada maquina: suprimir desde el principio la tirada del
+# encuentro (CHANCE [74]) y la del peligro en vuelo (CHANCE 50); la deriva
+# del piloto automatico (CHANCE [3] solo) sigue viva. Sin encuentros, los
+# bloques de combate del guion Amiga sobran y han sido retirados.
+@chance fail [74]
+@chance fail 42
+# Y la cadena de dano enemigo (CHANCE 1/CHANCE 18): tras marcar la O.A. el
+# juego arma el ataque final en cada ciclo y no se puede desarmar
+@chance fail 1
+
+# La version de 8 bits empieza directamente en la ZOCE: no pide clave
+@save Intro
+
+# Órdenes del menú principal (posiciones fijas)
+@define SALIDAS 1
+@define INVENTARIO 2
+@define ESPERAR 3
+@define MIRAR 4
+@define ESCUCHAR 5
+@define HABLAR 6
+@define USAR 7
+@define EXAMINAR 8
+@define COGER P1
+@define DEJAR P2
+@define ABRIR P3
+@define CERRAR P4
+@define PONERSE P5
+@define QUITARSE P6
+@define METER P7
+@define SACAR P8
+@define SAVELOAD PP1
+
+@save Inicio
+@menu SACAR UPM-CO PD-AA 
+@menu ABRIR PD-AA
+@menu EXAMINAR P HODOSE
+@save Coordenadas
+@menu ABRIR UA-E-VEECO
+@menu SALIDAS SUBIR
+
+@key 1  # Despegar
+@key 3  # Coordenadas
+145
+196
+006
+@key 4  # Hiperespacio
+@key 2  # Aterrizar
+@save Durolitia
+@key 7  # Depósito
+@save Depósito
+
+@menu ABRIR CAFU 
+@menu SACAR CAFU DIPAS 
+@menu SACAR CAFU PRILU 
+@menu SALIDAS CARLINGA
+
+@key 8  # Salir
+
+@save Durolitia2
+@menu USAR PRILU
+# La secuencia de los cristales depende del azar de cada version (los
+# objetivos del juego son IDs base 0: 8,6,4 = VIOLETA BLANCO PLATEADO)
+# La paleta CPC tiene 8 colores (sin pagina 2) y la tirada da 4,5,5
+@menu VIOLETA
+@menu NARANJA
+@menu NARANJA
+@menu USAR DIPAS
+@menu ABRIR UA-E-VEECO
+@menu SALIDAS SUBIR
+
+@key 1  # Despegar
+@key 3  # Coordenadas
+112
+085
+137
+@key 4
+
+
+@key 2
+@save Paradiso
+@key 4
+@key 7      # Depósito
+
+@menu DEJAR PRILU
+@menu SACAR CAFU ELSON
+@menu SALIDAS CARLINGA
+
+@key 8      # Salir
+
+@save Paradiso
+# En 8 bits no hay cupula que entrar: ELSON se usa aqui mismo y es una
+# calibracion numerica (empieza en 15000; Q/A ajustan, O/P mueven el cursor)
+@menu USAR ELSON
+# Objetivo 18483 (digitos desde cero): Q sube el digito, P avanza el cursor
+@menu qp qqqqqqqqp qqqqp qqqqqqqqp qqqp m
+@save Angelical
+# La pantalla del ELSON espera una tecla antes de volver al menu
+@key
+@menu USAR DIPAS
+@menu USAR TIGA
+@menu SALIDAS SUBIR
+
+@key 1  # Despegar
+@key 3  # Coordenadas
+140
+003
+061
+@key 4  # Hiperespacio
+@key 2  # Aterrizar
+@save Viperia
+@key 7
+
+@menu DEJAR ELSON
+@menu SACAR CAFU MAPUL
+@menu SALIDAS CARLINGA
+@key 8
+
+@save Viperia
+@menu USAR MAPUL
+# Los olores objetivo dependen del azar de esta version (IDs base 0: 3,1,3)
+@menu GASNURITO
+@menu BUTAZONITO
+@menu SULFIDRICO
+@menu USAR DIPAS
+@menu USAR TIGA
+@menu SALIDAS SUBIR
+
+@key 1  # Despegar
+@key 3  # Coordenadas
+093
+107
+134
+@key 4  # Hiperespacio
+
+
+@key 2
+@save Tecnodia
+@key 8
+@save Tecnodia2
+
+# En 8 bits Tecnodia es una sola localidad: no hay RAMAUT que bajar
+@save Tecnodia3
+@menu SACAR UPM-CO CHAPO
+@menu USAR CHAPO ROMI
+@menu ESCUCHAR
+@menu SACAR SERPO CHAPO
+@menu USAR CHAPO XI-KA+
+@menu USAR DIPAS
+@menu USAR TIGA
+@menu SALIDAS SUBIR
+
+@key 1
+@key 3
+164
+014
+076
+@key 4
+@save Comunicado
+@key
+@save Comunicado
+# En ST el comunicado tiene una pagina mas que en Amiga
+@key
+@key space
+
+# Llegar al punto del comunicado ARMA el ataque final (SET 136, evento de
+# guion, no aleatorio) y la navegacion queda DENEGADA hasta ganar el arcade.
+# El arcade no es el objetivo de esta prueba: desarmarlo directamente
+@key 3
+170
+193
+184
+# Flags 133-135 son la POSICION: el salto llega a la O.A., el juego arma el
+# ataque final (125=10, 136 armado cada ciclo, indesarmable) y Aterrizar (2)
+# con 125=10 dispara la llegada; @chance fail 1 mantiene los escudos
+@key 4
+@key 2
+# Esperar la llegada: la clave de la parte 3 queda fija en pantalla
+@waittext ORDENES-CLAVE
+@chance random
+@save Jump
+@exit

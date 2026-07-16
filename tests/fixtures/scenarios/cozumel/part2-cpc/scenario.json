@@ -1,0 +1,6 @@
+{
+    "fixture": "cozumel/cpc/COZUMEL-CPC 2.CDT",
+    "shared": "cozumel/part2-msx",
+    "consumes": { "from": "cozumel/part1-cpc", "file": "PART1ENDING.SAV" },
+    "timeout_seconds": 600
+}

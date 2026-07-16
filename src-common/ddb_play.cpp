@@ -1809,6 +1809,15 @@ void DDB_RestartAsyncPlayer()
 
 PlayerState DDB_RunPlayerAsync(const char* location)
 {
+	#if HAS_TESTMODE
+	if (!DDB_TestIsActive())
+	#endif
+	{
+		uint32_t entropy = 0;
+		SCR_GetMilliseconds(&entropy);
+		RandSeedFromClock(entropy);
+	}
+
 	static DDB_ScreenMode screenMode = ScreenMode_VGA16;
 	static uint8_t displayPlanes = 4;
 	static DDB_Machine initializedMachine = DDB_MACHINE_AMIGA;
@@ -2177,6 +2186,15 @@ static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine
 
 bool DDB_RunPlayer()
 {
+	#if HAS_TESTMODE
+	if (!DDB_TestIsActive())
+	#endif
+	{
+		uint32_t entropy = 0;
+		SCR_GetMilliseconds(&entropy);
+		RandSeedFromClock(entropy);
+	}
+
 	ResetStartupConfig();
 	DDB_Machine machine = DDB_MACHINE_AMIGA;
 	DDB_Language language = DDB_SPANISH;

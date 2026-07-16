@@ -1,0 +1,5 @@
+{
+    "fixture": "jabato/c64/JABATO-C64 1.DDB",
+    "shared": "jabato/part1-spectrum",
+    "timeout_seconds": 600
+}

@@ -1,0 +1,5 @@
+{
+    "fixture": "jabato/cpc/JABATO-CPC 1.sna",
+    "shared": "jabato/part1-spectrum",
+    "timeout_seconds": 600
+}

@@ -1,0 +1,5 @@
+{
+    "fixture": "espacial/cpc/ESPACIAL-CPC 1.cdt",
+    "shared": "espacial/part2-spectrum",
+    "timeout_seconds": 600
+}

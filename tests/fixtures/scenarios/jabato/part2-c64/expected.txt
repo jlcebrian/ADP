@@ -1,0 +1,335 @@
+JABATO EN AFRICA
+Dirección:
+Andrés Samudio
+Programación:
+Manolo González
+Gráficos:    
+Carlos Marqués     
+Juan Antonio Darder
+Paco Zarco    
+(C) 1989 Aventuras A.D.
+Introduce la clave de acceso.
+> INEXES LOXIKO
+Cesarea, frontera entre la conocida costa y los reinos del interior. Hay gentes de todos los tamaños, colores y razas.
+> I 
+Tienes una antorcha apagada y una petaca.
+Llevas puesto un talismán y un bonito anillo.
+> E
+El mercado es un hervidero de negocios, legales o no, aunque estos últimos abundan... Un vendedor te sonríe ampliamente. Curioseando por los puestos de venta, ves a Fideo. Fideo dice: "Hola Jabato".
+> EX MERCADO
+El vendedor te enseña un chisquero egipcio, que te deja por 2 debens.
+> DECIR FIDEO "DAME DINERO"
+Fideo dice: "Toma, el montón de dinero es para tí".
+Has cogido el montón de dinero.
+> COMPRAR CHISQUERO
+El vendedor, sonriente, te dice: "Toma, el chisquero es para tí".
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> O
+Cesarea, frontera entre la conocida costa y los reinos del interior. Hay gentes de todos los tamaños, colores y razas. Fideo está aquí.
+> S
+Arrabal cerca de la salida de Cesarea. El centro de la ciudad queda al Norte. Fideo está aquí.
+> S
+Salida Sur de Cesarea. De aquí parten todas las rutas. Los Montes Atlas se alzan más al Sur. Aquí están tus dos amigos.
+Taurus dice: "Hola Jabato".
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale, Jabato". 
+> S
+Estás abandonando toda traza de civilización para internarte en el Sahara. Hacia el Este, a varias jornadas, está Egipto. Un anciano te observa intrigado. Aquí están tus dos amigos.
+> DECIR ANCIANO "AYUDA"
+El anciano murmura: "En el Atlas hay un lugar plagado de alimañas. Si las entiendes lograrás algo muy útil".
+> S
+Te internas en el macizo del Atlas. Avanzas entre imponentes montañas  y terribles precipicios. Aquí están tus dos amigos.
+> E
+En el corazón del Atlas, cerca de la temible región del Cus. Aquí están tus dos amigos.
+> E
+Las puertas de Morona. Nada se supo de los que lograron entrar, y nadie salió jamás por ellas... vivo. Una de las estatuas mueve la boca. Aquí están tus dos amigos.
+> QUITAR TALISMAN
+Te has quitado el talismán.
+> METER TALISMAN EN ESTATUA
+La estatua, con sonoro eructo, se traga el talismán.
+> EX PUERTA
+Maciza puerta con un siniestro aldabón en cada hoja.
+> MOVER ALDABA
+Las puertas se abren, dejando entrever las tinieblas que guardan...
+> DECIR TAURUS "ESPERA"
+Taurus dice: "Vale, Jabato". 
+> DECIR 
+Fideo dice: "La verdad es que no te entiendo".
+> FIDEO "ESPERA"
+Fideo dice: "Vale, Jabato". 
+> ENTRAR
+No se ve nada.
+> ENCENDER ANTORCHA
+El interior de la caverna es húmedo y frío. Se oyen débiles gemidos y tu espíritu se estremece...
+> E
+Este lugar parece más limpio. Un cristal central parte en dos la estancia. Tras el, ves al enano Maluva lanzarte un hacha que rebota contra el cristal...(¿?)
+> S
+Zona aún más oscura donde el hedor es insoportable. Sin duda un comedero, ya que hay varios animales degollados sobre los cuales yacen seres que sorben su sangre.
+Una anciana vampira te ofrece un cuenco de humeante sangre en la que flotan gelatinosos coágulos. 
+> BEBER SANGRE
+¡Acertaste el ritual! La feliz anfitriona emprende errático vuelo.
+> S
+Estás en la guarida del jefe de ésta sangrienta pocilga. 
+El vampiro dice: "Dzime zi zabes guién ez el zeñor del dezierto y d'la noshe", y mira tu yugular mientras masca un coágulo.
+> DECIR MARTTUS "MARTTUS"
+El vampiro dice: "Edez muy lizto, edzfectifamentze dzoy dzió medzmo. Tzoma, bvebe deszta rica y nudridiva tzangre, luego magzdica gom güidado os gujosos goágulos", y te presenta la fétida mezcla.
+> BEBER SANGRE
+El vampiro dice: "Zsiéndade y dzrelájade edztranjedo, ofrédzeme du cueillo...", con una maliciosa mueca entre sus enormes colmillos.
+> SENTAR
+Marttus muerde tu cuello y succiona tu valerosa sangre. Te adormeces... sueñas...
+Sientes los efectos de la pérdida de sangre, los párpados te pesan... estás cansado y tienes ganas de dormir... dormir... 
+seguir a un buitre trae mala suerte... 
+la cola de un escorpión indica la ruta... 
+los pajarillos son muy buenos navegantes... 
+atraviesa el desierto y no pierdas la compañía... 
+Entre nieblas, ves a tu amada Claudia retorcerse entre los palpos de un alucinante ser... 
+La escena terminó. Estás temblando y cubierto de sudor pegajoso y frío, pero recuerdas que Claudia está sufriendo en el Valle de los Reyes.
+> N
+Zona aún más oscura donde el hedor es insoportable. Sin duda un comedero, ya que hay varios animales degollados sobre los cuales yacen seres que sorben su sangre.
+> O
+Penumbra y repugnancia reinan en ésta cámara. Por los rincones ves algunas criatura fofas y blanquecinas, cual fetos de quién sabe qué engendros.
+Aquí hay una cría de vampiro.
+> COGER CRIA
+Has cogido la cría de vampiro.
+> METER CRIA EN PETACA
+La cría de vampiro está en la petaca.
+> N
+El interior de la caverna es húmedo y frío. Se oyen débiles gemidos y tu espíritu se estremece...
+> SALIR
+Las puertas de Morona. Nada se supo de los que lograron entrar, y nadie salió jamás por ellas... vivo. Aquí están tus dos amigos.
+Fideo dice: "¿Hacia dónde vamos, Jabato?"
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale, Jabato". 
+Taurus dice: "Jabato, eres el mejor".
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> O
+En el corazón del Atlas, cerca de la temible región del Cus. Aquí están tus dos amigos.
+> O
+Te internas en el macizo del Atlas. Avanzas entre imponentes montañas  y terribles precipicios. Aquí están tus dos amigos.
+> N
+Estás abandonando toda traza de civilización para internarte en el Sahara. Hacia el Este, a varias jornadas, está Egipto. El anciano observa con aprobación tu violáceo cuello (especialidad Marttus). Aquí están tus dos amigos.
+> E
+Esperando la próxima víctima del desierto, un buitre mira hacia el Sur. Aquí están tus dos amigos.
+> N
+Sientes el peso agobiante del terrible Sol africano. Aquí están tus dos amigos.
+> N
+El calor hace vibrar el horizonte, desdibujando sus límites. Aquí están tus dos amigos.
+> N 
+Soportando la mordedura del Sol, un escorpión se escurre hacia el Este. Aquí están tus dos amigos.
+> E
+La ardiente arena hace que tus pasos sean cada vez más lentos. Aquí están tus dos amigos.
+> E 
+Un pajarito vuela hacia el Norte huyendo de los ardores desérticos. Aquí están tus dos amigos.
+> N
+Continúas vagando por este mar de ondulantes dunas. Aquí están tus dos amigos.
+> N
+El silencio mortal de este desolado panorama es roto por el sonido de tus cansinos pasos. Aquí están tus dos amigos.
+> N 
+Alejandría, en el delta del Nilo, es la puerta de entrada al milenario Egipto. Aquí están tus dos amigos.
+> S
+El mercado ofrece la típica mezcla de traficantes honrados junto a toda clase de buscavidas.
+El traficante dice: "¿Qué andáis buscando, viajeros?" Aquí están tus dos amigos.
+> DAR DINERO A TRAFICANTE
+El traficante dice: "Muy agradecido", con una falsa venia.
+> DECIR TAURUS "SIGUEME"
+Taurus dice: "Vale, Jabato". 
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> DECIR TRAFICANTE "LLEVAME A GIZEH"
+El traficante os guía hasta llegar a las pirámides...
+Jabato, desde éstas piedras veinte siglos de historia te contemplan. Estás ante la maravilla del mundo: Las Pirámides. Aquí están tus dos amigos.
+El traficante dice: "Este sitio no me gusta... vuelvo a Alejandría".
+> E
+Junto a la gran Esfinge, símbolo de lo extraño e inescrutable del eterno Egipto. Aquí están tus dos amigos.
+> E
+En una tienda Tuareg, los pobladores del desierto. Hoy los desertícolas tienen ganas de bailar y entonan desafinadas cancioncillas.
+Los tuaregs están contentos. Poco a poco se eleva un canto y algunos inician una danza. Lo hacen fatal... Aquí están tus dos amigos.
+> DECIR FIDEO "TOCA"
+Fideo dice: "Vale, Jabato". 
+Fideo tañe su lira. Los tuaregs se alegran mucho al ver que alguien lo hace peor que ellos...
+> DECIR TUAREG "AYUDA"
+El tuareg te dice: "Busca en la Gran Tumba y cava junto a la Mujer-León".
+Contento por la actuación, el tuareg te ofrece una botella de agua petrificadora.
+> COGER BOTELLA
+Has cogido la botellita de agua paralizadora.
+> O
+Junto a la gran Esfinge, símbolo de lo extraño e inescrutable del eterno Egipto. Aquí están tus dos amigos.
+> O
+Jabato, desde éstas piedras veinte siglos de historia te contemplan. Estás ante la maravilla del mundo: Las Pirámides. Aquí están tus dos amigos.
+> EX PIRAMIDES
+Fueron erigidas para mayor gloria de los faraones Kefrén, Keops y Micerino.
+> ENTRAR KEOPS
+El interior del gran mausoleo de Keops está lleno de pasajes, corredores y túneles de ventilación. Aquí están tus dos amigos.
+> E
+El interior del gran mausoleo de Keops está lleno de corredores, pasajes y túneles de ventilación. Aquí están tus dos amigos.
+> BAJAR
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, corredores y pasajes. Aquí están tus dos amigos.
+> BAJAR
+Los faraones solían hacer contruir tumbas falsas para despistar a los ladrones... Aquí están tus dos amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale, Jabato". 
+Aferrando un extremo de la pesada losa, Taurus consigue levantarla. En el interior hay una momia.
+> LEVANTAR MOMIA
+Estás sujetando la pesada momia.
+Algún ladrón olvidó una pala aquí.
+> DECIR FIDEO "COGE PALA"
+Fideo dice: "Vale, Jabato". 
+Fideo se agacha y coge la pala con mucho asco.
+> SUBIR
+La momia cae de nuevo a la tumba.
+Incapaz de soportar el tremendo peso, Taurus suelta la losa.
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, corredores y pasajes. Aquí están tus dos amigos.
+> SUBIR
+El interior del gran mausoleo de Keops está lleno de corredores, pasajes y túneles de ventilación. Aquí están tus dos amigos.
+> O
+El interior del gran mausoleo de Keops está lleno de pasajes, corredores y túneles de ventilación. Aquí están tus dos amigos.
+> SALIR
+Jabato, desde éstas piedras veinte siglos de historia te contemplan. Estás ante la maravilla del mundo: Las Pirámides. Aquí están tus dos amigos.
+> E
+Junto a la gran Esfinge, símbolo de lo extraño e inescrutable del eterno Egipto. Aquí están tus dos amigos.
+> DEJAR ANTORCHA
+Has dejado la antorcha flameante.
+> DECIR FIDEO "DAME PALA"
+Fideo dice: "Toma, la pala es para tí".
+Has cogido la pala.
+> CAVAR
+Cavas en la arena al pie de la Esfinge y encuentras el ank.
+> DEJAR PALA
+Has dejado la pala.
+> COGER ANK
+Has cogido el ank.
+> COGER ANTORCHA
+Has cogido la antorcha flameante.
+> O
+Jabato, desde éstas piedras veinte siglos de historia te contemplan. Estás ante la maravilla del mundo: Las Pirámides. Aquí están tus dos amigos.
+> ENTRAR KEOPS
+El interior del gran mausoleo de Keops está lleno de pasajes, corredores y túneles de ventilación. Aquí están tus dos amigos.
+> E
+El interior del gran mausoleo de Keops está lleno de corredores, pasajes y túneles de ventilación. Aquí están tus dos amigos.
+> BAJAR
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, corredores y pasajes. Aquí están tus dos amigos.
+> E
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, pasajes y corredores. Aquí están tus dos amigos.
+> BAJAR
+Estás junto a la tumba de un Real Faraón. Solo el catafalco queda de sus muchas ofrendas. Aquí están tus dos amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale, Jabato". 
+Aferrando un extremo de la pesada losa, Taurus consigue levantarla. En el interior hay una momia.
+> LEVANTAR MOMIA
+Estás sujetando la pesada momia.
+Agitando los élitros, un escarabajo se escabulle del lugar.
+> TIRAR BOTELLA
+La momia cae de nuevo a la tumba.
+Incapaz de soportar el tremendo peso, Taurus suelta la losa.
+Al perder el líquido, la botella se reduce a polvo.
+El escarabajo chirria y queda envuelto en humo. Al despejarse, puedes ver un precioso escarabajo... petrificado.
+> COGER ESCARABAJO
+Has cogido el escarabajo.
+> SUBIR
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, pasajes y corredores. Aquí están tus dos amigos.
+> O
+El interior del gran mausoleo de Keops está lleno de túneles de ventilación, corredores y pasajes. Aquí están tus dos amigos.
+> SUBIR
+El interior del gran mausoleo de Keops está lleno de corredores, pasajes y túneles de ventilación. Aquí están tus dos amigos.
+> O
+El interior del gran mausoleo de Keops está lleno de pasajes, corredores y túneles de ventilación. Aquí están tus dos amigos.
+Aquí hay un adoquín.
+> SALIR
+Jabato, desde éstas piedras veinte siglos de historia te contemplan. Estás ante la maravilla del mundo: Las Pirámides. Aquí están tus dos amigos.
+> O
+Otra vez el inmisericorde desierto, pero la vegetación es mas verde y fresca, como hubiese agua cerca. Aquí están tus dos amigos.
+> S
+Frente al río Nilo, caudal vital para Egipto y fuente de su economía y comunicaciones. Anclada cerca hay una barca fluvial egipcia. Aquí están tus dos amigos.
+> DAR DINERO A BARQUERO
+El barquero te dice: "Muy agradecido", con una falsa venia.
+> SUBIR
+La barca surca el Nilo...
+El Valle de los Reyes, ya en el Alto Egipto. Lugar de entierro de faraones durante medio milenio. Anclada cerca hay una barca fluvial egipcia. Aquí están tus dos amigos.
+> BAJAR
+Has encontrado la entrada a la tumba de Tut-ank-ammón, faraoncito de la XVIII dinastía. Aquí están tus dos amigos.
+> ENTRAR
+Al entrar en la tumba de Tut, Fideo se da un fuerte coscorrón.
+Dentro de la tumba del Rey Niño, Tut-ank-ammón y junto a su inviolado sarcófago. Aquí están tus dos amigos.
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Lo siento, pero no puedo hacerlo".
+Al ver los inútiles esfuerzos, Fideo ríe misteriosamente.
+> DECIR FIDEO "AYUDA"
+Fideo dice: "Vale, Jabato". 
+Fideo, poseído de arcano saber, mueve la falsa barba. Un chasquido indica cierres que se abren...
+> DECIR TAURUS "ABRE TUMBA"
+Taurus dice: "Vale, Jabato". 
+Aferrando un extremo de la pesada losa, Taurus consigue levantarla. En el interior hay una momia.
+> LEVANTAR MOMIA
+Estás sujetando la pesada momia.
+Dentro ves un bello cartouche.
+> DECIR FIDEO "COGE CARTOUCHE"
+Fideo dice: "Vale, Jabato". 
+Fideo se agacha y coge el cartouche con mucho asco.
+Fideo dice: "Aauugh, me aburro" y tañe la lira. 
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> SALIR
+La momia cae de nuevo a la tumba.
+Incapaz de soportar el tremendo peso, Taurus suelta la losa.
+Has encontrado la entrada a la tumba de Tut-ank-ammón, faraoncito de la XVIII dinastía. Aquí están tus dos amigos.
+> SUBIR
+El Valle de los Reyes, ya en el Alto Egipto. Lugar de entierro de faraones durante medio milenio. Anclada cerca hay una barca fluvial egipcia.
+Fideo dice: "Aauugh, me aburro" y tañe la lira.  Aquí están tus dos amigos.
+Fideo dice: "¿Hacia dónde vamos, Jabato?"
+> DECIR FIDEO "SIGUEME"
+Fideo dice: "Vale, Jabato". 
+> E
+Otro de los agrestes parajes del Valle de los Reyes, horrendo peladero rocoso. Aquí están tus dos amigos.
+> E
+Estás en Deir-el-Bahori, frente a la entrada el templo de la Reina Hatshepsut. Por fín descubres el Nido Madre de la vil secta Kepher. Aquí están tus dos amigos.
+> DEJAR TODO
+Has dejado la antorcha flameante.
+Has dejado la petaca.
+Has dejado el ank.
+Has dejado el montón de dinero.
+Has dejado el chisquero.
+Has dejado el escarabajo.
+> DECIR FIDEO "DAME CARTOUCHE"
+Fideo dice: "Toma, el cartouche es para tí".
+Has cogido el cartouche.
+> MOSTRAR CARTOUCHE
+Las puertas se abren, dejando entrever las tinieblas que guardan...
+> DEJAR CARTOUCHE
+Has dejado el cartouche.
+> COGER TODO EXCEPTO CARTOUCHE
+Has cogido la antorcha flameante.
+Has cogido la petaca.
+Has cogido el ank.
+Has cogido el montón de dinero.
+Has cogido el chisquero.
+Has cogido el escarabajo.
+> ENTRAR
+Largo y tenebroso pasillo apretado entre dos salas hipóstilas.
+El escarabajo gigante Kepher te impide el paso. Aquí están tus dos amigos.
+> TIRAR ESCARABAJO
+Has tirado el escarabajo.
+Al ver al escarabajo petrificado, el gigante huye hacia el interior.
+> BAJAR
+Contemplas a Claudia encadenada junto al dios de la secta: Kepher Redivivo.
+Entre los palpogarfios de la criatura, Claudia se retuerce de asco y miedo mientras de su garganta sale un potente: "¡Yiepayajuuuuuuu, quitadme al bichoooo!" Aquí están tus dos amigos.
+El anillo brilla con plateado fulgor.
+> SACAR CRIA DE PETACA
+Has cogido la cría de vampiro.
+El anillo brilla con plateado fulgor.
+La cría revolotea sobre Kepher distrayendo su atención...
+> QUITAR ANILLO
+Te has quitado el bonito anillo.
+Con cegador destello, el anillo se transforma en una preciosa espada, que refleja tu faz. Fideo, en estado de shock, rasca sin sentido su lira.
+La cría revolotea sobre Kepher distrayendo su atención...
+> DECIR TAURUS "ROMPE CADENAS"
+Taurus dice: "Vale, Jabato". 
+Taurus rompe las cadenas de Claudia, y esta huye del monstruo. ¡Tienes camino libre a Kepher!
+La cría revolotea sobre Kepher distrayendo su atención...
+> MATAR KEPHER 
+Por fin has rescatado a Claudia. Los angustiosos días y las mil penalidades han valido la pena sólo por sentirla entre tus fuertes brazos.
+Endus Totallis.
+¿Vas a jugar otra vez?
+> n
+Adios...
