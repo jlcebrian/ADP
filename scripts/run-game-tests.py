@@ -4,19 +4,22 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
+import urllib.request
+import zipfile
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT / "tests" / "fixtures"
-GAMES = FIXTURES / "games"
-SCENARIOS = FIXTURES / "scenarios"
+GAMES = ROOT / "tests" / "games"
+SCENARIOS = ROOT / "tests" / "scenarios"
 RESULTS = ROOT / "test-results"
 IMAGE_EXTENSIONS = {".adf", ".dsk", ".st", ".tap", ".tzx", ".cas", ".d64", ".t64", ".cdt"}
 
@@ -28,7 +31,7 @@ class Probe:
 
 
 def load_manifest() -> dict:
-    with (FIXTURES / "manifest.json").open(encoding="utf-8") as source:
+    with (GAMES / "manifest.json").open(encoding="utf-8") as source:
         return json.load(source)
 
 
@@ -77,7 +80,10 @@ def run_probe(ddb: Path, probe: Probe, results: Path) -> bool:
 
 
 def normalize_transcript(text: str) -> str:
-    return text.replace("\r\n", "\n").replace("\r", "\n")
+    # A scripted @exit stops at the settled input point, while a game that
+    # terminates itself commonly emits one final newline.  That transport-level
+    # distinction is not part of the displayed transcript.
+    return text.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
 
 
 def decode_tool_output(output: bytes | str | None) -> str:
@@ -92,6 +98,50 @@ def as_list(value) -> list:
     if value is None:
         return []
     return value if isinstance(value, list) else [value]
+
+
+def fetch_fixture(fixture: Path, url: str, sha256: str | None) -> tuple[str, str] | None:
+    """Download a non-redistributable fixture from its authorized source.
+
+    The file itself must not live in the repository, so scenarios may carry a
+    "fixtureUrl" (and optionally "fixtureSha256") instead: every user obtains
+    the game directly from the rights holder. Returns None on success, or a
+    (kind, reason) tuple where kind is "skip" (unavailable; not a test
+    failure) or "fail" (integrity error that must be looked at).
+    """
+    try:
+        fixture.parent.mkdir(parents=True, exist_ok=True)
+        temp = fixture.with_suffix(fixture.suffix + ".download")
+        request = urllib.request.Request(url, headers={"User-Agent": "ADP-test-runner"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = response.read()
+        if payload[:4] == b"PK\x03\x04":
+            # Archive download: extract the member named like the fixture,
+            # or the only member sharing its extension
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                names = archive.namelist()
+                member = next((n for n in names if Path(n).name == fixture.name), None)
+                if member is None:
+                    candidates = [n for n in names if Path(n).suffix.lower() == fixture.suffix.lower()]
+                    if len(candidates) == 1:
+                        member = candidates[0]
+                if member is None:
+                    return ("fail", f"no archive member matches {fixture.name}; archive contains: {', '.join(names)}")
+                payload = archive.read(member)
+        temp.write_bytes(payload)
+    except Exception as error:
+        return ("skip", f"fixture download failed: {error}")
+    if sha256:
+        digest = hashlib.sha256(temp.read_bytes()).hexdigest()
+        if digest.lower() != sha256.lower():
+            temp.unlink()
+            return ("fail", f"downloaded fixture hash mismatch: got {digest}, expected {sha256}")
+    temp.replace(fixture)
+    ignored = subprocess.run(["git", "check-ignore", "-q", str(fixture)], cwd=ROOT).returncode == 0
+    if not ignored:
+        print(f"WARNING: downloaded fixture {fixture.relative_to(ROOT)} is not gitignored; "
+              f"add it to tests/games/.gitignore so it cannot be committed")
+    return None
 
 
 def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = False, trace: bool = False, interactive: bool = False, skip_timed_pauses: bool = False) -> bool:
@@ -165,6 +215,20 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
         print(f"FAIL scenario {scenario_path.relative_to(ROOT)}: {reason}")
         return False
 
+    url_spec = scenario.get("fixtureUrl")
+    fixture_urls = url_spec if isinstance(url_spec, list) else [url_spec] * len(fixtures)
+    sha_spec = scenario.get("fixtureSha256")
+    fixture_shas = sha_spec if isinstance(sha_spec, list) else [sha_spec] * len(fixtures)
+    for fixture, url, sha in zip(fixtures, fixture_urls, fixture_shas):
+        if fixture.is_file() or not url:
+            continue
+        problem = fetch_fixture(fixture, url, sha)
+        if problem is not None:
+            kind, reason = problem
+            if kind == "skip":
+                print(f"SKIP scenario {scenario_path.relative_to(ROOT)}: {reason}")
+                return True
+            return fail(reason)
     for fixture in fixtures:
         if not fixture.is_file():
             return fail(f"fixture not found: {fixture.relative_to(ROOT)}")
@@ -504,7 +568,7 @@ def main() -> int:
     parser.add_argument("--suite", choices=("host", "dos"), default="host")
     parser.add_argument("--game", action="append", default=[], help="limit to a fixture game id")
     parser.add_argument("--inventory", action="store_true", help="probe every image instead of manifest baselines")
-    parser.add_argument("--scenario", help="run one scenario, relative to tests/fixtures/scenarios")
+    parser.add_argument("--scenario", help="run one scenario, relative to tests/scenarios")
     parser.add_argument("--record", action="store_true", help="write transcript and capture baselines for --scenario")
     parser.add_argument("--trace", action="store_true", help="enable interpreter tracing in scenario run logs")
     parser.add_argument("--interactive", action="store_true", help="show the game and hand scripted tests to live input")

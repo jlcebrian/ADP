@@ -73,7 +73,7 @@ def run_prg(f, name):
 
 if __name__ == '__main__':
     import glob
-    for path in sorted(glob.glob('/home/jlcebrian/Src/ADP/tests/fixtures/games/*/c64/*.[dD]64')):
+    for path in sorted(glob.glob('/home/jlcebrian/Src/ADP/tests/games/*/c64/*.[dD]64')):
         for name, f in files_of(open(path,'rb').read()):
             if len(f) < 20000: continue
             print(run_prg(f, name), flush=True)

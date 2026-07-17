@@ -1,0 +1,7 @@
+{
+    "fixture": "firfurcio/supervivencia.tap",
+	"randomSeed": 1,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600
+}

@@ -102,8 +102,7 @@ enum DDB_Flag
 			//   Bit 1: 1 to enable timeout during the "More..." prompt
 			//   Bit 2: 1 to enable timeout during the ANYKEY action
 			//   Bit 5: 1 to recall INPUT in timeout (PAWS)
-			//   Bit 6: 1 if there is RAMSAVE data present
-			//   Bit 7: 1 if there was a timeout last frame
+			//   Bits 6-7: PAW input completion/timeout result
 
 	Flag_DoAllLocNo		= 50,			// 32  Location number for DOALL
 	Flag_Objno     		= 51,			// 33  Current object (for _) referenced by WHATO etc.
@@ -168,6 +167,7 @@ enum DDB_WindowFlags
 {
 	Win_ForceGraphics     = 0x01,
 	Win_NoMorePrompt      = 0x02,
+	Win_Over              = 0x08,
 	Win_Inverse           = 0x10,
 	Win_Flash             = 0x20,
 	Win_Bright            = 0x40,
@@ -425,6 +425,11 @@ enum DDB_Version
 	DDB_VERSION_3    = 3,
 };
 
+static inline bool DDB_IsPAWS(const DDB_Version version)
+{
+	return version == DDB_VERSION_PAWS;
+}
+
 enum DDB_Machine
 {
 	DDB_MACHINE_IBMPC		= 0,
@@ -679,6 +684,7 @@ struct DDB_Interpreter
 	DDB_Flow		oldMainLoopState;
 	int32_t         pauseFrames;
 	uint32_t        pauseStart;
+	uint16_t        pauseTickRemainderMs;
 	uint32_t        quitStart;
 	#if HAS_TESTMODE
 	bool            skipTimedPauses;
@@ -700,6 +706,7 @@ struct DDB_Interpreter
 
 	bool			timeout;
 	int32_t			timeoutRemainingMs;
+	uint16_t        timeoutTickRemainderMs;
 
 	// State saved inside buffer
 
@@ -716,6 +723,13 @@ struct DDB_Interpreter
 	uint8_t			inkMap[16];
 	uint8_t			curwin;
 	uint8_t			inputFlags;
+	uint8_t         pawsControlParams;
+	uint8_t         pawsPermanentInk;
+	uint8_t         pawsPermanentPaper;
+	uint8_t         pawsPermanentCharset;
+	uint8_t         pawsPermanentFlags;
+	uint8_t         pawsBorder;
+	uint16_t        pawsRandomSeed;
 	uint8_t			cellX;
 	uint8_t			cellW;
 
@@ -757,6 +771,7 @@ struct DDB_Interpreter
 
 	uint8_t			pending[128];
 	uint8_t			pendingPtr;
+	bool            suppressTranscript;
 };
 
 enum SCR_Operation
@@ -819,6 +834,7 @@ extern void				DDB_Run					 (DDB_Interpreter* interpreter);
 extern void				DDB_Step				 (DDB_Interpreter* interpreter, int lines);
 extern void				DDB_Reset				 (DDB_Interpreter* interpreter);
 extern void				DDB_ResetWindows		 (DDB_Interpreter* interpreter);
+extern void				DDB_ResetPAWSColors	 (DDB_Interpreter* interpreter, DDB_Window* window);
 extern void				DDB_Restart				 (DDB_Interpreter* interpreter);
 extern void				DDB_SetAutoloadEnabled	 (DDB_Interpreter* interpreter, bool enabled);
 #if HAS_TESTMODE
@@ -836,6 +852,7 @@ extern const char*      DDB_GetCondactName       (DDB_Condact condact);
 extern void             DDB_Flush                (DDB_Interpreter* i);
 extern void             DDB_FlushWindow          (DDB_Interpreter* i, DDB_Window* w);
 extern void             DDB_ResetScrollCounts    (DDB_Interpreter* i);
+extern void             DDB_ResetSmoothScrollFlags (DDB_Interpreter* i);
 extern void             DDB_OutputUserPrompt     (DDB_Interpreter* i);
 extern void             DDB_OutputInputPrompt    (DDB_Interpreter* i);
 extern void             DDB_OutputChar           (DDB_Interpreter* i, const char c);
@@ -886,7 +903,9 @@ extern bool             DDB_LoadVectorGraphics   (DDB_Machine machine, DDB_Versi
 extern bool             DDB_HasVectorPicture     (uint8_t picno);
 extern bool             DDB_HasVectorWindow      (uint8_t picno);
 extern const uint8_t*   DDB_GetVectorInkMap      ();
-extern bool             DDB_DrawVectorPicture    (uint8_t picno);
+// Low-level command executor. Screen-producing code must enqueue pictures
+// through SCR_DrawVectorPicture so their ordering is preserved.
+extern bool             DDB_ExecuteVectorPicture (uint8_t picno);
 extern bool             DDB_HasVectorDatabase    ();
 extern bool             DDB_VectorPictureInRange (uint8_t picno);
 extern bool             DDB_GetVectorPictureWindow (uint8_t picno, int* x, int* y, int* w, int* h);

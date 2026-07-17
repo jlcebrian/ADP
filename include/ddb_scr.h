@@ -26,8 +26,12 @@ extern uint8_t    charWidth[256];
 enum SCR_Command
 {
 	SCR_COMMAND_CLEAR,
+	SCR_COMMAND_SETATTRIBUTES,
 	SCR_COMMAND_SCROLL,
 	SCR_COMMAND_DRAWCHARACTER,
+	#if HAS_DRAWSTRING
+	SCR_COMMAND_DRAWVECTORPICTURE,
+	#endif
 	SCR_COMMAND_LOADPICTURE,
 	SCR_COMMAND_DISPLAYPICTURE,
 	SCR_COMMAND_WAITFORKEY,
@@ -96,6 +100,15 @@ static inline bool SCR_LoadPicture (uint8_t picno, DDB_ScreenMode screenMode)
 	return w > 0 && h > 0;
 }
 
+#if HAS_DRAWSTRING
+static inline void SCR_DrawVectorPicture(uint8_t picno)
+{
+	uint8_t attributes = VID_GetAttributes();
+	DDB_ExecuteVectorPicture(picno);
+	VID_SetAttributes(attributes);
+}
+#endif
+
 static inline void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t paper, bool smooth)
 {
 	VID_Scroll(x, y, w, h, lines, paper);
@@ -103,6 +116,15 @@ static inline void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t pap
 
 static inline bool SCR_Synchronized()  { return true; }
 static inline void SCR_ConsumeBuffer() {}
+static inline void SCR_ConsumeFullBuffer() {}
+static inline void SCR_SetAttributes(uint8_t attributes)
+{
+	#if HAS_DRAWSTRING
+	VID_SetAttributes(attributes);
+	#else
+	(void)attributes;
+	#endif
+}
 static inline void SCR_WaitForKey()
 {
 	uint8_t key, ext;
@@ -123,9 +145,13 @@ extern bool SCR_Synchronized     ();
 extern void SCR_Clear            (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode);
 extern void SCR_ClearBuffer      (bool front);
 extern void SCR_ConsumeBuffer    ();
+extern void SCR_ConsumeFullBuffer();
 extern void SCR_DisplayPicture   (int x, int y, int w, int h, DDB_ScreenMode mode);
 extern void SCR_DrawCharacter    (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper);
 extern void SCR_DrawTextSpan     (int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper);
+#if HAS_DRAWSTRING
+extern void SCR_DrawVectorPicture(uint8_t picno);
+#endif
 extern void SCR_GetKey           (uint8_t* key, uint8_t* ext, uint8_t* modifiers);
 extern void SCR_GetMilliseconds  (uint32_t* time);
 extern void SCR_GetPaletteColor  (uint8_t color, uint8_t* r, uint8_t* g, uint8_t* b);
@@ -138,6 +164,7 @@ extern void SCR_Quit			 ();
 extern void SCR_RestoreScreen    ();
 extern void SCR_SaveScreen       ();
 extern void SCR_Scroll           (int x, int y, int w, int h, int lines, uint8_t paper, bool smooth);
+extern void SCR_SetAttributes    (uint8_t attributes);
 extern void SCR_SetOpBuffer      (SCR_Operation op, bool front);
 extern void SCR_SetPaletteColor  (uint8_t color, uint8_t r, uint8_t g, uint8_t b);
 extern void SCR_SetTextInputMode (bool enabled);

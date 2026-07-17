@@ -2,6 +2,8 @@
 #include <ddb_scr.h>
 #include <ddb_data.h>
 #include <ddb_vid.h>
+#include <ddb_paw.h>
+#include <ddb_test.h>
 #include <os_char.h>
 #include <os_file.h>
 #include <os_lib.h>
@@ -19,6 +21,7 @@
 #define DDB_CLASSIC_SAVE_SIZE   512
 #define DDB_CLASSIC_FLAG_COUNT  256
 #define DDB_CLASSIC_OBJLOC_MAX  255
+#define DDB_MAX_SAVE_SIZE       544
 
 extern File* transcriptFile;
 
@@ -67,7 +70,10 @@ static int GetPAWSCursorWidth(DDB_Interpreter* i)
 static void DrawPAWSCursor(DDB_Interpreter* i, int x, int y)
 {
 	DDB_Window* w = DDB_GetInputWindow(i);
-	uint8_t charset = i->ddb->curCharset;
+	const uint8_t ink = w->ink;
+	const uint8_t paper = w->paper;
+	const uint8_t flags = w->flags;
+	const uint8_t charset = i->ddb->curCharset;
 
 	int px = w->posX;
 	int py = w->posY;
@@ -77,6 +83,11 @@ static void DrawPAWSCursor(DDB_Interpreter* i, int x, int y)
 	DDB_FlushWindow(i, w);
 	w->posX = px;
 	w->posY = py;
+	w->ink = ink;
+	w->paper = paper;
+	w->flags = flags;
+	if (i->ddb->curCharset != charset)
+		DDB_SetCharset(i->ddb, charset);
 }
 
 #endif
@@ -87,7 +98,24 @@ DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 {
 	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
+	{
+		if ((i->flags[Flag_TimeoutFlags] & 0x08) != 0)
+		{
+			// Bottom-of-screen input uses the Spectrum's two-row lower
+			// screen: a dedicated window whose rect makes the shared
+			// newline logic scroll just those two rows
+			DDB_Window* iw = &i->windef[1];
+			iw->x = 0;
+			iw->y = screenHeight - 2 * lineHeight;
+			iw->width = screenWidth;
+			iw->height = 2 * lineHeight;
+			iw->flags |= Win_NoMorePrompt;
+			iw->ink = i->win.ink;
+			iw->paper = i->win.paper;
+			return iw;
+		}
 		return &i->win;
+	}
 	#endif
 
 	int inputWindow = i->flags[Flag_InputStream] & 0x07;
@@ -99,6 +127,14 @@ DDB_Window* DDB_GetInputWindow(DDB_Interpreter* i)
 void DDB_StartInput(DDB_Interpreter* i, bool withPrompt)
 {
 	DDB_Window *iw = DDB_GetInputWindow(i);
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version) &&
+		(i->flags[Flag_TimeoutFlags] & 0x08) != 0)
+	{
+		iw->posX = iw->x;
+		iw->posY = iw->y;
+	}
+	#endif
 
 	if (withPrompt)
 		DDB_OutputUserPrompt(i);
@@ -133,8 +169,11 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
-		iw->ink = i->ddb->defaultInk;
-		iw->paper = i->ddb->defaultPaper;
+		if (timeout)
+			i->flags[Flag_TimeoutFlags] |= 0xC0;
+		else
+			i->flags[Flag_TimeoutFlags] &= 0x3F;
+		DDB_ResetPAWSColors(i, iw);
 	}
 	#endif
 
@@ -192,7 +231,18 @@ void DDB_FinishInput(DDB_Interpreter * i, bool timeout)
 
 	i->inputCursorX = 0;
 	SCR_SetTextInputMode(false);
-	DDB_ResetScrollCounts(i);
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+	{
+		// The PAW scroll counter persists across input, but the smooth
+		// presentation flag armed by a More prompt is disarmed here: the
+		// paged screen was already read, so the next turn's text may
+		// appear at full speed until another prompt arms it again
+		DDB_ResetSmoothScrollFlags(i);
+	}
+	else
+	#endif
+		DDB_ResetScrollCounts(i);
 }
 
 void DDB_ResolveInputEnd(DDB_Interpreter* i)
@@ -273,7 +323,7 @@ void DDB_ResolveInputLoad(DDB_Interpreter* i)
 	File* file = File_Open((const char*)i->inputBuffer, ReadOnly);
 	if (file != 0)
 	{
-		uint8_t block[DDB_CLASSIC_SAVE_SIZE];
+		uint8_t block[DDB_MAX_SAVE_SIZE];
 		uint64_t read = File_Read(file, block, sizeof(block));
 		File_Close(file);
 
@@ -281,6 +331,14 @@ void DDB_ResolveInputLoad(DDB_Interpreter* i)
 		if (objects > DDB_CLASSIC_OBJLOC_MAX)
 			objects = DDB_CLASSIC_OBJLOC_MAX;
 
+		#if HAS_PAWS
+		if (DDB_IsPAWS(i->ddb->version) && read == DDB_PAWS_STATE_SIZE)
+		{
+			MemCopy(i->buffer, block, DDB_PAWS_STATE_SIZE);
+			success = true;
+		}
+		else
+		#endif
 		if (read == DDB_CLASSIC_SAVE_SIZE)
 		{
 			// Classic 512-byte format. The last byte is the object count; the
@@ -346,22 +404,33 @@ void DDB_ResolveInputSave(DDB_Interpreter* i)
 
 	i->inputBuffer[i->inputBufferLength] = 0;
 
-	// Build a classic 512-byte save block, compatible with the original
-	// interpreters: 256 flags, 255 object locations, then the object count.
-	uint8_t block[DDB_CLASSIC_SAVE_SIZE];
+	// PAW writes its raw 544-byte position block. DAAD writes the classic
+	// 512-byte block with an object-count check byte.
+	uint8_t block[DDB_MAX_SAVE_SIZE];
 	MemClear(block, sizeof(block));
-	MemCopy(block, i->flags, DDB_CLASSIC_FLAG_COUNT);
-	int objects = i->ddb->numObjects;
-	if (objects > DDB_CLASSIC_OBJLOC_MAX)
-		objects = DDB_CLASSIC_OBJLOC_MAX;
-	MemCopy(block + DDB_CLASSIC_FLAG_COUNT, i->objloc, objects);
-	block[DDB_CLASSIC_SAVE_SIZE - 1] = i->ddb->numObjects;	// OBJNO check byte
+	size_t blockSize = DDB_CLASSIC_SAVE_SIZE;
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+	{
+		blockSize = DDB_PAWS_STATE_SIZE;
+		MemCopy(block, i->buffer, blockSize);
+	}
+	else
+	#endif
+	{
+		MemCopy(block, i->flags, DDB_CLASSIC_FLAG_COUNT);
+		int objects = i->ddb->numObjects;
+		if (objects > DDB_CLASSIC_OBJLOC_MAX)
+			objects = DDB_CLASSIC_OBJLOC_MAX;
+		MemCopy(block + DDB_CLASSIC_FLAG_COUNT, i->objloc, objects);
+		block[DDB_CLASSIC_SAVE_SIZE - 1] = i->ddb->numObjects;
+	}
 
 	bool success = false;
 	File* file = File_Create((const char*)i->inputBuffer);
 	if (file != 0)
 	{
-		success = File_Write(file, block, sizeof(block)) == sizeof(block);
+		success = File_Write(file, block, blockSize) == blockSize;
 		File_Close(file);
 		OSSyncFS();
 	}
@@ -701,7 +770,11 @@ void DDB_PrintInputLine(DDB_Interpreter* i, bool withCursor)
 			}
 		}
 	}
-    else if (transcriptFile != 0)
+    else if (transcriptFile != 0
+		#if HAS_TESTMODE
+		&& !DDB_TestWindowMuted(i->curwin)
+		#endif
+	)
     {
 		DDB_TranscriptWrite(i->inputBuffer, i->inputBufferLength);
 		DDB_TranscriptNewLine();

@@ -1,0 +1,17 @@
+ 
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+          WELCOME TO
+        AGATHA'S FOLLY
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+     
+     PART ONE: THE FOLLY
+ @ L.Wright/Marlin Games 1989
+      \x92 PRESS ANY KEY \x93
+ This morning, you became the new owner of Bluebell Cottage. You had fallen in love with the place as soon as you had seen it, declaring it your 'dream' cottage. It has been empty for years, but couldn't be sold before because the previous owner mysteriously disappeared, and no-one could sell it until she had been declared dead.
+ Although your furniture isn't due to arrive until tomorrow, you have decided to sleep here tonight. Having put a z-bed in one of the bedrooms, you have wandered downstairs and plan to examine the furniture that you bought with the cottage, before exploring the grounds...
+      \x92 PRESS ANY KEY \x93
+THE KITCHEN.
+Old blue tiles line the kitchen walls whilst the enamel sink and wooden draining board are below the window. Next to them is the northern door that leads into the back garden, and the pantry lies to the west.################################
+Exit(s): N.E.W.
+################################
+\x92\x93

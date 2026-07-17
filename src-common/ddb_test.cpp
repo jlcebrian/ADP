@@ -395,6 +395,31 @@ static void ProcessDirectives(bool allowCaptures)
 			ConsumeLine();
 			continue;
 		}
+		if (input + 9 <= inputEnd && MemComp((void*)input, "@assert ", 8) == 0)
+		{
+			// "@assert FLAG VALUE" verifies interpreter state at a settled
+			// input point without mutating it.
+			const char* p = input + 8;
+			uint32_t flag = 0, value = 0;
+			while (p < inputEnd && *p >= '0' && *p <= '9')
+				flag = flag * 10 + (uint32_t)(*p++ - '0');
+			while (p < inputEnd && *p == ' ') p++;
+			while (p < inputEnd && *p >= '0' && *p <= '9')
+				value = value * 10 + (uint32_t)(*p++ - '0');
+			if (interpreter == 0 || interpreter->flags[(uint8_t)flag] != (uint8_t)value)
+			{
+				DebugPrintf("Script assertion failed: flag %u is %u, expected %u\n",
+					(unsigned)flag,
+					interpreter == 0 ? 0u : (unsigned)interpreter->flags[(uint8_t)flag],
+					(unsigned)value);
+				inputError = true;
+				inputErrorMessage = "scripted flag assertion failed";
+				VID_Quit();
+				return;
+			}
+			ConsumeLine();
+			continue;
+		}
 		if (input + 8 <= inputEnd && MemComp((void*)input, "@chance ", 8) == 0)
 		{
 			const char* arg = input + 8;

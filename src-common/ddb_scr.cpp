@@ -29,16 +29,21 @@ static inline int IndexOffset (size_t index)
 	return index % COMMANDS_PER_BLOCK;
 }
 
-static void SCR_ConsumeFullBuffer()
+void SCR_ConsumeFullBuffer()
 {
-	while(commandBufferReadIndex != commandBufferIndex)
+	// A wait may be armed immediately when presentation is caught up, with
+	// subsequent logic already buffering commands behind it. Service that wait
+	// before consuming any of those later commands; otherwise a forced drain
+	// displays post-keypress output before the keypress has happened.
+	while(waitingForKey || commandBufferReadIndex != commandBufferIndex)
 	{
-		SCR_ConsumeBuffer();
 		if (waitingForKey)
 		{
 			VID_WaitForKey();
 			waitingForKey = false;
 		}
+		if (commandBufferReadIndex != commandBufferIndex)
+			SCR_ConsumeBuffer();
 	}
 	commandBufferReadIndex = 0;
 	commandBufferIndex = 0;
@@ -132,6 +137,23 @@ void SCR_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length, uint8_
 	}
 }
 
+#if HAS_DRAWSTRING
+void SCR_DrawVectorPicture(uint8_t picno)
+{
+	if (buffering)
+	{
+		SCR_CommandData* c = SCR_AddCommandToBuffer();
+		c->type = SCR_COMMAND_DRAWVECTORPICTURE;
+		c->n = picno;
+		return;
+	}
+
+	uint8_t attributes = VID_GetAttributes();
+	DDB_ExecuteVectorPicture(picno);
+	VID_SetAttributes(attributes);
+}
+#endif
+
 bool SCR_SampleExists(uint8_t sample)
 {
 	return VID_SampleExists(sample);
@@ -215,6 +237,20 @@ void SCR_Clear(int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 	}
 }
 
+void SCR_SetAttributes(uint8_t attributes)
+{
+	if (buffering)
+	{
+		SCR_CommandData* c = SCR_AddCommandToBuffer();
+		c->type = SCR_COMMAND_SETATTRIBUTES;
+		c->n = attributes;
+	}
+	else
+	{
+		VID_SetAttributes(attributes);
+	}
+}
+
 void SCR_Scroll(int x, int y, int w, int h, int lines, uint8_t paper, bool smooth)
 {
 	#if HAS_WINDOWTEXT
@@ -258,6 +294,15 @@ void SCR_ConsumeBuffer()
 			case SCR_COMMAND_DRAWCHARACTER:
 				VID_DrawCharacter(c->x, c->y, c->n, c->ink, c->paper);
 				break;
+			#if HAS_DRAWSTRING
+			case SCR_COMMAND_DRAWVECTORPICTURE:
+			{
+				uint8_t attributes = VID_GetAttributes();
+				DDB_ExecuteVectorPicture(c->n);
+				VID_SetAttributes(attributes);
+				break;
+			}
+			#endif
 			case SCR_COMMAND_LOADPICTURE:
 				VID_LoadPicture(c->n,(DDB_ScreenMode)c->x);
 				break;
@@ -266,6 +311,9 @@ void SCR_ConsumeBuffer()
 				break;
 			case SCR_COMMAND_CLEAR:
 				VID_Clear(c->x, c->y, c->w, c->h, c->n, (VID_ClearMode)c->ink);
+				break;
+			case SCR_COMMAND_SETATTRIBUTES:
+				VID_SetAttributes(c->n);
 				break;
 			case SCR_COMMAND_SCROLL:
 				if(scrollPerformed && smoothScrolling) {

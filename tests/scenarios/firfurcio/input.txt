@@ -1,0 +1,88 @@
+
+@save Inicio
+@key
+@save Planeta
+@key
+@save Carlinga
+@assert 29 64
+@assert 40 195
+@assert 41 7
+@assert 48 1
+@assert 49 1
+EX PANTALLA
+EX MANUAL
+@waitkey
+DECIR "COMANDOS"
+DECIR "INFORMACION"
+@save More
+DECIR "ARCADIOSO"
+DECIR "JOYSTICOSOS"
+DECIR "TRIPORCINA"
+
+EX CAJA
+ABRIR CAJA
+EX MALETA
+ABRIR MALETA
+MIRAR DENTRO DE MALETA
+COGER TODO DE MALETA
+I
+@save Inventario
+N
+@save Camarote
+E
+@save Descompresion
+EX TRAJE
+DEJAR DESTORNILLADOR
+COGER TRAJE
+@save Descompresion2
+PONER TRAJE
+O
+COGER BOTELLA
+EX BOTELLA
+VERTER BOTELLA EN TRAJE
+DEJAR BOTELLA
+E
+COGER DESTORNILLADOR
+O
+S
+ABRIR CAJA
+EXAMINAR DENTRO DE CAJA
+N
+E
+DECIR "ABRIR"
+@save Decompresion3
+DESTORNILLAR MECANISMO
+DECIR "ABRIR"
+@save Decompresion4
+O
+S
+DEJAR DESTORNILLADOR
+SACAR MERDURCIA DE CAJA
+N
+E
+SALIR
+@save Exterior
+EX NAVE
+N
+@save Joysticosos
+N
+@key
+@save Firfurcio
+DAR MERDURCIA A FIRFURCIO
+BAMBU
+MONTAR FIRFURCIO
+CABALGAR
+@save Cabalgar
+DAR MERDURCIA A FIRFURCIO
+@save Cabalgar
+@key
+@save Capsula
+EX CAPSULA
+ABRIR PUERTA
+ENTRAR
+@save Final
+@key
+@save Final2
+@key
+@save Final3
+n

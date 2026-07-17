@@ -814,8 +814,12 @@ void VID_Clear (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode)
 
 	if (mode == Clear_All && attributes && x <= 0 && y <= 0 && w >= screenWidth && h >= screenHeight)
 	{
+		uint8_t attrValue = VID_GetAttributes();
+		VID_SetPaper(color);
+		uint8_t clearAttributes = VID_GetAttributes();
+		VID_SetAttributes(attrValue);
 		memset(bitmap, 0, stride * screenHeight);
-		memset(attributes, screenMachine == DDB_MACHINE_SPECTRUM ? 0x00 : (color << 4), stride * (screenHeight >> 3));
+		memset(attributes, clearAttributes, stride * (screenHeight >> 3));
 		if (frontBuffer)
 			memset(frontBuffer, color, screenWidth * screenHeight);
 		if (backBuffer)
@@ -1733,9 +1737,9 @@ void VID_SetTextInputMode (bool enabled)
 	}
 }
 
-static void	RenderSpectrumScreen(uint8_t* attributes)
+static void	RenderSpectrumScreen(uint8_t* attributes, int fixedFlashPhase = -1)
 {
-	bool flashOn = (SDL_GetTicks() / 500) & 1;
+	bool flashOn = fixedFlashPhase < 0 ? ((SDL_GetTicks() / 500) & 1) : fixedFlashPhase != 0;
 
 	uint8_t* attrPtr = attributes;
 	uint8_t cols = screenWidth / 8;
@@ -1843,6 +1847,12 @@ bool VID_SaveScreenshot(const char* fileName)
 {
 	if (fileName == 0 || fileName[0] == 0 || frontBuffer == 0 || screenWidth == 0 || screenHeight == 0)
 		return false;
+
+	// Test captures are logical framebuffer assertions, not samples of wall
+	// clock phase. Re-render Spectrum attributes in the canonical non-inverted FLASH
+	// phase so real-time and fast runs produce byte-identical screenshots.
+	if (attributes != 0 && screenMachine == DDB_MACHINE_SPECTRUM)
+		RenderSpectrumScreen(attributes, 0);
 
 	SDL_Surface* frame = SDL_CreateRGBSurfaceWithFormat(0, screenWidth, screenHeight, 32, SDL_PIXELFORMAT_ARGB8888);
 	if (frame == 0)

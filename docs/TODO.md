@@ -23,10 +23,19 @@
 [x] FLASH support
 [x] Optional verb/noun match (PAWS A16)
 [x] MODE: More... toggle
-[x] PROTECT (change windows dynamically)
+[x] Fixed 544-byte live/SAVE/RAMSAVE state
+[x] PAW-specific MODE/GRAPHIC/LINE/TIME/INPUT packing
+[x] PROTECT and flag-39 single-screen protected scrolling
+[x] 50 Hz PAUSE/TIME semantics with deterministic fast tests
+[x] Permanent/temporary text attributes and multi-byte controls
+[x] Firfurcio full-completion regression scenario
+[x] Fuse-derived Firfurcio startup/scroll/font/colour golden scenario
+[ ] Reconcile PAWS graphics-format command interpretation with emulator corpus
 [ ] Detect language (English/Spanish)
 [ ] Timeout messing up history
-[ ] MORE not working in Firfurcio
+[ ] Verify MORE timeout and state restoration against original PAW
+[ ] Port the exact PAW parser state machine
+[ ] Add PAW 128K graphics page mapping and PC PDB loading
 
 ## Drawstring support
 

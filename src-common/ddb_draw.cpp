@@ -838,12 +838,12 @@ void VID_AttributeFill (uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 	}
 }
 
-void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
+static void VID_Draw8x8Glyph (int x, int y, const uint8_t* glyph, uint8_t ink, uint8_t paper,
+                              bool over = false, bool inverse = false)
 {
 	if (!attributes)
 		return;
 
-	uint8_t* ptr = charset + (ch << 3);
 	uint8_t* out = bitmap + y * stride + (x >> 3);
 	uint8_t  rot = x & 7;
 	uint8_t* attr = attributes + (y >> 3) * stride + (x >> 3);
@@ -879,11 +879,20 @@ void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 	{
 		uint8_t* sav = out;
 		uint8_t mask = 0x80 >> rot;
+		// INVERSE complements the glyph; OVER combines it with the screen
+		// by exclusive OR, leaving the other pixels untouched (the Spectrum
+		// print semantics selected by the PAW TEXT command bits)
+		uint8_t bits = inverse ? (uint8_t)~glyph[line] : glyph[line];
 		for (int col = 0; col < 8; col++)
 		{
-			if ((ptr[line] & (0x80 >> col)))
-				*out |= mask;
-			else if (paper != 255)
+			if ((bits & (0x80 >> col)))
+			{
+				if (over)
+					*out ^= mask;
+				else
+					*out |= mask;
+			}
+			else if (!over && paper != 255)
 				*out &= ~mask;
 			mask >>= 1;
 			if (mask == 0)
@@ -894,6 +903,11 @@ void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
 		}
 		out = sav + stride;
 	}
+}
+
+void VID_Draw8x8Character (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper)
+{
+	VID_Draw8x8Glyph(x, y, charset + (ch << 3), ink, paper);
 }
 
 bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
@@ -1430,7 +1444,15 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						break;
 					}
 					case 2:
-						if ((*ptr & 0x30) == 0x10)			// BLOCK
+					{
+						#if HAS_PAWS
+						const bool pawsGfx = vectorGraphicsVersion == DDB_VERSION_PAWS;
+						#else
+						const bool pawsGfx = false;
+						#endif
+						// PAW's BLOCK opcode is exactly $12; other bit-4 values
+						// are FILL/SHADE variants there
+						if (pawsGfx ? (*ptr == 0x12) : ((*ptr & 0x30) == 0x10))	// BLOCK
 						{
 							uint8_t x0 = ptr[3];
 							uint8_t y0 = ptr[4];
@@ -1452,11 +1474,18 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							int x = ptr[1];
 							int y = ptr[2];
 							uint8_t shade = ptr[3];
+							if (pawsGfx)
+							{
+								// The seed displacement is scaled like a relative
+								// move; opcode bit 4 complements the pattern
+								x = x * scale / 8;
+								y = y * scale / 8;
+							}
 							if (flipX) x = -x;
 							if (!flipY) y = -y;
 							if (*ptr & 0x40) x = -x;
 							if (*ptr & 0x80) y = -y;
-							VID_PatternFill(x, y, shade);
+							VID_PatternFill(x, y, shade, pawsGfx && (*ptr & 0x10) != 0);
 							ptr += 4;
 						}
 						else							// FILL
@@ -1467,6 +1496,11 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 
 							int x = ptr[1];
 							int y = ptr[2];
+							if (pawsGfx)
+							{
+								x = x * scale / 8;
+								y = y * scale / 8;
+							}
 							if (flipX) x = -x;
 							if (!flipY) y = -y;
 							if (*ptr & 0x40) x = -x;
@@ -1475,6 +1509,7 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 							ptr += 3;
 						}
 						break;
+					}
 					case 3: // GOSUB
 					{
 						int scale = (*ptr >> 3) & 0x7;
@@ -1501,7 +1536,37 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 						int code = ptr[1];
 						int col  = ptr[2];
 						int row  = ptr[3];
-						VID_Draw8x8Character(col*8, row*8, code, ink, paper);
+						const uint8_t* glyph = 0;
+
+						#if HAS_PAWS
+						if (vectorGraphicsVersion == DDB_VERSION_PAWS && code >= 32 && code < 128)
+						{
+							// PAW TEXT embeds its own charset selector in bits 7-5.
+							// Font zero is the Spectrum ROM; installed database fonts
+							// contain the 96 printable glyphs consecutively.
+							uint8_t font = ptr[0] >> 5;
+							if (font == 0)
+								glyph = ZXSpectrumCharacterSet + (code - 32) * 8;
+							else if (font <= vectorGraphicsRAM[0x9449])
+							{
+								uint16_t fonts = read16LE(vectorGraphicsRAM + 0x944A);
+								glyph = vectorGraphicsRAM + fonts + (font - 1) * 768 + (code - 32) * 8;
+							}
+						}
+						#endif
+
+						bool over = false, inverse = false;
+						#if HAS_PAWS
+						if (vectorGraphicsVersion == DDB_VERSION_PAWS)
+						{
+							// PAW TEXT: bit 3 = OVER, bit 4 = INVERSE
+							over    = (ptr[0] & 0x08) != 0;
+							inverse = (ptr[0] & 0x10) != 0;
+						}
+						#endif
+						if (glyph == 0)
+							glyph = charset + (code << 3);
+						VID_Draw8x8Glyph(col*8, row*8, glyph, ink, paper, over, inverse);
 
 						ptr += 4;
 						break;
@@ -1759,11 +1824,11 @@ const uint8_t* DDB_GetVectorInkMap ()
 	}
 }
 
-bool DDB_DrawVectorPicture (uint8_t picno)
+bool DDB_ExecuteVectorPicture (uint8_t picno)
 {
 	if (picno >= count)
 	{
-		printf("DDB_DrawVectorPicture: picno %d out of range (0-%d)\n", picno, count-1);
+		printf("DDB_ExecuteVectorPicture: picno %d out of range (0-%d)\n", picno, count-1);
 		return false;
 	}
 
@@ -2018,6 +2083,7 @@ static const uint8_t systemUDGs[] =
 bool DDB_LoadPAWSGraphics (const uint8_t* data)
 {
 	vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
+	vectorGraphicsVersion = DDB_VERSION_PAWS;
 	vectorGraphicsRAM     = data;
 	pixelMode             = false;
 

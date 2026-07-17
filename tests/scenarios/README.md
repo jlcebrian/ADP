@@ -145,3 +145,20 @@ make -f Makefile-linux test-game SCENARIO=chichen/part1-amiga INTERACTIVE=1 TRAC
 The live game window remains interactive and the interpreter trace is written
 to `test-results/scenarios/chichen/part1-amiga/trace.log` continuously while the
 game runs.
+
+## Non-redistributable fixtures
+
+Some games (e.g. Zenobi releases) are free to download but may not be
+redistributed, so their tape/disk images cannot live in this repository.
+Commit everything that is ours (scenario.json, input, transcript, baseline
+captures) and reference the game itself with two extra scenario fields:
+
+    "fixture": "zenobi/somegame/GAME.tzx",
+    "fixtureUrl": "https://authorized.source/GAME.tzx",
+    "fixtureSha256": "<sha256 of the exact file>",
+
+On first use the runner downloads the file from the authorized source into
+the normal fixture path and verifies the hash. A failed download SKIPs the
+scenario (offline runs stay usable); a hash mismatch FAILs it loudly. Add
+each such path to tests/games/.gitignore so the downloaded file
+can never be committed by accident.

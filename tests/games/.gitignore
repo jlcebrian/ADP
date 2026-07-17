@@ -1,0 +1,9 @@
+# Fixtures that are free to download but NOT free to redistribute must not
+# be committed. Their scenarios carry a "fixtureUrl" (and "fixtureSha256")
+# in scenario.json so the test runner downloads them from the authorized
+# source on first use. List each such file here so it can never be
+# committed by accident, e.g.:
+#
+# zenobi/*
+
+agatha/

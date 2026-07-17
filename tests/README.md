@@ -4,7 +4,7 @@ This directory contains the redistributable regression-game corpus used by
 ADP's automated compatibility tests. The project asserts that these releases
 are public domain and may be redistributed for this purpose.
 
-Game media is stored under `games/<game>/<platform>/`; original filenames are
+Game media is stored under `tests/games/<game>/<platform>/`; original filenames are
 preserved because disk loaders and multi-disk games depend on them. Scenario
 source and its expected transcript/checkpoints are stored separately under
 `scenarios/<game>/<scenario>/`.

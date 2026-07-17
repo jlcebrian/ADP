@@ -5,6 +5,7 @@
 #include <ddb_data.h>
 #include <ddb_vid.h>
 #include <ddb_xmsg.h>
+#include <ddb_paw.h>
 #include <dmg.h>
 #include <os_char.h>
 #include <os_file.h>
@@ -35,6 +36,39 @@ static bool SkipTimedPauses(const DDB_Interpreter* i)
 	#endif
 }
 
+static void StartTimeout(DDB_Interpreter* i)
+{
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+	{
+		DDB_PAWSStartTimeout(i);
+		return;
+	}
+	#endif
+	i->timeout = true;
+	i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+}
+
+static void CancelTimeout(DDB_Interpreter* i)
+{
+	i->timeout = false;
+	i->timeoutRemainingMs = 0;
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+		i->timeoutTickRemainderMs = 0;
+	#endif
+}
+
+static bool AdvanceTimeout(DDB_Interpreter* i, uint32_t elapsedMs)
+{
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+		return DDB_PAWSAdvanceTimeout(i, elapsedMs);
+	#endif
+	i->timeoutRemainingMs -= elapsedMs;
+	return i->timeoutRemainingMs <= 0;
+}
+
 #if HAS_TESTMODE
 void DDB_TestSetFlag(uint8_t flag, uint8_t value)
 {
@@ -45,6 +79,8 @@ void DDB_TestSetFlag(uint8_t flag, uint8_t value)
 
 static bool TranscriptMuted(DDB_Interpreter* i)
 {
+	if (i->suppressTranscript)
+		return true;
 	#if HAS_TESTMODE
 	return DDB_TestWindowMuted(i->curwin);
 	#else
@@ -319,6 +355,14 @@ void DDB_SetCharset (DDB* ddb, uint8_t c)
 	{
 		MemCopy(charset + 256, ddb->charsets + 768*(c-1), 768);
 	}
+	#if HAS_PAWS
+	else if (DDB_IsPAWS(ddb->version))
+	{
+		// PAW leaves CHARS and its saved font unchanged when the requested
+		// database font is not installed.
+		return;
+	}
+	#endif
 
 #if HAS_PAWS
 	DDB_LoadUDGs();
@@ -332,10 +376,11 @@ void DDB_ResetPAWSColors (DDB_Interpreter* i, DDB_Window* w)
 	#if HAS_PAWS
 	if (i->ddb->version == DDB_VERSION_PAWS)
 	{
-		w->flags &= ~(Win_Inverse | Win_Flash | Win_Bright);
-		w->ink = i->ddb->defaultInk;
-		w->paper = i->ddb->defaultPaper;
-		DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
+		w->flags = (w->flags & ~(Win_Inverse | Win_Over | Win_Flash | Win_Bright)) |
+			i->pawsPermanentFlags;
+		w->ink = i->pawsPermanentInk;
+		w->paper = i->pawsPermanentPaper;
+		DDB_SetCharset(i->ddb, i->pawsPermanentCharset);
 	}
 	#endif
 }
@@ -440,8 +485,10 @@ void DDB_Reset (DDB_Interpreter* i)
 			i->flags[Flag_NumCarried]++;
 	}
 
-	if (i->ddb->version == DDB_VERSION_PAWS)
-		MemClear(i->visited, 32);
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+		DDB_PAWSResetState(i);
+	#endif
 
 	// SCR_Clear(0, 0, screenWidth, screenHeight, 0);
 }
@@ -549,9 +596,71 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 	static char more[128];
 
 	#if HAS_PAWS
-	if (i->ddb->version == DDB_VERSION_PAWS && (i->flags[Flag_PAWMode] & 0x40) == 0)
+	if (DDB_IsPAWS(i->ddb->version))
 	{
-		// No more prompt in PAWS when flag 40 has bit 6 set
+		if ((i->flags[Flag_PAWMode] & 0x40) == 0)
+			return;
+
+		// The B03 pagination path is a channel switch, not an overlay drawn at
+		// the current cursor. Finish presentation of the page before temporarily
+		// borrowing the formatter for editable system message 32.  Opening the
+		// PAW output stream reloads CHARS from L880D (the permanent font), while
+		// the active font is saved and restored around the prompt.
+		SCR_ConsumeFullBuffer();
+		uint8_t savedPending[sizeof(i->pending)];
+		MemCopy(savedPending, i->pending, sizeof(savedPending));
+		const uint8_t savedPendingPtr = i->pendingPtr;
+		const uint8_t savedControlParams = i->pawsControlParams;
+		const uint8_t savedCharset = i->ddb->curCharset;
+		const uint8_t savedVideoAttributes = VID_GetAttributes();
+		const bool savedSuppressTranscript = i->suppressTranscript;
+
+		DDB_Window prompt = i->win;
+		prompt.x = 0;
+		prompt.y = screenHeight - 2 * lineHeight;
+		prompt.width = screenWidth;
+		prompt.height = 2 * lineHeight;
+		prompt.posX = 0;
+		prompt.posY = prompt.y;
+		prompt.scrollCount = 0;
+		prompt.smooth = false;
+
+		i->pendingPtr = 0;
+		i->pawsControlParams = 0;
+		i->suppressTranscript = true;
+		DDB_SetCharset(i->ddb, i->pawsPermanentCharset);
+		DDB_OutputMessageToWindow(i, DDB_SYSMSG, 32, &prompt);
+		DDB_FlushWindow(i, &prompt);
+		// Character commands refer to the live glyph table when consumed. Draw
+		// the prompt before restoring the interrupted font; queue its key wait
+		// afterwards so presentation remains asynchronous and capturable.
+		SCR_ConsumeFullBuffer();
+
+		DDB_SetCharset(i->ddb, savedCharset);
+		MemCopy(i->pending, savedPending, sizeof(savedPending));
+		i->pendingPtr = savedPendingPtr;
+		i->pawsControlParams = savedControlParams;
+		i->suppressTranscript = savedSuppressTranscript;
+
+		// The input timeout which was active while acquiring the command does
+		// not govern this separate PAW keyboard wait.  Only TIME's explicit
+		// More-prompt option may start a fresh timeout below.
+		i->timeout = false;
+		i->timeoutRemainingMs = 0;
+		i->timeoutTickRemainderMs = 0;
+		SCR_WaitForKey();
+
+		// ROM $0D6E is CLS-LOWER: clear the two-line lower input area, not the
+		// upper display, then reopen the normal PAW stream with saved state.
+		uint8_t clearInk, clearPaper;
+		DDB_GetCurrentColors(i->ddb, &i->win, &clearInk, &clearPaper);
+		SCR_SetAttributes(savedVideoAttributes);
+		SCR_Clear(0, screenHeight - 2 * lineHeight, screenWidth, 2 * lineHeight,
+			clearPaper, Clear_All);
+
+		if ((i->flags[Flag_TimeoutFlags] & Timeout_MorePrompt) != 0 &&
+			i->flags[Flag_Timeout] != 0)
+			StartTimeout(i);
 		return;
 	}
 	#endif
@@ -575,16 +684,56 @@ static void ShowMorePrompt (DDB_Interpreter* i)
 
 	if (i->flags[Flag_TimeoutFlags] & Timeout_MorePrompt)
 	{
-		i->timeout = true;
-		i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+		StartTimeout(i);
 	}
 	i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 }
 
 bool DDB_NextLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 {
+	#if HAS_PAWS
+	const bool pawsMode = DDB_IsPAWS(i->ddb->version);
+	if (pawsMode && w == &i->win)
+	{
+		// The PAW stream-2 region follows live flags, so the rect is
+		// refreshed here before the shared newline logic runs on it
+		DDB_PAWSRefreshWindow(i, w);
+
+		// PAW paginates before scrolling, on the ROM's count-down scroll
+		// counter, and only shows the prompt with the MODE page option
+		if (w->posY + lineHeight >= w->y + w->height)
+		{
+			if (w->scrollCount == 0)
+				DDB_PAWSReloadScrollCounter(i, w);
+			if (--w->scrollCount == 0)
+			{
+				DDB_PAWSReloadScrollCounter(i, w);
+				if ((i->flags[Flag_PAWMode] & 0x40) != 0)
+				{
+					ShowMorePrompt(i);
+					w->smooth = 1;
+				}
+			}
+		}
+	}
+	#endif
+
 	int maxY = w->y + w->height - lineHeight;
 	int paper = w->paper;
+	#if HAS_PAWS
+	if (pawsMode)
+	{
+		uint8_t ink, effectivePaper;
+		DDB_GetCurrentColors(i->ddb, w, &ink, &effectivePaper);
+		paper = effectivePaper;
+		// VID_Scroll clears the newly exposed row from the current video
+		// attributes. Queue them explicitly so buffered execution cannot inherit
+		// attributes from an unrelated earlier screen command.
+		uint8_t attributes = (ink & 0x07) | ((paper & 0x07) << 3) |
+			((ink & 0x08) << 3) | ((ink & 0x10) << 3);
+		SCR_SetAttributes(attributes);
+	}
+	#endif
 
 	w->posX = w->x;
 	w->posY += lineHeight;
@@ -597,6 +746,12 @@ bool DDB_NextLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 		SCR_Scroll(cellX * screenCellWidth, w->y, cellW * screenCellWidth, w->height, scroll, paper, (w->flags & Win_NoMorePrompt) ? false : w->smooth);
 		w->posY -= scroll;
 	}
+
+	#if HAS_PAWS
+	if (pawsMode)
+		return false;
+	#endif
+
 	w->scrollCount++;
 
 	if ((w->flags & Win_NoMorePrompt) == 0)
@@ -633,8 +788,30 @@ bool DDB_NewLineAtWindow (DDB_Interpreter* i, DDB_Window* w)
 	maxX = cellX * screenCellWidth + cellW * screenCellWidth;
 	if (w->posX < maxX)
 	{
-		// fprintf(stderr, "NewLine clearing up to %d (posX:%d cellX:%d cellW:%d)\n", maxX, w->posX, cellX, cellW);
-		SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
+		#if HAS_PAWS
+		if (DDB_IsPAWS(i->ddb->version))
+		{
+			// PAW reaches the right edge by printing literal spaces.  This is
+			// observably different from a rectangle clear when temporary INVERSE,
+			// BRIGHT/FLASH, OVER, or a custom character set is active.
+			uint8_t ink, paper;
+			DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
+			int x = w->posX;
+			int width = charWidth[' '];
+			if (width <= 0)
+				width = screenCellWidth;
+			while (x + width <= maxX)
+			{
+				SCR_DrawCharacter(x, w->posY, ' ', ink, paper);
+				x += width;
+			}
+		}
+		else
+		#endif
+		{
+			SCR_Clear(w->posX, w->posY, maxX - w->posX, lineHeight,
+				w->paper == 255 ? 0 : w->paper);
+		}
 	}
 
 	return DDB_NextLineAtWindow(i, w);
@@ -796,8 +973,10 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 	bool forceGraphics = (w->flags & Win_ForceGraphics) != 0;
 
 #if HAS_PAWS
-	bool pawsMode = i->ddb->version == DDB_VERSION_PAWS;
+	const bool pawsMode = i->ddb->version == DDB_VERSION_PAWS;
 	if (pawsMode) forceGraphics = false;
+#else
+	const bool pawsMode = false;
 #endif
 
 	if (w != &i->win)
@@ -818,11 +997,13 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 			switch (ch)
 			{
 				case 16:		// Ink
-					w->ink = (w->ink & 0xF8) | (i->pending[n + 1] & 0x07);
+					// BRIGHT is independent Spectrum attribute state.  Logical
+					// colour 9 is PAW's contrast colour, not a bright-bit carrier.
+					w->ink = i->pending[n + 1] & 0x0F;
 					n += 2;
 					continue;
 				case 17:		// Paper
-					w->paper = (w->paper & 0xF8) | (i->pending[n + 1] & 0x07);
+					w->paper = i->pending[n + 1] & 0x0F;
 					n += 2;
 					continue;
 				case 18:		// Flash
@@ -836,6 +1017,19 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 				case 20:		// Inverse
 					w->flags = (w->flags & ~Win_Inverse) | ((i->pending[n + 1] & 0x01) ? Win_Inverse : 0);
 					n += 2;
+					continue;
+				case 21:		// Over
+					w->flags = (w->flags & ~Win_Over) | ((i->pending[n + 1] & 0x01) ? Win_Over : 0);
+					n += 2;
+					continue;
+				case 22:		// AT row,column
+					w->posY = i->pending[n + 1] * lineHeight;
+					w->posX = i->pending[n + 2] * screenCellWidth;
+					n += 3;
+					continue;
+				case 23:		// Spectrum TAB; PAW uses the screen-relevant low byte
+					w->posX = i->pending[n + 1] * screenCellWidth;
+					n += 3;
 					continue;
 				case 1:
 				case 2:
@@ -874,7 +1068,9 @@ void DDB_FlushWindow (DDB_Interpreter* i, DDB_Window* w)
 		if (ch != ' ' && ch != 0xA0 && w->posX > w->x)
 		{
 			int wordWidth = 0;
-			for (int wordIndex = n; wordIndex < i->pendingPtr; wordIndex++)
+			for (int wordIndex = n;
+				 wordIndex < i->pendingPtr && (!pawsMode || wordIndex < n + 32);
+				 wordIndex++)
 			{
 				uint8_t wordCh = i->pending[wordIndex];
 
@@ -1012,6 +1208,15 @@ void DDB_ResetSmoothScrollFlags(DDB_Interpreter* i)
 
 void DDB_ResetScrollCounts(DDB_Interpreter* i)
 {
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+	{
+		DDB_PAWSReloadScrollCounter(i, &i->win);
+		for (int n = 0; n < 8; n++)
+			i->windef[n].scrollCount = i->win.scrollCount;
+		return;
+	}
+	#endif
 	i->win.scrollCount = 0;
 	for (int n = 0; n < 8; n++)
 		i->windef[n].scrollCount = 0;
@@ -1021,7 +1226,14 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 {
 	if ((w->flags & Win_ExpectingCodeByte) != 0)
 	{
-		w->flags &= ~Win_ExpectingCodeByte;
+		if (i->pendingPtr >= sizeof(i->pending))
+			DDB_FlushWindow(i, w);
+		i->pending[i->pendingPtr++] = c;
+		if (i->pawsControlParams > 0)
+			i->pawsControlParams--;
+		if (i->pawsControlParams == 0)
+			w->flags &= ~Win_ExpectingCodeByte;
+		return;
 	}
 	else
 	{
@@ -1040,7 +1252,13 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 						nextTab = maxX;
 					if (nextTab > w->posX)
 					{
-						SCR_Clear(w->posX, w->posY, nextTab - w->posX, lineHeight, w->paper == 255 ? 0 : w->paper);
+						uint8_t ink, paper;
+						DDB_GetCurrentColors(i->ddb, w, &ink, &paper);
+						int width = charWidth[' '];
+						if (width <= 0)
+							width = screenCellWidth;
+						for (int x = w->posX; x + width <= nextTab; x += width)
+							SCR_DrawCharacter(x, w->posY, ' ', ink, paper);
 						w->posX = nextTab;
 					}
 					return;
@@ -1049,6 +1267,16 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case 7:
 					DDB_FlushWindow(i, w);
 					DDB_NewLineAtWindow(i, w);
+					if (!TranscriptMuted(i))
+						DDB_TranscriptNewLine();
+					return;
+
+				case 13:
+					DDB_FlushWindow(i, w);
+					DDB_NewLineAtWindow(i, w);
+					DDB_ResetPAWSColors(i, w);
+					if (!TranscriptMuted(i))
+						DDB_TranscriptNewLine();
 					return;
 
 				case '_':
@@ -1103,7 +1331,11 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 				case 18:
 				case 19:
 				case 20:
+				case 21:
+				case 22:
+				case 23:
 					w->flags |= Win_ExpectingCodeByte;
+					i->pawsControlParams = c >= 22 ? 2 : 1;
 					if (i->pendingPtr >= sizeof(i->pending) - 1) {
 						DDB_FlushWindow(i, w);
 					}
@@ -1313,7 +1545,19 @@ void DDB_OutputUserPrompt(DDB_Interpreter* i)
 	DDB_Window *iw = DDB_GetInputWindow(i);
 	int prompt = i->flags[Flag_Prompt];
 	if (prompt == 0 || prompt >= i->ddb->numSystemMessages)
-		prompt = RandInt(2, 5);
+	{
+		#if HAS_PAWS
+		if (DDB_IsPAWS(i->ddb->version))
+		{
+			// PAW draws from the same $8546 stream as CHANCE/RANDOM and uses
+			// deliberately uneven ranges for the four default prompts.
+			uint8_t value = DDB_PAWSRandom(i);
+			prompt = value < 30 ? 2 : value < 60 ? 3 : value < 90 ? 4 : 5;
+		}
+		else
+		#endif
+			prompt = RandInt(2, 5);
+	}
 	TRACE("\n\n");
 	DDB_Flush(i);
 	DDB_OutputMessageToWindow(i, DDB_SYSMSG, prompt, iw);
@@ -1343,7 +1587,6 @@ static void PrintAt (DDB_Interpreter* i, DDB_Window* w, int line, int col)
 	{
 		w->posY = line * lineHeight;
 		w->posX = col * columnWidth;
-		w->scrollCount = 0;
 		w->smooth = 0;
 		// DebugPrintf("PrintAt(%d,%d) in window %d (Y %d) -> %d,%d\n", line, col, i->curwin, w->posY, w->posX, w->posY);
 		return;
@@ -1752,91 +1995,22 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 			i->flags[40] = 0;
 
 		DDB_SetWindow(i, 0);
+		bool pawsAutomaticPicture = false;
 		#if HAS_DRAWSTRING
 		if (i->ddb->drawString)
 		{
 			#if HAS_PAWS
-			if (i->ddb->version == DDB_VERSION_PAWS)
-			{
-				bool visited = (i->visited[locno >> 3] & (1 << (locno & 7))) != 0;
-				bool useGraphics = !visited;
-				if (i->flags[Flag_GraphicFlags] & Graphics_Off)
-					useGraphics = false;
-				else if (i->flags[Flag_GraphicFlags] & Graphics_On)
-					useGraphics = true;
-				else if (i->flags[Flag_GraphicFlags] & Graphics_Once)
-				{
-					useGraphics = true;
-					i->flags[Flag_GraphicFlags] &= ~Graphics_Once;
-				}
-
-				i->visited[locno >> 3] |= 1 << (locno & 7);
-
-				switch (i->flags[Flag_PAWMode] & 0x0F)
-				{
-					case 0:
-						// Full screen graphics with pause
-						if (useGraphics && DDB_HasVectorPicture(locno))
-						{
-							uint8_t attributes = VID_GetAttributes();
-							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
-							SCR_ConsumeBuffer();
-							bool found = DDB_DrawVectorPicture(locno);
-							if (found && i->ddb->version != DDB_VERSION_PAWS)
-								i->flags[Flag_HasPicture] = 255;
-							SCR_WaitForKey();
-							VID_SetAttributes(attributes);
-						}
-						SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
-						PrintAt(i, &i->win, 0, 0);
-						break;
-
-					case 1:
-					case 4:
-						// Text only, no graphics. In mode 4, text scrolls from
-						// flag 41 (Flag_SplitLine) as set by PROTECT
-						break;
-
-					default:
-						// Picture over text. In mode 2, text scrolls from flag 41 (Flag_SplitLine)
-						if (useGraphics && DDB_HasVectorPicture(locno))
-						{
-							uint8_t attributes = VID_GetAttributes();
-							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
-							DDB_DrawVectorPicture(locno);
-							i->flags[Flag_HasPicture] = 255;
-							VID_SetAttributes(attributes);
-							int line = i->flags[Flag_TopLine];
-							if (line < 4 || line > 23) line = 12;
-							SCR_Clear(0, lineHeight * line, screenWidth, screenHeight - lineHeight * line, VID_GetPaper());
-							PrintAt(i, &i->win, line, 0);
-							if (i->flags[Flag_SplitLine] >= 4 && i->flags[Flag_SplitLine] <= 23)
-								line = i->flags[Flag_SplitLine];
-							if ((i->flags[Flag_PAWMode] & 0x0F) == 2)
-							{
-								WinAt(i, line, 0);
-								WinSize(i, 24 - line, 32);
-							}
-						}
-						else
-						{
-							SCR_Clear(0, 0, screenWidth, screenHeight, VID_GetPaper());
-							PrintAt(i, &i->win, 0, 0);
-						}
-						break;
-				}
-			}
+			if (DDB_IsPAWS(i->ddb->version))
+				pawsAutomaticPicture = DDB_PAWSPrepareDescription(i, locno);
 			else
 			#endif
 			{
 				DDB_ClearWindow(i, &i->win);
 				if (DDB_HasVectorWindow(locno))
 				{
-					uint8_t attributes = VID_GetAttributes();
-					bool found = DDB_DrawVectorPicture(locno);
-					if (found)
+					SCR_DrawVectorPicture(locno);
+					if (DDB_HasVectorPicture(locno))
 						i->flags[Flag_HasPicture] = 128;
-					VID_SetAttributes(attributes);
 					AdoptVectorPictureWindow(i, locno);
 				}
 			}
@@ -1862,6 +2036,10 @@ void DDB_Desc (DDB_Interpreter* i, uint8_t locno)
 		}
 
 		DDB_OutputMessage(i, DDB_LOCDESC, locno == 255 ? i->flags[Flag_Locno] : locno);
+		#if HAS_PAWS
+		if (DDB_IsPAWS(i->ddb->version))
+			DDB_PAWSFinishDescription(i, pawsAutomaticPicture);
+		#endif
 	}
 
 	i->procstack[0].entry   = 0;
@@ -2335,6 +2513,19 @@ static void HandleOldMainLoopFinished(DDB_Interpreter* i)
 				if (i->flags[9] > 0) i->flags[9]--;
 				if (i->flags[10] > 0 && Absent(i, 0)) i->flags[10]--;
 			}
+			#if HAS_PAWS
+			if (DDB_IsPAWS(i->ddb->version))
+			{
+				if (i->flags[Flag_Turns] == 255)
+				{
+					i->flags[Flag_Turns] = 0;
+					if (i->flags[Flag_Turns + 1] != 255)
+						i->flags[Flag_Turns + 1]++;
+				}
+				else i->flags[Flag_Turns]++;
+			}
+			else
+			#endif
 			if (i->flags[Flag_Turns+1] == 255) {
 				i->flags[Flag_Turns+1] = 0;
 				if (i->flags[Flag_Turns] != 255)
@@ -2351,8 +2542,7 @@ static void HandleOldMainLoopFinished(DDB_Interpreter* i)
 				DDB_PrintInputLine(i, true);
 				if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
 				{
-					i->timeout = true;
-					i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+					StartTimeout(i);
 				}
 				i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 			}
@@ -2751,6 +2941,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_OutputMessage(i, DDB_MSG, param0);
 				DDB_Flush(i);
 				DDB_NewLine(i);
+				DDB_ResetPAWSColors(i, &i->win);
 				i->done = true;
 				break;
 			case CONDACT_TAB:
@@ -2832,8 +3023,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			}
 			case CONDACT_INPUT:
-				i->flags[Flag_InputStream] = param0;
-				i->inputFlags = param1;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					DDB_PAWSSetInput(i, param0);
+				else
+				#endif
+				{
+					i->flags[Flag_InputStream] = param0;
+					i->inputFlags = param1;
+				}
 				break;
 			case CONDACT_END:
 			{
@@ -2982,6 +3180,16 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_PAUSE:
 				DDB_Flush(i);
 				i->done = true;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+				{
+					DDB_PAWSStartPause(i, param0);
+					SCR_GetMilliseconds(&i->pauseStart);
+					UpdatePos(i, process, entry, offset + params + 1);
+					TRACE("\n");
+					return;
+				}
+				#endif
 				if (param0 != 0 && SkipTimedPauses(i))
 				{
 					TRACE("[skipped]");
@@ -3005,20 +3213,8 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 
 			case CONDACT_ANYKEY:
 				#if HAS_PAWS
-				if (i->ddb->version == DDB_VERSION_PAWS)
-				{
-					int curwin = i->curwin;
-					uint8_t attributes = VID_GetAttributes();
-					DDB_Flush(i);
-					DDB_SetWindow(i, 2);
-					WinAt(i, 23, 0);
-					WinSize(i, 1, 32);
-					PrintAt(i, &i->win, 23, 0);
-					DDB_OutputMessage(i, DDB_SYSMSG, 16);
-					DDB_Flush(i);
-					DDB_SetWindow(i, curwin);
-					VID_SetAttributes(attributes);
-				}
+				if (DDB_IsPAWS(i->ddb->version))
+					DDB_PAWSOutputAnyKeyMessage(i);
 				else
 				#endif
 				{
@@ -3027,10 +3223,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				}
 				i->state = DDB_WAITING_FOR_KEY;
 				UpdatePos(i, process, entry, offset + params + 1);
+				// ANYKEY starts an independent wait.  In particular, PAW must not
+				// inherit the TIME bit-0 timer used to acquire the preceding command.
+				CancelTimeout(i);
 				if (i->flags[Flag_TimeoutFlags] & Timeout_AnyKey)
 				{
-					i->timeout = true;
-					i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+					StartTimeout(i);
 				}
 				i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 				DDB_ResetScrollCounts(i);
@@ -3249,14 +3447,32 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_TIME:
-				i->flags[Flag_Timeout] = param0;
-				i->flags[Flag_TimeoutFlags] = param1;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					DDB_PAWSSetTime(i, param0, param1);
+				else
+				#endif
+				{
+					i->flags[Flag_Timeout] = param0;
+					i->flags[Flag_TimeoutFlags] = param1;
+				}
 				i->done = true;
 				break;
 			case CONDACT_CHANCE:
 			{
-				uint32_t value = RandInt(0, 100);
-				ok = value < param0;
+				uint32_t value;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+				{
+					value = DDB_PAWSRandom(i);
+					ok = value <= param0;
+				}
+				else
+				#endif
+				{
+					value = RandInt(0, 100);
+					ok = value < param0;
+				}
 				#if HAS_TESTMODE
 				// A scripted override replaces the outcome but the roll above
 				// still consumed its random number, so the stream stays
@@ -3271,7 +3487,12 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				break;
 			}
 			case CONDACT_RANDOM:
-				i->flags[param0] = RandInt(0, 100) + 1;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					i->flags[param0] = DDB_PAWSRandom(i);
+				else
+				#endif
+					i->flags[param0] = RandInt(0, 100) + 1;
 				TRACE("RANDOM %u: %u\n", param0, i->flags[param0]);
 				i->done = true;
 				break;
@@ -3291,8 +3512,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 						i->state = DDB_INPUT;
 						if (i->flags[Flag_TimeoutFlags] & Timeout_Input)
 						{
-							i->timeout = true;
-							i->timeoutRemainingMs = (int32_t)i->flags[Flag_Timeout] * 1000L;
+							StartTimeout(i);
 						}
 						i->flags[Flag_TimeoutFlags] &= ~Timeout_LastFrame;
 						DDB_PrintInputLine(i, true);
@@ -3653,32 +3873,17 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				TRACE("Window %d: at %d,%d %dx%d", i->curwin, i->win.x, i->win.y, i->win.width, i->win.height);
 				break;
 			case CONDACT_LINE:
-				DDB_Flush(i);
-				i->flags[Flag_TopLine] = param0;			// LINE
-				if (param0 >= 4 && param0 <= 23)
-				{
-					DDB_SetWindow(i, 0);
-					if (i->flags[Flag_SplitLine] < 4 || i->flags[Flag_SplitLine] > 23)
-					{
-						WinAt(i, param0, 0);
-						WinSize(i, 24 - param0, 32);
-					}
-				}
+				#if HAS_PAWS
+				DDB_PAWSSetLine(i, param0);
+				#endif
 				i->done = true;
 				break;
 			case CONDACT_PROTECT:
-			{
-				DDB_Flush(i);
-				DDB_Window* w = &i->windef[i->curwin];
-				int x = i->win.posX;
-				int y = i->win.posY;
-				WinAt(i, y, 0);
-				WinSize(i, 24 - y, 32);
-				PrintAt(i, w, x, y);
-				i->flags[Flag_SplitLine] = y/lineHeight;
+				#if HAS_PAWS
+				DDB_PAWSProtect(i);
+				#endif
 				i->done = true;
 				break;
-			}
 			case CONDACT_CLS:
 				DDB_Flush(i);
 				i->done = true;
@@ -3692,12 +3897,10 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					return;
                 }
 				#if HAS_PAWS
-				if (i->ddb->version == DDB_VERSION_PAWS)
+				if (DDB_IsPAWS(i->ddb->version))
 				{
-					DDB_SetWindow(i, 0);
-					WinAt(i, 0, 0);
-					WinSize(i, 24, 32);
-					DDB_ResetPAWSColors(i, &i->win);
+					DDB_PAWSClear(i);
+					break;
 				}
 				#endif
 				DDB_ClearWindow(i, &i->win);
@@ -3708,10 +3911,11 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
-						uint8_t attributes = VID_GetAttributes();
-						DDB_DrawVectorPicture(param0);
-						VID_SetAttributes(attributes);
-						AdoptVectorPictureWindow(i, param0);
+						SCR_DrawVectorPicture(param0);
+						#if HAS_PAWS
+						if (!DDB_IsPAWS(i->ddb->version))
+						#endif
+							AdoptVectorPictureWindow(i, param0);
 						#endif
 
 						// TODO: Did Original do this? Check
@@ -3765,9 +3969,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					if (i->ddb->drawString)
 					{
 						#if HAS_DRAWSTRING
-						uint8_t attributes = VID_GetAttributes();
-						DDB_DrawVectorPicture(i->currentPicture);
-						VID_SetAttributes(attributes);
+						SCR_DrawVectorPicture(i->currentPicture);
 						AdoptVectorPictureWindow(i, i->currentPicture);
 						#endif
 					}
@@ -3785,22 +3987,41 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_MODE:
-				i->win.flags = param0;
 				#if HAS_PAWS
-				if  (i->ddb->version == DDB_VERSION_PAWS)
-					i->flags[Flag_PAWMode] = param0 | (param1 << 6);
+				if (DDB_IsPAWS(i->ddb->version))
+					DDB_PAWSSetMode(i, param0, param1);
+				else
 				#endif
+					i->win.flags = param0;
 				if (i->ddb->version == DDB_VERSION_1)
 					i->flags[40] = param0;
 				i->done = true;
 				break;
 			case CONDACT_GRAPHIC:
-				i->flags[Flag_GraphicFlags] &= 0x87;
-				i->flags[Flag_GraphicFlags] |= ((param0 << 5) | (param1 << 3)) & 0x78;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					DDB_PAWSSetGraphic(i, param0);
+				else
+				#endif
+				{
+					i->flags[Flag_GraphicFlags] &= 0x87;
+					i->flags[Flag_GraphicFlags] |= ((param0 << 5) | (param1 << 3)) & 0x78;
+				}
 				i->done = true;
 				break;
 			case CONDACT_CHARSET:
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+				{
+					DDB_Flush(i);
+					DDB_ResetPAWSColors(i, &i->win);
+				}
+				#endif
 				DDB_SetCharset(i->ddb, param0);
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version) && param0 <= i->ddb->numCharsets)
+					i->pawsPermanentCharset = param0;
+				#endif
 				i->done = true;
 				break;
 			case CONDACT_GFX:
@@ -3926,28 +4147,47 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				i->done = true;
 				break;
 			case CONDACT_TURNS:
+			{
+				uint16_t turns;
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					turns = i->flags[Flag_Turns] + 256 * i->flags[Flag_Turns + 1];
+				else
+				#endif
+					turns = i->flags[Flag_Turns+1] + 256 * i->flags[Flag_Turns];
 				DDB_OutputMessage(i, DDB_SYSMSG, 17);		// You have taken
-				LongToChar(i->flags[Flag_Turns+1] + 256*i->flags[Flag_Turns], output, 10);
+				LongToChar(turns, output, 10);
 				DDB_OutputText(i, output);
 				DDB_OutputMessage(i, DDB_SYSMSG, 18);		// turn
-				if (i->flags[Flag_Turns+1] + 256*i->flags[Flag_Turns] != 1)
+				if (turns != 1)
 					DDB_OutputMessage(i, DDB_SYSMSG, 19);	// s
 				DDB_OutputMessage(i, DDB_SYSMSG, 20);		// so far.
 				i->done = true;
 				break;
+			}
 			case CONDACT_PROMPT:
 				i->flags[Flag_Prompt] = param0;
 				i->done = true;
 				break;
 			case CONDACT_PAPER:
 				DDB_Flush(i);
+				DDB_ResetPAWSColors(i, &i->win);
 				// Transparent paper is not supported in the original
 				i->win.paper = param0 == 255 ? 255 : i->inkMap[param0 & 0x0F];
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					i->pawsPermanentPaper = i->win.paper;
+				#endif
 				i->done = true;
 				break;
 			case CONDACT_INK:
 				DDB_Flush(i);
+				DDB_ResetPAWSColors(i, &i->win);
 				i->win.ink = i->inkMap[param0 & 0x0F];
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					i->pawsPermanentInk = i->win.ink;
+				#endif
 				TRACE("Ink %02d (from %02d)", i->win.ink, param0);
 				i->done = true;
 				break;
@@ -4008,7 +4248,7 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 					// Flags are required to be first in buffer
 					int flagCount = param0 + 1;
 					MemCopy(i->buffer, i->ramSaveArea, flagCount);
-					MemCopy(i->buffer + 256, i->ramSaveArea + 256, i->saveStateSize - flagCount);
+					MemCopy(i->buffer + 256, i->ramSaveArea + 256, i->saveStateSize - 256);
 				}
 				else
 				{
@@ -4028,12 +4268,6 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 				DDB_Flush(i);
 				i->win.posX = i->win.saveX;
 				i->win.posY = i->win.saveY;
-				if (i->ddb->version == DDB_VERSION_PAWS)
-				{
-					i->win.ink = i->ddb->defaultInk;
-					i->win.paper = i->ddb->defaultPaper;
-					DDB_SetCharset(i->ddb, i->ddb->defaultCharset);
-				}
 				i->done = true;
 				break;
 
@@ -4216,7 +4450,13 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			case CONDACT_CALL:
 			case CONDACT_BEEP:
 			case CONDACT_MOUSE:
+				i->done = true;
+				break;
 			case CONDACT_BORDER:
+				#if HAS_PAWS
+				if (DDB_IsPAWS(i->ddb->version))
+					i->pawsBorder = param0 & 7;
+				#endif
 				i->done = true;
 				break;
 
@@ -4264,12 +4504,19 @@ static void StepFunction(int elapsed)
 			{
 				if (i->timeout)
 				{
-					i->timeoutRemainingMs -= elapsed;
-					if (i->timeoutRemainingMs <= 0)
+					if (AdvanceTimeout(i, elapsed))
 					{
 						i->timeout = false;
-						i->flags[Flag_TimeoutFlags] |= Timeout_LastFrame;
+						#if HAS_PAWS
+						if (!DDB_IsPAWS(i->ddb->version))
+						#endif
+							i->flags[Flag_TimeoutFlags] |= Timeout_LastFrame;
 						i->state = DDB_RUNNING;
+						// A buffered More prompt owns waitingForKey rather than
+						// DDB_WAITING_FOR_KEY.  Release it on timeout so the
+						// clear and interrupted output queued behind the wait
+						// can be consumed on the following step.
+						waitingForKey = false;
 					}
 				}
 				return;
@@ -4298,8 +4545,7 @@ static void StepFunction(int elapsed)
 		case DDB_INPUT:
 			if (i->timeout && i->inputBufferLength == 0)
 			{
-				i->timeoutRemainingMs -= elapsed;
-				if (i->timeoutRemainingMs <= 0)
+				if (AdvanceTimeout(i, elapsed))
 				{
 					i->timeout = false;
 					i->flags[Flag_TimeoutFlags] |= Timeout_LastFrame;
@@ -4322,6 +4568,17 @@ static void StepFunction(int elapsed)
 
 		case DDB_PAUSED:
 		{
+			#if HAS_PAWS
+			if (DDB_IsPAWS(i->ddb->version))
+			{
+				uint32_t advance = elapsed > 0 ? (uint32_t)elapsed : 0;
+				if (SkipTimedPauses(i))
+					advance = (uint32_t)i->pauseFrames * DDB_PAWS_TICK_MS;
+				if (DDB_PAWSAdvancePause(i, advance))
+					i->state = DDB_RUNNING;
+				break;
+			}
+			#endif
 			uint32_t current = 0;
 			SCR_GetMilliseconds(&current);
 
@@ -4374,8 +4631,7 @@ static void StepFunction(int elapsed)
 			}
 			else if (i->timeout)
 			{
-				i->timeoutRemainingMs -= elapsed;
-				if (i->timeoutRemainingMs <= 0)
+				if (AdvanceTimeout(i, elapsed))
 				{
 					i->timeout = false;
 					i->flags[Flag_TimeoutFlags] |= Timeout_LastFrame;
@@ -4465,8 +4721,10 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 	i->ddb = ddb;
 	i->screenMode = mode;
 	i->saveStateSize = 256 + ddb->numObjects;
-	if (i->ddb->version == DDB_VERSION_PAWS)
-		i->bufferSize += 32;
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+		i->saveStateSize = DDB_PAWS_STATE_SIZE;
+	#endif
 	i->bufferSize = i->saveStateSize * 2;
 	i->buffer = Allocate<uint8_t>("DDB Savestate", i->bufferSize);
 	if (!i->buffer)
@@ -4481,8 +4739,10 @@ DDB_Interpreter* DDB_CreateInterpreter (DDB* ddb, DDB_ScreenMode mode)
 	i->objloc = i->buffer + 256;
 	i->ramSaveArea = i->buffer + i->saveStateSize;
 	i->keyClick = 2;
-	if (i->ddb->version == DDB_VERSION_PAWS)
-		i->visited = i->buffer + 256 + ddb->numObjects;
+	#if HAS_PAWS
+	if (DDB_IsPAWS(i->ddb->version))
+		i->visited = i->buffer + DDB_PAWS_FLAG_BYTES + DDB_PAWS_OBJECT_BYTES;
+	#endif
 
 	DDB_Reset(i);
 	DDB_ResetWindows(i);

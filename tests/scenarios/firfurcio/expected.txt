@@ -1,0 +1,141 @@
+AVENTURAS A.D.presentaS U P E R V I V E N C I A 1988
+Herida en sus centros vitales tu nave "HISPAN" busca refugio en un cercano planeta.
+    Mensaje de Albstein :
+"ORDENADOR COMUNICANDO FALLO DE TODOS LOS SISTEMAS : SUGIERO BUSCAR CAPSULA DE SALVAMENTO AD"
+Est&s en el centro de control de "HISPAN". Aqui est& el manual de operacion, la caja amarilla y la maleta roja
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EX PANTALLA
+NAVE: HISPAN
+PLANETA: ARCODIOSO
+ESTADO: GRAVES DA\OS EN CASI
+        TODOS LOS SISTEMAS :
+        SISTEMA DE DATOS TRANS-
+        FERIDO TEMPORALMENTE
+        AL ALMACEN.
+ AVISO: FUGA RADIACTIVA: PILA I
+ SISTEMA DE LENGUAJE ACTIVO
+Est&s en el centro de control de "HISPAN". Aqui est& el manual de operacion, la caja amarilla y la maleta roja
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EX MANUAL
+      NAVE CIBOR TIPO XXI 
+     Tecnolog^a a nivel 10.
+Todas las funciones de la nave pueden controlarse simplemente con hablarle. Utilicese DECIR "COMANDOS" para obtener una lista completa de los controles disponibles.
+Est&s en el centro de control de "HISPAN". Aqui est& el manual de operacion, la caja amarilla y la maleta roja
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "COMANDOS"
+Albstein: "COMANDOS DISPONIBLES : ABRIR : INFORMACION : EL RESTO ESTAN DESTRUIDOS : LO SIENTO CAPITAN"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "INFORMACION"
+Albstein: "INFORMACION ACTUAL : ARCODIOSO : JOYSTICOSOS : BURUNDANGAS : TRIPORCINA : SIENTO NO DISPONER DE MAS INFORMACION"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "ARCADIOSO"
+Albstein: "SECUENCIA INCORRECTA : NO  COMPRENDO : REPITA POR FAVOR"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "JOYSTICOSOS"
+Albstein: "JOYSTICOSOS : PLANTA ORIGINARIA DE ARCODIOSO : CARNIVORA : ORGANO SENSITIVO OLFATIVO : PELIGROSA"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "TRIPORCINA"
+Albstein: " TRIPORCINA : SUSTANCIA LIQUIDA DE COLOR VERDOSO :  LETAL POR CONTACTO  : OLOR INTENSO Y REPULSIVO : LOS JOYSTICOSOS NO LO SOPORTAN"
+\x90\x90\x90\x90\x90\x90\x90\x90EX CAJA
+Lujosamente impresa en un lado de la caja amarilla est& la frase
+"CELULA NUCLEAR : PELIGROSO ".
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90ABRIR CAJA
+No puedes abrir la caja amarilla pues la radiaci+n te matar^a.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EX MALETA
+En un lado de la maleta roja pone "HERRAMIENTAS". Su tapa superior est& cerrada.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90ABRIR MALETA
+Tras unos simples movimientos logras levantar la tapa. Ya est& abierta.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90MIRAR DENTRO DE MALETA
+Est& la gran llave y el destornillador electronico en la maleta roja.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90COGER TODO DE MALETA
+Ahora ya tienes la gran llave. Ahora ya tienes el destornillador electronico. 
+\x90\x90I
+                                                  \x91\x92\x93\x94\x95234567)*+,-.Llevas la gran llave y el destornillador electronico, y tienes puesto nada y en  14 jugadas has completado el 20% del juego.
+Albstein: "BUENAS TARDES CAPITAN : ESPERO SUS ORDENES"
+\x90\x90N
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90E
+La sala de descompresi+n tiene la puerta interior abierta desde que se produjo el choque. La puerta exterior est& cerrada Aqui est& el traje espacial
+\x90\x90\x90\x90\x90\x90\x90\x90\x90EX TRAJE
+El traje obviamente ha tenido mucho uso y est& algo oxidado.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DEJAR DESTORNILLADOR
+Has dejado el destornillador electronico.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90COGER TRAJE
+Ahora ya tienes el traje espacial. 
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90PONER TRAJE
+Ahora llevas puesto el traje espacial.
+\x90\x90O
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90COGER BOTELLA
+Ahora ya tienes la botella verde. 
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EX BOTELLA
+Hay un arom&tico l^quido contenido en el frasco verdoso. En la etiqueta se indica que contiene "Triporcina".
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90VERTER BOTELLA EN TRAJE
+El liquido verdoso cae chorreante de la botella sobre el traje, dejandolo impregnado de una fuerte fragancia a Triporcina.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DEJAR BOTELLA
+Has dejado la botella verde.
+\x90\x90E
+La sala de descompresi+n tiene la puerta interior abierta desde que se produjo el choque. La puerta exterior est& cerrada Aqui est& el destornillador electronico
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90COGER DESTORNILLADOR
+Ahora ya tienes el destornillador electronico. 
+\x90\x90O
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90S
+Est&s en el centro de control de "HISPAN". Aqui est& el manual de operacion, la caja amarilla y la maleta roja
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90ABRIR CAJA
+Tras unos simples movimientos logras levantar la tapa. Ya est& abierta.
+Albstein: "ATMOSFERA EXTERIOR NO APROPIADA"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EXAMINAR DENTRO DE CAJA
+En su interior puedes ver una Merdurcia.
+\x90\x90N
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90E
+La sala de descompresi+n tiene la puerta interior abierta desde que se produjo el choque. La puerta exterior est& cerrada
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "ABRIR"
+Albstein: "SISTEMA HIDRAULICO ESTROPEADO : NECESARIO OPERACION MANUAL : HE ABIERTO EL TABLERO"
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DESTORNILLAR MECANISMO
+"Psssssssst" ...ya est&.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DECIR "ABRIR"
+La puerta se abre.
+\x90\x90O
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90S
+Est&s en el centro de control de "HISPAN". Aqui est& el manual de operacion, la caja amarilla y la maleta roja
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DEJAR DESTORNILLADOR
+Has dejado el destornillador electronico.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90SACAR MERDURCIA DE CAJA
+Ahora ya tienes la merdurcia. 
+\x90\x90N
+El Astrocamarote tiene la puerta Norte bloqueada cerrada y la Este bloqueada abierta. Aqui est& la botella verde
+\x90\x90E
+La sala de descompresi+n tiene la puerta interior abierta desde que se produjo el choque. La puerta exterior est& abierta, un peque|o tablero de mandos esta abierto tras la pared.
+\x90\x90\x90\x90\x90\x90SALIR
+Est&s sobre el planeta, junto a tu estropeada nave.
+\x90\x90\x90\x90\x90\x90\x90\x90EX NAVE
+La nave parece en perfecto estado, pero el computador de abordo est& medio colgado y le ser^a imposible realizar un despegue.
+\x90\x90N
+Una amplia zona ha sido arrasada por las toberas de la nave.
+Los Joysticosos que sobreviven se agitan furiosos y sus ojos parpadean sorprendidos obviamente repelidos por tu terrible olor a Triporcina
+1\x90\x90N
+Oyes el fuerte golpear de enormes pasos que se acercan. Todo el suelo vibra y todo ser viviente busca refugio.
+Frente a t^ aparece el ser m&s horroroso de toda la galaxia. El firfurcio parece hambriento
+]A uan ba buluba balam...
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DAR MERDURCIA A FIRFURCIO
+El firfurcio se ha comido un trozo de tu Merdurcia.
+\x90\x90\x90\x90\x90\x90BAMBU
+El firfurcio subitamente se derrumba formando una acogedora alfombra.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90MONTAR FIRFURCIO
+Muy bien, ya lo has hecho.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90CABALGAR
+Se infla el firfurcio. Y te lleva cabalgando por un largo y tortuoso sendero.
+El exhausto Firfurcio se vuelve a desinflar.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90DAR MERDURCIA A FIRFURCIO
+El Firfurcio se come un trocito m&s de tu Merdurcia.
+Est&s junto a la capsula A.D. en el claro de las Burundangas, hongos gigantes con largas sombras. La puerta de la capsula est& cerrada
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90EX CAPSULA
+La c&psula A.D. est& hecha de una dura substancia met&lica. La puerta est& cerrada.
+\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90ABRIR PUERTA
+"Psssssssst" ...ya est&.
+La puerta se abre.
+\x90\x90\x90\x90\x90\x90\x90ENTRAR
+Al entrar en la c&psula, un diminuto cable se conecta en el traje espacial,  suena una agradable m-sica y la c&psula comienza a elevarse...
+Y te vas, te vas, te vas...
+Enhorabuena, has completado la aventura.
+Esperamos que sigas jugando con
+          AVENTURAS AD  
+]Quieres jugar otra partida?
+\x90\x90N
+[VOLVERAS!

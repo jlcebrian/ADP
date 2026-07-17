@@ -5,12 +5,16 @@ build
 tmp
 .cache
 
-# Test fixtures are source-controlled. Test runs keep all generated evidence here.
+# Test games and scenarios are source-controlled. Test runs keep all
+# generated evidence in test-results; everything else under tests/ is
+# transient or machine-local.
 test-results/
 tests/.work/
 tests/*
-!tests/fixtures/
-!tests/fixtures/**
+!tests/games/
+!tests/games/**
+!tests/scenarios/
+!tests/scenarios/**
 
 *.map
 *.lst

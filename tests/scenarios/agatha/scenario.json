@@ -1,0 +1,9 @@
+{
+    "fixture": "agatha/Agatha's Folly - Part 1.tzx",
+    "randomSeed": 2,
+    "input": "input.txt",
+    "transcript": "expected.txt",
+    "timeout_seconds": 600,
+    "fixtureUrl": "https://spectrumcomputing.co.uk/pub/sinclair/games/a/AgathasFolly.tzx.zip",
+    "fixtureSha256": "01c0015dff71ca49b0b7eba8680e766dfaa2b60f66451d7a655dfdf81aa99815"
+}

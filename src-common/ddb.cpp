@@ -1617,6 +1617,7 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		// PAWS
 		ddb->data         = memory;
 		ddb->dataSize     = size;
+		ddb->memory       = memory;
 		ddb->version      = DDB_VERSION_PAWS;
 		ddb->language     = DDB_SPANISH;			// TODO: guess
 		ddb->target       = DDB_MACHINE_SPECTRUM;
@@ -1629,7 +1630,6 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		ddb->defaultInk		   = memory[base + 312];
 		ddb->defaultPaper	   = memory[base + 314];
 		ddb->defaultCharset	   = memory[base + 281];
-
 		ddb->numObjects        = memory[base + 324];
 		ddb->numLocations      = memory[base + 325];
 		ddb->numMessages       = memory[base + 326];

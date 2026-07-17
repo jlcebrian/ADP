@@ -1,0 +1,16 @@
+
+@save Titulo
+@key
+@save Planeta
+@key
+@save Mensaje
+@key
+@save Control
+I
+@save Inventario
+N
+@save Camarote
+E
+@save DescompresionMore
+@waitkey
+@exit

@@ -1,0 +1,271 @@
+@save Titles
+@key
+@save Intro
+@key
+@save Start
+@mute 0
+@mute 1
+@mute 2
+@mute 3
+@mute 4
+@mute 5
+@mute 6
+@mute 7
+
+E
+E
+@let 5 230
+WAIT
+S
+@save More
+@key
+N
+N
+W
+E
+examine fireplace
+take bellows
+examine mantel
+take keys
+s
+examine stairs
+open cupboard
+examine cupboard
+take boat
+take notepad
+examine notepad
+w
+w
+examine window
+take hairgrip
+examine sink
+e
+e
+n
+w
+n
+n
+drop boat
+inflate boat
+drop bellows
+s
+s
+s
+e
+s
+rip box
+take strips
+n
+w
+w
+push hairgrip with strips
+drop strips
+take hairgrip
+n
+take rock
+s
+e
+stand on chair
+e
+u
+e
+examine bath
+take sponge
+wet sponge
+w
+w
+examine wallpaper
+scrape wallpaper with rock
+drop rock
+drop sponge
+examine scribble
+examine sampler
+e
+n
+stand on bed
+examine beam
+examine hole
+wait
+examine parchment
+d
+examine symbols
+@save Symbols
+drop parchment
+s
+d
+wait
+wait
+e
+look under desk
+press button
+open drawers
+examine drawers
+take journal
+read journal
+drop journal
+w
+s
+examine groceries
+take bread
+s
+open boot
+drop keys
+examine boot
+take duster
+wait
+e
+open compartment
+examine compartment
+wait
+take details
+w
+n
+n
+read details
+drop details
+wait
+w
+e
+s
+n
+w
+w
+w
+clean cobwebs
+wait
+e
+e
+n
+n
+n
+nw
+feed swans
+examine bushes
+enter bushes
+examine wheel
+examine stream
+move rocks
+enter bushes
+w
+pick lock with hairgrip
+s
+drop all
+examine bench
+take saw
+n
+e
+se
+s
+wait
+examine bushes
+saw gatepost
+drop saw
+wait
+take post
+n
+nw
+w
+examine machines
+put post in hole
+pull lever
+s
+look under bench
+take trowel
+n
+e
+se
+s
+s
+wait
+s
+w
+w
+press switch
+e
+e
+e
+wait
+wait
+wait
+wait
+wait
+wait
+wait
+wait
+wait
+wait
+s
+open envelope
+take key
+n
+w
+w
+w
+s
+u
+s
+take stool
+drop key
+u
+e
+e
+e
+u
+examine ceiling
+drop stool
+stand on stool
+u
+examine chest
+examine carvings
+feel carvings
+examine chest
+take book
+examine book
+drop book
+take photo
+examine photo
+drop photo
+take picture
+examine picture
+drop picture
+examine rafters
+take string
+d
+d
+d
+w
+take legs
+take wood
+tie legs to wood
+e
+s
+s
+take flask
+drink coffee
+n
+n
+n
+w
+n
+n
+n
+n
+e
+examine stones
+dig leaves with trowel
+examine trowel
+examine mosaic
+stand on mosaic
+
+# (wait around until moonlight falls on folly) 
+say trans fayle
+wait
+wait
+wait
+wait
+wait
+say trans fayle
+@waitkey
+@save Ending
+@assert 30 98
+@exit

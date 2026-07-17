@@ -56,7 +56,7 @@ def run(name, f, tag):
     open(f'{tag}-out.ram','wb').write(ram)
 
 jobs = []
-for path in sorted(glob.glob('/home/jlcebrian/Src/ADP/tests/fixtures/games/*/c64/*.[dD]64')):
+for path in sorted(glob.glob('/home/jlcebrian/Src/ADP/tests/games/*/c64/*.[dD]64')):
     for name, f in files_of(open(path,'rb').read()):
         if len(f) < 20000: continue
         tag = re.sub(r'\W+', '', name).lower()
