@@ -506,6 +506,42 @@ static bool AppendTextBreak(DC_Context* ctx, DC_Text* text)
 	return AppendTextBytes(ctx, text, lineBreak, 2);
 }
 
+static bool IsPAWSMode(DC_Context* ctx)
+{
+	return ctx->opts.version == DDB_VERSION_PAWS;
+}
+
+static bool PAWSTextEndsWithBreak(DC_Text* text)
+{
+	return text->size >= 3 &&
+		text->data[text->size - 3] == '{' &&
+		text->data[text->size - 2] == '7' &&
+		text->data[text->size - 1] == '}';
+}
+
+// PAWCOMP joins the source lines of a message with a space (the interpreter
+// word-wraps on output) and encodes a blank source line as control code 7,
+// PAW's newline.
+static bool PAWSAppendTextLine(DC_Context* ctx, DC_Text* text, DC_String line)
+{
+	if (StringEmpty(line))
+		return true;
+	CaptureTextOrigin(ctx, text);
+	if (text->size != 0 && !PAWSTextEndsWithBreak(text))
+	{
+		uint8_t space = ' ';
+		if (!AppendTextBytes(ctx, text, &space, 1))
+			return false;
+	}
+	return AppendTextString(ctx, text, line);
+}
+
+static bool PAWSAppendTextBreak(DC_Context* ctx, DC_Text* text)
+{
+	CaptureTextOrigin(ctx, text);
+	return AppendTextBytes(ctx, text, (const uint8_t*)"{7}", 3);
+}
+
 static bool SplitFields(DC_String line, DC_String* fields, int maxFields, int* count)
 {
 	int n = 0;
@@ -747,13 +783,17 @@ static bool TryResolveIncludePath(char* resolved, size_t resolvedSize, const cha
 	}
 	if (!HasFileExtension(path))
 	{
-		char candidate[FILE_MAX_PATH];
-		StrCopy(candidate, sizeof(candidate), path);
-		StrCat(candidate, sizeof(candidate), ".sce");
-		if (FileExists(candidate))
+		static const char* extensions[] = { ".sce", ".SCE" };
+		for (size_t i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++)
 		{
-			StrCopy(resolved, (uint32_t)resolvedSize, candidate);
-			return true;
+			char candidate[FILE_MAX_PATH];
+			StrCopy(candidate, sizeof(candidate), path);
+			StrCat(candidate, sizeof(candidate), extensions[i]);
+			if (FileExists(candidate))
+			{
+				StrCopy(resolved, (uint32_t)resolvedSize, candidate);
+				return true;
+			}
 		}
 	}
 	return false;
@@ -1120,6 +1160,29 @@ static bool PreprocessFile(DC_Context* ctx, const char* path, DC_SourceLine** li
 			if (!StringEmpty(trimmed) && *trimmed.ptr == '/')
 			{
 				DC_String header = TrimString(StripComment(DC_String(trimmed.ptr + 1, trimmed.end)));
+				if (IsPAWSMode(ctx) && HeaderStartsWithWordI(header, "LNK"))
+				{
+					// PAWCOMP file chaining: /LNK ends the current file and
+					// continues compilation in the named one.
+					DC_String linked = TrimString(DC_String(header.ptr + 3, header.end));
+					char resolved[FILE_MAX_PATH];
+					if (StringEmpty(linked) || !ResolveInclude(ctx, path, linked, resolved, sizeof(resolved)))
+					{
+						ctx->includeStackCount--;
+						SetFailureAt(path, lineNumber, DCError_FileNotFound, "Unable to resolve /LNK file");
+						return false;
+					}
+					if (frameCount != 0)
+					{
+						ctx->includeStackCount--;
+						SetFailureAt(path, lineNumber, DCError_SyntaxError, "Unterminated conditional");
+						return false;
+					}
+					char* resolvedCopy = CopyString(ctx->arena, MakeString(resolved));
+					bool ok = resolvedCopy != 0 && PreprocessFile(ctx, resolvedCopy, lines, lineCount, lineCapacity);
+					ctx->includeStackCount--;
+					return ok;
+				}
 				if (IsCompilerSectionHeader(header))
 				{
 					isSectionHeader = true;
@@ -1172,6 +1235,12 @@ static bool TryEncodeCodepointToDAADText(DC_Context* ctx, uint32_t codepoint, ui
 		*value = (uint8_t)codepoint;
 		return true;
 	}
+
+	// PAW text bytes 0x00-0x17 are display control codes and everything else
+	// comes from the game font, so only ASCII, {n} codes and --tr mappings
+	// have a defined meaning there.
+	if (ctx->opts.version == DDB_VERSION_PAWS)
+		return false;
 
 	// DDB text charset supports ASCII plus these Spanish characters in 0x10..0x1F.
 	switch (codepoint)
@@ -1920,6 +1989,11 @@ static bool ParseInstruction(DC_Context* ctx, DC_String* fields, int fieldCount,
 		DC_String value = fields[i + 1];
 		if (i == 0 && value.end - value.ptr >= 3 && value.ptr[0] == '[' && value.end[-1] == ']')
 		{
+			if (IsPAWSMode(ctx))
+			{
+				SetFailure(ctx, DCError_Unsupported, "PAWS does not support indirection");
+				return false;
+			}
 			instruction->indirect = true;
 			value.ptr++;
 			value.end--;
@@ -1962,6 +2036,11 @@ static bool ParseInstruction(DC_Context* ctx, DC_String* fields, int fieldCount,
 	return true;
 }
 
+static bool IsStarWord(DC_Context* ctx, DC_String text)
+{
+	return IsPAWSMode(ctx) && (text.end - text.ptr) == 1 && *text.ptr == '*';
+}
+
 static bool AddProcessLabel(DC_Context* ctx, DC_Process* process, DC_String name, int entryIndex)
 {
 	DC_ProcessLabel* label = AppendArray(ctx->arena, &process->labels, &process->labelCount, &process->labelCapacity);
@@ -1998,8 +2077,8 @@ static bool ParseProcessLine(DC_Context* ctx, DC_Process* process, DC_ProcessEnt
 			return false;
 		}
 		startsNewEntry = true;
-		localEntry.verb = IsNullWord(ctx, fields[0]) ? 255 : LookupWordNumber(ctx, fields[0], WordType_Verb);
-		localEntry.noun = IsNullWord(ctx, fields[1]) ? 255 : LookupWordNumber(ctx, fields[1], WordType_Noun);
+		localEntry.verb = IsNullWord(ctx, fields[0]) ? 255 : IsStarWord(ctx, fields[0]) ? 1 : LookupWordNumber(ctx, fields[0], WordType_Verb);
+		localEntry.noun = IsNullWord(ctx, fields[1]) ? 255 : IsStarWord(ctx, fields[1]) ? 1 : LookupWordNumber(ctx, fields[1], WordType_Noun);
 		if (localEntry.verb < 0 || localEntry.noun < 0)
 			return false;
 		fields[0] = fields[2];
@@ -2065,7 +2144,12 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 		if (StringEmpty(trimmed))
 		{
 			if (StringEmpty(rawTrimmed) && currentTextTable != 0 && currentIndex >= 0 && (size_t)currentIndex < *currentTextCount)
-				AppendTextBreak(ctx, &currentTextTable[currentIndex]);
+			{
+				if (IsPAWSMode(ctx))
+					PAWSAppendTextBreak(ctx, &currentTextTable[currentIndex]);
+				else
+					AppendTextBreak(ctx, &currentTextTable[currentIndex]);
+			}
 			continue;
 		}
 		if (*trimmed.ptr == '/')
@@ -2218,6 +2302,13 @@ static bool ParseSource(DC_Context* ctx, DC_SourceLine* source, size_t sourceCou
 				if (currentTextTable == 0 || currentIndex < 0)
 				{
 					SetFailure(ctx, DCError_SyntaxError, "Text outside item");
+					break;
+				}
+				if (IsPAWSMode(ctx))
+				{
+					if (!ValidateTextLineEncoding(ctx, rawLine, true))
+						return false;
+					PAWSAppendTextLine(ctx, &currentTextTable[currentIndex], rawLine);
 					break;
 				}
 				if (!ValidateTextLineEncoding(ctx, line, true))
@@ -2645,6 +2736,668 @@ static bool BuildDDB(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* 
 	return true;
 }
 
+
+/* ─────────────────────────── PAWS .SDB output ───────────────────────────── */
+
+// The layout produced here follows the PAW B-series editor byte for byte;
+// the structures are described in PAWS/docs/database-format.md and in
+// docs/SDB Specs.txt.
+
+struct DC_PAWSToken
+{
+	const uint8_t* text;
+	size_t size;
+};
+
+struct DC_PAWSDonor
+{
+	uint8_t* memory;				// 64K Spectrum image, or 0 when absent
+	DC_PAWSToken tokens[96];
+	size_t tokenCount;
+	const uint8_t* dict;			// raw dictionary bytes (1 or 222)
+	size_t dictSize;
+};
+
+enum
+{
+	PAWS_BASE          = 0x9300,
+	PAWS_UDGS          = 0x9300,	// 19 UDGs + 16 shade patterns
+	PAWS_MISC          = 0x9418,	// miscellaneous configuration area
+	PAWS_CHARSET       = 0x9419,	// default character set (0: ROM font)
+	PAWS_PAGE_MAP1     = 0x941A,
+	PAWS_PAGE_MAP2     = 0x9428,
+	PAWS_DISPLAY_PAIRS = 0x9437,	// INK/PAPER/FLASH/BRIGHT/INVERSE/OVER
+	PAWS_BORDER        = 0x9443,
+	PAWS_COUNTS        = 0x9444,	// objects/locations/messages/sysmsgs/processes/fonts
+	PAWS_FONTS_PTR     = 0x944A,
+	PAWS_DICT_PTR      = 0x944C,
+	PAWS_FONTS         = 0x944E,
+	PAWS_DICT_SIZE     = 222,
+	PAWS_TRAILER       = 0xFFD9,	// table pointers through 0xFFEB
+	PAWS_PART_A_END    = 0xFFED,
+	PAWS_PART_B_START  = 0xFFEF,
+	PAWS_GFX_DIR       = 0xFFF1,
+	PAWS_GFX_FLAGS     = 0xFFF3,
+	PAWS_GFX_CONTROL   = 0xFFF5,
+	PAWS_CONTROL_BYTE  = 0xFFF7,
+	PAWS_TRAILER_COUNTS= 0xFFF8,	// messages/sysmsgs/objects/locations/processes
+	PAWS_BASE_WORD     = 0xFFFD,
+	PAWS_PAGE_BYTE     = 0xFFFF,
+	PAWS_MIN_PROCESSES = 3,
+	PAWS_MIN_SYSMSGS   = 55,
+};
+
+static uint16_t PAWSRead16(const uint8_t* p)
+{
+	return (uint16_t)(p[0] | (p[1] << 8));
+}
+
+static void PAWSWrite16(uint8_t* p, uint16_t value)
+{
+	p[0] = (uint8_t)(value & 0xFF);
+	p[1] = (uint8_t)(value >> 8);
+}
+
+static uint32_t PAWSCRC32(const uint8_t* data, size_t size)
+{
+	uint32_t crc = 0xFFFFFFFFU;
+	for (size_t n = 0; n < size; n++)
+	{
+		crc ^= data[n];
+		for (int bit = 0; bit < 8; bit++)
+			crc = (crc >> 1) ^ (0xEDB88320U & (uint32_t)-(int32_t)(crc & 1));
+	}
+	return crc ^ 0xFFFFFFFFU;
+}
+
+static bool LoadPAWSDonor(DC_Context* ctx, DC_PAWSDonor* donor)
+{
+	donor->memory = 0;
+	donor->tokenCount = 0;
+	donor->dict = 0;
+	donor->dictSize = 0;
+	if (ctx->opts.pawsDonor == 0)
+		return true;
+
+	File* file = File_Open(ctx->opts.pawsDonor, ReadOnly);
+	if (file == 0)
+	{
+		SetFailure(ctx, DCError_FileNotFound, "Unable to open donor database");
+		return false;
+	}
+	uint64_t size64 = File_GetSize(file);
+	if (size64 < 24 + 2 * 16 || size64 > 0x7FFFFFFF)
+	{
+		File_Close(file);
+		SetFailure(ctx, DCError_ReadError, "Donor database is not a valid SDB file");
+		return false;
+	}
+	size_t size = (size_t)size64;
+	uint8_t* data = Allocate<uint8_t>(ctx->arena, (unsigned)size, false);
+	if (data == 0 || File_Read(file, data, size) != size)
+	{
+		File_Close(file);
+		SetFailure(ctx, DCError_ReadError, "Unable to read donor database");
+		return false;
+	}
+	File_Close(file);
+
+	if (data[0] != 'S' || data[1] != 'D' || data[2] != 'B' || data[3] != 0x1A ||
+		data[4] != 1)
+	{
+		SetFailure(ctx, DCError_ReadError, "Donor database is not a valid SDB file");
+		return false;
+	}
+	if (data[6] != 48)
+	{
+		SetFailure(ctx, DCError_Unsupported, "128K donor databases are not supported yet");
+		return false;
+	}
+
+	uint8_t* memory = Allocate<uint8_t>(ctx->arena, 65536, true);
+	if (memory == 0)
+		return false;
+	uint16_t segmentCount = PAWSRead16(data + 12);
+	uint32_t directoryOffset = 24;
+	if (segmentCount == 0 || segmentCount > 16)
+	{
+		SetFailure(ctx, DCError_ReadError, "Donor database is not a valid SDB file");
+		return false;
+	}
+	for (uint16_t n = 0; n < segmentCount; n++)
+	{
+		const uint8_t* entry = data + directoryOffset + n * 16;
+		uint16_t load = PAWSRead16(entry + 2);
+		uint16_t length = PAWSRead16(entry + 4);
+		uint32_t payload = (uint32_t)PAWSRead16(entry + 8) | ((uint32_t)PAWSRead16(entry + 10) << 16);
+		if (length == 0 || (uint32_t)load + length > 0x10000 || (uint64_t)payload + length > size ||
+			PAWSCRC32(data + payload, length) != ((uint32_t)PAWSRead16(entry + 12) | ((uint32_t)PAWSRead16(entry + 14) << 16)))
+		{
+			SetFailure(ctx, DCError_ReadError, "Donor database is corrupt");
+			return false;
+		}
+		MemCopy(memory + load, data + payload, length);
+	}
+	if (PAWSRead16(memory + PAWS_BASE_WORD) != PAWS_BASE ||
+		memory[PAWS_DISPLAY_PAIRS] != 16 || memory[PAWS_DISPLAY_PAIRS + 2] != 17)
+	{
+		SetFailure(ctx, DCError_ReadError, "Donor file does not contain a PAW database");
+		return false;
+	}
+	donor->memory = memory;
+
+	uint16_t dictPtr = PAWSRead16(memory + PAWS_DICT_PTR);
+	if (memory[dictPtr] == 0xFF)
+	{
+		donor->dict = memory + dictPtr;
+		donor->dictSize = 1;
+		return true;
+	}
+	donor->dict = memory + dictPtr;
+	donor->dictSize = PAWS_DICT_SIZE;
+
+	// The dictionary parses as bit-7 terminated entries; the first one is the
+	// scanner sentinel, and the rest expand text bytes 0xA5 and up.
+	const uint8_t* p = donor->dict;
+	const uint8_t* end = donor->dict + PAWS_DICT_SIZE;
+	const uint8_t* start = p;
+	bool sentinel = true;
+	while (p < end)
+	{
+		if (*p++ & 0x80)
+		{
+			if (sentinel)
+				sentinel = false;
+			else if (donor->tokenCount < 96)
+			{
+				donor->tokens[donor->tokenCount].text = start;
+				donor->tokens[donor->tokenCount].size = (size_t)(p - start);
+				donor->tokenCount++;
+			}
+			start = p;
+		}
+	}
+	return true;
+}
+
+static bool PAWSEmit(DC_Context* ctx, uint8_t* memory, uint32_t* address, uint32_t limit, const void* data, size_t size)
+{
+	if (*address + size > limit)
+	{
+		SetFailure(ctx, DCError_WriteError, "Database exceeds the available Spectrum memory");
+		return false;
+	}
+	if (size != 0)
+		MemCopy(memory + *address, data, size);
+	*address += (uint32_t)size;
+	return true;
+}
+
+static bool PAWSEmitByte(DC_Context* ctx, uint8_t* memory, uint32_t* address, uint32_t limit, uint8_t value)
+{
+	return PAWSEmit(ctx, memory, address, limit, &value, 1);
+}
+
+static bool PAWSEmitWord(DC_Context* ctx, uint8_t* memory, uint32_t* address, uint32_t limit, uint16_t value)
+{
+	uint8_t bytes[2];
+	PAWSWrite16(bytes, value);
+	return PAWSEmit(ctx, memory, address, limit, bytes, 2);
+}
+
+// PAW compresses text by scanning the dictionary in order and claiming every
+// remaining match of each token, exactly like the DAAD /TOK compressor.
+static bool AppendPAWSMessage(DC_Context* ctx, uint8_t* memory, uint32_t* address, uint32_t limit,
+	DC_Text* text, DC_PAWSDonor* donor, bool compress)
+{
+	DC_BufferBuilder plain = {};
+	if (text->data != 0)
+	{
+		ctx->currentSourceFile = text->sourceFile;
+		ctx->currentSourceLine = text->sourceLine;
+		if (!AppendMessagePlainBytes(ctx, &plain, MakeString(text->data)))
+			return false;
+	}
+
+	int* tokenAt = 0;
+	bool* covered = 0;
+	compress = compress && !ctx->opts.pawsNoCompression && donor->tokenCount != 0 && plain.size != 0;
+	if (compress)
+	{
+		tokenAt = Allocate<int>(ctx->arena, (unsigned)plain.size, false);
+		covered = Allocate<bool>(ctx->arena, (unsigned)plain.size, false);
+		if (tokenAt == 0 || covered == 0)
+			return false;
+		for (size_t i = 0; i < plain.size; i++)
+		{
+			tokenAt[i] = -1;
+			covered[i] = false;
+		}
+		for (size_t n = 0; n < donor->tokenCount; n++)
+		{
+			size_t tokenSize = donor->tokens[n].size;
+			for (size_t i = 0; i + tokenSize <= plain.size;)
+			{
+				bool match = true;
+				for (size_t k = 0; k < tokenSize; k++)
+				{
+					if (covered[i + k] || tokenAt[i + k] >= 0 ||
+						plain.data[i + k] != (donor->tokens[n].text[k] & 0x7F))
+					{
+						match = false;
+						break;
+					}
+				}
+				if (match)
+				{
+					tokenAt[i] = (int)n;
+					for (size_t k = 1; k < tokenSize; k++)
+						covered[i + k] = true;
+					i += tokenSize;
+				}
+				else
+					i++;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < plain.size; i++)
+	{
+		if (covered != 0 && covered[i])
+			continue;
+		uint8_t value = tokenAt != 0 && tokenAt[i] >= 0 ? (uint8_t)(0xA5 + tokenAt[i]) : (uint8_t)plain.data[i];
+		if (!PAWSEmitByte(ctx, memory, address, limit, value ^ 0xFF))
+			return false;
+	}
+	return PAWSEmitByte(ctx, memory, address, limit, 0x1F ^ 0xFF);
+}
+
+static int ComparePAWSVocabulary(const DC_VocabWord* a, const DC_VocabWord* b)
+{
+	return a->index - b->index;
+}
+
+static void SortPAWSVocabulary(DC_VocabWord* words, size_t count)
+{
+	for (size_t i = 1; i < count; i++)
+	{
+		DC_VocabWord value = words[i];
+		size_t j = i;
+		while (j > 0 && ComparePAWSVocabulary(&words[j - 1], &value) > 0)
+		{
+			words[j] = words[j - 1];
+			j--;
+		}
+		words[j] = value;
+	}
+}
+
+static bool AppendPAWSVocabularyWord(DC_Context* ctx, uint8_t* memory, uint32_t* address, uint32_t limit,
+	const uint8_t* encoded, uint8_t value, uint8_t type)
+{
+	for (int i = 0; i < 5; i++)
+	{
+		if (!PAWSEmitByte(ctx, memory, address, limit, encoded[i] ^ 0xFF))
+			return false;
+	}
+	return PAWSEmitByte(ctx, memory, address, limit, value) &&
+		PAWSEmitByte(ctx, memory, address, limit, type);
+}
+
+static bool BuildPAWS(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder* output)
+{
+	DC_PAWSDonor donor;
+	if (!LoadPAWSDonor(ctx, &donor))
+		return false;
+
+	// A PAW database always holds the response table plus processes 1 and 2,
+	// and the full default system message set.
+	if (model->processCount < PAWS_MIN_PROCESSES &&
+		!EnsureArray(ctx->arena, &model->processes, &model->processCount, &model->processCapacity, PAWS_MIN_PROCESSES))
+		return false;
+	if (model->systemMessageCount < PAWS_MIN_SYSMSGS &&
+		!EnsureArray(ctx->arena, &model->systemMessages, &model->systemMessageCount, &model->systemMessageCapacity, PAWS_MIN_SYSMSGS))
+		return false;
+	if (model->connectionCount < model->locationTextCount &&
+		!EnsureArray(ctx->arena, &model->connections, &model->connectionCount, &model->connectionCapacity, model->locationTextCount))
+		return false;
+	if (model->objectCount < model->objectTextCount &&
+		!EnsureArray(ctx->arena, &model->objects, &model->objectCount, &model->objectCapacity, model->objectTextCount))
+		return false;
+	if (model->objectTextCount < model->objectCount &&
+		!EnsureArray(ctx->arena, &model->objectTexts, &model->objectTextCount, &model->objectTextCapacity, model->objectCount))
+		return false;
+	if (model->locationTextCount > 255 || model->objectCount > 255 ||
+		model->messageCount > 255 || model->systemMessageCount > 255 || model->processCount > 255)
+	{
+		SetFailure(ctx, DCError_SemanticError, "Too many items for a PAW database");
+		return false;
+	}
+
+	uint8_t* memory = Allocate<uint8_t>(ctx->arena, 65536, true);
+	if (memory == 0)
+		return false;
+
+	size_t locationCount = model->locationTextCount;
+
+	// Part B is laid out first so its start can bound the part A allocation.
+	// With a donor of matching size the graphics area is reused verbatim;
+	// otherwise every location gets an empty drawstring, mirroring the
+	// editor's initial database.
+	uint32_t partBStart;
+	bool donorGraphics = donor.memory != 0 && donor.memory[0xFFFB] == (uint8_t)locationCount;
+	if (donor.memory != 0 && !donorGraphics)
+	{
+		SetFailure(ctx, DCError_SemanticError,
+			"Donor database location count differs from the source, graphics cannot be reused");
+		return false;
+	}
+	if (donorGraphics)
+	{
+		partBStart = PAWSRead16(donor.memory + PAWS_PART_B_START);
+		MemCopy(memory + partBStart, donor.memory + partBStart, 0x10000 - partBStart);
+	}
+	else
+	{
+		uint32_t flagsStart = 0xFFD4 - (uint32_t)locationCount;	// flags end at 0xFFD3, control data at 0xFFD4
+		uint32_t directoryStart = flagsStart - 4 - 2 * (uint32_t)locationCount;
+		uint32_t emptyDrawString = directoryStart - 1;
+		partBStart = emptyDrawString;
+		memory[emptyDrawString] = 0x07;
+		for (size_t n = 0; n < locationCount; n++)
+			PAWSWrite16(memory + directoryStart + 2 * n, (uint16_t)emptyDrawString);
+		PAWSWrite16(memory + directoryStart + 2 * locationCount, (uint16_t)directoryStart);
+		memory[flagsStart - 2] = 0xFF;
+		memory[flagsStart - 1] = 0xFF;
+		MemSet(memory + flagsStart, 0x07, locationCount);
+		memory[0xFFD4] = 0xFF;
+		PAWSWrite16(memory + PAWS_GFX_DIR, (uint16_t)directoryStart);
+		PAWSWrite16(memory + PAWS_GFX_FLAGS, (uint16_t)flagsStart);
+		PAWSWrite16(memory + PAWS_GFX_CONTROL, 0xFFD4);
+		memory[PAWS_CONTROL_BYTE] = 0x02;
+	}
+
+	// Fixed part A prefix: UDGs, shade patterns and display configuration.
+	if (donor.memory != 0)
+		MemCopy(memory + PAWS_BASE, donor.memory + PAWS_BASE, PAWS_FONTS - PAWS_BASE);
+	else
+	{
+		static const uint8_t pageMap[] = { 0x00, 0x00, 0xFF, 0x01, 0xFF, 0x03, 0xFF, 0x04, 0xFF, 0x06, 0xFF, 0x07, 0xFF, 0xFF };
+		static const uint8_t displayPairs[] = { 16, 9, 17, 0, 18, 0, 19, 0, 20, 0, 21, 0 };
+		memory[PAWS_MISC] = 20;
+		memory[PAWS_CHARSET] = 0;
+		MemCopy(memory + PAWS_PAGE_MAP1, pageMap, sizeof(pageMap));
+		MemCopy(memory + PAWS_PAGE_MAP2, pageMap, sizeof(pageMap));
+		MemCopy(memory + PAWS_DISPLAY_PAIRS, displayPairs, sizeof(displayPairs));
+		memory[PAWS_BORDER] = 0;
+	}
+
+	uint32_t address = PAWS_FONTS;
+	uint32_t limit = partBStart;
+
+	uint8_t fontCount = 0;
+	if (donor.memory != 0)
+	{
+		uint16_t donorFonts = PAWSRead16(donor.memory + PAWS_FONTS_PTR);
+		uint16_t donorDict = PAWSRead16(donor.memory + PAWS_DICT_PTR);
+		fontCount = (uint8_t)((donorDict - donorFonts) / 768);
+		if (!PAWSEmit(ctx, memory, &address, limit, donor.memory + donorFonts, fontCount * 768))
+			return false;
+	}
+
+	uint16_t dictAddress = (uint16_t)address;
+	if (donor.dict != 0)
+	{
+		if (!PAWSEmit(ctx, memory, &address, limit, donor.dict, donor.dictSize))
+			return false;
+	}
+	else if (!PAWSEmitByte(ctx, memory, &address, limit, 0xFF))
+		return false;
+
+	memory[PAWS_COUNTS + 0] = (uint8_t)model->objectCount;
+	memory[PAWS_COUNTS + 1] = (uint8_t)locationCount;
+	memory[PAWS_COUNTS + 2] = (uint8_t)model->messageCount;
+	memory[PAWS_COUNTS + 3] = (uint8_t)model->systemMessageCount;
+	memory[PAWS_COUNTS + 4] = (uint8_t)model->processCount;
+	memory[PAWS_COUNTS + 5] = fontCount;
+	PAWSWrite16(memory + PAWS_FONTS_PTR, PAWS_FONTS);
+	PAWSWrite16(memory + PAWS_DICT_PTR, dictAddress);
+
+	// Processes: each one stores its entries' bytecode lists, a shared empty
+	// list (a lone 0xFF), the entry table, and a trailing zero byte plus a
+	// pointer back to the empty list.
+	uint16_t* processTables = Allocate<uint16_t>(ctx->arena, (unsigned)model->processCount, false);
+	if (model->processCount != 0 && processTables == 0)
+		return false;
+	for (size_t p = 0; p < model->processCount; p++)
+	{
+		DC_Process* process = &model->processes[p];
+		uint16_t* codeAddress = Allocate<uint16_t>(ctx->arena, (unsigned)process->entryCount, false);
+		if (process->entryCount != 0 && codeAddress == 0)
+			return false;
+		for (size_t e = 0; e < process->entryCount; e++)
+		{
+			DC_ProcessEntry* entry = &process->entries[e];
+			codeAddress[e] = (uint16_t)address;
+			for (size_t n = 0; n < entry->instructionCount; n++)
+			{
+				DC_ProcessInstruction* inst = &entry->instructions[n];
+				if (!PAWSEmitByte(ctx, memory, &address, limit, inst->opcode))
+					return false;
+				for (int k = 0; k < inst->parameterCount; k++)
+				{
+					int value = inst->parameters[k];
+					if (inst->parameterLabels[k] != 0)
+					{
+						int targetEntry = FindProcessLabelEntry(process, inst->parameterLabels[k]);
+						value = targetEntry < 0 ? 0 : targetEntry - (int)e - 1;
+					}
+					if (!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)value))
+						return false;
+				}
+			}
+			if (!PAWSEmitByte(ctx, memory, &address, limit, 0xFF))
+				return false;
+		}
+		uint16_t emptyList = (uint16_t)address;
+		if (!PAWSEmitByte(ctx, memory, &address, limit, 0xFF))
+			return false;
+		processTables[p] = (uint16_t)address;
+		for (size_t e = 0; e < process->entryCount; e++)
+		{
+			if (!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)process->entries[e].verb) ||
+				!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)process->entries[e].noun) ||
+				!PAWSEmitWord(ctx, memory, &address, limit, codeAddress[e]))
+				return false;
+		}
+		if (!PAWSEmitByte(ctx, memory, &address, limit, 0x00) ||
+			!PAWSEmitByte(ctx, memory, &address, limit, 0x00) ||
+			!PAWSEmitWord(ctx, memory, &address, limit, emptyList))
+			return false;
+	}
+	uint16_t processDirectory = (uint16_t)address;
+	for (size_t p = 0; p < model->processCount; p++)
+	{
+		if (!PAWSEmitWord(ctx, memory, &address, limit, processTables[p]))
+			return false;
+	}
+
+	// Text families, each as packed bodies followed by a pointer directory.
+	// Object names are the one family PAW never compresses.
+	struct
+	{
+		DC_Text* table;
+		size_t count;
+		bool compress;
+		uint16_t directory;
+	}
+	families[4] = {
+		{ model->objectTexts, model->objectTextCount, false, 0 },
+		{ model->locationTexts, model->locationTextCount, true, 0 },
+		{ model->messages, model->messageCount, true, 0 },
+		{ model->systemMessages, model->systemMessageCount, true, 0 },
+	};
+	for (int f = 0; f < 4; f++)
+	{
+		uint16_t* pointers = Allocate<uint16_t>(ctx->arena, (unsigned)families[f].count, false);
+		if (families[f].count != 0 && pointers == 0)
+			return false;
+		for (size_t n = 0; n < families[f].count; n++)
+		{
+			pointers[n] = (uint16_t)address;
+			if (!AppendPAWSMessage(ctx, memory, &address, limit, &families[f].table[n], &donor, families[f].compress))
+				return false;
+		}
+		families[f].directory = (uint16_t)address;
+		for (size_t n = 0; n < families[f].count; n++)
+		{
+			if (!PAWSEmitWord(ctx, memory, &address, limit, pointers[n]))
+				return false;
+		}
+	}
+
+	// Connections
+	uint16_t* connectionPointers = Allocate<uint16_t>(ctx->arena, (unsigned)locationCount, false);
+	if (locationCount != 0 && connectionPointers == 0)
+		return false;
+	for (size_t n = 0; n < locationCount; n++)
+	{
+		connectionPointers[n] = (uint16_t)address;
+		for (size_t c = 0; c < model->connections[n].count; c++)
+		{
+			if (!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)model->connections[n].items[c].word) ||
+				!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)model->connections[n].items[c].destination))
+				return false;
+		}
+		if (!PAWSEmitByte(ctx, memory, &address, limit, 0xFF))
+			return false;
+	}
+	uint16_t connectionDirectory = (uint16_t)address;
+	for (size_t n = 0; n < locationCount; n++)
+	{
+		if (!PAWSEmitWord(ctx, memory, &address, limit, connectionPointers[n]))
+			return false;
+	}
+
+	// Vocabulary: the '*' and '_' pseudo-words bracket the table, real words
+	// are sorted by word value, and a zeroed record ends the table.
+	uint16_t vocabularyAddress = (uint16_t)address;
+	static const uint8_t starEncoded[5] = { '*', ' ', ' ', ' ', ' ' };
+	static const uint8_t nullEncoded[5] = { '_', ' ', ' ', ' ', ' ' };
+	if (!AppendPAWSVocabularyWord(ctx, memory, &address, limit, starEncoded, 1, 0xFF))
+		return false;
+	DC_VocabWord* sorted = Allocate<DC_VocabWord>(ctx->arena, (unsigned)model->vocabularyCount, false);
+	if (model->vocabularyCount != 0 && sorted == 0)
+		return false;
+	if (model->vocabularyCount != 0)
+		MemCopy(sorted, model->vocabulary, sizeof(DC_VocabWord) * model->vocabularyCount);
+	SortPAWSVocabulary(sorted, model->vocabularyCount);
+	for (size_t n = 0; n < model->vocabularyCount; n++)
+	{
+		if (!AppendPAWSVocabularyWord(ctx, memory, &address, limit, sorted[n].encoded, (uint8_t)sorted[n].index, sorted[n].type))
+			return false;
+	}
+	if (!AppendPAWSVocabularyWord(ctx, memory, &address, limit, nullEncoded, 255, 0xFF))
+		return false;
+	for (int n = 0; n < 7; n++)
+	{
+		if (!PAWSEmitByte(ctx, memory, &address, limit, 0x00))
+			return false;
+	}
+
+	// Object tables
+	uint16_t objectLocations = (uint16_t)address;
+	for (size_t n = 0; n < model->objectCount; n++)
+	{
+		if (!PAWSEmitByte(ctx, memory, &address, limit, (uint8_t)model->objects[n].location))
+			return false;
+	}
+	if (!PAWSEmitByte(ctx, memory, &address, limit, 0xFF))
+		return false;
+	uint16_t objectWords = (uint16_t)address;
+	for (size_t n = 0; n < model->objectCount; n++)
+	{
+		if (!PAWSEmitByte(ctx, memory, &address, limit, model->objects[n].noun < 0 ? 255 : (uint8_t)model->objects[n].noun) ||
+			!PAWSEmitByte(ctx, memory, &address, limit, model->objects[n].adjective < 0 ? 255 : (uint8_t)model->objects[n].adjective))
+			return false;
+	}
+	if (!PAWSEmitByte(ctx, memory, &address, limit, 0x00) ||
+		!PAWSEmitByte(ctx, memory, &address, limit, 0x00))
+		return false;
+	uint16_t objectAttributes = (uint16_t)address;
+	for (size_t n = 0; n < model->objectCount; n++)
+	{
+		uint8_t flags = (uint8_t)model->objects[n].weight;
+		if (model->objects[n].container) flags |= Obj_Container;
+		if (model->objects[n].wearable) flags |= Obj_Wearable;
+		if (!PAWSEmitByte(ctx, memory, &address, limit, flags))
+			return false;
+	}
+	uint16_t partAEnd = (uint16_t)address;
+
+	// Fixed trailer
+	PAWSWrite16(memory + PAWS_TRAILER + 0x00, processDirectory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x02, families[0].directory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x04, families[1].directory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x06, families[2].directory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x08, families[3].directory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x0A, connectionDirectory);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x0C, vocabularyAddress);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x0E, objectLocations);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x10, objectWords);
+	PAWSWrite16(memory + PAWS_TRAILER + 0x12, objectAttributes);
+	PAWSWrite16(memory + PAWS_PART_A_END, partAEnd);
+	PAWSWrite16(memory + PAWS_PART_B_START, (uint16_t)partBStart);
+	memory[PAWS_TRAILER_COUNTS + 0] = (uint8_t)model->messageCount;
+	memory[PAWS_TRAILER_COUNTS + 1] = (uint8_t)model->systemMessageCount;
+	memory[PAWS_TRAILER_COUNTS + 2] = (uint8_t)model->objectCount;
+	memory[PAWS_TRAILER_COUNTS + 3] = (uint8_t)locationCount;
+	memory[PAWS_TRAILER_COUNTS + 4] = (uint8_t)model->processCount;
+	PAWSWrite16(memory + PAWS_BASE_WORD, PAWS_BASE);
+	memory[PAWS_PAGE_BYTE] = 0;
+
+	// SDB container with the two 48K segments
+	uint16_t lengthA = (uint16_t)(partAEnd - PAWS_BASE);
+	uint32_t lengthB = 0x10000 - partBStart;
+	size_t fileSize = 24 + 2 * 16 + lengthA + lengthB;
+	DC_BufferBuilder data = {};
+	if (!ResizeBytes(ctx, &data, fileSize))
+		return false;
+	uint8_t* header = data.data;
+	MemClear(header, 24);
+	header[0] = 'S'; header[1] = 'D'; header[2] = 'B'; header[3] = 0x1A;
+	header[4] = 1; header[5] = 0; header[6] = 48; header[7] = 0;
+	PAWSWrite16(header + 8, 24);
+	PAWSWrite16(header + 10, 16);
+	PAWSWrite16(header + 12, 2);
+	PAWSWrite16(header + 16, 24);
+	PAWSWrite16(header + 18, 0);
+	PAWSWrite16(header + 20, (uint16_t)(fileSize & 0xFFFF));
+	PAWSWrite16(header + 22, (uint16_t)(fileSize >> 16));
+	uint32_t payloadOffset = 24 + 2 * 16;
+	for (int segment = 0; segment < 2; segment++)
+	{
+		uint8_t* entry = header + 24 + segment * 16;
+		uint16_t load = segment == 0 ? PAWS_BASE : (uint16_t)partBStart;
+		uint32_t length = segment == 0 ? lengthA : lengthB;
+		MemClear(entry, 16);
+		entry[0] = 0xFF;
+		entry[1] = (uint8_t)(segment + 1);
+		PAWSWrite16(entry + 2, load);
+		PAWSWrite16(entry + 4, (uint16_t)length);
+		PAWSWrite16(entry + 8, (uint16_t)(payloadOffset & 0xFFFF));
+		PAWSWrite16(entry + 10, (uint16_t)(payloadOffset >> 16));
+		MemCopy(data.data + payloadOffset, memory + load, length);
+		uint32_t crc = PAWSCRC32(data.data + payloadOffset, length);
+		PAWSWrite16(entry + 12, (uint16_t)(crc & 0xFFFF));
+		PAWSWrite16(entry + 14, (uint16_t)(crc >> 16));
+		payloadOffset += length;
+	}
+	ctx->compiledSize = data.size;
+	*output = data;
+	return true;
+}
+
 static bool SeedDefines(DC_Context* ctx)
 {
 	SetDefine(ctx, MakeString("TRUE"), MakeString("1"));
@@ -2668,18 +3421,20 @@ static bool SeedDefines(DC_Context* ctx)
 		case DDB_MACHINE_MSX2: SetDefine(ctx, MakeString("MSX"), MakeString("1")); break;
 		default: break;
 	}
+	if (ctx->opts.version == DDB_VERSION_PAWS) SetDefine(ctx, MakeString("PAWS"), MakeString("1"));
 	if (ctx->opts.language == DDB_ENGLISH) SetDefine(ctx, MakeString("ENGLISH"), MakeString("1"));
 	if (ctx->opts.language == DDB_SPANISH) SetDefine(ctx, MakeString("SPANISH"), MakeString("1"));
 	if (ctx->opts.target == DDB_MACHINE_IBMPC || ctx->opts.target == DDB_MACHINE_ATARIST || ctx->opts.target == DDB_MACHINE_AMIGA || ctx->opts.target == DDB_MACHINE_PCW)
 		SetDefine(ctx, MakeString("BIGMEM"), MakeString("1"));
 	if (ctx->opts.target == DDB_MACHINE_SPECTRUM || ctx->opts.target == DDB_MACHINE_C64 || ctx->opts.target == DDB_MACHINE_CPC || ctx->opts.target == DDB_MACHINE_MSX || ctx->opts.target == DDB_MACHINE_MSX2)
 		SetDefine(ctx, MakeString("DRAW"), MakeString("1"));
+	int columnCount = ctx->opts.version == DDB_VERSION_PAWS ? 32 : GetColumnCount(ctx->opts.target);
 	char buffer[32];
-	LongToChar(GetColumnCount(ctx->opts.target), buffer, 10);
+	LongToChar(columnCount, buffer, 10);
 	SetDefine(ctx, MakeString("COLS"), MakeString(buffer));
-	if (GetColumnCount(ctx->opts.target) == 40) SetDefine(ctx, MakeString("C40"), MakeString("1"));
-	if (GetColumnCount(ctx->opts.target) == 42) SetDefine(ctx, MakeString("C42"), MakeString("1"));
-	if (GetColumnCount(ctx->opts.target) == 53) SetDefine(ctx, MakeString("C53"), MakeString("1"));
+	if (columnCount == 40) SetDefine(ctx, MakeString("C40"), MakeString("1"));
+	if (columnCount == 42) SetDefine(ctx, MakeString("C42"), MakeString("1"));
+	if (columnCount == 53) SetDefine(ctx, MakeString("C53"), MakeString("1"));
 	for (size_t i = 0; i < ctx->opts.defineCount; i++)
 	{
 		DC_String entry = MakeString(ctx->opts.defines[i] ? ctx->opts.defines[i] : "");
@@ -2712,6 +3467,8 @@ static bool CompileContext(DC_Context* ctx, DC_BufferBuilder* output)
 		return false;
 	if (DC_GetError() != DCError_None)
 		return false;
+	if (IsPAWSMode(ctx))
+		return BuildPAWS(ctx, &model, output);
 	return BuildDDB(ctx, &model, output);
 }
 
@@ -2771,9 +3528,10 @@ const DC_Compilation* DC_Compile(const char* fileName, const DC_CompilerOptions*
 		DC_SetError(DCError_SyntaxError, "Missing compiler input");
 		return 0;
 	}
-	if (options->version != DDB_VERSION_1 && options->version != DDB_VERSION_2)
+	if (options->version != DDB_VERSION_1 && options->version != DDB_VERSION_2 &&
+		options->version != DDB_VERSION_PAWS)
 	{
-		DC_SetError(DCError_Unsupported, "Only DAAD v1 and v2 compilation is implemented in this version of adpc");
+		DC_SetError(DCError_Unsupported, "Only DAAD v1, v2 and PAWS compilation is implemented in this version of adpc");
 		return 0;
 	}
 

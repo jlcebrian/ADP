@@ -801,6 +801,7 @@ typedef struct
 {
 	bool includeMessageSamples;
 	bool strictPAWCompatibility;
+	bool rawTokens;					// Emit PAWS dictionary references as {n} instead of expanding them
 }
 DDB_DumpOptions;
 

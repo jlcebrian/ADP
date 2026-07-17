@@ -15,6 +15,7 @@ static DDB_DumpOptions DDB_GetEffectiveDumpOptions(const DDB_DumpOptions* option
 	DDB_DumpOptions effectiveOptions;
 	effectiveOptions.includeMessageSamples = true;
 	effectiveOptions.strictPAWCompatibility = false;
+	effectiveOptions.rawTokens = false;
 	if (options != 0)
 		effectiveOptions = *options;
 	return effectiveOptions;
@@ -294,7 +295,16 @@ static void DDB_DumpPAWSMessageByte(uint8_t* bytes, size_t size, size_t* index,
 			return;
 		}
 		if (ch == 0x07 && preserveLayout)
-			print("\n");
+		{
+			// One newline ends the current source line (none when already at a
+			// line start), one more produces the blank line the compiler reads
+			// back as a break; the caller prints a final newline after the
+			// message, which stands in for the last one of a trailing run.
+			int newlines = (*index == 0 || bytes[*index - 1] == 0x07 ? 1 : 2) -
+				(*index + 1 < size ? 0 : 1);
+			while (newlines-- > 0)
+				print("\n");
+		}
 		else if (ch == 0x0D)
 			print("\\n");
 		else
@@ -387,7 +397,7 @@ static bool DDB_DumpMessageByte(uint8_t ch, DDB_PrintFunc print, int* maxLength,
 }
 
 static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc print, int maxLength,
-	bool strictPAWCompatibility)
+	bool strictPAWCompatibility, bool rawTokens)
 {
 	uint8_t* ptr = DDB_DumpGetMessagePtr(ddb, type, n);
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
@@ -405,6 +415,12 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 
 		if (c >= ddb->firstToken)
 		{
+			if (rawTokens && ddb->version == DDB_VERSION_PAWS)
+			{
+				if (out < outEnd)
+					*out++ = c;
+				continue;
+			}
 			if (!ddb->hasTokens)
 			{
 				if (ddb->version == DDB_VERSION_PAWS)
@@ -470,7 +486,7 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 }
 
 static void DDB_DumpMessageTable(DDB* ddb, DDB_MsgType type, DDB_PrintFunc print,
-	bool strictPAWCompatibility)
+	bool strictPAWCompatibility, bool rawTokens)
 {
 	int count;
 
@@ -486,7 +502,7 @@ static void DDB_DumpMessageTable(DDB* ddb, DDB_MsgType type, DDB_PrintFunc print
 	for (int n = 0 ; n < count; n++)
 	{
 		print("/%d\n", n);
-		if (DDB_DumpMessage(ddb, type, n, print, 0, strictPAWCompatibility))
+		if (DDB_DumpMessage(ddb, type, n, print, 0, strictPAWCompatibility, rawTokens))
 			print("\n");
 	}
 	if (strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS && type == DDB_SYSMSG)
@@ -651,13 +667,13 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 				{
 					print("\t\t; ");
 					DDB_DumpMessage(ddb, DDB_MSG, code[-1], print, 47,
-						effectiveOptions.strictPAWCompatibility);
+						effectiveOptions.strictPAWCompatibility, false);
 				}
 				else if (condact == CONDACT_SYSMESS)
 				{
 					print("\t\t; ");
 					DDB_DumpMessage(ddb, DDB_SYSMSG, code[-1], print, 47,
-						effectiveOptions.strictPAWCompatibility);
+						effectiveOptions.strictPAWCompatibility, false);
 				}
 			}
 			print("\n");
@@ -738,13 +754,13 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 		print("\n");
 
 	print("/STX\n");
-	DDB_DumpMessageTable(ddb, DDB_SYSMSG, print, effectiveOptions.strictPAWCompatibility);
+	DDB_DumpMessageTable(ddb, DDB_SYSMSG, print, effectiveOptions.strictPAWCompatibility, effectiveOptions.rawTokens);
 	print("/MTX\n");
-	DDB_DumpMessageTable(ddb, DDB_MSG, print, effectiveOptions.strictPAWCompatibility);
+	DDB_DumpMessageTable(ddb, DDB_MSG, print, effectiveOptions.strictPAWCompatibility, effectiveOptions.rawTokens);
 	print("/OTX\n");
-	DDB_DumpMessageTable(ddb, DDB_OBJNAME, print, effectiveOptions.strictPAWCompatibility);
+	DDB_DumpMessageTable(ddb, DDB_OBJNAME, print, effectiveOptions.strictPAWCompatibility, effectiveOptions.rawTokens);
 	print("/LTX\n");
-	DDB_DumpMessageTable(ddb, DDB_LOCDESC, print, effectiveOptions.strictPAWCompatibility);
+	DDB_DumpMessageTable(ddb, DDB_LOCDESC, print, effectiveOptions.strictPAWCompatibility, effectiveOptions.rawTokens);
 
 	print("/CON\n");
 	for (int n = 0; n < ddb->numLocations; n++)

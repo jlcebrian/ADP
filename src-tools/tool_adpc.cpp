@@ -167,12 +167,14 @@ static const char* NormalizeSingleLineError(const char* details)
 static void ShowHelp()
 {
 	printf("ADP Compiler %s\n\n", kADPCVersion);
-	printf("Compiles .SCE files to .DDB databases.\n\n");
+	printf("Compiles .SCE files to .DDB databases (or .SDB, for PAWS).\n\n");
 	printf("Usage: adpc [options] <input.sce> [<output.ddb>]\n\n");
 	printf("Defaults: version=v1, target=amiga, language=spanish, charset=auto\n\n");
 	printf("Options:\n");
-	printf("  --version v1|v2|v3     Target DAAD version (v1 and v2 are implemented today)\n");
+	printf("  --version v1|v2|paws   Target version (v1, v2 and paws are implemented today)\n");
 	printf("  --target <machine>     ibmpc, spectrum, c64, cpc, msx, atarist, amiga, pcw, plus4, msx2\n");
+	printf("  --graphics <file.sdb>  PAWS only: donor database providing fonts, UDGs and graphics\n");
+	printf("  --no-compression       PAWS only: store texts without dictionary compression\n");
 	printf("  --language <lang>      english or spanish\n");
 	printf("  --charset <mode>       auto, utf8, cp437\n");
 	printf("  -DNAME[=VALUE]         Predefine a symbol for preprocessing\n");
@@ -197,6 +199,7 @@ static bool ParseVersion(const char* text, DDB_Version* version)
 	if (StrIComp(text, "v1") == 0 || StrIComp(text, "1") == 0) { *version = DDB_VERSION_1; return true; }
 	if (StrIComp(text, "v2") == 0 || StrIComp(text, "2") == 0) { *version = DDB_VERSION_2; return true; }
 	if (StrIComp(text, "v3") == 0 || StrIComp(text, "3") == 0) { *version = DDB_VERSION_3; return true; }
+	if (StrIComp(text, "paws") == 0 || StrIComp(text, "paw") == 0) { *version = DDB_VERSION_PAWS; return true; }
 	return false;
 }
 
@@ -275,6 +278,16 @@ int main(int argc, char* argv[])
 		if (StrComp(arg, "--strict") == 0)
 		{
 			opts.strict = true;
+			continue;
+		}
+		if (StrComp(arg, "--graphics") == 0 && i + 1 < argc)
+		{
+			opts.pawsDonor = argv[++i];
+			continue;
+		}
+		if (StrComp(arg, "--no-compression") == 0)
+		{
+			opts.pawsNoCompression = true;
 			continue;
 		}
 		if (StrComp(arg, "--version") == 0 && i + 1 < argc)
@@ -356,8 +369,22 @@ int main(int argc, char* argv[])
 		ShowHelp();
 		return 1;
 	}
+	if (opts.version == DDB_VERSION_PAWS)
+	{
+		if (opts.target != DDB_MACHINE_SPECTRUM && opts.target != DDB_MACHINE_AMIGA)
+		{
+			fprintf(stderr, "PAWS compilation only supports the spectrum target\n");
+			return 1;
+		}
+		opts.target = DDB_MACHINE_SPECTRUM;
+	}
+	else if (opts.pawsDonor != 0 || opts.pawsNoCompression)
+	{
+		fprintf(stderr, "--graphics and --no-compression require --version paws\n");
+		return 1;
+	}
 	if (outputFileName == 0)
-		outputFileName = ChangeExtension(inputFileName, ".ddb");
+		outputFileName = ChangeExtension(inputFileName, opts.version == DDB_VERSION_PAWS ? ".sdb" : ".ddb");
 
 	opts.includePaths = includePaths.items;
 	opts.includePathCount = includePaths.count;
@@ -396,7 +423,8 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	printf("DDB file written to '%s' (%u bytes)\n", outputFileName, (unsigned)compilation->size);
+	printf("%s file written to '%s' (%u bytes)\n", opts.version == DDB_VERSION_PAWS ? "SDB" : "DDB",
+		outputFileName, (unsigned)compilation->size);
 	DC_FreeCompilation(compilation);
 	FreeArgList(&includePaths);
 	FreeArgList(&defines);

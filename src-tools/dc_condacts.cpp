@@ -29,12 +29,14 @@ static const DC_NamedCondact condactNames[] =
 	{ "AUTOW", CONDACT_AUTOW },
 	{ "BACKAT", CONDACT_BACKAT },
 	{ "BEEP", CONDACT_BEEP },
+	{ "BELL", CONDACT_BEEP },
 	{ "BORDER", CONDACT_BORDER },
 	{ "BIGGER", CONDACT_BIGGER },
 	{ "CALL", CONDACT_CALL },
 	{ "CARRIED", CONDACT_CARRIED },
 	{ "CENTRE", CONDACT_CENTRE },
 	{ "CHANCE", CONDACT_CHANCE },
+	{ "CHARSET", CONDACT_CHARSET },
 	{ "CLEAR", CONDACT_CLEAR },
 	{ "CLS", CONDACT_CLS },
 	{ "COPYBF", CONDACT_COPYBF },
@@ -64,6 +66,7 @@ static const DC_NamedCondact condactNames[] =
 	{ "HASNAT", CONDACT_HASNAT },
 	{ "INK", CONDACT_INK },
 	{ "INKEY", CONDACT_INKEY },
+	{ "INVEN", CONDACT_INVEN },
 	{ "INPUT", CONDACT_INPUT },
 	{ "ISAT", CONDACT_ISAT },
 	{ "ISDONE", CONDACT_ISDONE },
@@ -72,6 +75,7 @@ static const DC_NamedCondact condactNames[] =
 	{ "LET", CONDACT_LET },
 	{ "LISTAT", CONDACT_LISTAT },
 	{ "LISTOBJ", CONDACT_LISTOBJ },
+	{ "LINE", CONDACT_LINE },
 	{ "LOAD", CONDACT_LOAD },
 	{ "LT", CONDACT_LT },
 	{ "MES", CONDACT_MES },
@@ -103,6 +107,7 @@ static const DC_NamedCondact condactNames[] =
 	{ "PRINTAT", CONDACT_PRINTAT },
 	{ "PROCESS", CONDACT_PROCESS },
 	{ "PROMPT", CONDACT_PROMPT },
+	{ "PROTECT", CONDACT_PROTECT },
 	{ "PUTIN", CONDACT_PUTIN },
 	{ "PUTO", CONDACT_PUTO },
 	{ "QUIT", CONDACT_QUIT },
@@ -116,6 +121,7 @@ static const DC_NamedCondact condactNames[] =
 	{ "SAME", CONDACT_SAME },
 	{ "SAVE", CONDACT_SAVE },
 	{ "SAVEAT", CONDACT_SAVEAT },
+	{ "SCORE", CONDACT_SCORE },
 	{ "SET", CONDACT_SET },
 	{ "SETCO", CONDACT_SETCO },
 	{ "SFX", CONDACT_SFX },
@@ -185,12 +191,26 @@ static bool FindVersionCondactCode(DDB_Version version, DDB_Condact condact, uin
 		DDB_VERSION2_CONDACTS(DC_MATCH_VERSION2_CONDACT)
 		#undef DC_MATCH_VERSION2_CONDACT
 	}
+	if (version == DDB_VERSION_PAWS)
+	{
+		#define DC_MATCH_PAWS_CONDACT(code, mappedCondact, mappedParameters) \
+		if (condact == mappedCondact) \
+		{ \
+			if (opcode != 0) \
+				*opcode = code; \
+			if (parameters != 0) \
+				*parameters = mappedParameters; \
+			return true; \
+		}
+		DDB_PAWS_CONDACTS(DC_MATCH_PAWS_CONDACT)
+		#undef DC_MATCH_PAWS_CONDACT
+	}
 	return false;
 }
 
 bool DC_FindCondact(DDB_Version version, const char* name, uint8_t* opcode, uint8_t* parameters)
 {
-	if (version != DDB_VERSION_1 && version != DDB_VERSION_2)
+	if (version != DDB_VERSION_1 && version != DDB_VERSION_2 && version != DDB_VERSION_PAWS)
 		return false;
 	DDB_Condact condact = CONDACT_INVALID;
 	if (!FindCondactName(name, &condact))

@@ -531,117 +531,11 @@ static DDB_CondactMap version2Condacts[128] = {
 #if HAS_PAWS
 
 static DDB_CondactMap pawsCondacts[128] = {
-	{ CONDACT_AT,     		  1 },		// 0x00
-	{ CONDACT_NOTAT,  		  1 },		// 0x01
-	{ CONDACT_ATGT,           1 },		// 0x02
-	{ CONDACT_ATLT,   		  1 },		// 0x03
-	{ CONDACT_PRESENT,		  1 },		// 0x04
-	{ CONDACT_ABSENT, 		  1 },		// 0x05
-	{ CONDACT_WORN,   		  1 },		// 0x06
-	{ CONDACT_NOTWORN,		  1 },		// 0x07
-	{ CONDACT_CARRIED,		  1 },		// 0x08
-	{ CONDACT_NOTCARR,		  1 },		// 0x09
-	{ CONDACT_CHANCE, 		  1 },		// 0x0A
-	{ CONDACT_ZERO,   		  1 },		// 0x0B
-	{ CONDACT_NOTZERO,		  1 },		// 0x0C
-	{ CONDACT_EQ,     		  2 },		// 0x0D
-	{ CONDACT_GT,     		  2 },		// 0x0E
-	{ CONDACT_LT,     		  2 },		// 0x0F
-	{ CONDACT_ADJECT1,		  1 },		// 0x10
-	{ CONDACT_ADVERB, 		  1 },		// 0x11
-	{ CONDACT_INVEN,   		  0 },		// 0x12
-	{ CONDACT_DESC,   		  0 },		// 0x13
-	{ CONDACT_QUIT,   		  0 },		// 0x14
-	{ CONDACT_END,    		  0 },		// 0x15
-	{ CONDACT_DONE,   		  0 },		// 0x16
-	{ CONDACT_OK,     		  0 },		// 0x17
-	{ CONDACT_ANYKEY, 		  0 },		// 0x18
-	{ CONDACT_SAVE,   		  0 },		// 0x19
-	{ CONDACT_LOAD,   		  0 },		// 0x1A
-	{ CONDACT_TURNS,    	  0 },		// 0x1B
-	{ CONDACT_SCORE,	  	  0 },		// 0x1C
-	{ CONDACT_CLS,    		  0 },		// 0x1D
-	{ CONDACT_DROPALL,		  0 },		// 0x1E
-	{ CONDACT_AUTOG,  		  0 },		// 0x1F
-	{ CONDACT_AUTOD,  		  0 },		// 0x20
-	{ CONDACT_AUTOW,  		  0 },		// 0x21
-	{ CONDACT_AUTOR,  		  0 },		// 0x22
-	{ CONDACT_PAUSE,  		  1 },		// 0x23
-	{ CONDACT_TIMEOUT, 	 	  0 },		// 0x24
-	{ CONDACT_GOTO,   		  1 },		// 0x25
-	{ CONDACT_MESSAGE,		  1 },		// 0x26
-	{ CONDACT_REMOVE, 		  1 },		// 0x27
-	{ CONDACT_GET,    		  1 },		// 0x28
-	{ CONDACT_DROP,   		  1 },		// 0x29
-	{ CONDACT_WEAR,   		  1 },		// 0x2A
-	{ CONDACT_DESTROY,		  1 },		// 0x2B
-	{ CONDACT_CREATE, 		  1 },		// 0x2C
-	{ CONDACT_SWAP,   		  2 },		// 0x2D
-	{ CONDACT_PLACE,  		  2 },		// 0x2E
-	{ CONDACT_SET,    		  1 },		// 0x2F
-	{ CONDACT_CLEAR,  		  1 },		// 0x30
-	{ CONDACT_PLUS,   		  2 },		// 0x31
-	{ CONDACT_MINUS,  		  2 },		// 0x32
-	{ CONDACT_LET,    		  2 },		// 0x33
-	{ CONDACT_NEWLINE,		  0 },		// 0x34
-	{ CONDACT_PRINT,  		  1 },		// 0x35
-	{ CONDACT_SYSMESS,		  1 },		// 0x36
-	{ CONDACT_ISAT,   		  2 },		// 0x37
-	{ CONDACT_COPYOF,  		  2 },		// 0x38
-	{ CONDACT_COPYOO,  		  2 },		// 0x39
-	{ CONDACT_COPYFO,  		  2 },		// 0x3A
-	{ CONDACT_COPYFF, 		  2 },		// 0x3B
-	{ CONDACT_LISTOBJ,		  0 },		// 0x3C
-	{ CONDACT_EXTERN, 		  1 },		// 0x3D
-	{ CONDACT_RAMSAVE,		  0 },		// 0x3E
-	{ CONDACT_RAMLOAD,		  1 },		// 0x3F
-	{ CONDACT_BEEP,   		  2 },		// 0x40
-	{ CONDACT_PAPER,  		  1 },		// 0x41
-	{ CONDACT_INK,    		  1 },		// 0x42
-	{ CONDACT_BORDER, 		  1 },		// 0x43
-	{ CONDACT_PREP,   		  1 },		// 0x44
-	{ CONDACT_NOUN2,  		  1 },		// 0x45
-	{ CONDACT_ADJECT2,		  1 },		// 0x46
-	{ CONDACT_ADD,    		  2 },		// 0x47
-	{ CONDACT_SUB,    		  2 },		// 0x48
-	{ CONDACT_PARSE,  		  0 },		// 0x49
-	{ CONDACT_LISTAT, 		  1 },		// 0x4A
-	{ CONDACT_PROCESS,		  1 },		// 0x4B
-	{ CONDACT_SAME,   		  2 },		// 0x4C
-	{ CONDACT_MES,    		  1 },		// 0x4D
-	{ CONDACT_CHARSET, 		  1 },		// 0x4E
-	{ CONDACT_NOTEQ,  		  2 },		// 0x4F
-	{ CONDACT_NOTSAME,		  2 },		// 0x50
-	{ CONDACT_MODE,   		  2 },		// 0x51
-	{ CONDACT_LINE,  		  1 },		// 0x52
-	{ CONDACT_TIME,   		  2 },		// 0x53
-	{ CONDACT_PICTURE,		  1 },		// 0x54
-	{ CONDACT_DOALL,  		  1 },		// 0x55
-	{ CONDACT_PROMPT,  		  1 },		// 0x56
-	{ CONDACT_GRAPHIC,		  1 },		// 0x57
-	{ CONDACT_ISNOTAT,		  2 },		// 0x58
-	{ CONDACT_WEIGH,  		  2 },		// 0x59
-	{ CONDACT_PUTIN,  		  2 },		// 0x5A
-	{ CONDACT_TAKEOUT,		  2 },		// 0x5B
-	{ CONDACT_NEWTEXT,		  0 },		// 0x5C
-	{ CONDACT_ABILITY,		  2 },		// 0x5D
-	{ CONDACT_WEIGHT, 		  1 },		// 0x5E
-	{ CONDACT_RANDOM, 		  1 },		// 0x5F
-	{ CONDACT_INPUT,  		  1 },		// 0x60
-	{ CONDACT_SAVEAT, 		  0 },		// 0x61
-	{ CONDACT_BACKAT, 		  0 },		// 0x62
-	{ CONDACT_PRINTAT,		  2 },		// 0x63
-	{ CONDACT_WHATO,  		  0 },		// 0x64
-	{ CONDACT_RESET,   		  1 },		// 0x65
-	{ CONDACT_PUTO,   		  1 },		// 0x66
-	{ CONDACT_NOTDONE,		  0 },		// 0x67
-	{ CONDACT_AUTOP,  		  1 },		// 0x68
-	{ CONDACT_AUTOT,  		  1 },		// 0x69
-	{ CONDACT_MOVE,   		  1 },		// 0x6A
-	{ CONDACT_PROTECT,		  0 },		// 0x6B
+	#define DDB_PAWS_CONDACT_ENTRY(code, condact, parameters) { condact, parameters },
+	DDB_PAWS_CONDACTS(DDB_PAWS_CONDACT_ENTRY)
+	#undef DDB_PAWS_CONDACT_ENTRY
 
-	// --------------------
-
+	// 0x6C-0x7F are not valid PAW opcodes
 	{ CONDACT_INVALID,        0 },		// 0x6C
 	{ CONDACT_INVALID,        0 },		// 0x6D
 	{ CONDACT_INVALID,        0 },		// 0x6E
@@ -899,14 +793,8 @@ void DDB_FixOffsets (DDB* ddb)
 			if (entry[0] == 0)
 				break;
 
-			#if HAS_PAWS
-			if (ddb->version == DDB_VERSION_PAWS)
-			{
-				// Convert '*' entries to '_'
-				if (entry[1] == 1) entry[1] = 255;
-				if (entry[0] == 1) entry[0] = 255;
-			}
-			#endif
+			// PAW '*' entries (value 1) are left untouched so dumps stay
+			// byte-faithful; the runtime matcher treats 1 as a wildcard.
 
 			uint32_t entryOffset = 0;
 			if (!DDB_DecodeStoredOffset(ddb, read16(entry + 2, ddb->littleEndian), ddb->dataSize, false, &entryOffset) || entryOffset < minimumHeaderSize)
@@ -1645,7 +1533,16 @@ static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size)
 		ddb->dataSize     = size;
 		ddb->memory       = memory;
 		ddb->version      = DDB_VERSION_PAWS;
-		ddb->language     = DDB_SPANISH;			// TODO: guess
+		// System message 30 holds the letter the interpreter accepts as a
+		// positive answer, so it doubles as a reliable language marker:
+		// English releases store "Y", Spanish ones "S".
+		ddb->language     = DDB_SPANISH;
+		if (memory[base + 327] > 30)
+		{
+			uint16_t sysMsg30 = read16LE(memory + read16LE(memory + 65505) + 30 * 2);
+			if ((uint8_t)(memory[sysMsg30] ^ 0xFF) == 'Y')
+				ddb->language = DDB_ENGLISH;
+		}
 		ddb->target       = DDB_MACHINE_SPECTRUM;
 		ddb->machine      = DDB_MACHINE_SPECTRUM;
 		ddb->condactMap   = pawsCondacts;

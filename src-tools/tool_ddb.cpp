@@ -556,6 +556,7 @@ typedef enum
 	CLI_OPTION_PART_CAPTURE,
 	CLI_OPTION_NO_MESSAGE_SAMPLES,
 	CLI_OPTION_STRICT_PAW,
+	CLI_OPTION_RAW_TOKENS,
 	CLI_OPTION_HELP,
 }
 DDB_CLIOption;
@@ -926,6 +927,7 @@ void ShowHelp()
     printf("       --no-message-samples\n");
     printf("                           Do not show message samples beside process code in dump mode\n");
 	printf("       --strict-paw       Emit classic PAWCOMP-compatible PAW source\n");
+	printf("       --raw-tokens       Keep PAW dictionary references as {n} codes in dump mode\n");
     printf("   -o, --transcript FILE   Use FILE as transcript output file when running\n");
     printf("   -i, --input FILE        Use FILE as scripted input when running\n");
 	printf("   -s, --screen MODE       Select screen mode for run/test: cga, ega, vga\n");
@@ -1220,6 +1222,7 @@ int main (int argc, char *argv[])
 		{ 'S', "no-samples", CLI_OPTION_NO_MESSAGE_SAMPLES, CLI_OPTION_NONE },
 		{ 0, "strict-paw", CLI_OPTION_STRICT_PAW, CLI_OPTION_NONE },
 		{ 0, "strict-cpm", CLI_OPTION_STRICT_PAW, CLI_OPTION_NONE },
+		{ 0, "raw-tokens", CLI_OPTION_RAW_TOKENS, CLI_OPTION_NONE },
 		{ 'h', "help", CLI_OPTION_HELP, CLI_OPTION_NONE },
 		{ 0, 0, 0, CLI_OPTION_NONE }
 	};
@@ -1244,6 +1247,7 @@ int main (int argc, char *argv[])
 	showMemoryMap = CLI_HasOption(&commandLine, CLI_OPTION_MEMORY_MAP);
 	dumpMessageSamples = !CLI_HasOption(&commandLine, CLI_OPTION_NO_MESSAGE_SAMPLES);
 	bool strictPAWDump = CLI_HasOption(&commandLine, CLI_OPTION_STRICT_PAW);
+	bool rawTokensDump = CLI_HasOption(&commandLine, CLI_OPTION_RAW_TOKENS);
 
 	if (action == ACTION_HELP || CLI_HasOption(&commandLine, CLI_OPTION_HELP))
 	{
@@ -1434,9 +1438,18 @@ int main (int argc, char *argv[])
 				File_UnmountDisk();
 			return 1;
 		}
+		if (rawTokensDump && ddb->version != DDB_VERSION_PAWS)
+		{
+			fprintf(stderr, "Error: --raw-tokens requires a PAW database\n");
+			DDB_Close(ddb);
+			if (mountedDiskImage)
+				File_UnmountDisk();
+			return 1;
+		}
 		DDB_DumpOptions dumpOptions;
 		dumpOptions.includeMessageSamples = dumpMessageSamples;
 		dumpOptions.strictPAWCompatibility = strictPAWDump;
+		dumpOptions.rawTokens = rawTokensDump;
 		DDB_DumpWithOptions(ddb, printf, &dumpOptions);
 		DDB_Close(ddb);
 		if (mountedDiskImage)

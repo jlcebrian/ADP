@@ -88,6 +88,12 @@ struct DC_CompilerOptions
 
 	bool         dumpPreprocessed;
 	bool         strict;
+
+	// PAWS (version == DDB_VERSION_PAWS) output options. The donor SDB
+	// provides the components a .SCE cannot describe: UDGs, shade patterns,
+	// fonts, the compression dictionary and the part B graphics area.
+	const char*  pawsDonor;
+	bool         pawsNoCompression;
 };
 
 struct DC_Compilation

@@ -1281,12 +1281,18 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 
 				case '_':
 				{
-					int firstChar = 0;
-					const void* end = DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
+					// PAW's overlay-1 noun-phrase printer ($8329 in the B03
+					// image, $8321 in A17C): leading spaces are skipped, output
+					// stops at a full stop. The English interpreter strips the
+					// first word (the article) when substituting after object-
+					// action messages; the Spanish one instead lower-cases the
+					// first capital in the first word ($5C/Ñ pairs with $7C/ñ
+					// through the same OR $20).
+					const uint8_t* end = (const uint8_t*)DDB_GetMessage(i->ddb, DDB_OBJNAME, i->flags[Flag_Objno], (char *)objNameBuffer, sizeof(objNameBuffer));
 					uint8_t* ptr = objNameBuffer;
 					if (ptr == end)
 						return;
-					while (*ptr != 0 && ptr < end) {
+					while (ptr < end) {
 						if (*ptr >= 16 && *ptr <= 20)
 							ptr += 2;
 						else if (*ptr <= 32)
@@ -1294,32 +1300,27 @@ static void OutputCharToWindow (DDB_Interpreter* i, DDB_Window* w, char c)
 						else
 							break;
 					}
-					while (objNameBuffer[firstChar] == ' ')
-						firstChar++;
-					if (i->ddb->language == DDB_SPANISH)
+					if (i->ddb->language == DDB_ENGLISH)
 					{
-						if (ptr[1] == 'n') {
-							if (ptr[0] == 'u' || ptr[0] == 'U') {
-								if (ptr[3] == 's' && (ptr[2] == 'a' || ptr[2] == 'o')) {
-									firstChar++;
-								} else if (ptr[2] == 'a') {
-									firstChar++;
-									ptr[2] = 'a';
-								} else {
-									ptr[0] = 'e';
-								}
-								ptr[1] = 'l';
-							}
+						while (ptr < end && *ptr != ' ' && *ptr != '.')
+							ptr++;
+						while (ptr < end && *ptr == ' ')
+							ptr++;
+					}
+					else
+					{
+						while (ptr < end && *ptr != ' ' && *ptr != '.') {
+							uint8_t c = *ptr;
+							bool lowered = (c >= 'A' && c <= 'Z') || c == 0x5C || (c >= 0x23 && c <= 0x26);
+							if (lowered)
+								c |= 0x20;
+							OutputCharToWindow(i, w, c);
+							ptr++;
+							if (lowered)
+								break;
 						}
 					}
-					else if (i->ddb->language == DDB_ENGLISH)
-					{
-						if (ptr[0] == 'a' && ptr[1] == ' ') {
-							firstChar += 2;
-						}
-					}
-					ptr[firstChar] = ToLower(ptr[firstChar]);
-					for (ptr += firstChar; ptr < end; ptr++) {
+					for (; ptr < end; ptr++) {
 						if (*ptr == '.') break;
 						OutputCharToWindow(i, w, *ptr);
 					}
@@ -2697,6 +2698,15 @@ void DDB_Step (DDB_Interpreter* i, int stepCount)
 			{
 				uint8_t verb = entryPtr[0];
 				uint8_t noun = entryPtr[1];
+
+				#if HAS_PAWS
+				// PAW stores '*' as 1 and '_' as 255; both take the wildcard path
+				if (i->ddb->version == DDB_VERSION_PAWS)
+				{
+					if (verb == 1) verb = 255;
+					if (noun == 1) noun = 255;
+				}
+				#endif
 
 				if (matchVerbNoun && (
 					(verb != 255 && verb != i->flags[Flag_Verb]) ||
