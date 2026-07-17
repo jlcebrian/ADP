@@ -14,6 +14,7 @@ static DDB_DumpOptions DDB_GetEffectiveDumpOptions(const DDB_DumpOptions* option
 {
 	DDB_DumpOptions effectiveOptions;
 	effectiveOptions.includeMessageSamples = true;
+	effectiveOptions.strictPAWCompatibility = false;
 	if (options != 0)
 		effectiveOptions = *options;
 	return effectiveOptions;
@@ -253,6 +254,89 @@ static void DDB_DumpMessageChar(uint8_t ch, DDB_PrintFunc print, bool preserveLa
 		print("{%d}", ch);
 }
 
+static int DDB_GetPAWSControlParameterCount(uint8_t ch)
+{
+	if (ch >= 0x10 && ch <= 0x15)
+		return 1;
+	if (ch == 0x16 || ch == 0x17)
+		return 2;
+	return 0;
+}
+
+static void DDB_DumpPAWSMessageByte(uint8_t* bytes, size_t size, size_t* index,
+	DDB_PrintFunc print, int* maxLength, bool atLineStart, bool atLineEnd, bool strictCompatibility)
+{
+	uint8_t ch = bytes[*index];
+	bool preserveLayout = *maxLength == 0;
+	if (*maxLength > 0)
+	{
+		if (--(*maxLength) == 0)
+		{
+			print("...");
+			*index = size;
+			return;
+		}
+	}
+
+	if (ch <= 0x17)
+	{
+		int parameters = DDB_GetPAWSControlParameterCount(ch);
+		if (strictCompatibility)
+		{
+			if ((ch == 0x07 || ch == 0x0D) && preserveLayout)
+				print(*index + 1 < size ? "\n\n" : "\n");
+			else if (ch == 0x06)
+				print(" ");
+			else if (ch == 0x07 || ch == 0x0D)
+				print(" ");
+			while (parameters-- > 0 && *index + 1 < size)
+				++(*index);
+			return;
+		}
+		if (ch == 0x07 && preserveLayout)
+			print("\n");
+		else if (ch == 0x0D)
+			print("\\n");
+		else
+			print("{%u}", (unsigned)ch);
+
+		while (parameters-- > 0 && *index + 1 < size)
+		{
+			ch = bytes[++(*index)];
+			print("{%u}", (unsigned)ch);
+		}
+		return;
+	}
+
+	if (ch == ' ')
+	{
+		if (strictCompatibility)
+			print(" ");
+		else if (atLineStart || atLineEnd)
+			print("\\s");
+		else
+			print(" ");
+	}
+	else if (strictCompatibility && ch >= 0x7F)
+		print("?");
+	else if (strictCompatibility)
+	{
+		if (ch == '/' || ch == ';')
+			print(" ");
+		print("%c", ch);
+	}
+	else if (ch == '\\')
+		print("\\\\");
+	else if (ch == '{')
+		print("\\{");
+	else if (ch == '}')
+		print("\\}");
+	else if (ch >= 0x7F)
+		print("{%u}", (unsigned)ch);
+	else
+		DDB_DumpTextChar(ch, print);
+}
+
 static uint8_t* DDB_DumpGetMessagePtr(DDB* ddb, DDB_MsgType type, uint8_t n)
 {
 	switch (type)
@@ -302,7 +386,8 @@ static bool DDB_DumpMessageByte(uint8_t ch, DDB_PrintFunc print, int* maxLength,
 	return true;
 }
 
-static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc print, int maxLength)
+static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc print, int maxLength,
+	bool strictPAWCompatibility)
 {
 	uint8_t* ptr = DDB_DumpGetMessagePtr(ddb, type, n);
 	if (ptr <= ddb->data || ptr >= ddb->data + ddb->dataSize)
@@ -322,12 +407,24 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 		{
 			if (!ddb->hasTokens)
 			{
+				if (ddb->version == DDB_VERSION_PAWS)
+				{
+					if (out < outEnd)
+						*out++ = c;
+					continue;
+				}
 				DDB_Warning("Message contains token 0x%02X but DDB has no tokens!", c);
 				continue;
 			}
 			uint8_t* token = ddb->tokensPtr[c - ddb->firstToken];
 			if (token == 0)
 			{
+				if (ddb->version == DDB_VERSION_PAWS)
+				{
+					if (out < outEnd)
+						*out++ = c;
+					continue;
+				}
 				DDB_Warning("Message contains token 0x%02X but it's not defined in the DDB!", c);
 				continue;
 			}
@@ -348,17 +445,32 @@ static bool DDB_DumpMessage(DDB* ddb, DDB_MsgType type, uint8_t n, DDB_PrintFunc
 	if (out == buffer)
 		return false;
 
-	for (uint8_t* ch = buffer; ch < out; ch++)
+	if (ddb->version == DDB_VERSION_PAWS)
 	{
-		bool atLineStart = ch == buffer || ch[-1] == '\r';
-		bool atLineEnd = ch + 1 == out || ch[1] == '\r';
-		if (!DDB_DumpMessageByte(*ch, print, &maxLength, maxLength == 0, atLineStart, atLineEnd))
-			break;
+		size_t size = (size_t)(out - buffer);
+		for (size_t n = 0; n < size; n++)
+		{
+			bool atLineStart = n == 0 || buffer[n - 1] == 0x07 || buffer[n - 1] == 0x0D;
+			bool atLineEnd = n + 1 == size || buffer[n + 1] == 0x07 || buffer[n + 1] == 0x0D;
+			DDB_DumpPAWSMessageByte(buffer, size, &n, print, &maxLength, atLineStart, atLineEnd,
+				strictPAWCompatibility);
+		}
+	}
+	else
+	{
+		for (uint8_t* ch = buffer; ch < out; ch++)
+		{
+			bool atLineStart = ch == buffer || ch[-1] == '\r';
+			bool atLineEnd = ch + 1 == out || ch[1] == '\r';
+			if (!DDB_DumpMessageByte(*ch, print, &maxLength, maxLength == 0, atLineStart, atLineEnd))
+				break;
+		}
 	}
 	return true;
 }
 
-void DDB_DumpMessageTable (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print)
+static void DDB_DumpMessageTable(DDB* ddb, DDB_MsgType type, DDB_PrintFunc print,
+	bool strictPAWCompatibility)
 {
 	int count;
 
@@ -374,16 +486,62 @@ void DDB_DumpMessageTable (DDB* ddb, DDB_MsgType type, DDB_PrintFunc print)
 	for (int n = 0 ; n < count; n++)
 	{
 		print("/%d\n", n);
-		if (DDB_DumpMessage(ddb, type, n, print, 0))
+		if (DDB_DumpMessage(ddb, type, n, print, 0, strictPAWCompatibility))
 			print("\n");
 	}
+	if (strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS && type == DDB_SYSMSG)
+	{
+		for (int n = count; n < 61; n++)
+			print("/%d\n", n);
+	}
+}
+
+static bool DDB_IsClassicPAWUnsupportedCondact(DDB_Condact condact)
+{
+	switch (condact)
+	{
+		case CONDACT_PAPER:
+		case CONDACT_INK:
+		case CONDACT_BORDER:
+		case CONDACT_CHARSET:
+		case CONDACT_LINE:
+		case CONDACT_PICTURE:
+		case CONDACT_GRAPHIC:
+		case CONDACT_INPUT:
+		case CONDACT_SAVEAT:
+		case CONDACT_BACKAT:
+		case CONDACT_PRINTAT:
+		case CONDACT_PROTECT:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static bool DDB_ClassicPAWEntryHasInstructions(DDB* ddb, uint8_t* code)
+{
+	while (code < ddb->data + ddb->dataSize && *code != 0xFF)
+	{
+		uint8_t condactIndex = *code++ & 0x7F;
+		DDB_Condact condact = (DDB_Condact)ddb->condactMap[condactIndex].condact;
+		int parameters = ddb->condactMap[condactIndex].parameters;
+		if (code + parameters > ddb->data + ddb->dataSize)
+			return false;
+		if (!DDB_IsClassicPAWUnsupportedCondact(condact))
+			return true;
+		code += parameters;
+	}
+	return false;
 }
 
 void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, const DDB_DumpOptions* options)
 {
 	DDB_DumpOptions effectiveOptions = DDB_GetEffectiveDumpOptions(options);
 
-	print("\n/PRO %d\n\n", index);
+	if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS)
+		print("/PRO %d\n\n", index);
+	else
+		print("\n/PRO %d\n\n", index);
 
 	if (index >= ddb->numProcesses || ddb->processTable[index] == 0)
 		return;
@@ -404,14 +562,21 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 		if (code >= ddb->data + ddb->dataSize || code == ddb->data)
 			break;
 		entry += 4;
+		if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+			!DDB_ClassicPAWEntryHasInstructions(ddb, code))
+			continue;
 
-		if (verb == 255)
+		if (ddb->version == DDB_VERSION_PAWS && verb == 1)
+			print("*    ");
+		else if (verb == 255)
 			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Verb, verb, print);
 		print("       ");
 
-		if (noun == 255)
+		if (ddb->version == DDB_VERSION_PAWS && noun == 1)
+			print("*    ");
+		else if (noun == 255)
 			print("%c    ", DDB_GetNullWordChar(ddb));
 		else
 			DDB_DumpVocabularyWord(ddb, WordType_Noun, noun, print);
@@ -428,13 +593,45 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 			if (code + parameters > ddb->data + ddb->dataSize)
 				break;
 
+			if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+				DDB_IsClassicPAWUnsupportedCondact((DDB_Condact)condact))
+			{
+				code += parameters;
+				continue;
+			}
+
 			if (!first)
 				print("                        ");
-			print("%-12s", DDB_GetCondactName((DDB_Condact)condact));
+			if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+				condact == CONDACT_BEEP)
+				print("%-12s", "BELL");
+			else
+				print("%-12s", DDB_GetCondactName((DDB_Condact)condact));
 			if (condact == CONDACT_CALL && parameters == 2)
 			{
 				// The two parameter bytes form a 16 bit address
 				print("%u", code[0] | (code[1] << 8));
+				code += 2;
+			}
+			else if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+				condact == CONDACT_BEEP)
+			{
+				code += parameters;
+			}
+			else if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+				!indirection && (condact == CONDACT_ADJECT1 || condact == CONDACT_ADJECT2 ||
+				condact == CONDACT_ADVERB || condact == CONDACT_NOUN2 || condact == CONDACT_PREP))
+			{
+				uint8_t wordType =
+					(condact == CONDACT_ADJECT1 || condact == CONDACT_ADJECT2) ? WordType_Adjective :
+					condact == CONDACT_ADVERB ? WordType_Adverb :
+					condact == CONDACT_PREP ? WordType_Preposition : WordType_Noun;
+				DDB_DumpVocabularyWord(ddb, wordType, *code++, print);
+			}
+			else if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS &&
+				condact == CONDACT_MODE && parameters == 2)
+			{
+				print("%d", code[0]);
 				code += 2;
 			}
 			else if (parameters > 0)
@@ -453,12 +650,14 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 				if (condact == CONDACT_MES || condact == CONDACT_MESSAGE)
 				{
 					print("\t\t; ");
-					DDB_DumpMessage(ddb, DDB_MSG, code[-1], print, 47);
+					DDB_DumpMessage(ddb, DDB_MSG, code[-1], print, 47,
+						effectiveOptions.strictPAWCompatibility);
 				}
 				else if (condact == CONDACT_SYSMESS)
 				{
 					print("\t\t; ");
-					DDB_DumpMessage(ddb, DDB_SYSMSG, code[-1], print, 47);
+					DDB_DumpMessage(ddb, DDB_SYSMSG, code[-1], print, 47,
+						effectiveOptions.strictPAWCompatibility);
 				}
 			}
 			print("\n");
@@ -474,7 +673,8 @@ void DDB_DumpProcessWithOptions (DDB* ddb, uint8_t index, DDB_PrintFunc print, c
 		}
 		print("\n");
 	}
-	print("\n");
+	if (!(effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS))
+		print("\n");
 }
 
 void DDB_DumpProcess (DDB* ddb, uint8_t index, DDB_PrintFunc print)
@@ -486,9 +686,12 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 {
 	DDB_DumpOptions effectiveOptions = DDB_GetEffectiveDumpOptions(options);
 
-	print("\n/CTL\n%c\n\n", DDB_GetNullWordChar(ddb));
+	if (effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS)
+		print("/CTL\n%c\n", DDB_GetNullWordChar(ddb));
+	else
+		print("\n/CTL\n%c\n\n", DDB_GetNullWordChar(ddb));
 
-	if (ddb->hasTokens)
+	if (ddb->hasTokens && ddb->version != DDB_VERSION_PAWS)
 	{
 		print("/TOK\n");
 		for (int n = 0; n < 128; n++)
@@ -514,6 +717,8 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 	print("/VOC\n");
 	for (uint8_t* ptr = ddb->vocabulary; *ptr; ptr += 7)
 	{
+		if (ddb->version == DDB_VERSION_PAWS && ptr[6] == 0xFF)
+			continue;
 		for (int n = 0; n < 5; n++)
 			DDB_DumpTextChar((ptr[n] ^ 0xFF) & 0x7F, print);
 		print("       %3d    ", ptr[5]);
@@ -529,16 +734,17 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 			default:              print("%d\n", ptr[6]); break;
 		}
 	}
-	print("\n");
+	if (!(effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS))
+		print("\n");
 
 	print("/STX\n");
-	DDB_DumpMessageTable(ddb, DDB_SYSMSG, print);
+	DDB_DumpMessageTable(ddb, DDB_SYSMSG, print, effectiveOptions.strictPAWCompatibility);
 	print("/MTX\n");
-	DDB_DumpMessageTable(ddb, DDB_MSG, print);
+	DDB_DumpMessageTable(ddb, DDB_MSG, print, effectiveOptions.strictPAWCompatibility);
 	print("/OTX\n");
-	DDB_DumpMessageTable(ddb, DDB_OBJNAME, print);
+	DDB_DumpMessageTable(ddb, DDB_OBJNAME, print, effectiveOptions.strictPAWCompatibility);
 	print("/LTX\n");
-	DDB_DumpMessageTable(ddb, DDB_LOCDESC, print);
+	DDB_DumpMessageTable(ddb, DDB_LOCDESC, print, effectiveOptions.strictPAWCompatibility);
 
 	print("/CON\n");
 	for (int n = 0; n < ddb->numLocations; n++)
@@ -555,7 +761,8 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 			print(" %d\n", *ptr++);
 		}
 	}
-	print("\n");
+	if (!(effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS))
+		print("\n");
 
 	if (ddb->objExAttrTable == 0)
 		print("/OBJ\n;       LOC     WEIGHT  CONT?   WEAR?   NOUN    ADJECTIVE\n");
@@ -604,7 +811,8 @@ void DDB_DumpWithOptions (DDB* ddb, DDB_PrintFunc print, const DDB_DumpOptions* 
 
 		print("\n");
 	}
-	print("\n");
+	if (!(effectiveOptions.strictPAWCompatibility && ddb->version == DDB_VERSION_PAWS))
+		print("\n");
 
 	for (int n = 0; n < ddb->numProcesses; n++)
 		DDB_DumpProcessWithOptions(ddb, n, print, &effectiveOptions);

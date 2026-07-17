@@ -800,6 +800,7 @@ typedef int (*DDB_PrintFunc)(const char* format, ...);
 typedef struct
 {
 	bool includeMessageSamples;
+	bool strictPAWCompatibility;
 }
 DDB_DumpOptions;
 

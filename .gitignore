@@ -42,3 +42,5 @@ trace*.txt
 
 __pycache__/
 *.pyc
+
+PAWS
