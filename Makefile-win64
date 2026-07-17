@@ -36,9 +36,8 @@ DDB_TARGET := $(OUTDIR)/ddb.exe
 DMG_TARGET := $(OUTDIR)/dmg.exe
 CHR_TARGET := $(OUTDIR)/chr.exe
 DSK_TARGET := $(OUTDIR)/dsk.exe
-DC_TARGET := $(OUTDIR)/dc.exe
-TARGETS := $(DDB_TARGET) $(PLAYER_TARGET) $(DMG_TARGET) $(CHR_TARGET) $(DSK_TARGET) 
-# TARGETS += $(DC_TARGET)
+ADPC_TARGET := $(OUTDIR)/adpc.exe
+TARGETS := $(DDB_TARGET) $(PLAYER_TARGET) $(DMG_TARGET) $(CHR_TARGET) $(DSK_TARGET) $(ADPC_TARGET)
 
 CPPFLAGS += -Iinclude -Iinclude-tools -Ilib-src/salvador -Ilib/sdl2/include -Ilib/libpng
 CPPFLAGS += -DVERSION=$(VERSION) -D_STDCLIB
@@ -116,8 +115,8 @@ VPATH := $(DIRS) src-tools/ src-sdl/ src-windows/
 SRCS := $(wildcard $(addsuffix *.cpp,$(DIRS))) src-sdl/video.cpp
 TOOL_SRCS := bas_cpc bas_zx dmg_edit dmg_pack img ddb_writ cli_parser session_commands
 TOOL_MAIN_SRCS := tool_chr tool_ddb tool_dmg tool_dsk
-DC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
-DC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files
+ADPC_SRCS := dc_main dc_condacts dc_cp437 dc_cp850 dc_cp1252 dc_char dc_symb chr_conv tool_adpc
+ADPC_COMMON_SRCS := dim dim_adf dim_cpc dim_fat os_arena os_char os_file os_lib os_mem files error
 
 COMMON_OBJS := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(SRCS))))
 COMMON_OBJS += $(OBJDIR)/files.o $(OBJDIR)/error.o
@@ -126,23 +125,23 @@ TOOL_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_SRCS)))
 TOOL_MAIN_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix .o,$(TOOL_MAIN_SRCS)))
 COMMON_LIB := $(OBJDIR)/libcommon.a
 TOOL_LIB := $(OBJDIR)/libtools.a
-DC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _dc.o,$(DC_SRCS)))
-DC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _dc.o,$(DC_COMMON_SRCS)))
+ADPC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_SRCS)))
+ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRCS)))
 PLAYER_RES := $(OBJDIR)/player.res.o
 DDB_RES := $(OBJDIR)/ddb.res.o
 
 TOOL_CPPFLAGS = $(CPPFLAGS) -DTRACE_ON
-DC_CPPFLAGS = $(filter-out -DDEBUG_ALLOCS=1,$(TOOL_CPPFLAGS)) -DDEBUG_ALLOCS=0
+ADPC_CPPFLAGS = $(filter-out -DDEBUG_ALLOCS=1,$(TOOL_CPPFLAGS)) -DDEBUG_ALLOCS=0
 
 $(COMMON_OBJS) $(PLAYER_OBJ): COMPILE_FLAGS := $(CPPFLAGS)
 $(TOOL_OBJS) $(TOOL_MAIN_OBJS): COMPILE_FLAGS := $(TOOL_CPPFLAGS)
-$(DC_OBJS) $(DC_COMMON_OBJS): COMPILE_FLAGS := $(DC_CPPFLAGS)
+$(ADPC_OBJS) $(ADPC_COMMON_OBJS): COMPILE_FLAGS := $(ADPC_CPPFLAGS)
 
 .PHONY: all clean
 
 .DEFAULT_GOAL := all
 
--include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(DC_OBJS:_dc.o=_dc.d) $(DC_COMMON_OBJS:_dc.o=_dc.d)
+-include $(COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(ADPC_OBJS:_adpc.o=_adpc.d) $(ADPC_COMMON_OBJS:_adpc.o=_adpc.d)
 
 all: $(TARGETS) $(RUNTIME_FILES)
 
@@ -200,7 +199,7 @@ $(DSK_TARGET): $(OBJDIR)/tool_dsk.o $(TOOL_LIB) $(COMMON_LIB) | $(OUTDIR)
 	@mkdir -p "$(dir $(CANONICAL_DSK))"
 	@cp "$@" "$(CANONICAL_DSK)"
 
-$(DC_TARGET): $(DC_OBJS) $(DC_COMMON_OBJS) | $(OUTDIR)
+$(ADPC_TARGET): $(ADPC_OBJS) $(ADPC_COMMON_OBJS) | $(OUTDIR)
 	$(info Linking $@)
 	@$(CXX) -o $@ $^ $(CONSOLE_LDFLAGS)
 	@$(POSTPROCESS_CMD)
@@ -213,7 +212,7 @@ $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	@$(CC) $(COMPILE_FLAGS) -c -o $@ $(CURDIR)/$<
 
-$(OBJDIR)/%_dc.o: %.cpp
+$(OBJDIR)/%_adpc.o: %.cpp
 	$(info Compiling $<)
 	@mkdir -p $(dir $@)
-	@$(CC) $(DC_CPPFLAGS) -c -o $@ $(CURDIR)/$<
+	@$(CC) $(ADPC_CPPFLAGS) -c -o $@ $(CURDIR)/$<
