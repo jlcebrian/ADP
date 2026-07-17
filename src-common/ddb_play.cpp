@@ -1387,13 +1387,20 @@ static void DetectDDBFiles()
 
 	ddbFileCount = 0;
 	int namedDDBCount = CountFiles(".ddb");
+	#if HAS_PAWS
+	namedDDBCount += CountFiles(".sdb");
+	#endif
 	DDB_SetWarningHandler(IgnoreDDBWarning);
 	for (int n = 0; n < fileCount && ddbFileCount < MAX_FILES; n++)
 	{
 		if (namedDDBCount > 0)
 		{
 			const char* dot = StrRChr(files[n], '.');
-			if (dot == 0 || StrIComp(dot, ".ddb") != 0)
+			if (dot == 0 || (StrIComp(dot, ".ddb") != 0
+				#if HAS_PAWS
+				&& StrIComp(dot, ".sdb") != 0
+				#endif
+				))
 				continue;
 		}
 		if (DDB_Check(files[n], 0, 0, 0))
@@ -1492,7 +1499,11 @@ static int CountDDBFiles()
 	DetectDDBFiles();
 	return ddbFileCount;
 	#else
-	return CountFiles(".ddb");
+	return CountFiles(".ddb")
+		#if HAS_PAWS
+		+ CountFiles(".sdb")
+		#endif
+		;
 	#endif
 }
 
@@ -1504,7 +1515,12 @@ static const char* GetDDBFile(int index)
 		return "";
 	return files[ddbFiles[index]];
 	#else
+	#if HAS_PAWS
+	int ddbCount = CountFiles(".ddb");
+	return index < ddbCount ? GetFile(".ddb", index) : GetFile(".sdb", index - ddbCount);
+	#else
 	return GetFile(".ddb", index);
+	#endif
 	#endif
 }
 

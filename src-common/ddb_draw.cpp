@@ -29,6 +29,7 @@ uint32_t CPC_Colors[27] = {
 extern void VID_SaveDebugBitmap();
 
 static const uint8_t* vectorGraphicsRAM = 0;
+static size_t vectorGraphicsSize = 0;
 static DDB_Machine vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 static DDB_Version vectorGraphicsVersion = DDB_VERSION_1;
 
@@ -53,6 +54,45 @@ extern uint16_t screenWidth;
 static const uint8_t* udgs;
 static const uint8_t* shades = 0;
 static bool mixShades = false;
+
+#if HAS_PAWS
+static bool ResolvePAWSPicture(uint8_t picno, const uint8_t** pageBase,
+	uint8_t* localPicture, uint16_t* pageTable, uint16_t* pageAttributes)
+{
+	if (vectorGraphicsRAM == 0 || vectorGraphicsVersion != DDB_VERSION_PAWS)
+		return false;
+	uint8_t from = 0;
+	const uint8_t* map = vectorGraphicsRAM + 0x9429;
+	for (int n = 0; n < 6; n++)
+	{
+		uint8_t page = map[n * 2];
+		uint8_t to = map[n * 2 + 1];
+		uint16_t upper = to == 0xFF ? count : to;
+		if (picno < upper)
+		{
+			const uint8_t* base = vectorGraphicsRAM;
+			if (page != 0)
+			{
+				if (vectorGraphicsSize <= 0x10000 || page > 7) return false;
+				base = vectorGraphicsRAM + 0x10000 + page * 0x4000 - 0xC000;
+			}
+			uint16_t directory = read16LE(base + 0xFFF1);
+			uint16_t attributes = read16LE(base + 0xFFF3);
+			uint8_t local = (uint8_t)(picno - from);
+			if (directory >= attributes || directory + local * 2 + 1 >= 0x10000 ||
+				attributes + local >= 0x10000) return false;
+			*pageBase = base;
+			*localPicture = local;
+			*pageTable = directory;
+			*pageAttributes = attributes;
+			return true;
+		}
+		from = to;
+		if (to == 0xFF) break;
+	}
+	return false;
+}
+#endif
 
 // The drawing position is not clamped to the screen: pictures move and
 // draw through off-screen coordinates and rely on per-pixel clipping
@@ -928,8 +968,22 @@ bool DrawVectorSubroutine (uint8_t picno, int scale, bool flipX, bool flipY)
 	TRACE("\nEntering subroutine %d\n", picno);
 	#endif
 
-	uint16_t offset = read16LE(vectorGraphicsRAM + table + picno * 2);
-	const uint8_t* ptr = vectorGraphicsRAM + offset;
+	const uint8_t* drawingRAM = vectorGraphicsRAM;
+	uint8_t localPicture = picno;
+	uint16_t drawingTable = table;
+	#if HAS_PAWS
+	if (vectorGraphicsVersion == DDB_VERSION_PAWS)
+	{
+		uint16_t drawingAttributes;
+		if (!ResolvePAWSPicture(picno, &drawingRAM, &localPicture, &drawingTable, &drawingAttributes))
+		{
+			depth--;
+			return false;
+		}
+	}
+	#endif
+	uint16_t offset = read16LE(drawingRAM + drawingTable + localPicture * 2);
+	const uint8_t* ptr = drawingRAM + offset;
 
 	switch (vectorGraphicsMachine)
 	{
@@ -1661,6 +1715,16 @@ bool DDB_HasVectorPicture (uint8_t picno)
 	{
 		// Check if picture is a picture (attribute bit 7 set) instead of a subroutine
 		const uint8_t* att = vectorGraphicsRAM + locattr + picno;
+		#if HAS_PAWS
+		const uint8_t* page = 0;
+		uint8_t local = 0;
+		uint16_t pageTable = 0, pageAttributes = 0;
+		if (vectorGraphicsVersion == DDB_VERSION_PAWS)
+		{
+			if (!ResolvePAWSPicture(picno, &page, &local, &pageTable, &pageAttributes)) return false;
+			att = page + pageAttributes + local;
+		}
+		#endif
 		return (*att & 0x80) != 0;
 	}
 
@@ -1714,6 +1778,16 @@ bool DDB_HasVectorWindow (uint8_t picno)
 	if (locattr)
 	{
 		const uint8_t* att = vectorGraphicsRAM + locattr + picno;
+		#if HAS_PAWS
+		const uint8_t* page = 0;
+		uint8_t local = 0;
+		uint16_t pageTable = 0, pageAttributes = 0;
+		if (vectorGraphicsVersion == DDB_VERSION_PAWS)
+		{
+			if (!ResolvePAWSPicture(picno, &page, &local, &pageTable, &pageAttributes)) return false;
+			att = page + pageAttributes + local;
+		}
+		#endif
 		return (*att & 0x80) != 0;
 	}
 
@@ -1994,7 +2068,17 @@ VID_Clear(col*8, row*8, width*8, height*8, 0);
 			}
 			else if (locattr != 0)
 			{
-				const uint8_t attr = vectorGraphicsRAM[locattr + picno];
+				uint8_t attr = vectorGraphicsRAM[locattr + picno];
+				#if HAS_PAWS
+				if (vectorGraphicsVersion == DDB_VERSION_PAWS)
+				{
+					const uint8_t* page = 0;
+					uint8_t local = 0;
+					uint16_t pageTable = 0, pageAttributes = 0;
+					if (!ResolvePAWSPicture(picno, &page, &local, &pageTable, &pageAttributes)) return false;
+					attr = page[pageAttributes + local];
+				}
+				#endif
 				if ((attr & 0x80) == 0x80)
 				{
 					VID_SetInk(attr & 0x07);
@@ -2080,11 +2164,12 @@ static const uint8_t systemUDGs[] =
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
-bool DDB_LoadPAWSGraphics (const uint8_t* data)
+bool DDB_LoadPAWSGraphics (const uint8_t* data, size_t size)
 {
 	vectorGraphicsMachine = DDB_MACHINE_SPECTRUM;
 	vectorGraphicsVersion = DDB_VERSION_PAWS;
 	vectorGraphicsRAM     = data;
+	vectorGraphicsSize    = size;
 	pixelMode             = false;
 
 	start   = read16LE(data + 65533);		// FFFD
@@ -2094,7 +2179,7 @@ bool DDB_LoadPAWSGraphics (const uint8_t* data)
 	chset   = 0;
 	coltab  = 0;
 	ending  = 0;
-	count   = (locattr - table) / 2;
+	count   = size > 0x10000 ? data[0x9445] : (locattr - table) / 2;
 	ending  = 0xFFFF;
 
 	if (start != 0x9300 || table < locattr - 512 || table >= locattr)
@@ -2135,6 +2220,7 @@ bool DDB_LoadVectorGraphics (DDB_Machine target, DDB_Version version, const uint
 {
 	vectorGraphicsMachine = target;
 	vectorGraphicsVersion = version;
+	vectorGraphicsSize = size;
 	pixelMode = false;
 
 	// A failed validation must not leave a half-initialized database behind:

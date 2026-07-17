@@ -1,4 +1,5 @@
 #include <ddb.h>
+#include <ddb_paw.h>
 #include <ddb_vid.h>
 #include <ddb_test.h>
 #include <ddb_scr.h>
@@ -20,6 +21,506 @@ static bool showMemoryMap = false;
 static bool dumpMessageSamples = true;
 
 static void PrintWarning(const char* message);
+
+#if HAS_PAWS
+
+enum PAWSExtractResult
+{
+	PAWSExtract_NotHandled,
+	PAWSExtract_Success,
+	PAWSExtract_Error,
+};
+
+struct PAWSTapeComponent
+{
+	char stem[11];
+	char suffix;
+	uint16_t loadAddress;
+	uint16_t length;
+	const uint8_t* data;
+};
+
+struct PAWSCandidate
+{
+	char name[16];
+	PAWSTapeComponent components[DDB_SDB_MAX_SEGMENTS];
+	uint8_t count;
+};
+
+static bool HasExtension(const char* filename, const char* extension)
+{
+	const char* dot = StrRChr(filename, '.');
+	return dot != 0 && StrIComp(dot, extension) == 0;
+}
+
+static void NormalizeTapeStem(const uint8_t* name, char* output, size_t outputSize)
+{
+	size_t length = 9;
+	while (length > 0 && name[length - 1] == ' ')
+		length--;
+	if (length == 0)
+	{
+		StrCopy(output, outputSize, "PAWS");
+		return;
+	}
+	if (length >= outputSize)
+		length = outputSize - 1;
+	for (size_t n = 0; n < length; n++)
+	{
+		uint8_t c = name[n];
+		if (c >= 'a' && c <= 'z') c -= 'a' - 'A';
+		output[n] = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' ? (char)c : '_';
+	}
+	output[length] = 0;
+}
+
+static bool TapeChecksumValid(const uint8_t* data, size_t size)
+{
+	uint8_t checksum = 0;
+	for (size_t n = 0; n < size; n++) checksum ^= data[n];
+	return checksum == 0;
+}
+
+static bool AddTapePayload(const uint8_t* payload, size_t size,
+	uint8_t* pendingName, uint16_t* pendingLength, uint16_t* pendingLoad,
+	PAWSTapeComponent* components, int* componentCount)
+{
+	if (size == 19 && payload[0] == 0 && payload[1] == 3 && TapeChecksumValid(payload, size))
+	{
+		MemCopy(pendingName, payload + 2, 10);
+		*pendingLength = read16LE(payload + 12);
+		*pendingLoad = read16LE(payload + 14);
+		return true;
+	}
+	if (*pendingLength != 0 && size == (size_t)*pendingLength + 2 && payload[0] == 0xFF &&
+		TapeChecksumValid(payload, size))
+	{
+		char suffix = (char)pendingName[9];
+		if (suffix >= 'A' && suffix <= 'L' && *componentCount < 64)
+		{
+			PAWSTapeComponent& component = components[(*componentCount)++];
+			NormalizeTapeStem(pendingName, component.stem, sizeof(component.stem));
+			component.suffix = suffix;
+			component.loadAddress = *pendingLoad;
+			component.length = *pendingLength;
+			component.data = payload + 1;
+		}
+		*pendingLength = 0;
+		return true;
+	}
+	*pendingLength = 0;
+	return true;
+}
+
+static bool CollectTAPPayloads(const uint8_t* fileData, size_t fileSize,
+	PAWSTapeComponent* components, int* componentCount)
+{
+	uint8_t pendingName[10] = { 0 };
+	uint16_t pendingLength = 0, pendingLoad = 0;
+	size_t position = 0;
+	while (position + 2 <= fileSize)
+	{
+		uint16_t length = read16LE(fileData + position);
+		position += 2;
+		if (position + length > fileSize) return false;
+		AddTapePayload(fileData + position, length, pendingName, &pendingLength,
+			&pendingLoad, components, componentCount);
+		position += length;
+	}
+	return position == fileSize;
+}
+
+static bool CollectTZXPayloads(const uint8_t* fileData, size_t fileSize,
+	PAWSTapeComponent* components, int* componentCount)
+{
+	if (fileSize < 10 || MemComp((void*)fileData, "ZXTape!\x1A", 8) != 0) return false;
+	uint8_t pendingName[10] = { 0 };
+	uint16_t pendingLength = 0, pendingLoad = 0;
+	size_t position = 10;
+	while (position < fileSize)
+	{
+		uint8_t type = fileData[position++];
+		uint32_t length = 0;
+		bool dataBlock = false;
+		switch (type)
+		{
+			case 0x10:
+				if (position + 4 > fileSize) return false;
+				length = read16LE(fileData + position + 2);
+				position += 4;
+				dataBlock = true;
+				break;
+			case 0x11:
+				if (position + 18 > fileSize) return false;
+				length = fileData[position + 15] | (fileData[position + 16] << 8) | (fileData[position + 17] << 16);
+				position += 18;
+				dataBlock = true;
+				break;
+			case 0x14:
+				if (position + 10 > fileSize) return false;
+				length = fileData[position + 7] | (fileData[position + 8] << 8) | (fileData[position + 9] << 16);
+				position += 10;
+				dataBlock = true;
+				break;
+			case 0x12: length = 4; break;
+			case 0x13:
+				if (position >= fileSize) return false;
+				length = 1 + fileData[position] * 2;
+				break;
+			case 0x15:
+				if (position + 8 > fileSize) return false;
+				length = 8 + fileData[position + 5] + (fileData[position + 6] << 8) + (fileData[position + 7] << 16);
+				break;
+			case 0x18:
+			case 0x19:
+				if (position + 4 > fileSize) return false;
+				length = 4 + read32LE(fileData + position);
+				break;
+			case 0x20: length = 2; break;
+			case 0x21:
+				if (position >= fileSize) return false;
+				length = 1 + fileData[position];
+				break;
+			case 0x22: length = 0; break;
+			case 0x23: length = 2; break;
+			case 0x24: length = 2; break;
+			case 0x25: length = 0; break;
+			case 0x26:
+				if (position + 2 > fileSize) return false;
+				length = 2 + read16LE(fileData + position) * 2;
+				break;
+			case 0x27: length = 0; break;
+			case 0x28:
+				if (position + 2 > fileSize) return false;
+				length = 2 + read16LE(fileData + position);
+				break;
+			case 0x2A: length = 4; break;
+			case 0x2B: length = 5; break;
+			case 0x30:
+				if (position >= fileSize) return false;
+				length = 1 + fileData[position];
+				break;
+			case 0x31:
+				if (position + 2 > fileSize) return false;
+				length = 2 + fileData[position + 1];
+				break;
+			case 0x32:
+				if (position + 2 > fileSize) return false;
+				length = 2 + read16LE(fileData + position);
+				break;
+			case 0x33:
+				if (position >= fileSize) return false;
+				length = 1 + fileData[position] * 3;
+				break;
+			case 0x34: length = 8; break;
+			case 0x35:
+				if (position + 20 > fileSize) return false;
+				length = 20 + read32LE(fileData + position + 16);
+				break;
+			case 0x40:
+				if (position + 4 > fileSize) return false;
+				length = 4 + fileData[position + 1] + (fileData[position + 2] << 8) + (fileData[position + 3] << 16);
+				break;
+			case 0x5A: length = 9; break;
+			default:
+				return false;
+		}
+		if (position + length > fileSize) return false;
+		if (dataBlock)
+			AddTapePayload(fileData + position, length, pendingName, &pendingLength, &pendingLoad,
+				components, componentCount);
+		position += length;
+	}
+	return true;
+}
+
+static int CompareComponents(const void* a, const void* b)
+{
+	const PAWSTapeComponent* ca = (const PAWSTapeComponent*)a;
+	const PAWSTapeComponent* cb = (const PAWSTapeComponent*)b;
+	return (int)ca->suffix - (int)cb->suffix;
+}
+
+static int BuildTapeCandidates(PAWSTapeComponent* components, int componentCount,
+	PAWSCandidate* candidates, int candidateCapacity)
+{
+	int candidateCount = 0;
+	for (int n = 0; n < componentCount; n++)
+	{
+		int candidate = candidateCount - 1;
+		bool repeatedStart = candidate >= 0 && components[n].suffix == 'A' &&
+			candidates[candidate].count != 0;
+		if (candidate < 0 || StrComp(candidates[candidate].name, components[n].stem) != 0 || repeatedStart)
+		{
+			if (candidateCount >= candidateCapacity) continue;
+			candidate = candidateCount++;
+			StrCopy(candidates[candidate].name, sizeof(candidates[candidate].name), components[n].stem);
+		}
+		if (candidates[candidate].count < DDB_SDB_MAX_SEGMENTS)
+			candidates[candidate].components[candidates[candidate].count++] = components[n];
+	}
+	for (int c = 0; c < candidateCount; c++)
+		qsort(candidates[c].components, candidates[c].count, sizeof(PAWSTapeComponent), CompareComponents);
+	return candidateCount;
+}
+
+static bool CandidateSegments(PAWSCandidate* candidate, DDB_SDBSegment* segments,
+	uint8_t* segmentCount, uint8_t* model)
+{
+	if (candidate->count < 2 || (candidate->count & 1) != 0) return false;
+	*model = candidate->count > 2 ? DDB_SDB_128K : DDB_SDB_48K;
+	for (uint8_t n = 0; n < candidate->count; n += 2)
+	{
+		PAWSTapeComponent& low = candidate->components[n];
+		PAWSTapeComponent& high = candidate->components[n + 1];
+		if (low.suffix != 'A' + n || high.suffix != 'B' + n || high.loadAddress < 0xC000 ||
+			(uint32_t)high.loadAddress + high.length != 0x10000 ||
+			high.loadAddress > 0xFFED) return false;
+		uint16_t firstFree = read16LE(high.data + (0xFFED - high.loadAddress));
+		uint16_t highStart = read16LE(high.data + (0xFFEF - high.loadAddress));
+		uint16_t base = read16LE(high.data + (0xFFFD - high.loadAddress));
+		uint8_t bank = high.data[0xFFFF - high.loadAddress];
+		if (firstFree != low.loadAddress + low.length || highStart != high.loadAddress ||
+			base != (n == 0 ? 0x9300 : 0xC000) ||
+			low.loadAddress != (n == 0 ? 0x9300 : 0xC000) ||
+			(*model == DDB_SDB_48K ? bank != 0 : bank > 7)) return false;
+		segments[n] = { *model == DDB_SDB_48K ? (uint8_t)0xFF : bank,
+			DDB_SDB_SEGMENT_LOW, low.loadAddress, low.length, low.data };
+		segments[n + 1] = { *model == DDB_SDB_48K ? (uint8_t)0xFF : bank,
+			DDB_SDB_SEGMENT_HIGH, high.loadAddress, high.length, high.data };
+	}
+	*segmentCount = candidate->count;
+	return true;
+}
+
+static bool FileAlreadyExists(const char* filename)
+{
+	File* file = File_Open(filename, ReadOnly);
+	if (file == 0) return false;
+	File_Close(file);
+	return true;
+}
+
+static void InputDirectory(const char* input, char* output, size_t outputSize)
+{
+	StrCopy(output, outputSize, input);
+	char* slash = (char*)StrRChr(output, '/');
+	char* backslash = (char*)StrRChr(output, '\\');
+	if (backslash > slash) slash = backslash;
+	if (slash) slash[1] = 0;
+	else output[0] = 0;
+}
+
+static bool WriteCandidateSDB(const char* filename, uint8_t model,
+	const DDB_SDBSegment* segments, uint8_t segmentCount)
+{
+	if (!force && FileAlreadyExists(filename))
+	{
+		fprintf(stderr, "Error: Output file '%s' already exists (use -f to force overwrite)\n", filename);
+		return false;
+	}
+	if (!DDB_PAWSWriteSDB(filename, model, segments, segmentCount))
+	{
+		fprintf(stderr, "Writing %s: Error: %s\n", filename, DDB_GetErrorString());
+		return false;
+	}
+	printf("SDB file written to '%s'\n", filename);
+	return true;
+}
+
+static bool SnapshotSegments(uint8_t* memory, size_t memorySize,
+	DDB_SDBSegment* segments, uint8_t* segmentCount, uint8_t* model)
+{
+	if (memorySize < 0x10000 || read16LE(memory + 0xFFFD) != 0x9300) return false;
+	uint16_t firstFree = read16LE(memory + 0xFFED);
+	uint16_t highStart = read16LE(memory + 0xFFEF);
+	if (firstFree < 0x944E || firstFree > highStart || highStart > 0xFFFF) return false;
+	*model = memorySize > 0x10000 ? DDB_SDB_128K : DDB_SDB_48K;
+	uint8_t count = 0;
+	segments[count++] = { *model == DDB_SDB_48K ? (uint8_t)0xFF : (uint8_t)0,
+		DDB_SDB_SEGMENT_LOW, 0x9300, (uint16_t)(firstFree - 0x9300), memory + 0x9300 };
+	segments[count++] = { *model == DDB_SDB_48K ? (uint8_t)0xFF : (uint8_t)0,
+		DDB_SDB_SEGMENT_HIGH, highStart, (uint16_t)(0x10000 - highStart), memory + highStart };
+	if (*model == DDB_SDB_128K)
+	{
+		const uint8_t banks[] = { 1, 3, 4, 6, 7 };
+		for (uint8_t bank : banks)
+		{
+			uint8_t* bankData = memory + 0x10000 + bank * 0x4000;
+			if (read16LE(bankData + (0xFFFD - 0xC000)) != 0xC000 ||
+				bankData[0xFFFF - 0xC000] != bank) continue;
+			uint16_t pageFree = read16LE(bankData + (0xFFED - 0xC000));
+			uint16_t pageHigh = read16LE(bankData + (0xFFEF - 0xC000));
+			if (pageFree < 0xC000 || pageFree > pageHigh || pageHigh > 0xFFFF || count + 2 > DDB_SDB_MAX_SEGMENTS)
+				return false;
+			segments[count++] = { bank, DDB_SDB_SEGMENT_LOW, 0xC000,
+				(uint16_t)(pageFree - 0xC000), bankData };
+			segments[count++] = { bank, DDB_SDB_SEGMENT_HIGH, pageHigh,
+				(uint16_t)(0x10000 - pageHigh), bankData + (pageHigh - 0xC000) };
+		}
+	}
+	*segmentCount = count;
+	return true;
+}
+
+static PAWSExtractResult ExtractPAWSMedia(const char* inputFileName, const char* outputName)
+{
+	bool tape = HasExtension(inputFileName, ".tap") || HasExtension(inputFileName, ".tzx");
+	bool snapshot = HasExtension(inputFileName, ".sna") || HasExtension(inputFileName, ".z80");
+	if (!tape && !snapshot) return PAWSExtract_NotHandled;
+
+	if (tape)
+	{
+		File* file = File_Open(inputFileName, ReadOnly);
+		if (file == 0) return PAWSExtract_Error;
+		size_t size = (size_t)File_GetSize(file);
+		uint8_t* data = Allocate<uint8_t>("PAWS tape", size);
+		bool read = data != 0 && File_Read(file, data, size) == size;
+		File_Close(file);
+		if (!read) { if (data) Free(data); return PAWSExtract_Error; }
+		PAWSTapeComponent components[64];
+		int componentCount = 0;
+		bool parsed = HasExtension(inputFileName, ".tap") ?
+			CollectTAPPayloads(data, size, components, &componentCount) :
+			CollectTZXPayloads(data, size, components, &componentCount);
+		if (!parsed || componentCount == 0) { Free(data); return PAWSExtract_NotHandled; }
+		PAWSCandidate candidates[16] = {};
+		int candidateCount = BuildTapeCandidates(components, componentCount, candidates, 16);
+		int validCandidateCount = 0;
+		for (int c = 0; c < candidateCount; c++)
+		{
+			DDB_SDBSegment validationSegments[DDB_SDB_MAX_SEGMENTS];
+			uint8_t validationCount = 0, validationModel = 0;
+			if (CandidateSegments(&candidates[c], validationSegments, &validationCount, &validationModel))
+				validCandidateCount++;
+		}
+		if (validCandidateCount == 0)
+		{
+			Free(data);
+			return PAWSExtract_NotHandled;
+		}
+		char directory[FILE_MAX_PATH];
+		bool outputIsFile = outputName != 0 && HasExtension(outputName, ".sdb");
+		if (outputIsFile && validCandidateCount > 1)
+		{
+			fprintf(stderr, "Error: Multiple PAWS databases require an output directory\n");
+			Free(data);
+			return PAWSExtract_Error;
+		}
+		if (outputName && !outputIsFile)
+		{
+			StrCopy(directory, sizeof(directory), outputName);
+			size_t length = StrLen(directory);
+			if (length > 0 && directory[length - 1] != '/' && directory[length - 1] != '\\')
+				StrCopy(directory + length, sizeof(directory) - length, "/");
+		}
+		else
+			InputDirectory(inputFileName, directory, sizeof(directory));
+		bool success = true;
+		int written = 0;
+		for (int c = 0; c < candidateCount; c++)
+		{
+			DDB_SDBSegment segments[DDB_SDB_MAX_SEGMENTS];
+			uint8_t segmentCount = 0, model = 0;
+			if (!CandidateSegments(&candidates[c], segments, &segmentCount, &model)) continue;
+			char filename[FILE_MAX_PATH];
+			if (outputIsFile)
+				StrCopy(filename, sizeof(filename), ChangeExtension(outputName, ".sdb"));
+			else
+			{
+				int occurrence = 1;
+				for (int p = 0; p < c; p++)
+					if (StrComp(candidates[p].name, candidates[c].name) == 0) occurrence++;
+				if (occurrence == 1)
+					snprintf(filename, sizeof(filename), "%s%s.sdb", directory, candidates[c].name);
+				else
+					snprintf(filename, sizeof(filename), "%s%s-%d.sdb", directory, candidates[c].name, occurrence);
+			}
+			if (WriteCandidateSDB(filename, model, segments, segmentCount)) written++;
+			else success = false;
+		}
+		Free(data);
+		return success && written > 0 ? PAWSExtract_Success : PAWSExtract_Error;
+	}
+
+	File* file = File_Open(inputFileName, ReadOnly);
+	if (file == 0) return PAWSExtract_Error;
+	uint8_t* memory = 0;
+	size_t memorySize = 0;
+	DDB_Machine machine;
+	bool loaded = DDB_LoadSnapshot(file, inputFileName, &memory, &memorySize, &machine);
+	File_Close(file);
+	if (!loaded || machine != DDB_MACHINE_SPECTRUM) { if (memory) Free(memory); return PAWSExtract_NotHandled; }
+	DDB_SDBSegment segments[DDB_SDB_MAX_SEGMENTS];
+	uint8_t segmentCount = 0, model = 0;
+	if (!SnapshotSegments(memory, memorySize, segments, &segmentCount, &model))
+	{
+		Free(memory);
+		return PAWSExtract_NotHandled;
+	}
+	char filename[FILE_MAX_PATH];
+	StrCopy(filename, sizeof(filename), ChangeExtension(outputName ? outputName : inputFileName, ".sdb"));
+	bool success = WriteCandidateSDB(filename, model, segments, segmentCount);
+	Free(memory);
+	return success ? PAWSExtract_Success : PAWSExtract_Error;
+}
+
+#ifdef HAS_VIRTUALFILESYSTEM
+static int MountPAWSTape(const char* inputFileName, char* firstName, size_t firstNameSize)
+{
+	if (!HasExtension(inputFileName, ".tap") && !HasExtension(inputFileName, ".tzx"))
+		return 0;
+	File* file = File_Open(inputFileName, ReadOnly);
+	if (file == 0) return -1;
+	size_t size = (size_t)File_GetSize(file);
+	uint8_t* data = Allocate<uint8_t>("PAWS tape", size);
+	bool read = data != 0 && File_Read(file, data, size) == size;
+	File_Close(file);
+	if (!read) { if (data) Free(data); return -1; }
+
+	PAWSTapeComponent components[64];
+	int componentCount = 0;
+	bool parsed = HasExtension(inputFileName, ".tap") ?
+		CollectTAPPayloads(data, size, components, &componentCount) :
+		CollectTZXPayloads(data, size, components, &componentCount);
+	if (!parsed || componentCount == 0) { Free(data); return 0; }
+	PAWSCandidate candidates[16] = {};
+	int candidateCount = BuildTapeCandidates(components, componentCount, candidates, 16);
+	int mounted = 0;
+	for (int c = 0; c < candidateCount; c++)
+	{
+		DDB_SDBSegment segments[DDB_SDB_MAX_SEGMENTS];
+		uint8_t segmentCount = 0, model = 0;
+		if (!CandidateSegments(&candidates[c], segments, &segmentCount, &model)) continue;
+		int occurrence = 1;
+		for (int p = 0; p < c; p++)
+			if (StrComp(candidates[p].name, candidates[c].name) == 0) occurrence++;
+		char name[FILE_MAX_PATH];
+		if (occurrence == 1)
+			snprintf(name, sizeof(name), "%s.sdb", candidates[c].name);
+		else
+			snprintf(name, sizeof(name), "%s-%d.sdb", candidates[c].name, occurrence);
+		uint8_t* sdb = 0;
+		size_t sdbSize = 0;
+		if (!DDB_PAWSBuildSDB(model, segments, segmentCount, &sdb, &sdbSize) ||
+			!File_MountMemoryFile(name, sdb, sdbSize))
+		{
+			if (sdb) Free(sdb);
+			File_UnmountMemoryFiles();
+			Free(data);
+			return -1;
+		}
+		Free(sdb);
+		if (mounted == 0 && firstName != 0)
+			StrCopy(firstName, firstNameSize, name);
+		mounted++;
+	}
+	Free(data);
+	return mounted;
+}
+#endif
+
+#endif
 
 static bool SaveScreenshot(const char* fileName)
 {
@@ -405,10 +906,10 @@ static Action action = ACTION_RUN;
 void ShowHelp()
 {
 	printf("ADP DAAD Database Utility " VERSION_STR " \n\n");
-	printf("Dumps, inspects or runs a game from a DDB file or a disk image.\n\n");
-	printf("Usage: ddb [global options] <action> <input.ddb>\n");
-	printf("Usage: ddb [global options] <input.ddb>\n");
-	printf("Usage: ddb [global options] extract <input> [output.ddb]\n\n");
+	printf("Dumps, inspects or runs a game database or supported media image.\n\n");
+	printf("Usage: ddb [global options] <action> <input>\n");
+	printf("Usage: ddb [global options] <input>\n");
+	printf("Usage: ddb [global options] extract <input> [output]\n\n");
 	printf("Actions:\n\n");
 	printf("    list, l      Show game information\n");
 	printf("    run, r       Run the game (default action)\n");
@@ -752,6 +1253,8 @@ int main (int argc, char *argv[])
 	}
 
 	const char* inputFileName = commandLine.arguments[0];
+	char pawsSinglePart[FILE_MAX_PATH] = { 0 };
+	bool mountedPAWSMemory = false;
 	const char* optionalOutputFileName = commandLine.argumentCount > 1 ? commandLine.arguments[1] : 0;
 	const char* transcriptFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_TRANSCRIPT);
 	const char* scriptedInputFileName = CLI_GetOptionValue(&commandLine, CLI_OPTION_INPUT);
@@ -802,6 +1305,15 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Error: --capture cannot be combined with --part\n");
 		return 1;
 	}
+
+	#if HAS_PAWS
+	if (action == ACTION_EXTRACT)
+	{
+		PAWSExtractResult pawsResult = ExtractPAWSMedia(inputFileName, optionalOutputFileName);
+		if (pawsResult != PAWSExtract_NotHandled)
+			return pawsResult == PAWSExtract_Success ? 0 : 1;
+	}
+	#endif
 	DDB_ScreenMode requestedScreenMode = ScreenMode_Default;
 	if (screenOption != 0 && !ParseScreenModeOption(screenOption, &requestedScreenMode))
 	{
@@ -821,6 +1333,44 @@ int main (int argc, char *argv[])
 		DDB_TestSetPartSelection(partSelection, partCaptureFileName);
 
 	#ifdef HAS_VIRTUALFILESYSTEM
+	#if HAS_PAWS
+	if (action == ACTION_RUN || action == ACTION_TEST)
+	{
+		int pawsParts = MountPAWSTape(inputFileName, pawsSinglePart, sizeof(pawsSinglePart));
+		if (pawsParts < 0)
+		{
+			fprintf(stderr, "Error: Unable to prepare PAWS databases from '%s'\n", inputFileName);
+			return 1;
+		}
+		if (pawsParts == 1)
+		{
+			// A single embedded database follows the normal direct-load path. This
+			// preserves the exact run/test initialization contract; only genuinely
+			// multi-part media needs the player front end and its selector.
+			inputFileName = pawsSinglePart;
+			mountedPAWSMemory = true;
+		}
+		else if (pawsParts > 1)
+		{
+			if (requestedScreenMode != ScreenMode_Default)
+				DDB_SetStartupScreenModeOverride(requestedScreenMode);
+			VID_SetFastMode(skipTimedPauses);
+			bool ran = DDB_RunPlayer();
+			File_UnmountMemoryFiles();
+			if (!ran)
+			{
+				fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+				return 1;
+			}
+			if (DDB_TestHasError())
+			{
+				fprintf(stderr, "Error: %s\n", DDB_TestGetError());
+				return 1;
+			}
+			return 0;
+		}
+	}
+	#endif
 	// A part selection needs the real player so the part selector runs; route
 	// multi-part test scenarios through it just like the interactive player.
 	if ((action == ACTION_RUN || (action == ACTION_TEST && partSelection >= 1)) &&
@@ -858,6 +1408,9 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
 		if (mountedDiskImage)
 			File_UnmountDisk();
+		#ifdef HAS_VIRTUALFILESYSTEM
+		if (mountedPAWSMemory) File_UnmountMemoryFiles();
+		#endif
 		return 1;
 	}
 
@@ -887,7 +1440,7 @@ int main (int argc, char *argv[])
 	}
 	#endif
 
-	printf("DDB file loaded (%s, %s, %s, %d bytes)\n",
+	printf("Database file loaded (%s, %s, %s, %d bytes)\n",
 		loadedDDBFileName, DDB_DescribeVersion(ddb->version),
 		ddb->littleEndian ? "little endian" : "big endian",
 		ddb->dataSize);
@@ -907,6 +1460,9 @@ int main (int argc, char *argv[])
 			printf("    - Text is compressed (%d bytes in tokens)\n", (int)ddb->tokenBlockSize);
 		if (ddb->externPsgTable && ddb->externPsgCount != 0)
 			printf("    - Includes %d EXTERN PSG streams\n", ddb->externPsgCount);
+		if (ddb->sdbMemoryModel != 0)
+			printf("    - SDB: %dK Spectrum, %d sparse segments\n",
+				ddb->sdbMemoryModel, ddb->sdbSegmentCount);
 		DDB_DumpMetrics(ddb, printf);
 		if (showMemoryMap)
 			PrintDDBMemoryMap(ddb);
@@ -1018,7 +1574,8 @@ int main (int argc, char *argv[])
 			#if HAS_DRAWSTRING
 			// A vector database found alongside (or inside) this part: write
 			// it with the platform's extension
-			if (!skip && partDDB->drawString && DDB_HasVectorDatabase())
+			if (!skip && partDDB->version != DDB_VERSION_PAWS &&
+				partDDB->drawString && DDB_HasVectorDatabase())
 			{
 				const char* extension = ".bin";
 				switch (partDDB->target)
@@ -1142,6 +1699,9 @@ int main (int argc, char *argv[])
 	if (interpreter == NULL)
 	{
 		fprintf(stderr, "Error: %s\n", DDB_GetErrorString());
+		#ifdef HAS_VIRTUALFILESYSTEM
+		if (mountedPAWSMemory) File_UnmountMemoryFiles();
+		#endif
 		return 1;
 	}
 
@@ -1163,6 +1723,9 @@ int main (int argc, char *argv[])
 		DDB_Close(ddb);
 		if (mountedDiskImage)
 			File_UnmountDisk();
+		#ifdef HAS_VIRTUALFILESYSTEM
+		if (mountedPAWSMemory) File_UnmountMemoryFiles();
+		#endif
 		VID_Finish();
 		return 1;
 	}
@@ -1173,6 +1736,9 @@ int main (int argc, char *argv[])
 		DDB_Close(ddb);
 		if (mountedDiskImage)
 			File_UnmountDisk();
+		#ifdef HAS_VIRTUALFILESYSTEM
+		if (mountedPAWSMemory) File_UnmountMemoryFiles();
+		#endif
 		VID_Finish();
 		return 1;
 	}
@@ -1180,6 +1746,9 @@ int main (int argc, char *argv[])
 	DDB_Close(ddb);
 	if (mountedDiskImage)
 		File_UnmountDisk();
+	#ifdef HAS_VIRTUALFILESYSTEM
+	if (mountedPAWSMemory) File_UnmountMemoryFiles();
+	#endif
 	VID_Finish();
 
 	return 0;

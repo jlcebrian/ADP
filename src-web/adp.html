@@ -244,7 +244,7 @@
 						file = await getFileFromEntryAsync(item);
 					}
 
-					if (file.name.toLowerCase().endsWith(".ddb")) {
+					if (file.name.toLowerCase().endsWith(".ddb") || file.name.toLowerCase().endsWith(".sdb")) {
 						ddbFound = true;
 					}
 

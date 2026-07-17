@@ -1,5 +1,6 @@
 #include <ddb.h>
 #include <ddb_condact_defs.h>
+#include <ddb_paw.h>
 #include <ddb_xmsg.h>
 #include <ddb_vid.h>
 #include <dmg.h>
@@ -1303,6 +1304,10 @@ static bool DDB_CheckSnapshot(File* file, const char* filename, DDB_Machine* tar
 }
 #endif
 
+#if HAS_PAWS
+static bool LoadPAWS(DDB* ddb, uint8_t* memory, size_t size);
+#endif
+
 bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language, DDB_Version* version)
 {
 	const uint32_t checkBufferSize = 512;
@@ -1325,6 +1330,27 @@ bool DDB_Check(const char* filename, DDB_Machine* target, DDB_Language* language
 		Free(buffer);
 		return false;
 	}
+
+	#if HAS_PAWS
+	if (DDB_PAWSIsSDB(file))
+	{
+		uint8_t* sdbMemory = 0;
+		size_t sdbSize = 0;
+		bool valid = DDB_PAWSLoadSDB(file, &sdbMemory, &sdbSize, 0, 0) &&
+			LoadPAWS(check, sdbMemory, sdbSize);
+		if (valid)
+		{
+			if (target) *target = DDB_MACHINE_SPECTRUM;
+			if (language) *language = check->language;
+			if (version) *version = DDB_VERSION_PAWS;
+		}
+		File_Close(file);
+		if (sdbMemory) Free(sdbMemory);
+		Free(check);
+		Free(buffer);
+		return valid;
+	}
+	#endif
 
 	#if HAS_SNAPSHOTS
 	if (DDB_HasSnapshotExtension(filename))
@@ -1806,6 +1832,40 @@ DDB* DDB_Load(const char* filename)
 	}
 	ddb->machine = DDB_MACHINE_IBMPC;
 
+	#if HAS_PAWS
+	if (DDB_PAWSIsSDB(file))
+	{
+		size_t sdbSize = 0;
+		if (!DDB_PAWSLoadSDB(file, &memory, &sdbSize,
+			&ddb->sdbMemoryModel, &ddb->sdbSegmentCount))
+		{
+			File_Close(file);
+			Free(ddb);
+			return 0;
+		}
+		File_Close(file);
+		if (!LoadPAWS(ddb, memory, sdbSize))
+		{
+			Free(memory);
+			Free(ddb);
+			ddbError = DDB_ERROR_INVALID_FILE;
+			return 0;
+		}
+		#if HAS_DRAWSTRING
+		if (DDB_LoadPAWSGraphics(memory, sdbSize))
+		{
+			ddb->drawString = true;
+			ddb->defaultInk = VID_GetInk();
+			ddb->defaultPaper = VID_GetPaper();
+		}
+		#endif
+		DDB_FixOffsets(ddb);
+		DDB_FillTokenPointers(ddb);
+		ddb->oldMainLoop = true;
+		return ddb;
+	}
+	#endif
+
 	#if HAS_SNAPSHOTS
 
 	size_t ramSize;
@@ -1819,7 +1879,7 @@ DDB* DDB_Load(const char* filename)
 		if (LoadPAWS(ddb, memory, ramSize))
 		{
 			#if HAS_DRAWSTRING
-			if (DDB_LoadPAWSGraphics(memory))
+			if (DDB_LoadPAWSGraphics(memory, ramSize))
 			{
 				ddb->drawString = true;
 				ddb->defaultInk = VID_GetInk();
@@ -2105,9 +2165,9 @@ DDB* DDB_Load(const char* filename)
 		}
 	}
 
-	// Disk based Spectrum releases ship the vector graphics as a separate .SDG
-	// file next to the database, loading flush against the top of memory
-	if (ddb->target == DDB_MACHINE_SPECTRUM && !ddb->drawString)
+	// Spectrum DAAD releases may ship a separate .SDG. PAWS graphics are part
+	// of the PAWS database and are binary-incompatible with SDG.
+	if (ddb->target == DDB_MACHINE_SPECTRUM && ddb->version != DDB_VERSION_PAWS && !ddb->drawString)
 	{
 		char sdgName[FILE_MAX_PATH];
 		StrCopy(sdgName, sizeof(sdgName), filename);

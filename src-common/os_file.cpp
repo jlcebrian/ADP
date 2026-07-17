@@ -333,6 +333,41 @@ File *Memory_Open(void *data, uint64_t dataSize)
 static DIM_Disk* mountedDisks[MAX_MOUNTED_DISKS] = { 0 };
 static int       mountedDiskCount = 0;
 
+#define MAX_MOUNTED_MEMORY_FILES 16
+struct MountedMemoryFile
+{
+	char name[FILE_MAX_PATH];
+	uint8_t* data;
+	uint32_t size;
+};
+static MountedMemoryFile mountedMemoryFiles[MAX_MOUNTED_MEMORY_FILES];
+static int mountedMemoryFileCount = 0;
+
+bool File_MountMemoryFile(const char* name, const void* data, uint64_t size)
+{
+	if (name == 0 || data == 0 || size == 0 || size > 0xFFFFFFFFULL ||
+		mountedMemoryFileCount >= MAX_MOUNTED_MEMORY_FILES)
+		return false;
+	uint8_t* copy = Allocate<uint8_t>("Mounted memory file", (size_t)size);
+	if (copy == 0) return false;
+	MemCopy(copy, data, (size_t)size);
+	MountedMemoryFile& file = mountedMemoryFiles[mountedMemoryFileCount++];
+	StrCopy(file.name, sizeof(file.name), name);
+	file.data = copy;
+	file.size = (uint32_t)size;
+	return true;
+}
+
+void File_UnmountMemoryFiles()
+{
+	for (int n = 0; n < mountedMemoryFileCount; n++)
+	{
+		Free(mountedMemoryFiles[n].data);
+		mountedMemoryFiles[n].data = 0;
+	}
+	mountedMemoryFileCount = 0;
+}
+
 bool File_MountDisk (const char* file)
 {
 	if (mountedDiskCount >= MAX_MOUNTED_DISKS)
@@ -365,6 +400,22 @@ int File_GetMountedDiskType ()
 
 File *File_Open(const char *fileName, FileOpenMode mode)
 {
+	if (mountedMemoryFileCount > 0 && mode == ReadOnly)
+	{
+		const char* leaf = StrRChr(fileName, '/');
+		const char* backslash = StrRChr(fileName, '\\');
+		if (backslash != 0 && (leaf == 0 || backslash > leaf)) leaf = backslash;
+		leaf = leaf ? leaf + 1 : fileName;
+		for (int n = 0; n < mountedMemoryFileCount; n++)
+		{
+			MountedMemoryFile& mounted = mountedMemoryFiles[n];
+			if (StrIComp(leaf, mounted.name) != 0) continue;
+			uint8_t* copy = Allocate<uint8_t>("Opened memory file", mounted.size);
+			if (copy == 0) return 0;
+			MemCopy(copy, mounted.data, mounted.size);
+			return Memory_Open(copy, mounted.size);
+		}
+	}
 	for (int i = 0; i < mountedDiskCount; i++)
 	{
 		FindFileResults result;
@@ -414,6 +465,27 @@ uint64_t File_GetSizeByName(const char* fileName)
 
 bool File_FindFirst (const char* pattern, FindFileResults* results)
 {
+	if (mountedMemoryFileCount > 0)
+	{
+		const char* leaf = StrRChr(pattern, '/');
+		const char* backslash = StrRChr(pattern, '\\');
+		if (backslash != 0 && (leaf == 0 || backslash > leaf)) leaf = backslash;
+		leaf = leaf ? leaf + 1 : pattern;
+		for (int n = 0; n < mountedMemoryFileCount; n++)
+		{
+			MountedMemoryFile& file = mountedMemoryFiles[n];
+			if (!DIM_MatchWildcards(file.name, (int)StrLen(file.name), leaf, (int)StrLen(leaf))) continue;
+			StrCopy(results->fileName, sizeof(results->fileName), file.name);
+			results->fileSize = file.size;
+			results->attributes = FileAttribute_ReadOnly;
+			results->modifyTime = 0;
+			results->description[0] = 0;
+			results->mergeDiskIndex = n;
+			StrCopy(results->mergePattern, sizeof(results->mergePattern), leaf);
+			return true;
+		}
+		return false;
+	}
 	if (mountedDiskCount > 0)
 	{
 		StrCopy(results->mergePattern, sizeof(results->mergePattern), pattern);
@@ -429,6 +501,23 @@ bool File_FindFirst (const char* pattern, FindFileResults* results)
 
 bool File_FindNext (FindFileResults* results)
 {
+	if (mountedMemoryFileCount > 0)
+	{
+		for (int n = results->mergeDiskIndex + 1; n < mountedMemoryFileCount; n++)
+		{
+			MountedMemoryFile& file = mountedMemoryFiles[n];
+			if (!DIM_MatchWildcards(file.name, (int)StrLen(file.name), results->mergePattern,
+				(int)StrLen(results->mergePattern))) continue;
+			StrCopy(results->fileName, sizeof(results->fileName), file.name);
+			results->fileSize = file.size;
+			results->attributes = FileAttribute_ReadOnly;
+			results->modifyTime = 0;
+			results->description[0] = 0;
+			results->mergeDiskIndex = n;
+			return true;
+		}
+		return false;
+	}
 	if (mountedDiskCount > 0)
 	{
 		if (DIM_FindNextFile(mountedDisks[results->mergeDiskIndex], results))

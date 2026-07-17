@@ -5,7 +5,297 @@
 #include <ddb_scr.h>
 #include <ddb_data.h>
 #include <ddb_vid.h>
+#include <os_bito.h>
+#include <os_file.h>
 #include <os_lib.h>
+#include <os_mem.h>
+
+enum
+{
+	SDB_HEADER_SIZE = 24,
+	SDB_ENTRY_SIZE = 16,
+};
+
+uint32_t DDB_PAWSSDBCRC32(const uint8_t* data, size_t size)
+{
+	uint32_t crc = 0xFFFFFFFFU;
+	for (size_t n = 0; n < size; n++)
+	{
+		crc ^= data[n];
+		for (int bit = 0; bit < 8; bit++)
+			crc = (crc >> 1) ^ (0xEDB88320U & (uint32_t)-(int32_t)(crc & 1));
+	}
+	return crc ^ 0xFFFFFFFFU;
+}
+
+static bool SDBReadAt(File* file, uint64_t offset, void* data, size_t size)
+{
+	return File_Seek(file, offset) && File_Read(file, data, size) == size;
+}
+
+bool DDB_PAWSIsSDB(File* file)
+{
+	uint8_t magic[4];
+	uint64_t position = File_GetPosition(file);
+	bool result = SDBReadAt(file, 0, magic, sizeof(magic)) &&
+		magic[0] == 'S' && magic[1] == 'D' && magic[2] == 'B' && magic[3] == 0x1A;
+	File_Seek(file, position);
+	return result;
+}
+
+bool DDB_PAWSLoadSDB(File* file, uint8_t** outputMemory, size_t* outputSize,
+	uint8_t* outputModel, uint8_t* outputSegmentCount)
+{
+	if (file == 0 || outputMemory == 0 || outputSize == 0)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+	uint8_t header[SDB_HEADER_SIZE];
+	if (!SDBReadAt(file, 0, header, sizeof(header)) ||
+		header[0] != 'S' || header[1] != 'D' || header[2] != 'B' || header[3] != 0x1A)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	uint8_t major = header[4];
+	uint8_t minor = header[5];
+	uint8_t model = header[6];
+	uint8_t flags = header[7];
+	uint16_t headerSize = read16LE(header + 8);
+	uint16_t entrySize = read16LE(header + 10);
+	uint16_t segmentCount = read16LE(header + 12);
+	uint16_t reserved = read16LE(header + 14);
+	uint32_t directoryOffset = read32LE(header + 16);
+	uint32_t declaredSize = read32LE(header + 20);
+	uint64_t fileSize = File_GetSize(file);
+
+	if (major != 1 || minor != 0 || flags != 0 || reserved != 0 ||
+		(model != DDB_SDB_48K && model != DDB_SDB_128K) ||
+		headerSize != SDB_HEADER_SIZE || entrySize != SDB_ENTRY_SIZE ||
+		segmentCount == 0 || segmentCount > DDB_SDB_MAX_SEGMENTS ||
+		directoryOffset != SDB_HEADER_SIZE || declaredSize != fileSize ||
+		(uint64_t)directoryOffset + (uint64_t)entrySize * segmentCount > fileSize)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	size_t memorySize = model == DDB_SDB_128K ? 0x30000 : 0x10000;
+	uint8_t* memory = Allocate<uint8_t>("SDB Spectrum RAM", memorySize, true);
+	uint8_t* used = Allocate<uint8_t>("SDB segment map", memorySize, true);
+	if (memory == 0 || used == 0)
+	{
+		if (memory) Free(memory);
+		if (used) Free(used);
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	bool seenLow[9] = { false };
+	bool seenHigh[9] = { false };
+	uint16_t lowLoad[9] = { 0 }, lowLength[9] = { 0 };
+	uint16_t highLoad[9] = { 0 }, highLength[9] = { 0 };
+	uint32_t nextPayloadOffset = directoryOffset + entrySize * segmentCount;
+	bool valid = true;
+	for (uint16_t n = 0; n < segmentCount && valid; n++)
+	{
+		uint8_t entry[SDB_ENTRY_SIZE];
+		if (!SDBReadAt(file, directoryOffset + n * entrySize, entry, sizeof(entry)))
+		{
+			valid = false;
+			break;
+		}
+		uint8_t bank = entry[0];
+		uint8_t role = entry[1];
+		uint16_t load = read16LE(entry + 2);
+		uint16_t length = read16LE(entry + 4);
+		uint16_t entryReserved = read16LE(entry + 6);
+		uint32_t payloadOffset = read32LE(entry + 8);
+		uint32_t expectedCRC = read32LE(entry + 12);
+		int slot = model == DDB_SDB_48K ? 8 : bank;
+
+		if (entryReserved != 0 || length == 0 || load < 0x4000 ||
+			(uint32_t)load + length > 0x10000 ||
+			(uint64_t)payloadOffset + length > fileSize ||
+			payloadOffset != nextPayloadOffset ||
+			(role != DDB_SDB_SEGMENT_LOW && role != DDB_SDB_SEGMENT_HIGH) ||
+			(model == DDB_SDB_48K ? bank != 0xFF : bank > 7) ||
+			(model == DDB_SDB_128K && bank != 0 && load < 0xC000) ||
+			(role == DDB_SDB_SEGMENT_LOW ? seenLow[slot] : seenHigh[slot]))
+		{
+			valid = false;
+			break;
+		}
+		nextPayloadOffset += length;
+
+		uint8_t* payload = Allocate<uint8_t>("SDB segment", length);
+		if (payload == 0 || !SDBReadAt(file, payloadOffset, payload, length) ||
+			DDB_PAWSSDBCRC32(payload, length) != expectedCRC)
+		{
+			if (payload) Free(payload);
+			valid = false;
+			break;
+		}
+
+		for (uint32_t p = 0; p < length && valid; p++)
+		{
+			uint32_t address = load + p;
+			uint32_t destination = address;
+			if (model == DDB_SDB_128K && address >= 0xC000)
+				destination = 0x10000 + bank * 0x4000 + address - 0xC000;
+			if (used[destination])
+				valid = false;
+			else
+			{
+				used[destination] = 1;
+				memory[destination] = payload[p];
+			}
+		}
+		Free(payload);
+		if (role == DDB_SDB_SEGMENT_LOW)
+		{
+			seenLow[slot] = true;
+			lowLoad[slot] = load;
+			lowLength[slot] = length;
+		}
+		else
+		{
+			seenHigh[slot] = true;
+			highLoad[slot] = load;
+			highLength[slot] = length;
+		}
+	}
+
+	if (model == DDB_SDB_48K)
+		valid = valid && seenLow[8] && seenHigh[8];
+	else
+	{
+		valid = valid && seenLow[0] && seenHigh[0];
+		for (int bank = 0; bank < 8; bank++)
+			if (seenLow[bank] != seenHigh[bank]) valid = false;
+		if (valid)
+			MemCopy(memory + 0xC000, memory + 0x10000, 0x4000);
+	}
+
+	for (int slot = 0; slot < 9 && valid; slot++)
+	{
+		if (!seenLow[slot]) continue;
+		uint8_t bank = model == DDB_SDB_48K ? 0 : (uint8_t)slot;
+		const uint8_t* base = memory;
+		if (model == DDB_SDB_128K && bank != 0)
+			base = memory + 0x10000 + bank * 0x4000 - 0xC000;
+		uint16_t expectedBase = bank == 0 ? 0x9300 : 0xC000;
+		valid = lowLoad[slot] == expectedBase &&
+			(uint32_t)lowLoad[slot] + lowLength[slot] == read16LE(base + 0xFFED) &&
+			highLoad[slot] == read16LE(base + 0xFFEF) &&
+			(uint32_t)highLoad[slot] + highLength[slot] == 0x10000 &&
+			read16LE(base + 0xFFFD) == expectedBase && base[0xFFFF] == bank;
+	}
+
+	Free(used);
+	if (!valid || nextPayloadOffset != fileSize || read16LE(memory + 0xFFFD) != 0x9300)
+	{
+		Free(memory);
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
+	*outputMemory = memory;
+	*outputSize = memorySize;
+	if (outputModel) *outputModel = model;
+	if (outputSegmentCount) *outputSegmentCount = (uint8_t)segmentCount;
+	return true;
+}
+
+bool DDB_PAWSWriteSDB(const char* filename, uint8_t model,
+	const DDB_SDBSegment* segments, uint8_t segmentCount)
+{
+	uint8_t* data = 0;
+	size_t size = 0;
+	if (!DDB_PAWSBuildSDB(model, segments, segmentCount, &data, &size))
+		return false;
+	File* file = File_Create(filename);
+	if (file == 0)
+	{
+		Free(data);
+		DDB_SetError(DDB_ERROR_CREATING_FILE);
+		return false;
+	}
+	bool ok = File_Write(file, data, size) == size;
+	File_Close(file);
+	Free(data);
+	if (!ok) DDB_SetError(DDB_ERROR_WRITING_FILE);
+	return ok;
+}
+
+bool DDB_PAWSBuildSDB(uint8_t model, const DDB_SDBSegment* segments,
+	uint8_t segmentCount, uint8_t** outputData, size_t* outputSize)
+{
+	if (outputData == 0 || outputSize == 0)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+	if ((model != DDB_SDB_48K && model != DDB_SDB_128K) || segments == 0 ||
+		segmentCount == 0 || segmentCount > DDB_SDB_MAX_SEGMENTS)
+	{
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+	for (uint8_t n = 0; n < segmentCount; n++)
+	{
+		const DDB_SDBSegment& segment = segments[n];
+		if (segment.data == 0 || segment.length == 0 || segment.loadAddress < 0x4000 ||
+			(uint32_t)segment.loadAddress + segment.length > 0x10000 ||
+			(segment.role != DDB_SDB_SEGMENT_LOW && segment.role != DDB_SDB_SEGMENT_HIGH) ||
+			(model == DDB_SDB_48K ? segment.bank != 0xFF : segment.bank > 7) ||
+			(model == DDB_SDB_128K && segment.bank != 0 && segment.loadAddress < 0xC000))
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
+	}
+
+	uint32_t payloadOffset = SDB_HEADER_SIZE + SDB_ENTRY_SIZE * segmentCount;
+	uint32_t fileSize = payloadOffset;
+	for (uint8_t n = 0; n < segmentCount; n++)
+		fileSize += segments[n].length;
+	uint8_t* data = Allocate<uint8_t>("SDB file", fileSize, true);
+	if (data == 0)
+	{
+		DDB_SetError(DDB_ERROR_OUT_OF_MEMORY);
+		return false;
+	}
+
+	uint8_t* header = data;
+	header[0] = 'S'; header[1] = 'D'; header[2] = 'B'; header[3] = 0x1A;
+	header[4] = 1; header[5] = 0; header[6] = model; header[7] = 0;
+	write16(header + 8, SDB_HEADER_SIZE, true);
+	write16(header + 10, SDB_ENTRY_SIZE, true);
+	write16(header + 12, segmentCount, true);
+	write16(header + 14, 0, true);
+	write32(header + 16, SDB_HEADER_SIZE, true);
+	write32(header + 20, fileSize, true);
+	uint32_t nextPayload = payloadOffset;
+	for (uint8_t n = 0; n < segmentCount; n++)
+	{
+		const DDB_SDBSegment& segment = segments[n];
+		uint8_t* entry = data + SDB_HEADER_SIZE + n * SDB_ENTRY_SIZE;
+		entry[0] = segment.bank;
+		entry[1] = segment.role;
+		write16(entry + 2, segment.loadAddress, true);
+		write16(entry + 4, segment.length, true);
+		write32(entry + 8, nextPayload, true);
+		write32(entry + 12, DDB_PAWSSDBCRC32(segment.data, segment.length), true);
+		MemCopy(data + nextPayload, segment.data, segment.length);
+		nextPayload += segment.length;
+	}
+	*outputData = data;
+	*outputSize = fileSize;
+	return true;
+}
 
 void DDB_PAWSResetState(DDB_Interpreter* i)
 {

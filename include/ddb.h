@@ -492,6 +492,8 @@ struct DDB
 	bool			littleEndian;
 	bool			oldMainLoop;
 	bool			drawString;
+	uint8_t			sdbMemoryModel;
+	uint8_t			sdbSegmentCount;
 
 	uint8_t			numObjects;
 	uint8_t			numLocations;
@@ -912,7 +914,7 @@ extern bool             DDB_GetVectorPictureWindow (uint8_t picno, int* x, int* 
 extern bool             DDB_WriteVectorDatabase  (const char* filename);
 
 #if HAS_PAWS
-extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data);
+extern bool             DDB_LoadPAWSGraphics     (const uint8_t* data, size_t size);
 extern void             DDB_LoadUDGs             ();
 #endif
 

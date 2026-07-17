@@ -1,0 +1,131 @@
+───────────────────────────────────────────────────────────────────────────────
+    .SDB    Spectrum PAWS Database file format
+───────────────────────────────────────────────────────────────────────────────
+
+    An SDB file contains one complete, directly playable Spectrum PAWS
+    database. It stores the original sparse database components, including
+    fonts, UDGs, shade patterns and vector drawstrings. It does not contain
+    the BASIC loader, loading screen or resident PAW interpreter.
+
+    SDB is not related to the PC/CPM PDB format. PAWS graphics are integrated
+    into SDB and must not be written as a DAAD .SDG file.
+
+    All multibyte integers are unsigned and little endian. Version 1 files are
+    uncompressed and deterministic: there are no timestamps or source paths.
+
+──────────────────
+  FILE HEADER
+──────────────────
+
+    OFFSET  SIZE    DESCRIPTION
+
+    0x0000  4       Magic: 53 44 42 1A ("SDB" followed by 0x1A)
+    0x0004  1       Major version: 1
+    0x0005  1       Minor version: 0
+    0x0006  1       Spectrum memory model: 48 or 128
+    0x0007  1       Flags: 0
+    0x0008  2       Header size: 24
+    0x000A  2       Segment-directory entry size: 16
+    0x000C  2       Number of segments
+    0x000E  2       Reserved: 0
+    0x0010  4       Segment-directory offset: 24
+    0x0014  4       Total file size
+
+    The segment directory immediately follows the header. Payloads immediately
+    follow the complete directory and are packed in directory order. Readers
+    reject gaps, reordered payloads and trailing data, giving v1 a canonical
+    byte representation.
+
+─────────────────────────
+  SEGMENT DIRECTORY ENTRY
+─────────────────────────
+
+    OFFSET  SIZE    DESCRIPTION
+
+    +0      1       Spectrum RAM bank
+                    0xFF for a 48K database
+                    0-7 for a 128K database
+    +1      1       Component role
+                    1: upward-growing low component (PAW part A)
+                    2: downward-growing high component (PAW part B)
+    +2      2       Spectrum load address
+    +4      2       Payload length
+    +6      2       Reserved: 0
+    +8      4       Payload file offset
+    +12     4       Payload CRC-32
+
+    CRC-32 uses the ISO-HDLC polynomial 0xEDB88320, initial value 0xFFFFFFFF
+    and final XOR 0xFFFFFFFF.
+
+──────────────────
+  MEMORY PLACEMENT
+──────────────────
+
+    A 48K SDB contains one A/B pair with bank 0xFF. Segment bytes are copied
+    directly to their Spectrum addresses.
+
+    A 128K SDB contains an A/B pair for every stored PAWS page. The normal
+    physical page order produced by PAW is 0, 1, 3, 4, 6, 7. Addresses below
+    0xC000 belong to fixed Spectrum RAM; addresses from 0xC000 through 0xFFFF
+    belong to the bank named by the directory entry. Only page zero may contain
+    bytes below 0xC000.
+
+    Part A starts at 0x9300 on page zero and at 0xC000 on other pages. It ends
+    immediately before the address stored at 0xFFED. Part B begins at the
+    address stored at 0xFFEF and runs through 0xFFFF. Each page therefore has
+    exactly one low and one high segment, with the unused gap omitted.
+
+    The word at 0xFFFD is 0x9300 on page zero and 0xC000 on additional pages.
+    Byte 0xFFFF identifies the physical PAWS page. Page zero is required.
+
+──────────────────
+  VALIDATION
+──────────────────
+
+    A reader must reject a file when:
+
+    - the magic, version, fixed sizes, flags or reserved fields are invalid;
+    - directory or payload ranges leave the declared file;
+    - a payload CRC does not match;
+    - segments overlap in the reconstructed Spectrum memory;
+    - a bank has duplicate or incomplete A/B components;
+    - a load crosses 0x10000, or a nonzero 128K bank loads below 0xC000;
+    - PAWS allocation boundaries, page identity or the page-zero database
+      signature are invalid.
+
+──────────────────
+  ADP EXTRACTION
+──────────────────
+
+    ADP extracts SDB files from .TAP/.TZX tapes and 48K or 128K .SNA/.Z80
+    snapshots:
+
+        ddb extract game.tap
+        ddb extract game.z80 output.sdb
+
+    Tape extraction scans all Spectrum CODE blocks and writes one SDB for each
+    complete PAWS component group. BASIC loaders, loading screens and unrelated
+    presentation code are ignored. If a tape contains several PAWS databases,
+    the optional output must be a directory. Each filename comes from the first
+    nine characters of the Spectrum component name, uppercased and made safe
+    for host filesystems. Repeated names receive -2, -3 and so on.
+
+    An SDB can be passed directly to ddb/player and selected alongside DDB
+    files. No external graphics file is needed. The desktop ddb tool can also
+    run a PAWS tape directly; it materializes the same SDB candidates in memory
+    and shows the normal part selector when the tape contains more than one:
+
+        ddb game.tap
+
+──────────────────
+  EXAMPLES
+──────────────────
+
+    Supervivencia/Firfurcio is a 48K database with two segments:
+
+        bank FF, role 1, load 9300, length 34E4
+        bank FF, role 2, load C81C, length 37E4
+
+    The full game in Los Vientos del Walhalla is a 128K database with twelve
+    segments: A/B pairs for banks 0, 1, 3, 4, 6 and 7. Its separate PVIENTOS
+    presentation is another independently playable two-segment SDB.

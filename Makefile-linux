@@ -93,7 +93,6 @@ JOBS ?= 4
 test: test-host
 
 test-host: $(OUTDIR)/ddb
-
 	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,) $(if $(JOBS),--jobs $(JOBS),)
 
 test-dos:

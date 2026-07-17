@@ -75,6 +75,8 @@ struct File
 
 
 extern bool     File_MountDisk (const char* file);
+extern bool     File_MountMemoryFile (const char* name, const void* data, uint64_t size);
+extern void     File_UnmountMemoryFiles ();
 extern void     File_UnmountDisk ();
 extern bool     File_IsDiskMounted ();
 extern int      File_GetMountedDiskType ();  // DIM_DiskType, or -1 if none mounted
