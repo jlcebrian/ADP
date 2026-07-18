@@ -1,0 +1,7 @@
+{
+  "fixture": "original/amiga/ORIGINAL-AMIGA.ADF",
+  "part": 2,
+  "input": "input.txt",
+  "transcript": "expected.txt",
+  "timeout_seconds": 60
+}

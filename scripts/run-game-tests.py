@@ -19,6 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 GAMES = ROOT / "tests" / "games"
+PROJECT_GAMES = ROOT / "games"
 SCENARIOS = ROOT / "tests" / "scenarios"
 RESULTS = ROOT / "test-results"
 IMAGE_EXTENSIONS = {".adf", ".dsk", ".st", ".tap", ".tzx", ".cas", ".d64", ".t64", ".cdt"}
@@ -207,7 +208,13 @@ def run_scenario(ddb: Path, scenario_path: Path, results: Path, record: bool = F
     # they are all mounted at once and listed in disk order (disk 1 first).
     fixture_spec = scenario["fixture"]
     fixture_names = fixture_spec if isinstance(fixture_spec, list) else [fixture_spec]
-    fixtures = [GAMES / name for name in fixture_names]
+    def fixture_path(name: str) -> Path:
+        prefix = "project:"
+        if name.startswith(prefix):
+            return PROJECT_GAMES / name[len(prefix):]
+        return GAMES / name
+
+    fixtures = [fixture_path(name) for name in fixture_names]
     input_path = baseline(scenario["input"])
     expected_path = baseline(scenario["transcript"])
 

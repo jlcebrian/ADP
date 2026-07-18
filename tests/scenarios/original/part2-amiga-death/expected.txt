@@ -1,0 +1,30 @@
+\xC1\xD6\xC5\xCE\xD4\xD5\xD2\xC1\xA0\xCF\xD2\xC9\xC7\xC9\xCE\xC1\xCC\xA0\xC9\xC9
+Programación:
+Gráficos:
+\xC5\xCC\xA0\xC5\xCE\xC3\xD5\xC5\xCE\xD4\xD2\xCF
+Manuel González
+Andrés  Samudio
+Carlos  Marqués
+Vicente Misas 
+(c) 1989 Aventuras AD
+Dirección:
+Introduce la clave de acceso.
+> TIMACUS
+Con un click la puerta se cierra mágicamente...
+Te encuentras en una pequeña cueva, rodeado de húmedas rocas. Los rayos del sol penetran a través de los barrotes de la cerrada reja. Hacia el Oeste sale un pasadizo bajo y oscuro que se pierde en el misterio.
+> o
+Gateas trabajosamente sobre cantos rodados en un pasadizo muy bajo. El lugar es muy estrecho, con paredes poco trabajadas y llenas de humedad. Todo parece indicar que era una salida de emergencia. Una suave luminosidad te llega del Este.
+Puedes ver una jaula\xFF\xE1\xE2 y un canto rodado\xFF\xBA.
+> o
+El camino de guijarros termina aquí, donde se acumulan todos los desechos arrastrados por el rio. La caverna se hace un poco más amplia y un misterioso cañon continúa hacia el Oeste. Un enigmático texto grabado en la roca rompe la monotonía de la pared.
+Puedes ver una varita mágica\xFF\xE5\xE6.
+> coger varita
+Has cogido la varita mágica\xFF\xE5\xE6.
+> o
+El cañon se abre formando una espléndida cámara llena de pétreas cascadas doradas adornadas con rojas pinceladas de ferrita. El techo está decorado con bellas estalactitas multiformes. En el centro destaca una enorme y labrada estalagmita que se eleva majestuosa. Un pajarillo revolotea por la estancia.
+> agitar varita
+Vale gran mago. El pajarillo se transforma en dragón, y de un flamazo te incinera. 
+Lo siento, no has logrado sobrevivir dentro de la Gran Caverna.
+Has dado 6 ordenes.
+¿Hace otra partidita?
+> n

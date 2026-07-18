@@ -1,0 +1,819 @@
+/STX
+/0
+No se ve nada.
+/1
+Puedes ver\s
+/2
+/3
+ir al\s
+/4
+.\s
+/5
+Vicente Misas\s
+/6
+Lo siento, no te entiendo.
+
+/7      ; Por ahí no hay camino.
+No puedes\s
+/8
+No puedes hacerlo.
+
+/9
+Tienes\s
+/10
+Objeto: _
+/11
+No tienes nada.
+/12
+¡Je, je! Ya estás cabreado.
+
+¿Estás seguro?
+/13
+
+¿Hace otra partidita?
+/14     ; mensaje de despedida
+/15
+Vale.
+
+/16
+/17
+Has dado 
+/18
+ órden
+/19
+es
+/20
+.
+
+/21
+/22
+/23
+/24
+/25
+¡Ya lo llevas!
+
+/26
+¡No lo encuentras!
+
+/27
+Ya no puedes llevar más trastos.
+
+/28
+Pero... ¡si no tienes eso!
+
+/29
+/30
+S
+/31
+N
+/32
+*Pulsa una tecla*
+/33
+
+>\s
+/34
+/35
+
+El tiempo pasa... ¡y no vuelve!
+
+/36
+Has cogido _.
+
+/37
+/38
+/39
+Has dejado _.
+
+/40
+/41
+/42
+/43
+/44
+/45
+/46
+,\s
+/47
+\fy\s
+/48
+.
+
+/49
+¡Está en el suelo!
+
+/50
+/51
+/52
+/53
+/54 ;Letter for Tape
+C
+/55 ;Disc
+D
+/56
+Disco no preparado. Pulsa una tecla para repetir.
+
+/57 
+Error de entrada/salida.
+
+/58  ; disco o directorio lleno
+Disco lleno.
+
+/59 
+Nombre erróneo.
+
+/60
+Nombre del fichero:
+/61
+Prepara la cinta.
+
+/62
+¿Cinta o Disco? (C/D)
+;-      -       -       -       -       -       -       -       -
+/MTX
+/0
+\gAVENTURA ORIGINAL II\t
+/1
+Introduce la clave de acceso.
+/2
+Manuel González
+/3
+¡¡Arggg!! ¡Te has ahogado!
+/4
+¿Cómo la vas a apartar?
+/5
+¡Aparta la niebla!
+/6
+Andrés  Samudio
+/7
+\fUna enorme serpiente te observa.
+/8
+El reptil te marca sus colmillos en el cuello, y se marcha.
+/9
+El veneno te ha matado.
+/10
+Y al ver a la serpiente la ataca en los ojos y la hace huir despavorida.
+/11     ; el pajaro sale de la jaula en cualquier sitio o no puedes cazarlo
+El pajarito se escapa, cantando alegremente.
+/12
+El eco susurra: \gRECOLECTOR\t
+/13
+Por suerte aún quedan unas pocas semillas sanas.
+/14
+Nadie te hace caso.\s
+/15
+Poco a poco las valvas del molusco se abren y con
+asombro descubres que... ¡es una ostra!
+Dentro hay una preciosa perla que por tu imprudencia cae y rueda por el pasillo.
+/16
+Se cerró para siempre.
+/17
+¡Es demasiado fuerte para ti, forastero!
+/18
+Estás en una fétida madriguera llena de caca de dragón por todos lados.
+El olor es insoportable, pero del Norte llega una suave brisa húmeda.
+/19
+\fFrente a ti tienes al bissho más grande que hayas visto jamás.
+/20
+¡Qué rico! Exclama relamiéndose, otro aventurero para cenar.
+/21
+Mirándote amenazante desde lo alto, ruge: ¡Serás un buen bocata!
+/22
+Chorreando espesa baba avanza bamboleante hacia ti.
+/23
+Asustado por tu valentía, el cobardica vuelve llorando a su casa en el Hobbit.
+/24
+¡Agua, agua!
+/25
+¡Piensa un poco! Es fácil.\s
+/26
+En el suelo hay unas semillas de judías.
+/27
+Absorbiendo ávidamente el precioso líquido, las semillas se
+hinchan, se abren y de ellas nace una tierna plantita de judías.
+/28
+Al recibir más agua, el tronco se endurece y crece fuerte hacia lo
+alto hasta salir por el agujero superior.
+/29
+Las resecas semillas queman tu mano y caen de nuevo a tierra.
+/30
+¡Hala! con tus patazas has roto la tierna plantita.
+/31
+El aceite, como es lógico, las deja bien fritas.
+/32
+
+@ se ha roto en el suelo.
+/33
+¡Algo te impide pasar!
+/34
+"En este lugar perdió el Rey Elfo una pepita de oro."
+/35
+¡Busca luz!
+/36
+¡Te bloquea un fornido Troll que ruge: "un tesoro has
+de dar para poder pasar"!
+/37
+¡No intentes engañarme! @ no es un tesoro.
+Y cabreado, tira _ al abismo.
+/38
+¡Si el peaje no quieres pagar, conmigo tendrás que luchar!
+/39
+¡Cojo _. Pasa, aventurero cobardica!
+/40
+Al verse libre, Peposo escapa dejando a tus pies la cadena.
+/41
+\fSe yergue sobre sus patas traseras
+y agitando sus garras amenazadoramente, abre su enorme
+boca y deja escapar un cavernoso rugido. Al verlo suelto,
+el Troll Chulangas sale corriendo.
+/42
+Peposo se tranquiliza, come la tortilla y agradecido te lame la
+sucia cara. Tienes un fiel amigo.
+/43
+Lo liberas de la pared y lo llevas de la cadena.
+/44
+Por el peso de Peposo, el puente se rompe y los dos al foso.
+/45
+El invencible Troll Chulangas te da una patada.
+/46
+Se te ha caído.\s
+/47
+\fEl oso Peposo está encadenado.
+/48
+------- \gLOS TESOROS DE\t -------
+
+
+----- \gLA CAVERNA ORIGINAL\t ----
+
+
+---------- \gSON TUYOS\t ---------
+/49
+El huevo vibra afectado por el hechizo.
+/50
+¡El huevo aparece entre tus pies!
+/51
+Tal como dijo Elfito, sin tesoros que le den fuerza vital,
+la caverna se colapsa. El cataclismo acaba con todo ser viviente.
+/52
+\f¡Un enorme oso tira con furia de su cadena para darte un abrazo de bienvenida!
+/53     ; dar algo al oso o al dragón
+Se ha comido _.
+/54
+Recibes de lleno el ataque del enorme oso Peposo.
+/55
+No le encuentras nada de especial.
+/56
+Necesitarás algo, ¿no?
+/57
+La jaula tiene la reja abierta.
+/58
+Aquí hay una puerta herrumbrosa.
+/59
+Hay una puerta bien aceitada.
+/60
+La puerta está abierta.
+/61
+Gráficos:
+/62
+/63
+Tesoro: _
+/64
+No te equivoques.\s
+/65
+Estás en un
+/66
+\flaberinto de
+/67
+\fhabitaciones
+/68
+\fentrelazadas
+/69
+\fpequeñas
+/70
+\fpequeño
+/71
+\fentrelazado
+/72
+Hay un agujero en el suelo
+/73
+Estás en la guarida del pirata cleptómano
+/74
+La linterna va mal. La luz parpadea.
+/75
+¡La linterna apenas da luz!
+/76
+Tropiezas en la oscuridad y te desnucas.
+/77
+Carlos  Marqués
+/78
+\fovales
+/79
+\fpasillos
+/80
+\fintercomunicados
+/81
+\fintercomunicado
+/82
+\fpasillo oval de un
+/83
+(c) 1989 Aventuras AD
+/84
+¡CHUMM! ¡PUM! ¡BROOM! ¡PIFSSSS!
+
+¡¡¡ Pilas recargadas !!!
+/85
+¡El enano Maluva sale de entre las sombras!
+/86     ; el \f es para usar MES y no provocar scroll en la pequeña ventana
+Te arroja con furia su hacha...\s
+/87
+Con un gran insulto vuelve a las tinieblas.
+/88
+¡El enano se las sabe todas!
+/89
+Maluva te parte en dos la cabeza.
+/90
+¡Has fallado! El hacha cae al suelo.
+/91
+¡Le has cortado la cabeza!
+¡Maluva se desintegra junto con su hacha!
+/92
+Pone \gXYZZY\t.
+/93
+\f\f\f\f\f\f\f\f\f\f\gFELICIDADES\t
+
+
+\f\f\fAparece Elfito y te dice:
+
+
+    "Al haber perdido todos
+
+  sus tesoros, La Gran Caverna
+
+      no tiene razón para
+
+    seguir existiendo y está
+
+     a punto de derrumbarse,
+
+    larguémonos cuanto antes"
+
+
+\f\f\f\f\f\f\f\fy se las pira...
+/94
+Tienes al pájaro enjaulado.
+/95
+\fUn pajarillo revolotea por la estancia.
+/96
+Vale, gran mago. El pajarillo se transforma en dragón,
+y de un flamazo te incinera.\s
+/97
+Aparece el Terrible Pirata. ¡Te quito _ y me voy a mi entrelazada guarida!\s
+/98
+Nivel de energía: 
+/99
+No se ve bien.
+/100
+Las letras están grabadas en la piedra.
+/101
+... tras un corto descansito sigues con lo tuyo.
+/102
+altísimo.
+/103
+Intenta hacerte un mapa.
+/104
+\fEl oso viene contigo.
+/105
+No hace falta.\s
+/106
+\gEL ENCUENTRO\t
+/107
+Programación:
+/108
+Pone "\gOID\t".
+/109
+... ¡y falla por poco!
+/110
+Utiliza la magia.
+/111
+Caes por el precipicio y te estampas contra el suelo.
+/112    ; saltar en habitación blanda
+¡Boing! ¡Boong!
+/113
+No sel puñetelo.
+/114
+Coger se escribe con `G'.
+/115
+La magia hace temblar la cueva.
+/116
+La serpiente se está poniendo nerviosa.
+/117
+No hay ninguna salida
+/118
+Sur
+/119
+Este
+/120
+Oeste
+/121
+Noreste
+/122
+Noroeste
+/123
+Sureste
+/124
+Suroeste
+/125
+Subir
+/126
+Bajar
+/127
+Entrar
+/128
+Salir
+/129
+Norte
+/130
+Las salidas posibles son\s
+/131    ; punto final salidas
+.
+/132    ; separador de salidas
+,\s
+/133    ; separador de últimas salidas
+\fy\s
+/134
+La única salida es\s
+/135
+***\gRECOLECTOR DE TESOROS\t***
+
+
+/136    ; cuando faltan poquitos objetos por poner
+Ánimo, solo te faltan\s
+/137    ; último objeto
+Si no has perdido el último tesoro vencerás a la Gran Caverna.
+/138
+La figura te imita.
+/139    ; ex espejo
+El espejo, en estos momentos, solo refleja la ventana vacía de la
+habitación situada al otro lado del abismo.
+/140
+Dirección:
+/141    ; jaula del pájaro
+La jaula está vacía.
+/142    ; ex pájaro
+Está volando.
+/143    ; buscar pepita loc.9
+La niebla te lo impide.
+/144    ; ex fisura
+Es una raja muy profunda.
+/145    ;       mensaje de despedida
+\f\f\f\f\f\f\f\f\f¡Bien hecho!
+
+
+Todos los habitantes del valle
+
+han venido a admirar al nuevo:
+
+
+       \gMAESTRO AVENTURERO\t
+
+
+ A tus pies aparecen todos los
+
+     tesoros conquistados.
+
+
+\f\f\f\f\f\f\f\fEl equipo A.D.
+
+ te invita a participar en su
+
+\f\f\f\f\f\f\fpróxima aventura.
+
+
+
+/146    ; cuando se abre la entrada
+Mágicamente, dándote otra oportunidad de vivir, la puerta se abre...
+/147    ; descripción cueva con barrotes puestos
+Te encuentras en una pequeña cueva, rodeado de húmedas rocas.
+Los rayos del sol penetran a través de los barrotes de la cerrada reja.
+Hacia el Oeste sale un pasadizo bajo y oscuro que se pierde en el misterio.
+/148    ; cueva con puerta abierta
+Te encuentras en la salida al exterior de la cueva. Vuelves a ver
+los rayos del sol.
+/149    ; leer nota en negra
+Pone: "\gGRACIAS POR HABER TRAÍDO LUZ A ESTA TRISTE HABITACIÓN\t"
+/150
+Con un click la puerta se cierra mágicamente...
+/151    ; examinar tesoro
+@ es un tesoro.
+/152    ; examinar objeto
+@ es un objeto.
+/153    ; puente del troll
+Es un puente colgante muy peligroso.
+/154    ; puente de cristal
+Es un puente mágico.
+/155    ; ex hacha
+Es muy grande.
+/156    ; ex torti
+Se la comería hasta un oso.
+/157    ; ex almeja
+Neptuno las abría fácilmente con sus tres dientes.
+/158    ; ex llave
+Es la llave del zoológico subterráneo de los Reyes Elfos.
+/159    ; ex caca
+Debido a tu retorcida curiosidad te pringas todo, ¡cochino!
+/160
+\fEl precipicio queda al\s
+/161
+Usa otros sentidos o la magia.
+#IF !CPC
+ /162
+ También participaron: Eva Samitier, Juan Darder, Juanjo Muñoz
+ y Tim Gilberts (some bugs). Esta versión del 2026 utiliza el
+ intérprete ADP, de José Luis Cebrián.
+#ENDIF
+;       -      -       -       -       -       -       -       -       -
+/OTX
+/0
+Una linterna encendida\g\f01\t
+/1
+Una moneda\g\f23\t
+/2
+Una linterna apagada\g\f01\t
+/3
+Una tortilla\g\f?/\t
+/4
+Una botella\g\f&'\t
+/5
+Una botella con agua\g\f*+\t
+/6
+Una llave\g\f,-\t
+/7
+Una pila\g\f45\t
+/8
+Una jaula\g\fab\t
+/9
+Una varita mágica\g\fef\t
+/10
+Una jaula con pájaro\g\f=~\t
+/11
+Una botella con aceite\g\f*+\t
+/12
+Un hueso humano algo chamuscado\g\f89\t
+/13
+Una almohada\g\f#$\t
+/14
+Un hacha\g\fut\t
+/15
+Un canto rodado\g\f:\t
+/16
+Una pepita de oro\g\f>\t
+/17
+Un diamante\g\fij\t
+/18
+Una barra de titanio\g\fpq\t
+/19
+Una joya\g\frs\t
+/20
+Unas especias indias\g\f%\t
+/21
+Una alfombra persa\g\fgh\t
+/22
+Un tridente marino\g\fvw\t
+/23
+Una gran perla\g\fx\t
+/24
+Un huevo de oro\g\fm\t
+/25
+Una cadena de plata\g\f{}\t
+/26
+Una pirámide de platino\g\fcd\t
+/27
+Una esmeralda\g\fkl\t
+/28
+Un jarrón chino\g\fyz\t
+/29
+Un garfio de oro\g\fno\t
+;       -      -       -       -       -       -       -       -       -
+/LTX
+/0
+/1
+/2
+/3      ; entrada a la caverna
+/4
+Gateas trabajosamente sobre cantos rodados en un pasadizo muy bajo.
+El lugar es muy estrecho, con paredes poco trabajadas y llenas de
+humedad. Todo parece indicar que era una salida de emergencia. Una
+suave luminosidad te llega del Este.
+/5
+El camino de guijarros termina aquí, donde se acumulan todos los
+desechos arrastrados por el río. La caverna se hace un poco más amplia
+y un misterioso cañón continúa hacia el Oeste. Un enigmático texto
+grabado en la roca rompe la monotonía de la pared.
+/6
+/7
+El cañón se abre formando una espléndida cámara llena
+de pétreas cascadas doradas adornadas con rojas pinceladas
+de ferrita. El techo está decorado con bellas estalactitas multiformes. En
+el centro destaca una enorme y labrada estalagmita que se eleva majestuosa.
+/8
+El rústico pasaje de escape hacia el Este termina aquí. A tus pies se abre
+un agujero por el que escapan tenues retazos de tibia niebla.
+/9
+El lado Este de la enorme Cámara de las Nieblas está lleno de cúmulos
+de denso vapor que se deslizan silenciosamente
+por la estancia dificultando la visión. Hay una nota en la pared y, entre
+la niebla, distingues una escalera de piedra que baja aún más hacia
+desconocidas profundidades.
+/10
+Estás junto a una enorme y ancha fisura que parte en dos la cámara. Del
+abismo salen desagradables ruidos de espesos borboteos
+y también nace la niebla, muy espesa en esta zona.
+/11
+Sigues junto a la impresionante fisura, pero ahora estás
+junto a un bellísimo puente de mágico cristal multicolor.
+/12
+Es el lado oeste de la Cámara, aquí no hay tanta niebla y puedes ver varias
+salidas que se abren hacia lo desconocido.
+/13
+/14
+/15
+/16
+/17
+/18
+/19
+/20
+/21
+/22
+/23
+/24
+/25
+Hay una máquina recarga-pilas con una ranura para meter monedas.
+/26
+/27
+/28
+/29
+/30
+/31
+/32
+/33
+/34
+/35
+/36
+/37
+/38
+El Trono de los Reyes Elfos de las Montañas está en una
+impresionante habitación. Las
+paredes están decoradas con varios trofeos y bellos tapices que, aunque algo
+dañados, aún recuerdan un pasado esplendoroso.
+/39
+Esta habitación es un bajo pasaje inclinado, su dirección es Norte-Sur
+y en el rocoso suelo hay un agujero que penetra aún más en las entrañas
+de la caverna.
+/40
+Estás en la Sala Acústica, donde convergen todos los sonidos de la inmensa
+caverna. Cuentan que los Reyes Elfos oían aquí los conciertos
+ofrecidos por las hadas cantoras. En el pilar central hay, tallado en la roca,
+un curioso mensaje.
+/41
+El mirador tiene una ventana que da al profundo abismo. El fondo se halla
+cubierto de espesa niebla y al lado opuesto se abre otra ventana hacia
+una habitación en penumbra, desde la cual te observa una extraña
+figura. También hay un charco de agua.
+/42
+/43
+/44
+/45
+/46
+/47
+/48
+/49
+En la habitación marina se oye a lo lejos el sonido de las olas del mar y se
+respira un picante aire salado. Una enorme
+almeja está anclada firmemente al inclinado suelo.
+/50
+Estás en un inclinado corredor de cortantes paredes. Por el centro baja
+una rampa de granito.
+/51
+Has llegado al final del corredor inclinado, es un fondo de saco excavado en la
+roca donde termina la granítica rampa.
+/52
+/53
+Has encontrado la habitación secreta por donde los reyes Elfos desaparecían
+hacia sus correrías nocturnas. Hay
+un agujero en el suelo que te llevará aún más profundo, hacia
+los fosos. Huele un poco a caca de dragón.
+/54
+/55
+Una galería muy alta y con humedad que le llega del Norte. Arriba,
+colgando del techo hay un enorme
+espejo. En la pared, muy alto y frente al espejo, hay una ventana por la que
+se ven retazos de vapor ascendiendo. Hay un agujero en el suelo,
+por el cual se oyen campanitas chinas.
+/56
+A esta laguna subterránea formada por el agua del río del valle
+venía a beber y tomar baños el dragón cobarde.
+/57
+/58
+/59
+/60
+Estás en la famosa habitación del Queso Suizo, viendo sus paredes
+perforadas por miles de polimorfos agujeritos y oliendo, muy a pesar tuyo,
+su fortísimo aroma.
+/61
+/62
+/63
+/64
+El fondo del Pozo Oeste queda unos 4 metros por debajo del salón Dos
+Fosos. En lo alto ves el agujero.\s
+/65
+Estás al lado de un depósito de aceite en el Foso Este.
+/66
+La Habitación Dos Fosos es muy grande, estás en el lado Oeste, cerca
+a uno de los fosos, y ves que la bajada es fácil debido a lo tallado de las
+paredes de roca.
+/67
+Estás al Este de la Habitación Dos Fosos, al lado de uno de los fosos. La
+bajada es fácil debido a lo tallado de las paredes de roca. Desde
+el Este llega un fuerte olor.
+/68
+La habitación blanda lo es porque una gruesa alfombra cubre
+el suelo duro de la roca y las paredes están tapizadas por espeso
+moho.
+/69
+/70
+La habitación Oliental estal bellamente decolada con finas sedas y
+pleciosos cuadlos. En el aile oilse el dulce tañido de las
+campanitas de viento y hasta tú sentilte un poco chinito.
+/71
+/72
+La Alcoba, lugar de retozos de los Reyes. Hoy día vacía y olvidada. Una
+misteriosa luz verde sale por un estrecho pasaje al Este.
+/73
+La habitación mágica no necesita luz. Su enorme poder la hace
+vibrar y carga el aire de eléctricas motitas de energía
+que dan a la escena un sobrenatural resplandor verde. En el
+lado Norte hay una puerta hacia la oscuridad.
+/74
+Estás del lado Suroeste de un abismo cruzado sólo por un destartalado
+y peligroso puente. De la enorme grieta brotan fétidos gases y se
+escucha el rugir de las entrañas del volcán.
+/75
+Este es el lado Noreste del abismo. Del Este llegan ráfagas de
+aire caliente y se escucha el sordo retumbar del magma hirviente.
+/76
+Encima de una cornisa de unos 10 metros de altura sobre un
+profundo cortado del que suben extraños vapores. En
+las paredes de húmeda roca que dan al abismo se encuentran,
+enfrentadas, dos ventanas.
+/77
+Hacía años que la luz no rasgaba las espesas tinieblas de la habitación Negra.
+/78
+El hacha y el escudo del gigante llenan casi por completo este lugar. En
+la pared se lee: \gFEE FIE FOE FOO\t.
+
+/79
+/80
+/81
+/82
+/83
+/84
+Esta habitación tiene las paredes calientes y combadas hacia
+dentro por la ardiente presión que soportan. Estamos tan cerca
+del corazón del furioso volcán que su latir
+hace temblar toda la estructura. Del techo cae un fino polvillo
+mezclado con cenizas y
+de los lados ruedan pequeñas rocas chamuscadas.
+/85
+/86
+/87
+/88
+Es un húmedo pasadizo inclinado, bastante incómodo y resbaloso
+que termina frente a una jaula muy fuerte, como para contener a
+un terrible animal. De hecho, apesta a fiera que marea.
+/89
+Estás dentro de una apestosa y sucia jaula en las profundidades de
+la caverna. Hoy día es lo único que resta del antaño bien surtido
+zoológico subterráneo.
+/90
+Estás en un magnífico lago interior, frente a la espumosa Gran Cascada. En
+el centro hay un remolino que succiona con avaricia. La luz
+de tu lámpara crea en el rocío bellos juegos de luz,
+llegando por momentos a formar un multicolor arcoíris.
+/91     ; Recolector de tesoros. Descripción en mensaje 135
+/92     ; Muerte
+Lo siento, no has logrado sobrevivir dentro de la Gran Caverna.
+
+/93
+/94
+/95     ; Pantalla de paso
+/96
+/97
+/98
+/99
+/100
+/101
+/102
+/103
+/104
+/105
+/106    ; fin juego - gráfico
+/107    ; gráfico entrada cerrada
+/108    ; gráfico pirata

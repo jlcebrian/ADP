@@ -1,0 +1,36 @@
+@key
+@key
+@key
+S
+S
+S
+S
+coger botella
+N
+N
+N
+E
+E
+S
+S
+S
+S
+coger botas
+N
+N
+N
+N
+O
+O
+N
+N
+E
+E
+S
+coger pila
+N
+N
+dar botas
+saltar
+@save Death
+n

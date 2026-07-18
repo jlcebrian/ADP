@@ -26,6 +26,7 @@ tests/*
 *.lnk
 
 *.sce
+!games/original256/*.sce
 *.ddb
 *.10x
 .vscode/*

@@ -1503,6 +1503,60 @@ static void ReindexPaletteDark(uint8_t* pixels, uint32_t pixelCount, uint32_t* p
     RemapPaletteWithOrder(pixels, pixelCount, palette, paletteSize, order);
 }
 
+static bool ReindexHAM6PaletteDark(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
+{
+    if (paletteSize <= 1)
+        return true;
+
+    uint16_t order[16];
+    uint8_t remap[16];
+    uint32_t reordered[16];
+    for (int i = 0; i < paletteSize; i++)
+        order[i] = (uint16_t)i;
+
+    for (int i = 0; i < paletteSize - 1; i++)
+    {
+        int best = i;
+        uint32_t bestBrightness = PaletteBrightness(palette[order[i]]);
+        for (int j = i + 1; j < paletteSize; j++)
+        {
+            uint32_t brightness = PaletteBrightness(palette[order[j]]);
+            if (brightness < bestBrightness ||
+                (brightness == bestBrightness && order[j] < order[best]))
+            {
+                best = j;
+                bestBrightness = brightness;
+            }
+        }
+        if (best != i)
+        {
+            uint16_t tmp = order[i];
+            order[i] = order[best];
+            order[best] = tmp;
+        }
+    }
+
+    // Every HAM scanline starts with palette entry 0 as its held color. A
+    // reorder is lossless only when that physical color remains in slot 0.
+    if (order[0] != 0)
+        return false;
+
+    for (int i = 0; i < paletteSize; i++)
+    {
+        reordered[i] = palette[order[i]];
+        remap[order[i]] = (uint8_t)i;
+    }
+    for (int i = 0; i < paletteSize; i++)
+        palette[i] = reordered[i];
+
+    for (uint32_t i = 0; i < pixelCount; i++)
+    {
+        if ((pixels[i] & 0x30) == 0)
+            pixels[i] = remap[pixels[i] & 0x0F];
+    }
+    return true;
+}
+
 static void ReindexPaletteMinimal(uint8_t* pixels, uint32_t pixelCount, uint32_t* palette, int paletteSize)
 {
     if (paletteSize <= 1)
@@ -2380,7 +2434,11 @@ static void ExtractSelectedEntries(DMG* dmg, bool saveToFile, bool paletteOnly)
                         if (extractFormat == ExtractFormat_PI1 || extractFormat == ExtractFormat_PL1)
                             success = SavePI1Indexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize);
                         else if (extractFormat == ExtractFormat_IFF)
-                            success = SaveIFFIndexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize);
+                        {
+                            uint32_t viewMode = dmg->version == DMG_Version5 && dmg->colorMode == DMG_DAT5_COLORMODE_HAM6 ? IFF_AMIGA_VIEWMODE_HAM :
+                                dmg->version == DMG_Version5 && dmg->colorMode == DMG_DAT5_COLORMODE_EHB6 ? IFF_AMIGA_VIEWMODE_EHB : IFF_AMIGA_VIEWMODE_ANY;
+                            success = SaveIFFIndexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize, entry->bitDepth, viewMode);
+                        }
                         else if (DMG_IS_INDEXED(extractMode))
                             success = SavePNGIndexed(outputFileName, buffer, entry->width, entry->height, exportPalette, exportPaletteSize, 0);
                         else
@@ -3804,6 +3862,8 @@ static int ExpandDirectoryToken(const char* token, const char** outTokens, int* 
             snprintf(cloneToken, sizeof(cloneToken), "clone:%d", options.cloneSource);
             snprintf(jsonToken, sizeof(jsonToken), "set-json-file:%s", entries[location].jsonPath);
 
+            if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, "set-folder-import:1", token))
+                return -1;
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, locationToken, token))
                 return -1;
             if (!AppendExpandedOwnedArgument(outTokens, outCount, maxOutCount, jsonToken, token))
@@ -4750,6 +4810,7 @@ static bool ResolvePendingCloneRequests(DMG* dmg, PendingCloneRequest* pendingCl
         bool progress = false;
         bool stillPending = false;
 
+        bool ignoredEmptyDirectoryClones = false;
         for (int target = 0; target < 256; target++)
         {
             if (!pendingClones[target].pending)
@@ -4789,6 +4850,13 @@ static bool ResolvePendingCloneRequests(DMG* dmg, PendingCloneRequest* pendingCl
                 DMG_Entry* source = DMG_GetEntry(dmg, (uint8_t)cloneSource);
                 if (source == 0 || source->type == DMGEntry_Empty)
                 {
+                    if (pendingClones[target].options.fromDirectoryImport)
+                    {
+                        printf("%03d: Preserved empty clone entry %03d\n", target, cloneSource);
+                        pendingClones[target].pending = false;
+                        ignoredEmptyDirectoryClones = true;
+                        continue;
+                    }
                     fprintf(stderr, "Error: Unable to resolve clone entry %03d: source %03d is not present in the DAT\n", target, cloneSource);
                     return false;
                 }
@@ -4796,6 +4864,8 @@ static bool ResolvePendingCloneRequests(DMG* dmg, PendingCloneRequest* pendingCl
             fprintf(stderr, "Error: Unable to resolve clone entry %03d from source %03d\n", target, cloneSource);
             return false;
         }
+        if (ignoredEmptyDirectoryClones)
+            continue;
     }
 }
 
@@ -5047,9 +5117,10 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
                 DescribeDAT5ColorMode(dmg->colorMode));
             return false;
         }
-        if (effectiveRemapMode != REMAP_NONE)
+        if (effectiveRemapMode != REMAP_NONE &&
+            !(dmg->colorMode == DMG_DAT5_COLORMODE_HAM6 && effectiveRemapMode == REMAP_DARK))
         {
-            fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF data; palette remap is not supported\n",
+            fprintf(stderr, "Error: DAT5 %s import requires already encoded IFF data; only guarded HAM6 dark remapping is supported\n",
                 DescribeDAT5ColorMode(dmg->colorMode));
             return false;
         }
@@ -5120,6 +5191,13 @@ static bool ApplyImageToken(DMG* dmg, const char* token, bool* currentSelection,
         char warning[256];
         snprintf(warning, sizeof(warning), "Image \"%s\" reduced from %d to %d colors", path, sourceColorCount, paletteSize);
         ShowWarning(warning);
+    }
+    if (specialAmigaDAT5 && dmg->colorMode == DMG_DAT5_COLORMODE_HAM6 &&
+        effectiveRemapMode == REMAP_DARK && paletteSize > 0 &&
+        !ReindexHAM6PaletteDark(buffer, size, palette, paletteSize))
+    {
+        fprintf(stderr, "Error: HAM6 dark remapping would change palette entry 0 and corrupt scanline hold state\n");
+        return false;
     }
     if (!specialAmigaDAT5 && effectiveRemapMode != REMAP_NONE && dmg->version == DMG_Version5 && paletteSize > 0)
         ApplyPaletteRemap(buffer, size, palette, &paletteSize, GetPaletteLimit((DMG_DAT5ColorMode)dmg->colorMode), effectiveRemapMode, effectiveRemapRangeFirst, effectiveRemapRangeLast, &firstColor, &lastColor);

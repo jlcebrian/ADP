@@ -1,0 +1,5 @@
+*.dmgcache
+release/
+inspection/
+part1-ham/*.dat
+part2-ham/*.dat

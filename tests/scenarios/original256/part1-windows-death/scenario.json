@@ -1,0 +1,6 @@
+{
+  "fixture": "project:original256/release/windows/part1.ddb",
+  "input": "input.txt",
+  "transcript": "expected.txt",
+  "timeout_seconds": 180
+}

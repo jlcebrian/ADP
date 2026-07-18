@@ -12,7 +12,7 @@
 #define DEBUG_AMIGA_PICTURE_IO 1
 #endif
 
-#if defined(_UNIX) || defined(_OSX) || defined(_WEB)
+#if defined(_UNIX) || defined(_OSX) || defined(_WEB) || defined(_WIN32)
 #define DMG_USE_SALVADOR_COMPRESSOR 1
 #endif
 

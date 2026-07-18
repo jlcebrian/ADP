@@ -1,0 +1,7 @@
+{
+  "fixture": "project:original256/release/original256-amiga-ham.adf",
+  "part": 1,
+  "input": "input.txt",
+  "transcript": "expected.txt",
+  "timeout_seconds": 180
+}

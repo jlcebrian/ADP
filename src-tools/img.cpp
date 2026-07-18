@@ -659,7 +659,7 @@ static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t
         ok = false;
     if (ok && requiredPlanes != 0 && ilbmPlanes != requiredPlanes)
         ok = false;
-    if (ok && requiredPaletteSize > 0 && colors != requiredPaletteSize)
+    if (ok && requiredPaletteSize > 0 && colors > requiredPaletteSize)
         ok = false;
     if (ok && requiredViewMode != IFF_AMIGA_VIEWMODE_ANY)
     {
@@ -674,6 +674,16 @@ static bool LoadIFFIndexedInternal(const char* filename, uint8_t* buffer, size_t
     }
     if (ok && !DecodeILBMBodyToIndexed(body, bodySize, ilbmCompression, ilbmWidth, ilbmHeight, ilbmPlanes, buffer, bufferSize))
         ok = false;
+
+    // Extracted or hand-authored HAM/EHB ILBMs may omit unused direct palette
+    // entries.  DAT5 stores the mode's fixed-size base palette, so pad a
+    // shorter CMAP with opaque black on import.
+    if (ok && requiredPaletteSize > 0 && colors < requiredPaletteSize)
+    {
+        for (int i = colors; i < requiredPaletteSize; i++)
+            palette[i] = 0xFF000000u;
+        colors = requiredPaletteSize;
+    }
 
     if (ok)
     {
@@ -741,14 +751,17 @@ static uint32_t EncodeByteRun1(const uint8_t* input, uint32_t size, uint8_t* out
     return out;
 }
 
-bool SaveIFFIndexed(const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize)
+bool SaveIFFIndexed(const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, uint8_t planes, uint32_t viewMode)
 {
     if (width == 0 || height == 0 || paletteSize <= 0 || paletteSize > 256)
         return false;
 
-    uint8_t planes = 1;
-    while ((1u << planes) < (uint32_t)paletteSize && planes < 8)
-        planes++;
+    if (planes == 0)
+    {
+        planes = 1;
+        while ((1u << planes) < (uint32_t)paletteSize && planes < 8)
+            planes++;
+    }
     if ((1u << planes) < (uint32_t)paletteSize)
         return false;
 
@@ -783,7 +796,8 @@ bool SaveIFFIndexed(const char* filename, uint8_t* pixels, uint16_t width, uint1
     }
 
     uint32_t cmapSize = (uint32_t)paletteSize * 3;
-    uint32_t formSize = 4 + (8 + 20) + (8 + cmapSize + (cmapSize & 1u)) + (8 + bodySize + (bodySize & 1u));
+    uint32_t camgSize = viewMode == IFF_AMIGA_VIEWMODE_ANY ? 0 : 12;
+    uint32_t formSize = 4 + (8 + 20) + (8 + cmapSize + (cmapSize & 1u)) + camgSize + (8 + bodySize + (bodySize & 1u));
     uint8_t* fileData = Allocate<uint8_t>("ILBM file", formSize + 8);
     if (fileData == 0)
     {
@@ -824,6 +838,13 @@ bool SaveIFFIndexed(const char* filename, uint8_t* pixels, uint16_t width, uint1
     }
     if (cmapSize & 1u)
         *ptr++ = 0;
+
+    if (viewMode != IFF_AMIGA_VIEWMODE_ANY)
+    {
+        MemCopy(ptr, "CAMG", 4); ptr += 4;
+        WriteBE32(ptr, 4); ptr += 4;
+        WriteBE32(ptr, viewMode); ptr += 4;
+    }
 
     MemCopy(ptr, "BODY", 4); ptr += 4;
     WriteBE32(ptr, bodySize); ptr += 4;

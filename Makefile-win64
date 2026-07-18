@@ -127,6 +127,12 @@ COMMON_LIB := $(OBJDIR)/libcommon.a
 TOOL_LIB := $(OBJDIR)/libtools.a
 ADPC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_SRCS)))
 ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRCS)))
+
+.PHONY: test-adpc
+
+test-adpc: $(ADPC_TARGET) $(DMG_TARGET) $(DSK_TARGET)
+	python games/original256/scripts/build-ham.py --check
+	python scripts/run-adpc-tests.py --adpc $(ADPC_TARGET) --dmg $(DMG_TARGET) --dsk $(DSK_TARGET)
 PLAYER_RES := $(OBJDIR)/player.res.o
 DDB_RES := $(OBJDIR)/ddb.res.o
 

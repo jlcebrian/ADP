@@ -1,0 +1,10 @@
+TIMACUS
+o
+o
+coger varita
+o
+agitar varita
+@save Dragon
+@key
+@save Death
+n

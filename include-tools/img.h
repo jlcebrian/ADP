@@ -19,7 +19,7 @@ extern bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t wi
 extern bool SavePNGIndexed16 (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha);
 extern bool SavePNGIndexed   (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, const uint8_t* paletteAlpha);
 extern bool SavePI1Indexed   (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize);
-extern bool SaveIFFIndexed   (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize);
+extern bool SaveIFFIndexed   (const char* filename, uint8_t* pixels, uint16_t width, uint16_t height, uint32_t* palette, int paletteSize, uint8_t planes = 0, uint32_t viewMode = IFF_AMIGA_VIEWMODE_ANY);
 extern bool SavePNGRGB32     (const char* filename, uint32_t* pixels, uint16_t width, uint16_t height);
 extern bool SaveCOLPalette16 (const char* filename, uint32_t* palette);
 extern bool SaveCOLPalette   (const char* filename, uint32_t* palette, int paletteSize);

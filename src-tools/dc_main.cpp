@@ -3058,6 +3058,16 @@ static bool BuildPAWS(DC_Context* ctx, DC_ProgramModel* model, DC_BufferBuilder*
 	if (model->systemMessageCount < PAWS_MIN_SYSMSGS &&
 		!EnsureArray(ctx->arena, &model->systemMessages, &model->systemMessageCount, &model->systemMessageCapacity, PAWS_MIN_SYSMSGS))
 		return false;
+	// Spectrum PAWS uses system message 34 as its editable input cursor.  The
+	// PC/CP-M PAW sources conventionally leave this spare, since those runners
+	// provide their own cursor.  Give such sources a visible Spectrum cursor
+	// without replacing a cursor explicitly supplied by the game.
+	if (model->systemMessages[34].size == 0)
+	{
+		static const uint8_t defaultCursor = '_';
+		if (!AppendTextBytes(ctx, &model->systemMessages[34], &defaultCursor, 1))
+			return false;
+	}
 	if (model->connectionCount < model->locationTextCount &&
 		!EnsureArray(ctx->arena, &model->connections, &model->connectionCount, &model->connectionCapacity, model->locationTextCount))
 		return false;

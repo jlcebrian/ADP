@@ -125,8 +125,18 @@ static bool ParseTranslation(const char* spec, DC_CharTranslation* translation)
 		return false;
 	size_t leftLen = (size_t)(equal - spec);
 	uint32_t codepoint = 0;
-	if (!DecodeSingleUTF8(spec, leftLen, &codepoint))
+	if (leftLen > 2 && (spec[0] == 'U' || spec[0] == 'u') && spec[1] == '+')
+	{
+		char* unicodeEnd = 0;
+		unsigned long value = strtoul(spec + 2, &unicodeEnd, 16);
+		if (unicodeEnd != equal || value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF))
+			return false;
+		codepoint = (uint32_t)value;
+	}
+	else if (!DecodeSingleUTF8(spec, leftLen, &codepoint))
+	{
 		return false;
+	}
 
 	char* end = 0;
 	long value = strtol(equal + 1, &end, 0);
@@ -179,6 +189,7 @@ static void ShowHelp()
 	printf("  --charset <mode>       auto, utf8, cp437\n");
 	printf("  -DNAME[=VALUE]         Predefine a symbol for preprocessing\n");
 	printf("  --tr C=NN              Translate UTF-8 character C to DDB code NN (0..127), can be repeated\n");
+	printf("  --tr U+XXXX=NN         ASCII notation for a Unicode character translation\n");
 	printf("  -I <path>              Add include search path\n");
 	printf("  --dump-preprocessed    Print preprocessed source to stdout\n");
 	printf("  --strict               Treat unsupported directives as errors\n");

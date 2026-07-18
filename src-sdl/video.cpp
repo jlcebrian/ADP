@@ -157,6 +157,7 @@ bool       zxsPictureMirror = false;
 uint8_t*   audioData;
 uint32_t   audioDataSize = 0;
 DMG_Entry* bufferedEntry = NULL;
+bool       bufferedHAM6 = false;
 uint8_t    bufferedIndex;
 bool       quit;
 bool       exitGame = false;
@@ -263,6 +264,24 @@ static bool PaletteMatches(const uint32_t* candidate, int paletteCount, int firs
 	}
 
 	return true;
+}
+
+static bool IsHAM6Display()
+{
+	return dmg != NULL && dmg->version == DMG_Version5 && dmg->colorMode == DMG_DAT5_COLORMODE_HAM6;
+}
+
+static uint32_t DecodeHAM6Command(uint8_t command, uint32_t held)
+{
+	command &= 0x3F;
+	uint8_t data = command & 0x0F;
+	switch (command >> 4)
+	{
+		case 0: return 0xFF000000u | (palette[data] & 0x00FFFFFFu);
+		case 1: return (held & 0xFFFFFF00u) | (uint32_t)(data * 17);
+		case 2: return (held & 0xFF00FFFFu) | ((uint32_t)(data * 17) << 16);
+		default: return (held & 0xFFFF00FFu) | ((uint32_t)(data * 17) << 8);
+	}
 }
 
 // Specific for Spectrum
@@ -1300,6 +1319,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 
 void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 {
+	bufferedHAM6 = false;
 	#if HAS_PCX
 	FreeBufferedPCXPicture();
 	bufferedEntry = NULL;
@@ -1352,6 +1372,7 @@ void VID_LoadPicture (uint8_t picno, DDB_ScreenMode mode)
 			imageMode = ImageMode_Indexed;
 		pictureData = DMG_GetEntryData(dmg, picno, imageMode);
 	}
+	bufferedHAM6 = pictureData != 0 && IsHAM6Display();
 	if (pictureData == 0)
 	{
 		bufferedEntry = NULL;
@@ -1540,8 +1561,8 @@ void VID_DisplayPicture (int x, int y, int w, int h, DDB_ScreenMode mode)
 			{
 				if (dmg->version == DMG_Version1)
 					filePalette[15] = 0xFFFFFFFF;
-                int paletteCount = DMG_GetEntryPaletteSize(dmg, bufferedIndex);
-                int firstColor = DMG_GetEntryFirstColor(dmg, bufferedIndex);
+				int paletteCount = bufferedHAM6 ? 16 : DMG_GetEntryPaletteSize(dmg, bufferedIndex);
+				int firstColor = bufferedHAM6 ? 0 : DMG_GetEntryFirstColor(dmg, bufferedIndex);
 				if (!PaletteMatches(filePalette, paletteCount, firstColor, firstColor == 0))
                 {
 					if (firstColor == 0)
@@ -1863,8 +1884,17 @@ bool VID_SaveScreenshot(const char* fileName)
 	{
 		uint32_t* row = (uint32_t*)((uint8_t*)pixels + y * frame->pitch);
 		const uint8_t* source = frontBuffer + y * screenWidth;
-		for (int x = 0; x < screenWidth; x++)
-			row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+		if (IsHAM6Display())
+		{
+			uint32_t held = 0xFF000000u | (palette[0] & 0x00FFFFFFu);
+			for (int x = 0; x < screenWidth; x++)
+				row[x] = held = DecodeHAM6Command(source[x], held);
+		}
+		else
+		{
+			for (int x = 0; x < screenWidth; x++)
+				row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+		}
 	}
 
 	bool saved = SDL_SaveBMP(frame, fileName) == 0;
@@ -1886,8 +1916,17 @@ bool VID_SaveGraphicsSnapshot(const char* fileName)
 	{
 		uint32_t* row = (uint32_t*)((uint8_t*)pixels + y * frame->pitch);
 		const uint8_t* source = graphicsBuffer + y * screenWidth;
-		for (int x = 0; x < screenWidth; x++)
-			row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+		if (IsHAM6Display())
+		{
+			uint32_t held = 0xFF000000u | (palette[0] & 0x00FFFFFFu);
+			for (int x = 0; x < screenWidth; x++)
+				row[x] = held = DecodeHAM6Command(source[x], held);
+		}
+		else
+		{
+			for (int x = 0; x < screenWidth; x++)
+				row[x] = 0xFF000000UL | (palette[source[x]] & 0x00FFFFFFUL);
+		}
 	}
 
 	bool saved = SDL_SaveBMP(frame, fileName) == 0;
@@ -2052,13 +2091,17 @@ void VID_InnerLoop()
 			lastDstH = dstH;
 		}
 
+		bool ham6Display = IsHAM6Display();
 		uint32_t surfacePalette[256];
-		for (int c = 0; c < 256; c++)
+		if (!ham6Display)
 		{
-			uint8_t r = palette[c] >> 16;
-			uint8_t g = palette[c] >> 8;
-			uint8_t b = palette[c];
-			surfacePalette[c] = PackSurfaceRGB(surface->format, r, g, b);
+			for (int c = 0; c < 256; c++)
+			{
+				uint8_t r = palette[c] >> 16;
+				uint8_t g = palette[c] >> 8;
+				uint8_t b = palette[c];
+				surfacePalette[c] = PackSurfaceRGB(surface->format, r, g, b);
+			}
 		}
 
 		uint8_t* srcPtr = frontBuffer;
@@ -2066,9 +2109,17 @@ void VID_InnerLoop()
 		for (int dy = 0; dy < srcHeight; dy++, srcPtr += screenWidth)
 		{
 			uint32_t* dst = dstPtr;
+			uint32_t held = 0xFF000000u | (palette[0] & 0x00FFFFFFu);
 			for (int dx = 0; dx < srcWidth; dx++)
 			{
-				uint32_t pixel = surfacePalette[srcPtr[dx]];
+				uint32_t pixel;
+				if (ham6Display)
+				{
+					held = DecodeHAM6Command(srcPtr[dx], held);
+					pixel = PackSurfaceRGB(surface->format, (held >> 16) & 0xFF, (held >> 8) & 0xFF, held & 0xFF);
+				}
+				else
+					pixel = surfacePalette[srcPtr[dx]];
 				for (int n = 0; n < scaleX; n++)
 					*dst++ = pixel;
 			}

@@ -78,7 +78,7 @@ ADPC_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_SRCS)))
 ADPC_COMMON_OBJS := $(addprefix $(OBJDIR)/,$(addsuffix _adpc.o,$(ADPC_COMMON_SRCS)))
 
 .DEFAULT_GOAL := all
-.PHONY: all clean test test-host test-dos test-inventory test-game
+.PHONY: all clean test test-host test-adpc test-dos test-inventory test-game
 
 -include $(COMMON_OBJS:.o=.d) $(TRACED_COMMON_OBJS:.o=.d) $(PLAYER_OBJ:.o=.d) $(TOOL_OBJS:.o=.d) $(TOOL_MAIN_OBJS:.o=.d) $(ADPC_OBJS:_adpc.o=_adpc.d) $(ADPC_COMMON_OBJS:_adpc.o=_adpc.d)
 
@@ -90,9 +90,12 @@ all: $(TOOL_TARGETS) $(PLAYER_TARGET) $(ADPC_TARGET)
 FAST ?= 1
 JOBS ?= 4
 
-test: test-host
+test: test-adpc test-host
 
-test-host: $(OUTDIR)/ddb
+test-adpc: $(ADPC_TARGET) $(OUTDIR)/dmg $(OUTDIR)/dsk
+	python3 scripts/run-adpc-tests.py --adpc $(ADPC_TARGET) --dmg $(OUTDIR)/dmg --dsk $(OUTDIR)/dsk
+
+test-host: test-adpc $(OUTDIR)/ddb
 	python3 scripts/run-game-tests.py --ddb $(OUTDIR)/ddb $(if $(filter 1 yes,$(FAST)),--skip-timed-pauses,) $(if $(JOBS),--jobs $(JOBS),)
 
 test-dos:

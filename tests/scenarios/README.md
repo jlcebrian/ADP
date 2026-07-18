@@ -13,6 +13,11 @@ its input script and expected transcript/checkpoints. The host runner accepts:
 }
 ```
 
+Fixture paths normally resolve below `tests/games`. Prefix a path with
+`project:` to reference a first-class redistributable project below the
+repository's `games` directory, for example
+`project:original256/release/original256-amiga-ham.adf`.
+
 `part` is optional. When set (1-based), the fixture is booted through the real
 player so its part selector appears; the runner auto-selects that part instead
 of waiting for a keypress and captures the selector prompt to `part-selector.png`

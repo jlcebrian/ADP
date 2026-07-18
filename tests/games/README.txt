@@ -11,6 +11,10 @@ and are distributed with permission:
     templos     - Templos Sagrados
     chichen     - Chichen Itzá
 
+The redistributable 256K remake of Aventura Original is maintained as a
+first-class project under games/original256 and is also used by the ADPC and
+playthrough tests.
+
 
 The following games are (c) Zenobi Software 1989.
 Their distribution has been granted in exclusive
@@ -19,4 +23,3 @@ for personal use, so we've added the corresponding
 URLs to the test config files.
 
     agatha      - Agatha's Folly
-    

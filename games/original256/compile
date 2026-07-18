@@ -1,0 +1,3 @@
+#!/bin/bash
+adpc --tr Ú=35 --tr Á=36 --tr Ó=24 --tr Í=37 --tr É=38 part1.sce && \
+adpc --tr Ú=35 --tr Á=36 --tr Ó=24 --tr Í=37 --tr É=38 part2.sce
