@@ -64,6 +64,13 @@ bool OS_ChangeDirectory(const char* path)
 	return chdir(path) == 0;
 }
 
+bool OS_RemountBootMedia()
+{
+	// DOS reads the FAT from the medium on every access; a fresh directory
+	// rescan is enough after a floppy change.
+	return true;
+}
+
 void OSSyncFS()
 {
 }

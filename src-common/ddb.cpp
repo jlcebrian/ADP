@@ -895,7 +895,81 @@ static bool DDB_IsClassicDATSignature(uint16_t signature)
 	return signature == 0x0004 || signature == 0x0300 || signature == 0xFFFF;
 }
 
+// Data file probes are memoized: the startup path probes the same handful
+// of candidate names several times (mode detection, file resolution, video
+// configuration), and on floppy media every probe costs seeks between the
+// directory and data cylinders. The cache is flushed whenever the file
+// list is re-enumerated (startup, part transitions, disk swaps).
+#define PROBE_CACHE_ENTRIES 12
+
+struct DDB_ProbeCacheEntry
+{
+	char           path[FILE_MAX_PATH];
+	bool           used;
+	bool           result;
+	uint32_t       maskContribution;
+	DDB_ScreenMode nativeMode;
+	uint8_t        nativePlanes;
+};
+
+static DDB_ProbeCacheEntry probeCache[PROBE_CACHE_ENTRIES];
+static int probeCacheNext = 0;
+
+void DDB_FlushDataFileProbeCache()
+{
+	for (int n = 0; n < PROBE_CACHE_ENTRIES; n++)
+		probeCache[n].used = false;
+	probeCacheNext = 0;
+}
+
+static bool DDB_ProbeDataFileUncached(const char* path, DDB_Machine target, DDB_ScreenMode extensionHint, uint32_t* modeMask, DDB_ScreenMode* nativeMode, uint8_t* nativePlanes);
+
 static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMode extensionHint, uint32_t* modeMask, DDB_ScreenMode* nativeMode, uint8_t* nativePlanes)
+{
+	for (int n = 0; n < PROBE_CACHE_ENTRIES; n++)
+	{
+		if (probeCache[n].used && StrComp(probeCache[n].path, path) == 0)
+		{
+			if (probeCache[n].result)
+			{
+				if (modeMask)
+					*modeMask |= probeCache[n].maskContribution;
+				if (nativeMode)
+					*nativeMode = probeCache[n].nativeMode;
+				if (nativePlanes)
+					*nativePlanes = probeCache[n].nativePlanes;
+			}
+			return probeCache[n].result;
+		}
+	}
+
+	uint32_t contribution = 0;
+	DDB_ScreenMode mode = ScreenMode_Default;
+	uint8_t planes = 4;
+	bool result = DDB_ProbeDataFileUncached(path, target, extensionHint, &contribution, &mode, &planes);
+
+	DDB_ProbeCacheEntry* entry = &probeCache[probeCacheNext];
+	probeCacheNext = (probeCacheNext + 1) % PROBE_CACHE_ENTRIES;
+	StrCopy(entry->path, sizeof(entry->path), path);
+	entry->used = true;
+	entry->result = result;
+	entry->maskContribution = contribution;
+	entry->nativeMode = mode;
+	entry->nativePlanes = planes;
+
+	if (result)
+	{
+		if (modeMask)
+			*modeMask |= contribution;
+		if (nativeMode)
+			*nativeMode = mode;
+		if (nativePlanes)
+			*nativePlanes = planes;
+	}
+	return result;
+}
+
+static bool DDB_ProbeDataFileUncached(const char* path, DDB_Machine target, DDB_ScreenMode extensionHint, uint32_t* modeMask, DDB_ScreenMode* nativeMode, uint8_t* nativePlanes)
 {
 	File* file = File_Open(path, ReadOnly);
 	if (file == 0)
@@ -1031,19 +1105,30 @@ static bool DDB_ProbeDataFile(const char* path, DDB_Machine target, DDB_ScreenMo
 	return true;
 }
 
+// Data file extensions are probed in lowercase/uppercase pairs. Platforms
+// whose filesystems are case-insensitive (floppy-based targets, where the
+// redundant probes are also the most expensive) only probe one of each.
+#if defined(_AMIGA) || defined(_DOS) || defined(_ATARIST)
+#define DDB_PROBE_CASE_TWINS 0
+#else
+#define DDB_PROBE_CASE_TWINS 1
+#endif
+
 uint32_t DDB_GetDataFileModes(const char* fileName, DDB_Machine target)
 {
 	uint32_t mask = 0;
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".dat"), target, ScreenMode_Default, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".DAT"), target, ScreenMode_Default, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".ega"), target, ScreenMode_EGA, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".EGA"), target, ScreenMode_EGA, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".cga"), target, ScreenMode_CGA, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".CGA"), target, ScreenMode_CGA, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".vga"), target, ScreenMode_VGA16, &mask, 0, 0);
-	DDB_ProbeDataFile(ChangeExtension(fileName, ".VGA"), target, ScreenMode_VGA16, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".sga"), target, ScreenMode_SHiRes, &mask, 0, 0);
+	#if DDB_PROBE_CASE_TWINS
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".DAT"), target, ScreenMode_Default, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".EGA"), target, ScreenMode_EGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".CGA"), target, ScreenMode_CGA, &mask, 0, 0);
+	DDB_ProbeDataFile(ChangeExtension(fileName, ".VGA"), target, ScreenMode_VGA16, &mask, 0, 0);
 	DDB_ProbeDataFile(ChangeExtension(fileName, ".SGA"), target, ScreenMode_SHiRes, &mask, 0, 0);
+	#endif
 	return mask;
 }
 
@@ -1058,15 +1143,17 @@ bool DDB_ResolveDataFile(const char* fileName, DDB_Machine target, DDB_ScreenMod
 	static const Candidate candidates[] =
 	{
 		{ ".dat", ScreenMode_Default },
-		{ ".DAT", ScreenMode_Default },
 		{ ".ega", ScreenMode_EGA },
-		{ ".EGA", ScreenMode_EGA },
 		{ ".cga", ScreenMode_CGA },
-		{ ".CGA", ScreenMode_CGA },
 		{ ".vga", ScreenMode_VGA16 },
-		{ ".VGA", ScreenMode_VGA16 },
 		{ ".sga", ScreenMode_SHiRes },
+		#if DDB_PROBE_CASE_TWINS
+		{ ".DAT", ScreenMode_Default },
+		{ ".EGA", ScreenMode_EGA },
+		{ ".CGA", ScreenMode_CGA },
+		{ ".VGA", ScreenMode_VGA16 },
 		{ ".SGA", ScreenMode_SHiRes },
+		#endif
 		{ 0, ScreenMode_Default },
 	};
 

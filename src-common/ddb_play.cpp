@@ -40,6 +40,8 @@ static char        ddbFileName[FILE_MAX_PATH];
 static char        introScreenName[FILE_MAX_PATH];
 static char        startupPattern[FILE_MAX_PATH];
 
+#define MAX_MANIFEST_DISKS 4
+
 struct StartupConfig
 {
 	int  parts;
@@ -51,6 +53,10 @@ struct StartupConfig
 	char windowTitle[128];
 	char windowIcon[FILE_MAX_PATH];
 	char configFile[FILE_MAX_PATH];
+	// Optional file manifests (FILES=, FILES2=... CFG keys): comma-separated
+	// contents of each disk, letting the loader skip the slow directory
+	// enumeration on floppy media. Index 0 is disk 1.
+	char diskFiles[MAX_MANIFEST_DISKS][160];
 	bool hasBoxX;
 	bool hasBoxY;
 	bool hasInk;
@@ -585,6 +591,19 @@ static void ApplyConfigEntry(const char* cfgFile, const char* key, const char* v
 		startupConfig.hasVideoMode = startupConfig.videoMode != ScreenMode_Default;
 		return;
 	}
+	if (ToUpper((uint8_t)key[0]) == 'F' && ToUpper((uint8_t)key[1]) == 'I' &&
+	    ToUpper((uint8_t)key[2]) == 'L' && ToUpper((uint8_t)key[3]) == 'E' &&
+	    ToUpper((uint8_t)key[4]) == 'S')
+	{
+		int disk = 1;
+		if (key[5] >= '2' && key[5] <= '0' + MAX_MANIFEST_DISKS && key[6] == 0)
+			disk = key[5] - '0';
+		else if (key[5] != 0)
+			return;
+		CopyConfigString(startupConfig.diskFiles[disk - 1],
+			sizeof(startupConfig.diskFiles[0]), value);
+		return;
+	}
 
 	if (!ParseConfigInt(value, &parsed))
 		return;
@@ -610,45 +629,33 @@ static void ApplyConfigEntry(const char* cfgFile, const char* key, const char* v
 	}
 }
 
-static void LoadStartupConfig()
+// Parses one startup CFG file. Returns false if the file cannot be opened.
+static bool ParseStartupConfigFile(const char* cfgFile)
 {
-	const char* cfgFile = 0;
-	for (int i = 0; i < fileCount; i++)
-	{
-		const char* dot = StrRChr(files[i], '.');
-		if (dot != 0 && StrIComp(dot, ".cfg") == 0)
-		{
-			cfgFile = files[i];
-			StrCopy(startupConfig.configFile, sizeof(startupConfig.configFile), cfgFile);
-			break;
-		}
-	}
-	if (cfgFile == 0)
-		return;
-
 	File* file = File_Open(cfgFile, ReadOnly);
 	if (file == 0)
-		return;
+		return false;
+	StrCopy(startupConfig.configFile, sizeof(startupConfig.configFile), cfgFile);
 
 	uint64_t size = File_GetSize(file);
 	if (size == 0 || size > 8192)
 	{
 		File_Close(file);
-		return;
+		return true;
 	}
 
 	char* buffer = Allocate<char>("startup cfg", (uint32_t)size + 1);
 	if (buffer == 0)
 	{
 		File_Close(file);
-		return;
+		return true;
 	}
 
 	if (File_Read(file, buffer, size) != size)
 	{
 		Free(buffer);
 		File_Close(file);
-		return;
+		return true;
 	}
 	File_Close(file);
 	buffer[size] = 0;
@@ -707,6 +714,84 @@ static void LoadStartupConfig()
 		startupConfig.hasWindowIcon ? startupConfig.windowIcon : "default");
 
 	Free(buffer);
+	return true;
+}
+
+static void LoadStartupConfig()
+{
+	for (int i = 0; i < fileCount; i++)
+	{
+		const char* dot = StrRChr(files[i], '.');
+		if (dot != 0 && StrIComp(dot, ".cfg") == 0)
+		{
+			ParseStartupConfigFile(files[i]);
+			return;
+		}
+	}
+}
+
+// Probes a couple of well-known CFG names directly, avoiding the directory
+// enumeration entirely. A direct open is a cheap hash lookup even on floppy
+// media, while enumerating a floppy directory costs a seek per file.
+static bool TryDirectStartupConfig()
+{
+	static const char* candidates[] = { "adp.cfg", "part1.cfg", 0 };
+	for (int n = 0; candidates[n] != 0; n++)
+	{
+		if (ParseStartupConfigFile(candidates[n]))
+			return true;
+	}
+	return false;
+}
+
+// Fills the file table from a FILES=/FILESn= manifest instead of scanning
+// the directory. The list is a claim about the disk contents: subsequent
+// opens verify it against the actual medium (a wrong disk simply fails and
+// the caller falls back to the insert-disk prompt).
+static int activeManifestDisk = 0;
+
+static bool HaveManifestForDisk(int disk)
+{
+	return disk >= 1 && disk <= MAX_MANIFEST_DISKS &&
+		startupConfig.diskFiles[disk - 1][0] != 0;
+}
+
+static bool PopulateFilesFromManifest(int disk)
+{
+	if (!HaveManifestForDisk(disk))
+		return false;
+
+	CloseEnum();
+	DDB_FlushDataFileProbeCache();
+	fileCount = 0;
+	#ifdef HAS_VIRTUALFILESYSTEM
+	ddbFileCount = -1;
+	#endif
+	nameBuffer = Allocate<char>("EnumFiles", NAME_BUFFER_SIZE);
+	if (nameBuffer == 0)
+		return false;
+
+	const char* src = startupConfig.diskFiles[disk - 1];
+	char* ptr = nameBuffer;
+	char* end = nameBuffer + NAME_BUFFER_SIZE;
+	while (*src != 0 && fileCount < MAX_FILES && ptr < end - 1)
+	{
+		while (*src == ',' || IsSpace(*src))
+			src++;
+		if (*src == 0)
+			break;
+		files[fileCount] = ptr;
+		while (*src != 0 && *src != ',' && ptr < end - 1)
+			*ptr++ = *src++;
+		while (ptr > files[fileCount] && IsSpace((uint8_t)ptr[-1]))
+			ptr--;
+		*ptr++ = 0;
+		if (ptr - files[fileCount] > 1)
+			fileCount++;
+	}
+	activeManifestDisk = disk;
+	DebugPrintf("Using disk %d manifest: %d file(s), no enumeration\n", disk, fileCount);
+	return true;
 }
 
 static void SaveStartupVideoMode(const char* ddbFile, DDB_ScreenMode mode)
@@ -853,7 +938,30 @@ static const char* ResolveSelectedDDBFile(int partIndex)
 			return "";
 		return GetDDBFile(0);
 	}
-	if (partIndex >= CountDDBFiles())
+	int count = CountDDBFiles();
+	if (startupConfig.disks > 0)
+	{
+		// Physical multi-disk game: each disk carries its own part, so file
+		// positions say nothing about part numbers (after a swap the only
+		// DDB present sits at index 0 whatever its part is). Match by name
+		// instead: per-disk DDBs are expected to carry their part number in
+		// the file name (part1.ddb, part2.ddb, ...). Positions are only
+		// trusted when every configured part is present at once.
+		char partDigit = (char)('1' + partIndex);
+		for (int n = 0; n < count; n++)
+		{
+			const char* file = GetDDBFile(n);
+			for (const char* ptr = file; *ptr != 0; ptr++)
+			{
+				if (*ptr == partDigit)
+					return file;
+			}
+		}
+		if (count >= GetConfiguredPartCount() && partIndex < count)
+			return GetDDBFile(partIndex);
+		return "";
+	}
+	if (partIndex >= count)
 		return "";
 	return GetDDBFile(partIndex);
 }
@@ -868,18 +976,29 @@ static bool SelectedPartNeedsDisk(int partIndex, DDB_Machine machine, DDB_Versio
 	return !HasLocalDataForDDB(ddbFile, machine, version);
 }
 
-static bool ShowAndProcessDiskPrompt(int diskNumber, DDB_Language language)
+static uint8_t diskPromptKey = 0;
+static uint32_t diskPromptPollStart = 0;
+
+static void DiskPromptKeyUpdate(int elapsed)
 {
-	ShowDiskPrompt(diskNumber, language);
-	VID_MainLoop(0, WaitForKeyUpdate);
-
-	#if HAS_VIRTUALFILESYSTEM	
-	if (diskImageCount > 0 && diskNumber <= diskImageCount)
-		return MountDiskByNumber(diskNumber);
-	#endif
-
-	RescanCurrentFiles();
-	return true;
+	(void)elapsed;
+	if (VID_AnyKey())
+	{
+		uint8_t key = 0, ext = 0;
+		VID_GetKey(&key, &ext, 0);
+		diskPromptKey = key;
+		VID_Quit();
+		return;
+	}
+	// Poll tick: a disk change needs no confirmation, so periodically hand
+	// control back to the prompt loop for a quiet look at the drive.
+	uint32_t nowMs = 0;
+	VID_GetMilliseconds(&nowMs);
+	if (nowMs - diskPromptPollStart > 2000)
+	{
+		diskPromptKey = 0;
+		VID_Quit();
+	}
 }
 
 static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language)
@@ -896,15 +1015,73 @@ static bool EnsureSelectedPartMediaSync(int partIndex, DDB_Language language)
 	int targetDisk = GetTargetDiskForPart(partIndex);
 	if (targetDisk == 0)
 		return false;
-	if (!ShowAndProcessDiskPrompt(targetDisk, language))
-		return false;
 
-	ddbCount = CountDDBFiles();
-	ddbFile = ResolveSelectedDDBFile(partIndex);
-	if (ddbFile[0] == 0)
-		return false;
-	GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
-	return HasLocalDataForDDB(ddbFile, machine, version);
+	// No open file may stay bound to the outgoing volume across the swap;
+	// the selected part reopens its graphics database when it loads.
+	VID_CloseDataFile();
+
+	// Classic insert-disk behavior: the prompt stays up while the drive is
+	// polled, so just inserting the right disk continues the game; a swap
+	// needs a moment to settle (motor, volume mount), which instant retries
+	// would misread as a wrong disk. Any key forces an immediate check and
+	// ESC aborts.
+	bool diskPromptScreenSaved = VID_BackupScreen();
+	ShowDiskPrompt(targetDisk, language);
+	for (;;)
+	{
+		diskPromptKey = 0;
+		VID_GetMilliseconds(&diskPromptPollStart);
+		VID_MainLoop(0, DiskPromptKeyUpdate);
+		if (exitGame || diskPromptKey == 27)
+		{
+			if (diskPromptScreenSaved)
+				VID_RestoreBackupScreen();
+			return false;
+		}
+
+		#if HAS_VIRTUALFILESYSTEM
+		if (diskImageCount > 0 && targetDisk <= diskImageCount)
+		{
+			// Mounted disk images either work or never will; no retry.
+			bool ok = MountDiskByNumber(targetDisk);
+			if (ok)
+			{
+				ddbCount = CountDDBFiles();
+				ddbFile = ResolveSelectedDDBFile(partIndex);
+				if (ddbFile[0] != 0)
+				{
+					GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+					ok = HasLocalDataForDDB(ddbFile, machine, version);
+				}
+				else
+					ok = false;
+			}
+			if (diskPromptScreenSaved)
+				VID_RestoreBackupScreen();
+			return ok;
+		}
+		#endif
+
+		OS_RemountBootMedia();
+		if (!PopulateFilesFromManifest(targetDisk))
+			RescanCurrentFiles();
+		ddbCount = CountDDBFiles();
+		ddbFile = ResolveSelectedDDBFile(partIndex);
+		DebugPrintf("Disk %d prompt: %d DDBs after rescan, part %d resolves to '%s'\n",
+			targetDisk, ddbCount, partIndex + 1, ddbFile);
+		if (ddbFile[0] != 0)
+		{
+			GetDDBMetadata(ddbFile, &machine, &unusedLanguage, &version);
+			if (HasLocalDataForDDB(ddbFile, machine, version))
+			{
+				if (diskPromptScreenSaved)
+					VID_RestoreBackupScreen();
+				return true;
+			}
+			DebugPrintf("Disk %d prompt: '%s' present but its data file is missing\n",
+				targetDisk, ddbFile);
+		}
+	}
 }
 
 #ifdef _WEB
@@ -1338,6 +1515,7 @@ static void EnumFiles(const char* pattern)
 	FindFileResults r;
 
 	CloseEnum();
+	DDB_FlushDataFileProbeCache();
 	fileCount = 0;
 #ifdef HAS_VIRTUALFILESYSTEM
 	ddbFileCount = -1;
@@ -1650,20 +1828,26 @@ static void ShowDiskPrompt(int diskNumber, DDB_Language language)
 	char line0[64];
 	char line1[64];
 	const char* lines[2];
+	int lineCount = 1;
 	if (language == DDB_SPANISH)
-	{
 		BuildPromptLine(line0, sizeof(line0), " Inserta el disco * ", diskNumber);
-		StrCopy(line1, sizeof(line1), " y pulsa una tecla  ");
-	}
 	else
-	{
 		BuildPromptLine(line0, sizeof(line0), "   Insert disk *   ", diskNumber);
-		StrCopy(line1, sizeof(line1), " and press any key ");
-	}
 	lines[0] = line0;
+	#ifdef _WEB
+	// The web player has no drive to poll: the prompt really is confirmed
+	// with a keypress, so keep the instruction there.
+	if (language == DDB_SPANISH)
+		StrCopy(line1, sizeof(line1), " y pulsa una tecla  ");
+	else
+		StrCopy(line1, sizeof(line1), " and press any key ");
 	lines[1] = line1;
+	lineCount = 2;
+	#else
+	(void)line1;
+	#endif
 	uint8_t ink = startupConfig.hasInk ? (uint8_t)startupConfig.ink : GetAutoPromptInk();
-	DrawPromptBox(lines, 2, ink);
+	DrawPromptBox(lines, lineCount, ink);
 }
 
 static void LoaderScreenUpdate(int elapsed)
@@ -2143,6 +2327,9 @@ static void CheckIntroScreenFiles(const char* ddbFileName, const char** introScr
 static void CheckIntroScreenFiles(const char** introScreen, DDB_Machine* machine, DDB_ScreenMode* screenMode)
 #endif
 {
+	*introScreen = 0;
+	scrCount = 0;
+
 	DDB_ScreenMode preferredMode = GetPreferredIntroScreenMode(*screenMode);
 	if (preferredMode != ScreenMode_Default)
 	{
@@ -2221,8 +2408,18 @@ bool DDB_RunPlayer()
 	introScreenName[0] = 0;
 	SetStartupPattern("*");
 
-	EnumFiles();
-	LoadStartupConfig();
+	activeManifestDisk = 0;
+	if (TryDirectStartupConfig() && PopulateFilesFromManifest(1))
+	{
+		// CFG found by direct name probe and it carries a file manifest:
+		// the directory enumeration is skipped entirely.
+	}
+	else
+	{
+		EnumFiles();
+		if (startupConfig.configFile[0] == 0)
+			LoadStartupConfig();
+	}
 
 	#if HAS_VIRTUALFILESYSTEM
 	CollectDiskImages();
@@ -2290,11 +2487,13 @@ bool DDB_RunPlayer()
 			introVisible = true;
 	}
 
+	bool promptScreenSaved = false;
 	if (GetConfiguredPartCount() > 1)
 	{
 		DebugPrintf("Showing part selector\n");
 		ddbSelected = -1;
 		loaderPromptMode = LoaderPrompt_Part;
+		promptScreenSaved = VID_BackupScreen();
 		ShowLoaderPrompt(GetConfiguredPartCount(), language);
 		#if HAS_TESTMODE
 		if (DDB_TestIsActive() && DDB_TestGetPartSelection() > 0)
@@ -2325,6 +2524,8 @@ bool DDB_RunPlayer()
 			return true;
 		}
 		DebugPrintf("Selected part %ld\n", (long)(ddbSelected + 1));
+		if (promptScreenSaved)
+			VID_RestoreBackupScreen();
 		if (!EnsureSelectedPartMediaSync(ddbSelected, language))
 		{
 			CloseEnum();
@@ -2374,9 +2575,17 @@ bool DDB_RunPlayer()
 			if (introScreen != 0)
 				introVisible = VID_DisplaySCRFile(introScreen, machine, false);
 		}
-		else if (introScreen != 0)
+		else if (!promptScreenSaved)
 		{
-			introVisible = VID_DisplaySCRFile(introScreen, machine, false);
+			// Backends without screen backup: remove the prompt boxes by
+			// redisplaying the intro screen, or clearing when there is none.
+			if (introScreen != 0)
+				introVisible = VID_DisplaySCRFile(introScreen, machine, false);
+			else
+			{
+				VID_Clear(0, 0, screenWidth, screenHeight, 0, Clear_All);
+				introVisible = false;
+			}
 		}
 		language = selectedLanguage;
 		#ifdef _AMIGA
@@ -2468,7 +2677,7 @@ bool DDB_RunPlayer()
 		// autoloaded part swaps in silently, as the original interpreter did.
 		if (!autoloading)
 		{
-			if ((scrCount > 0 || introScreen != 0) && ddbCount == 1)
+			if ((scrCount > 0 || introScreen != 0) && GetConfiguredPartCount() == 1)
 			{
 				if (!introVisible)
 					introVisible = VID_DisplaySCRFile(introScreen, machine, false);
@@ -2518,7 +2727,8 @@ bool DDB_RunPlayer()
 
 			// Resolve the requested part's DDB (all parts share the same platform
 			// configuration, so no video re-initialisation is needed).
-			EnumFiles();
+			if (!PopulateFilesFromManifest(activeManifestDisk))
+				EnumFiles();
 			#if HAS_VIRTUALFILESYSTEM
 			CollectDiskImages();
 			#endif

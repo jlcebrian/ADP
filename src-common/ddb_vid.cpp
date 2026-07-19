@@ -22,6 +22,18 @@ uint16_t	screenWidth;
 uint16_t	screenHeight;
 uint8_t 	charWidth[256];
 
+// Releases the graphics database and its underlying file handle. Used before
+// prompting for a physical disk change, so no open file remains bound to the
+// outgoing volume; the next part load reopens its database normally.
+void VID_CloseDataFile()
+{
+	if (dmg != 0)
+	{
+		DMG_Close(dmg);
+		dmg = 0;
+	}
+}
+
 #if HAS_TESTMODE
 void VID_SetFastMode(bool enabled)
 {

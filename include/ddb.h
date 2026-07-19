@@ -813,6 +813,7 @@ extern bool             DDB_CheckVideoMode       (const char* fileName, DDB_Scre
 extern DDB_ScreenMode   DDB_GetDefaultScreenMode (DDB_Machine machine);
 extern bool             DDB_CheckDataFileConfig  (const char* fileName, DDB_Machine target, DDB_ScreenMode* mode, uint8_t* planes);
 extern uint32_t         DDB_GetDataFileModes     (const char* fileName, DDB_Machine target);
+extern void             DDB_FlushDataFileProbeCache();
 extern bool             DDB_ResolveDataFile      (const char* fileName, DDB_Machine target, DDB_ScreenMode requestedMode, char* resolvedFileName, size_t resolvedFileNameSize, DDB_ScreenMode* resolvedMode, uint8_t* planes);
 extern DDB_Error        DDB_GetError             ();
 extern DDB*             DDB_Create               ();
@@ -896,7 +897,7 @@ extern void             DDB_ClearStartupScreenModeOverride();
 extern bool             DDB_RunPlayer            ();
 extern void             DDB_RestartAsyncPlayer   ();
 
-extern bool             SCR_GetScreen            (const char* fileName, DDB_Machine target, uint8_t* buffer, size_t bufferSize, uint8_t* output, int width, int height, uint32_t* palette);
+extern bool             SCR_GetScreen            (const char* fileName, DDB_Machine target, uint8_t* buffer, size_t bufferSize, uint8_t* output, int width, int height, uint32_t* palette, bool* isHAM);
 
 #if HAS_SNAPSHOTS
 extern bool             DDB_LoadSnapshot         (File* file, const char* filename, uint8_t** ram, size_t* size, DDB_Machine* machine);

@@ -1125,7 +1125,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	uint8_t* buffer = DMG_GetTemporaryBufferBase();
 
 	if (SCR_GetScreen(fileName, target, buffer + 160, bufferSize - 160,
-	                  buffer, 320, 200, palette))
+	                  buffer, 320, 200, palette, 0))
 	{
 		uint32_t *out = (uint32_t*)screen;
 		uint8_t *in = buffer;
@@ -1645,6 +1645,17 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode sel
 void VID_VSync()
 {
 	Vsync();
+}
+
+
+bool VID_BackupScreen()
+{
+	return false;
+}
+
+bool VID_RestoreBackupScreen()
+{
+	return false;
 }
 
 #endif

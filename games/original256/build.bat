@@ -38,11 +38,12 @@ copy /y windows.cfg "%WIN%\part1.cfg" >nul
 copy /y "%ROOT%\daad-ready\dist\ASSETS\WINDOWS_EXPERIMENTAL\adp-player.exe" "%WIN%\ad.exe" >nul
 copy /y part1.chr "%AMIGA%\part1.chr" >nul
 copy /y part2.chr "%AMIGA%\part2.chr" >nul
+copy /y part1-amiga-ham.iff "%AMIGA%\part1.scr" >nul
 copy /y amiga.cfg "%AMIGA%\part1.cfg" >nul
+>>"%AMIGA%\part1.cfg" echo FILES=part1.ddb,part1.dat,part1.chr,part1.scr,part1.cfg,part2.ddb,part2.dat,part2.chr
 copy /y "%ROOT%\daad-ready\dist\ASSETS\AMIGA_EXPERIMENTAL\ADP.EXE" "%AMIGA%\ADP.EXE" >nul
 if not exist "%AMIGA%\s" mkdir "%AMIGA%\s"
->"%AMIGA%\s\startup-sequence" echo CD :
->>"%AMIGA%\s\startup-sequence" echo ADP.EXE
+>"%AMIGA%\s\startup-sequence" echo ADP.EXE
 "%DSK%" create -b -r "release\original256-amiga-ham.adf" hd "%AMIGA%" || goto :failed
 
 echo Distributables written to %~dp0release

@@ -1112,6 +1112,17 @@ bool VID_IsIntroScreenModeCompatible(uint8_t planes, bool ham)
 			return false;
 	}
 
+	// A 16-color screen displays as-is on a HAM6 display: pixels with the
+	// control planes clear select the base palette directly. This keeps the
+	// classic raw SCR loading screens usable in HAM games; the raw format is
+	// the one the host player and test tooling also render (scrfile.cpp has
+	// no ILBM support), so it is the portable choice for 16-color screens.
+	if (planes == 4 && !ham && displayPlanes == 6)
+	{
+		if (dmg == 0 || displayColorMode == DMG_DAT5_COLORMODE_HAM6)
+			return true;
+	}
+
 	if (displayPlanes != planes)
 	{
 		DDB_SetError(DDB_ERROR_FILE_NOT_SUPPORTED);
@@ -1137,6 +1148,38 @@ bool VID_IsIntroScreenModeCompatible(uint8_t planes, bool ham)
 uint8_t** VID_GetIntroScratchPlanes()
 {
 	return scratchDisplayPlane;
+}
+
+// Saves/restores the visible planes using the scratch display buffer, so
+// loader prompt boxes can be removed without reloading the screen from
+// disk. The scratch buffer is only transient decompression space between
+// picture draws, so borrowing it between a prompt and its answer is safe.
+bool VID_BackupScreen()
+{
+	if (scratchDisplayBuffer == 0)
+		return false;
+	for (uint8_t n = 0; n < displayPlanes; n++)
+	{
+		if (frontPlane[n] == 0 || scratchDisplayPlane[n] == 0)
+			return false;
+		BlitterCopy(frontPlane[n], 0, 0, scratchDisplayPlane[n], 0, 0,
+			SCR_WIDTHPX, SCR_HEIGHTPX, true);
+	}
+	return true;
+}
+
+bool VID_RestoreBackupScreen()
+{
+	if (scratchDisplayBuffer == 0)
+		return false;
+	for (uint8_t n = 0; n < displayPlanes; n++)
+	{
+		if (frontPlane[n] == 0 || scratchDisplayPlane[n] == 0)
+			return false;
+		BlitterCopy(scratchDisplayPlane[n], 0, 0, frontPlane[n], 0, 0,
+			SCR_WIDTHPX, SCR_HEIGHTPX, true);
+	}
+	return true;
 }
 
 void VID_PresentIntroScreen(const uint32_t* palette, uint16_t count, bool fadeIn)

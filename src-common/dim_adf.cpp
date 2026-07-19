@@ -610,26 +610,45 @@ static uint32_t ADF_HashString(const char* name, int hashTableSize)
     return hash % hashTableSize;
 }
 
-static uint32_t ADF_AllocBlock(ADF_Disk* disk)
+// Allocates the first free block searching upward from preferredBlock and
+// wrapping around. File and directory headers are allocated near the root
+// block: OFS directory scans and hash lookups read only the root and header
+// blocks, so keeping them on the root cylinder turns a startup full of
+// long floppy seeks into a couple of track reads. Data allocations avoid a
+// small window after the root so late-added files still get nearby headers
+// (the window is released when the rest of the disk is full).
+#define ADF_HEADER_ZONE_BLOCKS 32
+
+static uint32_t ADF_AllocBlockInternal(ADF_Disk* disk, uint32_t preferredBlock, bool avoidHeaderZone)
 {
     if (disk->bitmap == 0 && !ADF_LoadBitmapFromDisk(disk))
         return ADF_INVALID_BLOCK;
 
     uint32_t totalBlocks = disk->numBlocks - 2; // Exclude bootblocks
     uint32_t mapSize = (totalBlocks + 31) / 32;
+    uint32_t zoneStart = disk->rootBlock + 1;
+    uint32_t zoneEnd = zoneStart + ADF_HEADER_ZONE_BLOCKS - 1;
+    uint32_t startWord = 0;
+    if (preferredBlock >= 2 && preferredBlock < disk->numBlocks)
+        startWord = (preferredBlock - 2) / 32;
 
-    for (uint32_t i = 0; i < mapSize; i++)
+    for (uint32_t n = 0; n < mapSize; n++)
     {
-        if (disk->bitmap[i] != 0) 
+        uint32_t i = (startWord + n) % mapSize;
+        if (disk->bitmap[i] != 0)
         {
             uint32_t mask = 1;
             for (int bit = 0; bit < 32; bit++)
             {
                 if (disk->bitmap[i] & mask)
                 {
-                    disk->bitmap[i] &= ~mask; 
-                    
                     uint32_t blockIndex = 2 + (i * 32) + bit; // +2 for bootblocks
+                    if (avoidHeaderZone && blockIndex >= zoneStart && blockIndex <= zoneEnd)
+                    {
+                        mask <<= 1;
+                        continue;
+                    }
+                    disk->bitmap[i] &= ~mask;
                     
                     // We must write the modified bitmap block back to disk immediately
                     // to prevent corruption if we crash later.
@@ -683,6 +702,19 @@ static uint32_t ADF_AllocBlock(ADF_Disk* disk)
     }
     DIM_SetError(DIMError_DiskFull);
     return ADF_INVALID_BLOCK;
+}
+
+static uint32_t ADF_AllocBlockFrom(ADF_Disk* disk, uint32_t preferredBlock)
+{
+    return ADF_AllocBlockInternal(disk, preferredBlock, false);
+}
+
+static uint32_t ADF_AllocBlock(ADF_Disk* disk)
+{
+    uint32_t block = ADF_AllocBlockInternal(disk, 2, true);
+    if (block == ADF_INVALID_BLOCK)
+        block = ADF_AllocBlockInternal(disk, 2, false);
+    return block;
 }
 
 static void ADF_FreeBlock(ADF_Disk* disk, uint32_t blockIndex)
@@ -1065,7 +1097,7 @@ bool ADF_MakeDirectory(ADF_Disk* disk, const char* path)
     const char* newName = path;
 
     // 3. Allocate Block
-    uint32_t newBlock = ADF_AllocBlock(disk);
+    uint32_t newBlock = ADF_AllocBlockFrom(disk, disk->rootBlock + 1);
     if (newBlock == ADF_INVALID_BLOCK)
     {
         DIM_SetError(DIMError_DiskFull);
@@ -1104,7 +1136,7 @@ bool ADF_WriteFile(ADF_Disk* disk, const char* path, const void* data, uint32_t 
         ADF_RemoveFile(disk, path);
     }
 
-    uint32_t headerBlockIndex = ADF_AllocBlock(disk);
+    uint32_t headerBlockIndex = ADF_AllocBlockFrom(disk, disk->rootBlock + 1);
     if (headerBlockIndex == ADF_INVALID_BLOCK)
     {
         DIM_SetError(DIMError_DiskFull);

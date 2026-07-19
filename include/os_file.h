@@ -55,6 +55,13 @@ extern bool OS_FindNextFile  (FindFileResults* results);
 extern bool OS_GetCurrentDirectory (char* buffer, size_t bufferSize);
 extern bool OS_ChangeDirectory     (const char* path);
 
+// Re-binds the current directory to whatever removable medium is now present
+// in the boot drive, releasing any state bound to the previous volume. Called
+// after the user confirms a physical disk change; a no-op on platforms whose
+// filesystem access is not tied to a specific volume. Returns false if no
+// medium could be bound (the caller may prompt again).
+extern bool OS_RemountBootMedia    ();
+
 #ifdef HAS_VIRTUALFILESYSTEM
 
 struct File

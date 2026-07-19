@@ -27,12 +27,19 @@ extern void   VID_Finish              ();
 
 extern bool   VID_AnyKey              ();
 extern bool   VID_LoadDataFile        (const char* filename);
+extern void   VID_CloseDataFile       ();
 extern bool   VID_PictureExists       (uint8_t picno);
 extern bool   VID_SampleExists        (uint8_t no);
 extern void   VID_Clear               (int x, int y, int w, int h, uint8_t color, VID_ClearMode mode = Clear_Text);
 extern void   VID_ClearBuffer         (bool front);
 extern void   VID_DisplayPicture      (int x, int y, int w, int h, DDB_ScreenMode screenMode);
 extern bool   VID_DisplaySCRFile      (const char* fileName, DDB_Machine target, bool fadeIn);
+// Save/restore the visible screen around the loader prompts, so a prompt
+// box can be removed without reloading the screen behind it from disk
+// (which may live on another disk in a multi-disk setup). Backends without
+// support return false and callers fall back to redisplay/clear.
+extern bool   VID_BackupScreen        ();
+extern bool   VID_RestoreBackupScreen ();
 extern void   VID_DrawCharacter       (int x, int y, uint8_t ch, uint8_t ink, uint8_t paper);
 extern void   VID_DrawTextSpan        (int x, int y, const uint8_t* text, uint16_t length, uint8_t ink, uint8_t paper);
 extern void   VID_DrawText            (int x, int y, const char* text, uint8_t ink, uint8_t paper);

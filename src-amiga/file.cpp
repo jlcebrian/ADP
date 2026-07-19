@@ -9,6 +9,8 @@
 #include "timer.h"
 
 #include <proto/dos.h>
+#include <proto/exec.h>
+#include <dos/dosextens.h>
 
 #ifndef DEBUG_FILE_IO
 #define DEBUG_FILE_IO 0
@@ -266,35 +268,269 @@ static bool PatternMatches(const char* p, const char* f)
 	return *p == 0 && *f == 0;
 }
 
+// The directory scan must release the blitter around its DOS calls like
+// every other file operation here: on OCS Kickstarts trackdisk decodes MFM
+// with the blitter, so enumerating a disk while the player owns it
+// deadlocks the filesystem handler (the post-swap rescan was the first
+// enumeration to ever run with the system taken).
+
+static bool FindNextInternal(FindFileResults* info)
+{
+	FindFileInternal* i = (FindFileInternal*)(info->internalData);
+
+	if (i->lock == 0)
+		return false;
+	for (;;)
+	{
+		if (!ExNext(i->lock, &i->info))
+		{
+			// End of directory: release the lock here, as no explicit
+			// close call exists in the enumeration interface. Leaking it
+			// would keep the outgoing volume referenced across disk swaps.
+			UnLock(i->lock);
+			i->lock = 0;
+			return false;
+		}
+		FillFindResults(info);
+		if (PatternMatches(i->pattern, i->info.fib_FileName))
+			return true;
+	}
+}
+
 bool OS_FindFirstFile(const char* pattern, FindFileResults* info)
 {
 	FindFileInternal* i = (FindFileInternal*)(info->internalData);
 
+	CallingDOS();
+	bool result = false;
 	i->pattern = pattern;
 	i->lock = Lock("", ACCESS_READ);
-	if (i->lock == 0)
-		return false;
-	if (!Examine(i->lock, &i->info))
+	if (i->lock != 0)
 	{
-		UnLock(i->lock);
-		return false;
+		if (!Examine(i->lock, &i->info))
+			UnLock(i->lock);
+		else
+		{
+			FillFindResults(info);
+			result = PatternMatches(pattern, i->info.fib_FileName) ? true : FindNextInternal(info);
+		}
 	}
-	FillFindResults(info);
-	if (!PatternMatches(pattern, i->info.fib_FileName))
-		return OS_FindNextFile(info);
-	return true;
+	AfterCallingDOS();
+	return result;
 }
 
 bool OS_FindNextFile(FindFileResults* info)
 {
-	FindFileInternal* i = (FindFileInternal*)(info->internalData);
+	CallingDOS();
+	bool result = FindNextInternal(info);
+	AfterCallingDOS();
+	return result;
+}
 
-	if (!ExNext(i->lock, &i->info))
-		return false;
-	FillFindResults(info);
-	if (!PatternMatches(i->pattern, i->info.fib_FileName))
-		return OS_FindNextFile(info);
-	return true;
+// ---- Physical disk swap support -------------------------------------------
+// The player normally runs with the boot floppy's root as its current
+// directory. AmigaDOS locks are bound to a *volume*, so after the user swaps
+// disks, any access through that directory would make DOS request the old
+// volume back (invisibly, as the player owns the display). These helpers
+// re-bind the current directory to a floppy *device*, so file access follows
+// whatever disk is currently in a drive. The requested disk is accepted in
+// any drive: the first drive holding a volume other than the one we were
+// bound to wins, so both single-drive swaps and a second disk sitting in
+// DF1: work. Uses only Kickstart 1.x-safe DOS calls and the classic
+// Forbid'ed device-list walk.
+
+#define MAX_SWAP_DEVICES 5
+
+static char driveNames[MAX_SWAP_DEVICES][36];
+static int  driveCount = 0;
+static BPTR initialCurrentDir = 0;
+static bool currentDirReplaced = false;
+static bool bootMediaInfoCaptured = false;
+static bool bootMediaSwappable = false;
+static BPTR lastBoundVolume = 0;
+
+static void CopyDosListName(struct DosList* node, char* output, size_t outputSize)
+{
+	const uint8_t* name = (const uint8_t*)BADDR(node->dol_Name);
+	int length = name[0];
+	if (length > (int)outputSize - 2)
+		length = (int)outputSize - 2;
+	for (int i = 0; i < length; i++)
+		output[i] = (char)name[i + 1];
+	output[length] = ':';
+	output[length + 1] = 0;
+}
+
+static bool IsFloppyDeviceName(const char* name)
+{
+	return (name[0] == 'D' || name[0] == 'd') &&
+	       (name[1] == 'F' || name[1] == 'f') &&
+	        name[2] >= '0' && name[2] <= '3' && name[3] == ':';
+}
+
+void AmigaInitBootMedia()
+{
+	if (bootMediaInfoCaptured)
+		return;
+	bootMediaInfoCaptured = true;
+	bootMediaSwappable = false;
+
+	struct Process* self = (struct Process*)FindTask(0);
+	BPTR cd = self->pr_CurrentDir;
+	if (cd == 0)
+	{
+		// The boot shell runs with a zero current-directory lock, which
+		// AmigaDOS treats as the root of the boot volume (the reason classic
+		// startup-sequences began with "CD :"). Bind a real lock so the
+		// volume and its handler can be inspected and later re-bound.
+		BPTR rootLock = Lock((CONST_STRPTR)":", ACCESS_READ);
+		if (rootLock == 0)
+		{
+			DebugPrintf("Swap: cannot lock the boot volume root\n");
+			return;
+		}
+		CurrentDir(rootLock);
+		initialCurrentDir = 0;
+		currentDirReplaced = true;
+		cd = rootLock;
+	}
+	else
+	{
+		// Only a volume root may be re-bound: games running from a
+		// subdirectory (hard disk installs) must keep their working
+		// directory untouched.
+		BPTR parent = ParentDir(cd);
+		if (parent != 0)
+		{
+			UnLock(parent);
+			DebugPrintf("Swap: current dir is not a volume root\n");
+			return;
+		}
+	}
+
+	struct MsgPort* handler = ((struct FileLock*)BADDR(cd))->fl_Task;
+	lastBoundVolume = ((struct FileLock*)BADDR(cd))->fl_Volume;
+
+	// Candidate drives for disk swaps: the boot volume's own device first
+	// when it is not a floppy (unusual boot devices), then DF0-DF3 in unit
+	// order. The handler match alone is not relied upon: floppy drives are
+	// always candidates, so a missing boot-device association cannot
+	// disable swapping.
+	char bootName[36];
+	char floppyNames[4][36];
+	bool floppyPresent[4] = { false, false, false, false };
+	char nodeName[36];
+	bootName[0] = 0;
+	Forbid();
+	struct DosInfo* info = (struct DosInfo*)BADDR(DOSBase->dl_Root->rn_Info);
+	for (BPTR n = info->di_DevInfo; n != 0; )
+	{
+		struct DosList* node = (struct DosList*)BADDR(n);
+		if (node->dol_Type == DLT_DEVICE)
+		{
+			CopyDosListName(node, nodeName, sizeof(nodeName));
+			if (IsFloppyDeviceName(nodeName))
+			{
+				int unit = nodeName[2] - '0';
+				StrCopy(floppyNames[unit], sizeof(floppyNames[unit]), nodeName);
+				floppyPresent[unit] = true;
+			}
+			else if (handler != 0 && node->dol_Task == handler && bootName[0] == 0)
+			{
+				StrCopy(bootName, sizeof(bootName), nodeName);
+			}
+		}
+		n = node->dol_Next;
+	}
+	Permit();
+
+	driveCount = 0;
+	if (bootName[0] != 0)
+		StrCopy(driveNames[driveCount++], sizeof(driveNames[0]), bootName);
+	for (int unit = 0; unit < 4 && driveCount < MAX_SWAP_DEVICES; unit++)
+	{
+		if (floppyPresent[unit])
+			StrCopy(driveNames[driveCount++], sizeof(driveNames[0]), floppyNames[unit]);
+	}
+	bootMediaSwappable = driveCount > 0;
+
+	if (bootMediaSwappable)
+	{
+		for (int i = 0; i < driveCount; i++)
+			DebugPrintf("Swap candidate drive %d: %s\n", i, driveNames[i]);
+	}
+	else
+	{
+		DebugPrintf("Boot media is not swappable\n");
+	}
+}
+
+bool OS_RemountBootMedia()
+{
+	CallingDOS();
+	AmigaInitBootMedia();
+	bool bound = false;
+	if (bootMediaSwappable)
+	{
+		// Prefer the first drive whose volume is not the one we were bound
+		// to (that is where the user put the new disk); with no new volume
+		// anywhere, stay on the current one so a rescan can still run.
+		BPTR chosen = 0;
+		BPTR fallback = 0;
+		for (int i = 0; i < driveCount && chosen == 0; i++)
+		{
+			BPTR lock = Lock((CONST_STRPTR)driveNames[i], ACCESS_READ);
+			if (lock == 0)
+			{
+				DebugPrintf("Swap: no medium in %s\n", driveNames[i]);
+				continue;
+			}
+			DebugPrintf("Swap: %s volume %08lx (bound to %08lx)\n", driveNames[i],
+				(unsigned long)((struct FileLock*)BADDR(lock))->fl_Volume,
+				(unsigned long)lastBoundVolume);
+			if (((struct FileLock*)BADDR(lock))->fl_Volume != lastBoundVolume)
+				chosen = lock;
+			else if (fallback == 0)
+				fallback = lock;
+			else
+				UnLock(lock);
+		}
+		if (chosen == 0)
+		{
+			chosen = fallback;
+			fallback = 0;
+		}
+		if (fallback != 0)
+			UnLock(fallback);
+		if (chosen != 0)
+		{
+			lastBoundVolume = ((struct FileLock*)BADDR(chosen))->fl_Volume;
+			BPTR previous = CurrentDir(chosen);
+			if (!currentDirReplaced)
+			{
+				// The initial lock belongs to the caller's CLI; keep it so it
+				// can be restored on exit instead of unlocking it.
+				initialCurrentDir = previous;
+				currentDirReplaced = true;
+			}
+			else if (previous != 0)
+				UnLock(previous);
+			bound = true;
+		}
+	}
+	DebugPrintf("Swap: remount %s\n", bound ? "bound a volume" : "did not bind");
+	AfterCallingDOS();
+	return bound;
+}
+
+void AmigaRestoreCurrentDir()
+{
+	if (!currentDirReplaced)
+		return;
+	BPTR mine = CurrentDir(initialCurrentDir);
+	if (mine != 0)
+		UnLock(mine);
+	currentDirReplaced = false;
 }
 
 bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)

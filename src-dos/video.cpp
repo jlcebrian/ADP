@@ -1254,7 +1254,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	}
 
 	bool decoded = SCR_GetScreen(fileName, target, buffer, 32768, output,
-			screenWidth, screenHeight, palette);
+			screenWidth, screenHeight, palette, 0);
 	if (decoded)
 	{
 		const VID_AdapterInfo* info = VID_CommonGetInfo();
@@ -1879,6 +1879,17 @@ void VID_SetDisplayPlanesHint(uint8_t planes)
 void VID_SetTextInputMode (bool enabled)
 {
 	// Not supported
+}
+
+
+bool VID_BackupScreen()
+{
+	return false;
+}
+
+bool VID_RestoreBackupScreen()
+{
+	return false;
 }
 
 #endif

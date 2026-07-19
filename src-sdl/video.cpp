@@ -266,8 +266,15 @@ static bool PaletteMatches(const uint32_t* candidate, int paletteCount, int firs
 	return true;
 }
 
+// Set while an ILBM HAM loading screen occupies the graphics buffer: the
+// buffer then holds HAM commands even though no game database is open yet
+// (the loader phase; VID_LoadDataFile clears it when a game takes over).
+static bool scrHAM6 = false;
+
 static bool IsHAM6Display()
 {
+	if (scrHAM6)
+		return true;
 	return dmg != NULL && dmg->version == DMG_Version5 && dmg->colorMode == DMG_DAT5_COLORMODE_HAM6;
 }
 
@@ -1212,6 +1219,28 @@ void VID_SetPaletteColor (uint8_t color, uint8_t r, uint8_t g, uint8_t b)
 	palette[color] = (r << 16) | (g << 8) | b;
 }
 
+static uint8_t* screenBackupBuffer = 0;
+
+bool VID_BackupScreen()
+{
+	if (graphicsBuffer == 0 || screenWidth == 0 || screenHeight == 0)
+		return false;
+	if (screenBackupBuffer == 0)
+		screenBackupBuffer = Allocate<uint8_t>("Screen backup", screenWidth * screenHeight);
+	if (screenBackupBuffer == 0)
+		return false;
+	memcpy(screenBackupBuffer, graphicsBuffer, screenWidth * screenHeight);
+	return true;
+}
+
+bool VID_RestoreBackupScreen()
+{
+	if (screenBackupBuffer == 0 || graphicsBuffer == 0)
+		return false;
+	memcpy(graphicsBuffer, screenBackupBuffer, screenWidth * screenHeight);
+	return true;
+}
+
 bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 {
 	#if HAS_PCX
@@ -1311,8 +1340,10 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	#endif
 
 	uint8_t* buffer = Allocate<uint8_t>("SCR Temporary buffer", 65536);
+	bool fileIsHAM = false;
 	bool ok = SCR_GetScreen(fileName, target, buffer, 65536,
-		graphicsBuffer, screenWidth, screenHeight, palette);
+		graphicsBuffer, screenWidth, screenHeight, palette, &fileIsHAM);
+	scrHAM6 = ok && fileIsHAM;
 	Free(buffer);
 	return ok;
 }
@@ -2321,6 +2352,9 @@ void VID_InitAudio ()
 
 bool VID_LoadDataFile(const char* fileName)
 {
+	// The game database now governs HAM decoding (see IsHAM6Display).
+	scrHAM6 = false;
+
 	#if HAS_XMSG
 	DDB_InitializeXMessageCache(65536);
 	#endif

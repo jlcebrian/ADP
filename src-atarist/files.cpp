@@ -160,6 +160,13 @@ bool OS_GetCurrentDirectory(char* buffer, size_t bufferSize)
 	return true;
 }
 
+bool OS_RemountBootMedia()
+{
+	// GEMDOS invalidates its buffers itself when it detects a media change;
+	// a fresh directory rescan is enough after a floppy swap.
+	return true;
+}
+
 bool OS_ChangeDirectory(const char* path)
 {
 	if (path == 0 || path[0] == 0)

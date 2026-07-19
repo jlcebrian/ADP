@@ -120,12 +120,45 @@ static bool CanUseUaeDbgLog()
 	#endif
 }
 
+#if _DEBUGPRINT
+// Debug fallback when no UAE debugger is attached: polled writes to the
+// built-in serial port at 9600 8N1, readable from a terminal on real
+// hardware or from an emulator's serial-port redirection.
+static void WriteSerialLine(const char* text)
+{
+	static int serialInitialized = 0;
+	volatile UWORD* serdatr = (volatile UWORD*)0xdff018;
+	volatile UWORD* serdat  = (volatile UWORD*)0xdff030;
+	volatile UWORD* serper  = (volatile UWORD*)0xdff032;
+	if (!serialInitialized)
+	{
+		*serper = 368;
+		serialInitialized = 1;
+	}
+	for (;;)
+	{
+		char ch = *text ? *text++ : 0;
+		if (ch == 0)
+			ch = '\n';
+		// Wait until both the transmit buffer and the shift register are
+		// empty; polling TBE alone can overrun the UART.
+		while ((*serdatr & 0x3000) != 0x3000)
+			;
+		*serdat = (UWORD)(0x100 | (unsigned char)ch);
+		if (ch == '\n')
+			break;
+	}
+}
+#endif
+
 static void WriteDebuggerLine(const char* text)
 {
 	#if _DEBUGPRINT
 	long(*UaeDbgLog)(long mode, const char* string) = (long(*)(long, const char*))0xf0ff60;
 	if (CanUseUaeDbgLog())
 		UaeDbgLog(86, text);
+	else
+		WriteSerialLine(text);
 	#else
 	(void)text;
 	#endif
@@ -140,12 +173,9 @@ void KPrintF(const char* fmt, ...) {
 	vsnprintf_(temp, 128, fmt, vl);
 	va_end(vl);
 
-	if (CanUseUaeDbgLog()) {
-		WriteDebuggerLine(temp);
-	} else {
-		// Do not use Write since we take over the system
-		// Write(Output(), (APTR)temp, strlen(temp));
-	}
+	// WriteDebuggerLine falls back to the serial port when no UAE debugger
+	// is attached; Write() is not an option since we take over the system.
+	WriteDebuggerLine(temp);
 }
 #endif
 

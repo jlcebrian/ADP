@@ -307,7 +307,12 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 				((uint32_t)((c >> 4) & 0x0F) * 0x11 << 8) |
 				(uint32_t)(c & 0x0F) * 0x11;
 		}
-		MemCopy(VID_GetIntroScratchPlanes()[0], fileData + 34, 32000);
+		uint8_t** scratchPlanes = VID_GetIntroScratchPlanes();
+		MemCopy(scratchPlanes[0], fileData + 34, 32000);
+		// On a display with more than four planes (HAM6), the extra planes
+		// must be clear so every pixel selects a base palette color.
+		for (int n = 4; n < 8 && scratchPlanes[n] != 0; n++)
+			MemClear(scratchPlanes[n], SCR_BPNEXTB);
 		Free(fileData);
 		VID_PresentIntroScreen(targetPalette, 16, fadeIn);
 		if (fadeIn)
@@ -322,7 +327,7 @@ bool VID_DisplaySCRFile (const char* fileName, DDB_Machine target, bool fadeIn)
 	size_t bufferSize = 32768;
 
 	if (SCR_GetScreen(fileName, target, buffer, bufferSize, 
-	                  output, 320, 200, palette))
+	                  output, 320, 200, palette, 0))
 	{
 		uint8_t *in = output;
 

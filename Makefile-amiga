@@ -5,11 +5,29 @@
 ifndef VERSION
 include $(dir $(lastword $(MAKEFILE_LIST)))version.mk
 endif
-DEBUG_MEMORY ?= 0
-DEBUG_ALLOCS ?= 0
-DEBUGPRINT   ?= 0
 TRACE        ?= 0
 OPTIM        ?= -Os
+
+# Build configuration: 'release' (default) produces the crunched
+# distributable player and refreshes the canonical dist asset; 'debug'
+# builds an uncrunched out/amiga/adp-debug executable with debug prints,
+# suitable for emulator/gdb sessions (see scripts/amiga-debug.sh).
+# Each configuration keeps its own object directory, so switching between
+# them does not force rebuilds.
+CONFIG ?= release
+ifeq ($(CONFIG),debug)
+DEBUGPRINT   ?= 1
+DEBUG_MEMORY ?= 1
+DEBUG_ALLOCS ?= 1
+exename = adp-debug
+else ifeq ($(CONFIG),release)
+DEBUGPRINT   ?= 0
+DEBUG_MEMORY ?= 0
+DEBUG_ALLOCS ?= 0
+exename = adp
+else
+$(error CONFIG must be 'release' or 'debug')
+endif
 
 STACK_WARNING ?= 1024
 STACK_DIAGNOSTICS ?= 0
@@ -22,24 +40,24 @@ endif
 
 subdirs := src-amiga/ src-common/
 VPATH = $(subdirs)
+OBJDIR = obj/amiga/$(CONFIG)
 cpp_sources := $(wildcard *.cpp) $(wildcard $(addsuffix *.cpp,$(subdirs)))
-cpp_objects := $(addprefix obj/amiga/,$(patsubst %.cpp,%.o,$(notdir $(cpp_sources))))
+cpp_objects := $(addprefix $(OBJDIR)/,$(patsubst %.cpp,%.o,$(notdir $(cpp_sources))))
 c_sources := $(wildcard *.c) $(wildcard $(addsuffix *.c,$(subdirs)))
-c_objects := $(addprefix obj/amiga/,$(patsubst %.c,%.o,$(notdir $(c_sources))))
+c_objects := $(addprefix $(OBJDIR)/,$(patsubst %.c,%.o,$(notdir $(c_sources))))
 s_sources := $(wildcard $(addsuffix *.s, $(subdirs)))
-s_objects := $(addprefix obj/amiga/,$(patsubst %.s,%.o,$(notdir $(s_sources))))
+s_objects := $(addprefix $(OBJDIR)/,$(patsubst %.s,%.o,$(notdir $(s_sources))))
 zx0_s_source := lib-src/zx0/unzx0_68k.s
-zx0_s_object := obj/amiga/unzx0_68k.o
+zx0_s_object := $(OBJDIR)/unzx0_68k.o
 zx0_fast_s_source := lib-src/zx0/unzx0_68k_fast.s
-zx0_fast_s_object := obj/amiga/unzx0_68k_fast.o
+zx0_fast_s_object := $(OBJDIR)/unzx0_68k_fast.o
 vasm_sources := $(wildcard *.asm) $(wildcard $(addsuffix *.asm, $(subdirs)))
-vasm_objects := $(addprefix obj/amiga/, $(patsubst %.asm,%.o,$(notdir $(vasm_sources))))
+vasm_objects := $(addprefix $(OBJDIR)/, $(patsubst %.asm,%.o,$(notdir $(vasm_sources))))
 objects := $(cpp_objects) $(c_objects) $(s_objects) $(zx0_s_object) $(zx0_fast_s_object) $(vasm_objects)
 
 # https://stackoverflow.com/questions/4036191/sources-from-subdirectories-in-makefile/4038459
 # http://www.microhowto.info/howto/automatically_generate_makefile_dependencies.html
 
-exename = adp
 program = out/amiga/$(exename)
 OUT = $(program)
 DISTDIR = daad-ready/dist
@@ -55,7 +73,12 @@ CC = m68k-amiga-elf-gcc
 VASM = vasmm68k_mot
 OBJDUMP = m68k-amiga-elf-objdump
 # SHRINKLER = Shrinkler -1
-SHRINKLER = cranker -q  
+SHRINKLER = cranker -q
+ifeq ($(CONFIG),debug)
+# Crunched executables cannot be debugged: the loaded hunks no longer match
+# the ELF the debugger reads symbols from.
+SHRINKLER =
+endif
 DSK = out/dsk
 
 ifdef WINDOWS
@@ -83,6 +106,9 @@ CCFLAGS += -DTRACE_ON
 endif
 CCFLAGS += -DHAS_XMSG
 CCFLAGS += -DHAS_ASM_RLE -DNO_BUFFERING -D_BIG_ENDIAN
+# Extra flags from the command line (e.g. XCFLAGS=-DSWAP_AUTOTEST for
+# unattended emulator runs); the CCFLAGS stamp forces a rebuild on change.
+CCFLAGS += $(XCFLAGS)
 CCFLAGS += -flto=6 -fwhole-program -Wno-attributes
 CCFLAGS += -g -MP -MMD -m68000 -nostdlib 
 CCFLAGS += -Wextra -Wno-unused-function -Wno-volatile-register-var 
@@ -113,11 +139,13 @@ endif
 $(OUT).exe: $(OUT).elf
 	$(info Elf2Hunk $(program).exe)
 	@elf2hunk $(OUT).elf $(OUT).exe -s
-ifdef SHRINKLER	
+ifdef SHRINKLER
 	@$(SHRINKLER) $(OUT).exe $(OUT).exe
 endif
+ifeq ($(CONFIG),release)
 	@mkdir -p "$(dir $(CANONICAL_PLAYER))"
 	@cp "$(OUT).exe" "$(CANONICAL_PLAYER)"
+endif
 
 $(DSK):
 	$(MAKE) -f Makefile-linux $@
@@ -154,15 +182,29 @@ endif
 clean:
 	$(info Cleaning...)
 ifdef WINDOWS
-	@del /q obj\amiga\*.o obj\amiga\*.objdump out\amiga\$(exename).* out\amiga\$(exename).objdump
+	@if exist obj\amiga\release rmdir /s /q obj\amiga\release
+	@if exist obj\amiga\debug rmdir /s /q obj\amiga\debug
+	@del /q out\amiga\adp.* out\amiga\adp-debug.* 2>nul
 else
-	@$(RM) obj/amiga/*.o obj/amiga/*.objdump obj/amiga/*.o.s out/amiga/$(exename).* out/amiga/$(exename).objdump
+	@$(RM) -r obj/amiga/release obj/amiga/debug
+	@$(RM) out/amiga/adp.* out/amiga/adp-debug.* out/amiga/adp.objdump out/amiga/adp-debug.objdump
 	@$(RM) -r "$(ADF_STAGE_DIR)"
 endif
 
+# Compiler flag changes (e.g. toggling DEBUGPRINT) are invisible to make's
+# dependency tracking: record the effective flags in a stamp file at parse
+# time and rebuild the objects whenever they differ from the previous run.
+CCFLAGS_STAMP := $(OBJDIR)/.ccflags
+ifneq ($(wildcard $(OBJDIR)),)
+ifneq ($(file <$(CCFLAGS_STAMP)),$(CPPFLAGS) | $(CCFLAGS))
+$(file >$(CCFLAGS_STAMP),$(CPPFLAGS) | $(CCFLAGS))
+endif
+endif
+CCFLAGS_DEP := $(wildcard $(CCFLAGS_STAMP))
+
 -include $(objects:.o=.d)
 
-$(cpp_objects) : obj/amiga/%.o : %.cpp
+$(cpp_objects) : $(OBJDIR)/%.o : %.cpp $(CCFLAGS_DEP)
 	$(info Compiling $<)
 ifndef WINDOWS
 	@$(TOOLPATH) $(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
@@ -170,7 +212,7 @@ else
 	@$(CC) $(CPPFLAGS) -c -o $@ $(CURDIR)/$<
 endif
 
-$(c_objects) : obj/amiga/%.o : %.c
+$(c_objects) : $(OBJDIR)/%.o : %.c $(CCFLAGS_DEP)
 	$(info Compiling $<)
 ifndef WINDOWS
 	@$(TOOLPATH) $(CC) $(CCFLAGS) -c -o $@ $(CURDIR)/$<
@@ -178,7 +220,7 @@ else
 	@$(CC) $(CCFLAGS) -c -o $@ $(CURDIR)/$<
 endif
 
-$(s_objects): obj/amiga/%.o : %.s
+$(s_objects): $(OBJDIR)/%.o : %.s $(CCFLAGS_DEP)
 	$(info Assembling $<)
 ifndef WINDOWS
 	@$(TOOLPATH) $(CC) $(CCFLAGS) $(ASFLAGS) -c -o $@ $(CURDIR)/$<
@@ -204,7 +246,7 @@ else
 	@$(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
 endif
 
-$(vasm_objects): obj/amiga/%.o : %.asm
+$(vasm_objects): $(OBJDIR)/%.o : %.asm
 	$(info Assembling $<)
 	@$(VASM) $(VASMFLAGS) -o $@ $(CURDIR)/$<
 ifndef WINDOWS
@@ -212,6 +254,15 @@ ifndef WINDOWS
 else
 	@$(OBJDUMP) --disassemble-all --reloc $@ >$@.objdump
 endif
+
+$(OBJDIR):
+ifdef WINDOWS
+	@if not exist "$(subst /,\,$(OBJDIR))" mkdir "$(subst /,\,$(OBJDIR))"
+else
+	@mkdir -p $(OBJDIR)
+endif
+
+$(objects): | $(OBJDIR)
 
 ifndef WINDOWS
 $(objects): | $(TOOLSHIM)

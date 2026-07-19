@@ -209,6 +209,9 @@ void FreeSystem()
 	systemTaken = false;
 }
 
+extern void AmigaInitBootMedia();
+extern void AmigaRestoreCurrentDir();
+
 int main ()
 {
 	SysBase       = *((struct ExecBase**)4UL);
@@ -218,9 +221,21 @@ int main ()
 	IntuitionBase = (struct IntuitionBase*)OpenLibrary((CONST_STRPTR)"intuition.library", 0);
 
 	// const char* msg = "ADP " VERSION_STR "\n";
-	// PrintToOutput(msg);	
+	// PrintToOutput(msg);
+
+	// System requesters would appear on a screen the player has taken over;
+	// make failing DOS calls return an error instead so we can handle disk
+	// changes with our own prompts. Capture the boot device now, while the
+	// original volume is guaranteed to still be in its drive.
+	struct Process* self = (struct Process*)FindTask(0);
+	APTR savedWindowPtr = self->pr_WindowPtr;
+	self->pr_WindowPtr = (APTR)-1;
+	AmigaInitBootMedia();
 
 	RunWithExpandedStackIfNeeded();
+
+	AmigaRestoreCurrentDir();
+	self->pr_WindowPtr = savedWindowPtr;
 
 	CloseLibrary((struct Library*)IntuitionBase);
 	CloseLibrary((struct Library*)DOSBase);

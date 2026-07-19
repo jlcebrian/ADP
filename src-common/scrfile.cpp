@@ -85,10 +85,151 @@ static void SCR_DecodePlanarFalcon(const uint8_t* data, uint8_t* output, int wid
 	}
 }
 
+static uint32_t SCR_ReadBE32(const uint8_t* data)
+{
+	return ((uint32_t)data[0] << 24) | ((uint32_t)data[1] << 16) |
+	       ((uint32_t)data[2] << 8) | (uint32_t)data[3];
+}
+
+static bool SCR_HasILBMHeader(const uint8_t* data, uint64_t size)
+{
+	return size >= 12 &&
+		data[0] == 'F' && data[1] == 'O' && data[2] == 'R' && data[3] == 'M' &&
+		data[8] == 'I' && data[9] == 'L' && data[10] == 'B' && data[11] == 'M';
+}
+
+// Amiga IFF ILBM loading screens, including HAM6. The output receives one
+// byte per pixel holding that pixel's plane bits; for a HAM image those
+// are HAM commands to run against the 16-color base palette, and *isHAM
+// tells the caller to render them that way.
+static bool SCR_DecodeILBM(const uint8_t* data, uint64_t size,
+	uint8_t* output, int width, int height, uint32_t* palette, bool* isHAM)
+{
+	uint16_t imgWidth = 0, imgHeight = 0;
+	uint8_t planes = 0, masking = 0, compression = 0;
+	const uint8_t* body = 0;
+	uint32_t bodySize = 0;
+	bool ham = false;
+
+	uint64_t offset = 12;
+	while (offset + 8 <= size)
+	{
+		const uint8_t* chunk = data + offset;
+		uint32_t chunkSize = SCR_ReadBE32(chunk + 4);
+		if (offset + 8 + chunkSize > size)
+			break;
+		const uint8_t* content = chunk + 8;
+		if (chunk[0] == 'B' && chunk[1] == 'M' && chunk[2] == 'H' && chunk[3] == 'D' && chunkSize >= 11)
+		{
+			imgWidth = (uint16_t)((content[0] << 8) | content[1]);
+			imgHeight = (uint16_t)((content[2] << 8) | content[3]);
+			planes = content[8];
+			masking = content[9];
+			compression = content[10];
+		}
+		else if (chunk[0] == 'C' && chunk[1] == 'M' && chunk[2] == 'A' && chunk[3] == 'P')
+		{
+			uint32_t count = chunkSize / 3;
+			for (uint32_t n = 0; n < count && n < 32; n++)
+			{
+				palette[n] = 0xFF000000UL |
+					((uint32_t)content[n * 3] << 16) |
+					((uint32_t)content[n * 3 + 1] << 8) |
+					(uint32_t)content[n * 3 + 2];
+			}
+		}
+		else if (chunk[0] == 'C' && chunk[1] == 'A' && chunk[2] == 'M' && chunk[3] == 'G' && chunkSize >= 4)
+		{
+			ham = (SCR_ReadBE32(content) & 0x0800) != 0;
+		}
+		else if (chunk[0] == 'B' && chunk[1] == 'O' && chunk[2] == 'D' && chunk[3] == 'Y')
+		{
+			body = content;
+			bodySize = chunkSize;
+		}
+		offset += 8 + chunkSize + (chunkSize & 1);
+	}
+
+	if (body == 0 || planes < 1 || planes > 6 || imgWidth < 16 || imgHeight == 0)
+		return false;
+	if (compression > 1)
+		return false;
+
+	uint16_t rowBytes = (uint16_t)(((imgWidth + 15) >> 4) * 2);
+	uint8_t rowBuffer[80];
+	if (rowBytes > sizeof(rowBuffer))
+		return false;
+
+	const uint8_t* src = body;
+	const uint8_t* srcEnd = body + bodySize;
+	int rowPlanes = planes + (masking == 1 ? 1 : 0);
+	for (int y = 0; y < imgHeight; y++)
+	{
+		uint8_t* out = (y < height) ? output + y * width : 0;
+		if (out != 0)
+		{
+			for (int x = 0; x < imgWidth && x < width; x++)
+				out[x] = 0;
+		}
+		for (int p = 0; p < rowPlanes; p++)
+		{
+			if (compression == 0)
+			{
+				if (src + rowBytes > srcEnd)
+					return false;
+				for (int n = 0; n < rowBytes; n++)
+					rowBuffer[n] = src[n];
+				src += rowBytes;
+			}
+			else
+			{
+				int filled = 0;
+				while (filled < rowBytes)
+				{
+					if (src >= srcEnd)
+						return false;
+					int8_t control = (int8_t)*src++;
+					if (control >= 0)
+					{
+						int run = control + 1;
+						if (src + run > srcEnd || filled + run > rowBytes)
+							return false;
+						for (int n = 0; n < run; n++)
+							rowBuffer[filled++] = *src++;
+					}
+					else if (control != -128)
+					{
+						int run = 1 - control;
+						if (src >= srcEnd || filled + run > rowBytes)
+							return false;
+						uint8_t value = *src++;
+						for (int n = 0; n < run; n++)
+							rowBuffer[filled++] = value;
+					}
+				}
+			}
+			if (out == 0 || p >= planes)
+				continue;
+			for (int x = 0; x < imgWidth && x < width; x++)
+			{
+				if (rowBuffer[x >> 3] & (0x80 >> (x & 7)))
+					out[x] |= (uint8_t)(1 << p);
+			}
+		}
+	}
+
+	if (isHAM != 0)
+		*isHAM = ham && planes == 6;
+	return true;
+}
+
 bool SCR_GetScreen (const char* fileName, DDB_Machine target, 
                     uint8_t* buffer, size_t bufferSize, 
-                    uint8_t* output, int width, int height, uint32_t* palette)
+                    uint8_t* output, int width, int height, uint32_t* palette,
+                    bool* isHAM)
 {
+	if (isHAM != 0)
+		*isHAM = false;
 	File* file = File_Open(fileName, ReadOnly);
 	if (file == 0)
 	{
@@ -97,6 +238,7 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 
 	uint64_t size = File_GetSize(file);
+	bool amigaSized = target == DDB_MACHINE_AMIGA && size >= 128 && size <= (uint64_t)bufferSize;
 	#if HAS_SPECTRUM
 	if (target == DDB_MACHINE_SPECTRUM)
 	{
@@ -107,9 +249,9 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 			return false;
 		}
 	}
-	else if (size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
+	else if (!amigaSized && size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
 	#else
-	if (size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
+	if (!amigaSized && size != (uint64_t)(4 + 256 * 3 + 64000) && (size < 16384 || size > 32768))
 	#endif
 	{
 		DDB_SetError(DDB_ERROR_INVALID_FILE);
@@ -166,6 +308,14 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 	#endif
 
+	if (target == DDB_MACHINE_AMIGA && SCR_HasILBMHeader(buffer, size))
+	{
+		if (SCR_DecodeILBM(buffer, size, output, width, height, palette, isHAM))
+			return true;
+		DDB_SetError(DDB_ERROR_INVALID_FILE);
+		return false;
+	}
+
 	// PI1 (Degas) detection is size-only, and an Amiga SCR is coincidentally the
 	// same 32034 bytes, so exclude Amiga here or its screens decode as Atari ST.
 	if (target != DDB_MACHINE_AMIGA && SCR_HasPI1Header(buffer, size))
@@ -186,7 +336,12 @@ bool SCR_GetScreen (const char* fileName, DDB_Machine target,
 	}
 	else if (target == DDB_MACHINE_AMIGA)
 	{
-		// Amiga SCR file
+		// Amiga raw SCR file: 16-color palette + four contiguous planes
+		if (size < 32034)
+		{
+			DDB_SetError(DDB_ERROR_INVALID_FILE);
+			return false;
+		}
 		uint8_t* filePalette = buffer + 2;
 		for (int n = 0; n < 16; n++) {
 			uint16_t c = (filePalette[n * 2] << 8) + filePalette[n * 2 + 1];

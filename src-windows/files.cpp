@@ -93,4 +93,10 @@ bool OS_ChangeDirectory(const char* path)
 	return SetCurrentDirectory(path) != 0;
 }
 
+bool OS_RemountBootMedia()
+{
+	// Directory contents are not bound to a mounted volume on this platform.
+	return true;
+}
+
 #endif
