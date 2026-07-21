@@ -9,11 +9,14 @@
 
 uint8_t* mixAudioPtr = NULL;
 uint8_t* mixAudioEnd;
-int      mixAudioHz;
+int32_t  mixAudioHz;
 int      mixVolume = 256;
-int      mixCounter = 0;
+// 32-bit: the resample accumulator steps by +mixAudioHz / -sbMixFrequency, and
+// sbMixFrequency can be 44100 — a 16-bit int would overflow and stretch/garble
+// playback at high rates in the 16-bit build.
+int32_t  mixCounter = 0;
 
-void MIX_PlaySample (uint8_t* buffer, int samples, int hz, int volume)
+void MIX_PlaySample (uint8_t* buffer, int32_t samples, int32_t hz, int volume)
 {
 	_disable();
 	mixAudioHz = hz;

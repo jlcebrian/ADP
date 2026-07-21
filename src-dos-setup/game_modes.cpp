@@ -138,4 +138,35 @@ uint32_t Setup_DetectGameVideoModes()
 	return modes;
 }
 
+DDB_Language Setup_DetectGameLanguage()
+{
+	DDB_Language language = DDB_ENGLISH;
+	DIR* directory = opendir(".");
+	if (directory == 0)
+		return language;
+
+	struct dirent* entry;
+	while ((entry = readdir(directory)) != 0)
+	{
+		const char* extension = strrchr(entry->d_name, '.');
+		if (extension == 0 || stricmp(extension, ".DDB") != 0)
+			continue;
+
+		FILE* file = fopen(entry->d_name, "rb");
+		if (file == 0)
+			continue;
+		uint8_t header[2];
+		bool valid = fread(header, 1, sizeof(header), file) == sizeof(header);
+		fclose(file);
+		if (valid)
+		{
+			// Header byte 1 low nibble is the language, as DDB_ParseHeader reads it.
+			language = (DDB_Language)(header[1] & 0x0F);
+			break;
+		}
+	}
+	closedir(directory);
+	return language;
+}
+
 #endif

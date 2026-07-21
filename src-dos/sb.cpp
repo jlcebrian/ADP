@@ -15,8 +15,14 @@
 #include "mixer.h"
 
 int      sbSoundMode = 0;
-int      sbMixFrequency = 30000;
-int      sbDMABufferSize = 2048;
+// 32-bit: rates above 32767 Hz (e.g. 44100) must not truncate in the 16-bit
+// build, where plain int is 16 bits — that overflow set the wrong SB rate and
+// wrecked the mixer resample at 44 kHz.
+int32_t  sbMixFrequency = 30000;
+// Sized per sample rate in SB_Init to hold a roughly constant amount of time
+// (~185ms) so the poll-fill keeps up at every quality: ~8K at 44kHz (4K underran
+// / added noise there) down to ~2K at 11kHz (keeps latency and RAM in check).
+int      sbDMABufferSize = 4096;
 bool     sbAvailable = false;
 bool     sbStarted = false;
 
@@ -40,11 +46,19 @@ uint16_t sbCurr = 0;
 static bool sbConfigured = false;
 static bool sbAutodetect = false;
 static int sbConfiguredMode = 0;
-static int sbConfiguredFrequency = 30000;
+static int32_t sbConfiguredFrequency = 30000;
 
-void SB_Configure(uint16_t port, uint8_t irq, uint8_t dma8, uint8_t dma16)
+// Highest DSP version the driver is allowed to use, so a selected card family
+// (plain SB / Pro) drives an over-capable card through its own path/rate limit.
+// 0xFFFF = use whatever is detected (SB16). See ADPSetup_CardDSPCap.
+static uint16_t sbMaxVersion = 0xFFFF;
+
+void SB_SetMaxVersion(uint16_t maxVersion) { sbMaxVersion = maxVersion; }
+
+void SB_Configure(uint16_t port, uint8_t irq, uint8_t dma8)
 {
-	sbPort = port; sbIrq = irq; sbLoDMA = dma8; sbHiDMA = dma16;
+	// 8-bit mono output never uses the 16-bit (high) DMA channel.
+	sbPort = port; sbIrq = irq; sbLoDMA = dma8; sbHiDMA = 0xff;
 	sbConfigured = true;
 }
 
@@ -56,15 +70,14 @@ void SB_UseBlasterAutodetect(void)
 	sbConfigured = false;
 }
 
-void SB_ConfigureOutput(int mode, int frequency) { sbConfiguredMode = mode; sbConfiguredFrequency = frequency; }
+void SB_ConfigureOutput(int mode, int32_t frequency) { sbConfiguredMode = mode; sbConfiguredFrequency = frequency; }
 bool SB_IsConfigured(void) { return sbConfigured; }
 bool SB_InitializeConfigured(void) { return (sbConfigured || sbAutodetect) && SB_Init(sbConfiguredMode, sbConfiguredFrequency); }
-void SB_GetConfiguration(uint16_t* port, uint8_t* irq, uint8_t* dma8, uint8_t* dma16)
+void SB_GetConfiguration(uint16_t* port, uint8_t* irq, uint8_t* dma8)
 {
 	if (port) *port = sbPort;
 	if (irq) *irq = sbIrq;
 	if (dma8) *dma8 = sbLoDMA;
-	if (dma16) *dma16 = sbHiDMA;
 }
 
 uint16_t SB_GetDetectedVersion(void) { return sbVersion; }
@@ -235,7 +248,7 @@ bool SB_Detect(void)
 	return 1;
 }
 
-bool SB_Init(int mode, int freq)
+bool SB_Init(int mode, int32_t freq)
 {
 	uint32_t t;
 
@@ -250,14 +263,10 @@ bool SB_Init(int mode, int freq)
 	sbSoundMode = mode;
 	sbMixFrequency = freq;
 
-	//      printf("SB version %x\n",sbVersion);
-	//      if(sbVersion>0x200) sbVersion=0x200;
-
-	if (sbVersion >= 0x400 && sbHiDMA == 0xff)
-	{
-		// High-dma setting in 'BLASTER' variable is required for SB-16
-		return 0;
-	}
+	// Cap the detected version to the selected card family: a plain-SB or Pro
+	// choice drives an SB16 through the older path (and its lower rate ceiling).
+	if (sbVersion > sbMaxVersion)
+		sbVersion = sbMaxVersion;
 
 	if (sbVersion < 0x400 && sbSoundMode & MODE_16BITS)
 	{
@@ -296,6 +305,16 @@ bool SB_Init(int mode, int freq)
 		sbMixFrequency = 1000000L / (256 - sbTimeConstant);
 		if (sbSoundMode & MODE_STEREO)
 				sbMixFrequency >>= 1;
+	}
+
+	// ~185ms of buffer at the final rate (3/16s), rounded to 512 bytes:
+	// 8192@44kHz, 5632@30kHz, 4096@22kHz, 2048@11kHz. Clamped for safety
+	// (DMA_AllocMem over-allocates 2x and the buffer must fit one 64K page).
+	{
+		int32_t want = (sbMixFrequency * 3 / 16 + 256) & ~511;
+		if (want < 2048)  want = 2048;
+		if (want > 16384) want = 16384;
+		sbDMABufferSize = (int)want;
 	}
 
 	sbDMABuffer = (uint8_t *)DMA_AllocMem(sbDMABufferSize);

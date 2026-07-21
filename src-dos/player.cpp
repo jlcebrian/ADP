@@ -152,10 +152,11 @@ extern "C" int main (int argc, char**argv)
 	{
 		if (!modeInCommandLine)
 			DDB_SetStartupScreenModeOverride(setup.videoMode);
-		if (setup.soundEnabled)
+		if (setup.card != SoundCard_None)
 		{
-			SB_Configure(setup.sbPort, setup.sbIrq, setup.sbDMA8, setup.sbDMA16);
-			SB_ConfigureOutput(setup.soundMode, setup.sampleRate);
+			SB_SetMaxVersion(ADPSetup_CardDSPCap(setup.card));
+			SB_Configure(setup.sbPort, setup.sbIrq, setup.sbDMA);
+			SB_ConfigureOutput(0, setup.sampleRate);   // 8-bit mono
 		}
 		else SB_Disable();
 	}

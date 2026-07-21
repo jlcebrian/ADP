@@ -604,8 +604,12 @@ def run_dos_scenario(dosbox: str, test_exe: Path, scenario_path: Path, record: b
     player = "ADP.EXE -i IN.TXT -o OUT.TXT"
     if part is not None:
         player += f" -p {int(part)}"
+    # Use the headless config ("quit warning = false") so DOSBox-X does not pop
+    # an exit-confirmation dialog on the host desktop on every run.
+    headless_conf = ROOT / "scripts" / "dosbox-headless.conf"
+    conf = str(headless_conf) if headless_conf.is_file() else os.devnull
     command = [
-        dosbox, "-conf", os.devnull,
+        dosbox, "-conf", conf,
         "-c", f"mount c {result_dir}", "-c", "c:",
         "-c", player, "-c", "exit",
     ]

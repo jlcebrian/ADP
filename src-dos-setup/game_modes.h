@@ -12,4 +12,8 @@
 
 uint32_t Setup_DetectGameVideoModes();
 
+// Language of the game in the current directory, read from the first .DDB's
+// header (byte 1 low nibble, as the interpreter does). Defaults to English.
+DDB_Language Setup_DetectGameLanguage();
+
 #endif

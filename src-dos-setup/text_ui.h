@@ -12,6 +12,19 @@ enum UIKey
 	UIKey_Escape
 };
 
+// Localizable UI chrome. Defaults to English; SETUP overrides it from the
+// strings table once the game language is known. Yes/No are padded to a fixed
+// 7-column button width.
+struct UILabels
+{
+	const char* yes;
+	const char* no;
+	const char* menuHelp;    // footer shown under menus
+	const char* messageHelp; // footer shown under message boxes
+};
+
+void UI_SetLabels(const UILabels* labels);
+
 void UI_Initialize();
 void UI_Shutdown();
 void UI_Clear();

@@ -6,16 +6,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Bump when the on-disk layout changes so an older ADPSETUP.CFG is treated as
+// absent (the player then asks the user to re-run SETUP). v2 replaced the
+// SOUND/SBDMA16/MODE keys with a single CARD key.
+#define ADP_SETUP_CONFIG_VERSION 2
+
 void ADPSetup_Default(ADPSetupConfig* config)
 {
 	config->videoMode = ScreenMode_VGA16;
-	config->soundEnabled = false;
+	config->card = SoundCard_None;
 	config->sbPort = 0x220;
 	config->sbIrq = 5;
-	config->sbDMA8 = 1;
-	config->sbDMA16 = 5;
+	config->sbDMA = 1;
 	config->sampleRate = 22050;
-	config->soundMode = 0;
 }
 
 const char* ADPSetup_VideoName(DDB_ScreenMode mode)
@@ -31,6 +34,60 @@ const char* ADPSetup_VideoName(DDB_ScreenMode mode)
 	}
 }
 
+const char* ADPSetup_CardName(ADPSoundCard card)
+{
+	switch (card)
+	{
+		case SoundCard_None:  return "None";
+		case SoundCard_SB:    return "Sound Blaster";
+		case SoundCard_SBPro: return "Sound Blaster Pro";
+		case SoundCard_SB16:  return "Sound Blaster 16";
+		default:              return "Unknown";
+	}
+}
+
+uint16_t ADPSetup_CardMaxRate(ADPSoundCard card)
+{
+	switch (card)
+	{
+		case SoundCard_SB:    return 22050;   // classic single-cycle / 2.0 auto-init
+		case SoundCard_SBPro: return 44100;
+		case SoundCard_SB16:  return 44100;
+		default:              return 0;
+	}
+}
+
+uint16_t ADPSetup_CardDSPCap(ADPSoundCard card)
+{
+	switch (card)
+	{
+		case SoundCard_SB:    return 0x0200;  // <=2.0: single-cycle / auto-init 8-bit
+		case SoundCard_SBPro: return 0x03FF;  // high-speed 8-bit
+		case SoundCard_SB16:  return 0xFFFF;  // native rate command
+		default:              return 0xFFFF;
+	}
+}
+
+// Written to / parsed from the CARD key.
+static const char* CardToken(ADPSoundCard card)
+{
+	switch (card)
+	{
+		case SoundCard_SB:    return "SB";
+		case SoundCard_SBPro: return "SBPRO";
+		case SoundCard_SB16:  return "SB16";
+		default:              return "NONE";
+	}
+}
+
+static ADPSoundCard CardFromToken(const char* value)
+{
+	if (strcmp(value, "SB") == 0)    return SoundCard_SB;
+	if (strcmp(value, "SBPRO") == 0) return SoundCard_SBPro;
+	if (strcmp(value, "SB16") == 0)  return SoundCard_SB16;
+	return SoundCard_None;
+}
+
 bool ADPSetup_IsValid(const ADPSetupConfig* config)
 {
 	if (config->videoMode != ScreenMode_CGA &&
@@ -40,25 +97,30 @@ bool ADPSetup_IsValid(const ADPSetupConfig* config)
 		config->videoMode != ScreenMode_SHiRes)
 		return false;
 
-	if (!config->soundEnabled)
+	if (config->card == SoundCard_None)
 		return true;
 
+	if (config->card != SoundCard_SB &&
+		config->card != SoundCard_SBPro &&
+		config->card != SoundCard_SB16)
+		return false;
+
+	// SB-family resources.
 	if (config->sbPort < 0x200 || config->sbPort > 0x280)
 		return false;
 	if (config->sbIrq < 2 || config->sbIrq > 15)
 		return false;
-	if (config->sbDMA8 > 3)
+	if (config->sbDMA > 3)
 		return false;
-	if (config->sbDMA16 < 4 || config->sbDMA16 > 7)
-		return false;
+
 	if (config->sampleRate != 11025 &&
 		config->sampleRate != 22050 &&
 		config->sampleRate != 30000 &&
 		config->sampleRate != 44100)
 		return false;
-	// The DOS mixer only produces 8-bit mono output, so no other
-	// playback mode is accepted here.
-	return config->soundMode == 0;
+	if (config->sampleRate > ADPSetup_CardMaxRate(config->card))
+		return false;
+	return true;
 }
 
 static void TrimLine(char* text)
@@ -90,20 +152,16 @@ static void ApplyEntry(ADPSetupConfig* config, const char* key,
 		else
 			config->videoMode = ScreenMode_Default;
 	}
-	else if (strcmp(key, "SOUND") == 0)
-		config->soundEnabled = atoi(value) != 0;
+	else if (strcmp(key, "CARD") == 0)
+		config->card = CardFromToken(value);
 	else if (strcmp(key, "SBPORT") == 0)
 		config->sbPort = (uint16_t)strtol(value, 0, 16);
 	else if (strcmp(key, "SBIRQ") == 0)
 		config->sbIrq = (uint8_t)atoi(value);
-	else if (strcmp(key, "SBDMA8") == 0)
-		config->sbDMA8 = (uint8_t)atoi(value);
-	else if (strcmp(key, "SBDMA16") == 0)
-		config->sbDMA16 = (uint8_t)atoi(value);
+	else if (strcmp(key, "SBDMA") == 0)
+		config->sbDMA = (uint8_t)atoi(value);
 	else if (strcmp(key, "RATE") == 0)
 		config->sampleRate = (uint16_t)atoi(value);
-	else if (strcmp(key, "MODE") == 0)
-		config->soundMode = (uint8_t)atoi(value);
 }
 
 bool ADPSetup_Load(const char* fileName, ADPSetupConfig* config)
@@ -125,7 +183,7 @@ bool ADPSetup_Load(const char* fileName, ADPSetupConfig* config)
 		ApplyEntry(config, line, equals, &version);
 	}
 	fclose(file);
-	return version == 1 && ADPSetup_IsValid(config);
+	return version == ADP_SETUP_CONFIG_VERSION && ADPSetup_IsValid(config);
 }
 
 bool ADPSetup_Save(const char* fileName, const ADPSetupConfig* config)
@@ -138,23 +196,25 @@ bool ADPSetup_Save(const char* fileName, const ADPSetupConfig* config)
 		return false;
 
 	fprintf(file,
-		"VERSION=1\n"
+		"VERSION=%d\n"
 		"VIDEO=%s\n"
-		"SOUND=%d\n"
-		"SBPORT=%X\n"
-		"SBIRQ=%u\n"
-		"SBDMA8=%u\n"
-		"SBDMA16=%u\n"
-		"RATE=%u\n"
-		"MODE=%u\n",
+		"CARD=%s\n",
+		ADP_SETUP_CONFIG_VERSION,
 		ADPSetup_VideoName(config->videoMode),
-		config->soundEnabled ? 1 : 0,
-		config->sbPort,
-		config->sbIrq,
-		config->sbDMA8,
-		config->sbDMA16,
-		config->sampleRate,
-		config->soundMode);
+		CardToken(config->card));
+
+	if (config->card != SoundCard_None)
+	{
+		fprintf(file,
+			"SBPORT=%X\n"
+			"SBIRQ=%u\n"
+			"SBDMA=%u\n"
+			"RATE=%u\n",
+			config->sbPort,
+			config->sbIrq,
+			config->sbDMA,
+			config->sampleRate);
+	}
 	return fclose(file) == 0;
 }
 

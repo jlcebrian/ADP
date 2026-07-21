@@ -19,6 +19,20 @@ static const uint8_t ColorSelection = 1;
 static const uint8_t ColorShadow = 0;
 static uint8_t currentAttribute = 0x07;
 
+static UILabels uiLabels =
+{
+	"  Yes  ",
+	"  No   ",
+	"Arrow keys move   ENTER selects   ESC returns",
+	"Press ENTER or ESC"
+};
+
+void UI_SetLabels(const UILabels* labels)
+{
+	if (labels != 0)
+		uiLabels = *labels;
+}
+
 static uint16_t far* TextCell(int row, int column)
 {
 	return (uint16_t far*)MK_FP(0xB800,
@@ -179,7 +193,7 @@ void UI_DrawTitle(const char* title, const char* subtitle)
 	SetColors(ColorText, ColorBackground);
 	WriteAt(4, (ScreenColumns - strlen(subtitle)) / 2 + 1, subtitle);
 	SetColors(7, ColorBackground);
-	WriteAt(ScreenRows, 2, "Arrow keys move   ENTER selects   ESC returns");
+	WriteAt(ScreenRows, 2, uiLabels.menuHelp);
 }
 
 UIKey UI_ReadKey()
@@ -218,7 +232,7 @@ void UI_ShowMessageBox(const char* title, const char* message)
 	SetColors(ColorText, ColorBox);
 	WriteLines(top + 2, left + 3, message);
 	SetColors(ColorTitle, ColorBox);
-	WriteAt(top + height - 2, left + (width - 18) / 2, "Press ENTER or ESC");
+	WriteAt(top + height - 2, left + (width - (int)strlen(uiLabels.messageHelp)) / 2, uiLabels.messageHelp);
 
 	while (true)
 	{
@@ -249,10 +263,10 @@ bool UI_Confirm(const char* title, const char* message, bool defaultYes)
 	{
 		SetColors(ColorText,
 			selected == 0 ? ColorSelection : ColorBox);
-		WriteAt(top + height - 2, left + width / 2 - 8, "  Yes  ");
+		WriteAt(top + height - 2, left + width / 2 - 8, uiLabels.yes);
 		SetColors(ColorText,
 			selected == 1 ? ColorSelection : ColorBox);
-		WriteAt(top + height - 2, left + width / 2 + 2, "  No   ");
+		WriteAt(top + height - 2, left + width / 2 + 2, uiLabels.no);
 
 		switch (UI_ReadKey())
 		{

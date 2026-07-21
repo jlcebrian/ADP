@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-extern void MIX_PlaySample (uint8_t* buffer, int samples, int hz, int volume);
+extern void MIX_PlaySample (uint8_t* buffer, int32_t samples, int32_t hz, int volume);
 extern bool MIX_IsPlaying(void);
 extern void MIX_Stop(void);
 extern void MIX_StopSampleIfOverlaps(const void* buffer, uint32_t size);

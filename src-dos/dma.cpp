@@ -155,18 +155,24 @@ static DMA_ENTRY mydma[MAX_DMA] = {
 static uint16_t dma_selector;
 
 /*
-	Allocates a dma buffer of 'size' bytes.
-	this watcom dma memory allocation doesn't check if it's
-	page-continuous, and can only be used to allocate exactly 1 block
+	Allocates a DMA buffer of 'size' bytes that never crosses a 64K physical
+	page boundary (an 8-bit DMA channel wraps its address within the page, so a
+	straddling buffer would replay stale data — heard as phasing/distortion, and
+	DMA_Start refuses to program it at all). We over-allocate 2x and, if the
+	natural start would straddle a page, advance the base to the next 64K
+	boundary (which is paragraph-aligned), leaving at least 'size' bytes in the
+	fresh page. Valid for size <= 32K. dma_selector keeps the original block for
+	DMA_FreeMem.
 
 	returns NULL if failed.
 */
 void *DMA_AllocMem(uint16_t size)
 {
+	uint32_t paras = ((uint32_t)size * 2 + 15) >> 4;   /* over-allocate 2x */
 #if defined(__386__)
 	static union REGS r;
 	r.x.eax = 0x0100;			/* DPMI allocate DOS memory */
-	r.x.ebx = (size + 15) >> 4; /* Number of paragraphs requested */
+	r.x.ebx = paras;
 
 	int386(0x31, &r, &r);
 
@@ -175,14 +181,21 @@ void *DMA_AllocMem(uint16_t size)
 
 	dma_selector = r.x.edx;
 
-	return (void *)((r.x.eax & 0xFFFF) << 4);
+	uint32_t phys = (uint32_t)(r.x.eax & 0xFFFF) << 4;
+	if (((phys + size - 1) >> 16) != (phys >> 16))
+		phys = (phys + 0x10000UL) & 0xFFFF0000UL;
+	return (void *)phys;
 #else
 	unsigned seg;
 
-	if (_dos_allocmem((size + 15) >> 4, &seg) != 0)
+	if (_dos_allocmem((uint16_t)paras, &seg) != 0)
 		return NULL;
 
 	dma_selector = (uint16_t)seg;
+
+	uint32_t phys = (uint32_t)seg << 4;
+	if (((phys + size - 1) >> 16) != (phys >> 16))
+		seg = (unsigned)(((phys + 0x10000UL) & 0xFFFF0000UL) >> 4);
 	return MK_FP(seg, 0);
 #endif
 }

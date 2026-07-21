@@ -146,7 +146,7 @@ OBJS = 		      &
 OBJS += ddb_test.obj
 !endif
 
-SETUP_OBJS = setup.obj text_ui.obj game_modes.obj setup_config.obj sb.obj dma.obj mixer.obj ddb_data.obj
+SETUP_OBJS = setup.obj text_ui.obj setup_strings.obj setup_sample.obj game_modes.obj setup_config.obj sb.obj dma.obj mixer.obj ddb_data.obj
 
 Debug : all .SYMBOLIC
 Release : all .SYMBOLIC

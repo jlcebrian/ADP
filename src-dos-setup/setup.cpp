@@ -2,6 +2,8 @@
 
 #include "game_modes.h"
 #include "text_ui.h"
+#include "setup_strings.h"
+#include "setup_sample.h"
 
 #include "mixer.h"
 #include "sb.h"
@@ -106,17 +108,30 @@ static uint32_t VideoModeFlag(DDB_ScreenMode mode)
 
 static void FormatStatus(char* status, const ADPSetupConfig& config)
 {
-	if (config.soundEnabled)
+	if (config.card != SoundCard_None)
 	{
-		sprintf(status, "Video: %s     Sound Blaster: %Xh, IRQ %u, DMA %u",
-			ADPSetup_VideoName(config.videoMode), config.sbPort,
-			config.sbIrq, config.sbDMA8);
+		sprintf(status, SetupText(STR_STATUS_SOUND),
+			ADPSetup_VideoName(config.videoMode),
+			ADPSetup_CardName(config.card),
+			(unsigned)(config.sampleRate / 1000));
 	}
 	else
 	{
-		sprintf(status, "Video: %s     Sound: disabled",
+		sprintf(status, SetupText(STR_STATUS_NOSOUND),
 			ADPSetup_VideoName(config.videoMode));
 	}
+}
+
+// Map a detected SB DSP version to the closest card family (0/0xFFFF = none).
+static ADPSoundCard CardFromDSPVersion(uint16_t version)
+{
+	if (version == 0 || version == 0xFFFF)
+		return SoundCard_None;
+	if (version >= 0x400)
+		return SoundCard_SB16;
+	if (version >= 0x300)
+		return SoundCard_SBPro;
+	return SoundCard_SB;
 }
 
 static DDB_ScreenMode DetectVideoHardware(uint32_t gameModes)
@@ -144,31 +159,30 @@ static void ConfigureVideo(ADPSetupConfig& config, uint32_t gameModes)
 	int itemCount = 0;
 	int selected = 0;
 
-	menuItems[itemCount] = "Autodetect compatible adapter";
+	menuItems[itemCount] = SetupText(STR_VIDEO_AUTODETECT);
 	menuModes[itemCount++] = ScreenMode_Default;
 
 	static const DDB_ScreenMode modes[] = {
 		ScreenMode_CGA, ScreenMode_EGA, ScreenMode_VGA16,
 		ScreenMode_VGA, ScreenMode_SHiRes
 	};
-	static const char* names[] = {
-		"CGA - 4 colours", "EGA - 16 colours",
-		"VGA16 - 16-colour game data", "VGA - 320x200, 256 colours",
-		"SVGA - 640x400, 256 colours"
+	static const SetupStringId names[] = {
+		STR_VIDEO_CGA, STR_VIDEO_EGA, STR_VIDEO_VGA16,
+		STR_VIDEO_VGA, STR_VIDEO_SVGA
 	};
 
 	for (int index = 0; index < 5; index++)
 	{
 		if ((gameModes & VideoModeFlag(modes[index])) == 0)
 			continue;
-		menuItems[itemCount] = names[index];
+		menuItems[itemCount] = SetupText(names[index]);
 		menuModes[itemCount] = modes[index];
 		if (config.videoMode == modes[index])
 			selected = itemCount;
 		itemCount++;
 	}
 
-	int choice = UI_SelectMenu("Video mode", menuItems, itemCount, selected);
+	int choice = UI_SelectMenu(SetupText(STR_VIDEO_TITLE), menuItems, itemCount, selected);
 	if (choice < 0)
 		return;
 
@@ -178,22 +192,20 @@ static void ConfigureVideo(ADPSetupConfig& config, uint32_t gameModes)
 		return;
 	}
 
-	if (!UI_Confirm("Video detection",
-		"The BIOS hardware check may be unreliable on some old systems.\nRun autodetection now?"))
+	if (!UI_Confirm(SetupText(STR_VIDEO_DETECT_TITLE), SetupText(STR_VIDEO_DETECT_CONFIRM)))
 		return;
 
 	DDB_ScreenMode detected = DetectVideoHardware(gameModes);
 	if (detected == ScreenMode_Default)
 	{
-		UI_ShowMessageBox("Video detection",
-			"No compatible adapter was detected for this game's data files.");
+		UI_ShowMessageBox(SetupText(STR_VIDEO_DETECT_TITLE), SetupText(STR_VIDEO_DETECT_NONE));
 		return;
 	}
 
 	config.videoMode = detected;
 	char message[64];
-	sprintf(message, "Selected %s for this game.", ADPSetup_VideoName(detected));
-	UI_ShowMessageBox("Video detection", message);
+	sprintf(message, SetupText(STR_VIDEO_DETECT_OK), ADPSetup_VideoName(detected));
+	UI_ShowMessageBox(SetupText(STR_VIDEO_DETECT_TITLE), message);
 }
 
 static const uint16_t kSampleRates[] = { 11025, 22050, 30000, 44100 };
@@ -210,24 +222,33 @@ static uint16_t BestSampleRate(uint16_t dspVersion)
 
 static void ConfigureSoundQuality(ADPSetupConfig& config)
 {
-	static const char* options[] = { "11 kHz", "22 kHz", "30 kHz", "44 kHz" };
+	static const char* labels[] = { "11 kHz", "22 kHz", "30 kHz", "44 kHz" };
 
-	int selected = 1;
+	// Only offer rates the selected card can sustain (a plain SB tops at 22 kHz).
+	uint16_t maxRate = ADPSetup_CardMaxRate(config.card);
+	const char* options[4];
+	uint16_t    rates[4];
+	int count = 0, selected = 0;
 	for (int index = 0; index < kSampleRateCount; index++)
 	{
+		if (kSampleRates[index] > maxRate)
+			continue;
+		options[count] = labels[index];
+		rates[count] = kSampleRates[index];
 		if (config.sampleRate == kSampleRates[index])
-		{
-			selected = index;
-			break;
-		}
+			selected = count;
+		count++;
 	}
+	if (count == 0)
+		return;
 
-	int choice = UI_SelectMenu("Playback quality", options, kSampleRateCount, selected);
+	int choice = UI_SelectMenu(SetupText(STR_QUALITY_TITLE), options, count, selected);
 	if (choice < 0)
 		return;
 
-	config.sampleRate = kSampleRates[choice];
-	config.soundMode = 0;
+	config.sampleRate = rates[choice];
+	if (config.sampleRate > maxRate)
+		config.sampleRate = maxRate;
 }
 
 static int SelectResource(const char* title, const char* const* options,
@@ -237,117 +258,110 @@ static int SelectResource(const char* title, const char* const* options,
 	return choice < 0 ? selected : choice;
 }
 
-static void ConfigureManualSound(ADPSetupConfig& config)
+// SB-family resources (base port / IRQ / 8-bit DMA) then the rate. 8-bit mono
+// output never touches the 16-bit DMA channel, so it is not asked for.
+static void ConfigureCardResources(ADPSetupConfig& config)
 {
 	const char* ports[] = { "220h", "240h", "260h", "280h" };
 	const char* irqs[] = { "IRQ 5", "IRQ 7", "IRQ 10" };
 	const char* dma8[] = { "DMA 1", "DMA 3" };
-	const char* dma16[] = { "DMA 5", "DMA 6", "DMA 7" };
 
 	int port = (config.sbPort - 0x220) / 0x20;
 	if (port < 0 || port > 3)
 		port = 0;
-	port = SelectResource("Sound Blaster base port", ports, 4, port);
+	port = SelectResource(SetupText(STR_SB_PORT), ports, 4, port);
 
 	int irq = config.sbIrq == 7 ? 1 : config.sbIrq == 10 ? 2 : 0;
-	irq = SelectResource("Sound Blaster IRQ", irqs, 3, irq);
+	irq = SelectResource(SetupText(STR_SB_IRQ), irqs, 3, irq);
 
-	int lowDMA = config.sbDMA8 == 3 ? 1 : 0;
-	lowDMA = SelectResource("8-bit DMA channel", dma8, 2, lowDMA);
+	int lowDMA = config.sbDMA == 3 ? 1 : 0;
+	lowDMA = SelectResource(SetupText(STR_SB_DMA8), dma8, 2, lowDMA);
 
-	int highDMA = config.sbDMA16 == 6 ? 1 : config.sbDMA16 == 7 ? 2 : 0;
-	highDMA = SelectResource("16-bit DMA channel", dma16, 3, highDMA);
-
-	config.soundEnabled = true;
 	config.sbPort = (uint16_t)(0x220 + port * 0x20);
 	config.sbIrq = irq == 1 ? 7 : irq == 2 ? 10 : 5;
-	config.sbDMA8 = lowDMA == 1 ? 3 : 1;
-	config.sbDMA16 = highDMA == 1 ? 6 : highDMA == 2 ? 7 : 5;
+	config.sbDMA = lowDMA == 1 ? 3 : 1;
 	ConfigureSoundQuality(config);
 }
 
-static void DetectSoundBlaster(ADPSetupConfig& config)
+// Probe the Sound Blaster (BLASTER resources + DSP version) and set the card
+// family and resources from what responded.
+static void AutodetectCard(ADPSetupConfig& config)
 {
-	if (!UI_Confirm("Sound Blaster detection",
-		"SETUP will test the resources in the BLASTER variable.\nRun the hardware test now?"))
+	if (!UI_Confirm(SetupText(STR_SB_DETECT_TITLE), SetupText(STR_SB_DETECT_CONFIRM)))
 		return;
 
 	SB_Disable();
-	if (!SB_Init(config.soundMode, config.sampleRate))
+	SB_SetMaxVersion(0xFFFF);          // detect the real card, uncapped
+	if (!SB_Init(0, kSampleRates[1]))
 	{
-		UI_ShowMessageBox("Sound Blaster detection",
-			"No Sound Blaster responded at the configured resources.");
+		UI_ShowMessageBox(SetupText(STR_SB_DETECT_TITLE), SetupText(STR_SB_DETECT_NONE));
 		return;
 	}
 
-	config.soundEnabled = true;
-	SB_GetConfiguration(&config.sbPort, &config.sbIrq,
-		&config.sbDMA8, &config.sbDMA16);
+	config.card = CardFromDSPVersion(SB_GetDetectedVersion());
+	SB_GetConfiguration(&config.sbPort, &config.sbIrq, &config.sbDMA);
 	SB_Exit();
-	ConfigureSoundQuality(config);
-	UI_ShowMessageBox("Sound Blaster detection",
-		"Sound Blaster resources were detected and copied to the setup file.");
+
+	uint16_t maxRate = ADPSetup_CardMaxRate(config.card);
+	config.sampleRate = BestSampleRate(SB_GetDetectedVersion());
+	if (config.sampleRate > maxRate)
+		config.sampleRate = maxRate;
+
+	char message[64];
+	sprintf(message, SetupText(STR_CARD_DETECTED), ADPSetup_CardName(config.card));
+	UI_ShowMessageBox(SetupText(STR_SB_DETECT_TITLE), message);
 }
 
 static void ConfigureSound(ADPSetupConfig& config)
 {
 	const char* options[] = {
-		"Disabled",
-		"Detect resources from BLASTER",
-		"Configure resources manually",
-		"Change playback quality"
+		SetupText(STR_CARD_NONE),
+		ADPSetup_CardName(SoundCard_SB),
+		ADPSetup_CardName(SoundCard_SBPro),
+		ADPSetup_CardName(SoundCard_SB16),
+		SetupText(STR_CARD_AUTODETECT)
 	};
-	int selected = config.soundEnabled ? 2 : 0;
-	int choice = UI_SelectMenu("Sound setup", options, 4, selected);
+	// Menu order maps to the enum: index 0 = None, 1 = SB, 2 = Pro, 3 = SB16.
+	int selected = (config.card >= SoundCard_None && config.card <= SoundCard_SB16)
+		? (int)config.card : 0;
+	int choice = UI_SelectMenu(SetupText(STR_CARD_TITLE), options, 5, selected);
 
 	switch (choice)
 	{
-		case 0:
-			config.soundEnabled = false;
-			break;
-		case 1:
-			DetectSoundBlaster(config);
-			break;
-		case 2:
-			ConfigureManualSound(config);
-			break;
-		case 3:
-			if (config.soundEnabled)
-				ConfigureSoundQuality(config);
-			else
-				UI_ShowMessageBox("Playback quality", "Enable Sound Blaster sound first.");
-			break;
+		case 0: config.card = SoundCard_None; break;
+		case 1: config.card = SoundCard_SB;    ConfigureCardResources(config); break;
+		case 2: config.card = SoundCard_SBPro; ConfigureCardResources(config); break;
+		case 3: config.card = SoundCard_SB16;  ConfigureCardResources(config); break;
+		case 4: AutodetectCard(config); break;
 	}
 }
 
 static void TestSound(const ADPSetupConfig& config)
 {
-	if (!config.soundEnabled)
+	if (config.card == SoundCard_None)
 	{
-		UI_ShowMessageBox("Sound test", "Sound Blaster output is disabled.");
+		UI_ShowMessageBox(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_DISABLED));
 		return;
 	}
 
-	UI_ShowMessageBox("Sound test",
-		"SETUP will play an ADP sound effect.\nPress ENTER to begin.");
-	SB_Configure(config.sbPort, config.sbIrq, config.sbDMA8, config.sbDMA16);
-	SB_ConfigureOutput(config.soundMode, config.sampleRate);
+	UI_ShowMessageBox(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_BEGIN));
+	SB_SetMaxVersion(ADPSetup_CardDSPCap(config.card));
+	SB_Configure(config.sbPort, config.sbIrq, config.sbDMA);
+	SB_ConfigureOutput(0, config.sampleRate);   // 8-bit mono
 	if (!SB_InitializeConfigured())
 	{
-		UI_ShowMessageBox("Sound test",
-			"The Sound Blaster did not respond at the selected resources.");
+		UI_ShowMessageBox(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_NORESPONSE));
 		return;
 	}
 
 	if (!SB_Start())
 	{
 		SB_Exit();
-		UI_ShowMessageBox("Sound test",
-			"The DMA channel could not be started with these settings.");
+		UI_ShowMessageBox(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_DMAFAIL));
 		return;
 	}
 
-	MIX_PlaySample(beepSample, beepSampleSize, 11025, 192);
+	MIX_PlaySample((uint8_t*)setupSample, (int32_t)setupSampleSize, SETUP_SAMPLE_RATE, 192);
 	// Any keypress aborts the wait, and a timeout protects against a
 	// misconfiguration leaving the transfer stalled forever.
 	int timeout = 10000;
@@ -365,72 +379,60 @@ static void TestSound(const ADPSetupConfig& config)
 	SB_Stop();
 	SB_Exit();
 
-	if (!UI_Confirm("Sound test", "Did you hear the sound effect?"))
-		UI_ShowMessageBox("Sound test",
-			"Check that the resources match your hardware\nand run the test again.");
+	if (!UI_Confirm(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_HEARD)))
+		UI_ShowMessageBox(SetupText(STR_TEST_TITLE), SetupText(STR_TEST_RETRY));
 }
 
 // Non-interactive Sound Blaster probe for the first-run wizard: reads the
-// BLASTER resources, pings the card and picks the best rate for its DSP. The
-// caller warns the user first (this can hang on a machine without a card).
+// BLASTER resources, pings the card, sets the card family and picks the best
+// rate for it. The caller warns the user first (can hang without a card).
 static bool AutodetectSound(ADPSetupConfig& config)
 {
 	SB_Disable();
+	SB_SetMaxVersion(0xFFFF);
 	if (!SB_Init(0, kSampleRates[1]))
 	{
-		config.soundEnabled = false;
+		config.card = SoundCard_None;
 		return false;
 	}
-	config.soundEnabled = true;
-	config.soundMode = 0;
-	SB_GetConfiguration(&config.sbPort, &config.sbIrq, &config.sbDMA8, &config.sbDMA16);
+	config.card = CardFromDSPVersion(SB_GetDetectedVersion());
+	SB_GetConfiguration(&config.sbPort, &config.sbIrq, &config.sbDMA);
 	config.sampleRate = BestSampleRate(SB_GetDetectedVersion());
+	uint16_t maxRate = ADPSetup_CardMaxRate(config.card);
+	if (config.sampleRate > maxRate)
+		config.sampleRate = maxRate;
 	SB_Exit();
-	return true;
+	return config.card != SoundCard_None;
 }
 
 // On the very first run (no ADPSETUP.CFG yet) offer to detect the hardware and
-// save a working configuration up front, so a player who just opens and closes
-// SETUP still gets the best video mode and sound instead of the bare defaults.
-// The confirmation comes first: the VESA and Sound Blaster probes can hang on a
-// few old systems, so a cautious user can decline and configure by hand.
+// pre-fill the best video mode and sound card, so a player only has to confirm.
+// It does NOT save on its own: the detected values populate the config and the
+// user still chooses "Save settings and exit" (or discards). The confirmation
+// comes first: the VESA/SB probes can hang on a few old systems, so a cautious
+// user can decline and configure by hand.
 static void RunFirstTimeSetup(ADPSetupConfig& config, uint32_t gameModes)
 {
-	if (!UI_Confirm("Welcome to ADP SETUP",
-		"This looks like the first time you run SETUP.\n\n"
-		"SETUP can detect your graphics adapter and Sound Blaster and\n"
-		"save the best configuration automatically. The hardware probe\n"
-		"may hang on a few old systems; choose No to set things up by hand.\n\n"
-		"Detect the hardware now?", true))
+	if (!UI_Confirm(SetupText(STR_WIZ_TITLE), SetupText(STR_WIZ_INTRO), true))
 		return;
 
 	DDB_ScreenMode detected = DetectVideoHardware(gameModes);
 	if (detected != ScreenMode_Default)
 		config.videoMode = detected;
 
-	bool sound = AutodetectSound(config);
+	AutodetectSound(config);
 
-	char rate[16];
-	rate[0] = 0;
-	if (sound)
-		sprintf(rate, "%u kHz", (unsigned)(config.sampleRate / 1000));
+	char sound[48];
+	if (config.card != SoundCard_None)
+		sprintf(sound, "%s, %u kHz", ADPSetup_CardName(config.card),
+			(unsigned)(config.sampleRate / 1000));
+	else
+		strcpy(sound, SetupText(STR_WIZ_NOSB));
 
-	if (!ADPSetup_Save(ADP_SETUP_CONFIG_FILE, &config))
-	{
-		UI_ShowMessageBox("Save error", "ADPSETUP.CFG could not be written.");
-		return;
-	}
-
-	char message[192];
-	sprintf(message,
-		"Detected configuration:\n\n"
-		"  Video: %s\n"
-		"  Sound: %s\n\n"
-		"Saved to ADPSETUP.CFG. You can start the game now, or change\n"
-		"any setting below and save again.",
-		ADPSetup_VideoName(config.videoMode),
-		sound ? rate : "no Sound Blaster found");
-	UI_ShowMessageBox("Auto-detection complete", message);
+	char message[256];
+	sprintf(message, SetupText(STR_WIZ_RESULT),
+		ADPSetup_VideoName(config.videoMode), sound);
+	UI_ShowMessageBox(SetupText(STR_WIZ_RESULT_TITLE), message);
 }
 
 int main()
@@ -442,12 +444,19 @@ int main()
 
 	uint32_t gameModes = Setup_DetectGameVideoModes();
 	uint32_t selectableModes = gameModes & SetupSupportedVideoModes;
+
+	// Pick SETUP's language from the game's DDB, like the interpreter does.
+	SetupSetLanguage(Setup_DetectGameLanguage());
+	UILabels labels = {
+		SetupText(STR_UI_YES), SetupText(STR_UI_NO),
+		SetupText(STR_UI_MENUHELP), SetupText(STR_UI_MSGHELP)
+	};
+	UI_SetLabels(&labels);
 	UI_Initialize();
 
 	if (selectableModes == 0)
 	{
-		UI_ShowMessageBox("Game data",
-			"No DOS video data files were found in this directory.\nRun SETUP.EXE from the game's directory.");
+		UI_ShowMessageBox(SetupText(STR_NODATA_TITLE), SetupText(STR_NODATA));
 		UI_Shutdown();
 		return 1;
 	}
@@ -470,11 +479,11 @@ int main()
 		RunFirstTimeSetup(config, selectableModes);
 
 	const char* mainMenu[] = {
-		"Configure video",
-		"Configure sound",
-		"Test Sound Blaster",
-		"Save settings and exit",
-		"Exit without saving"
+		SetupText(STR_MENU_VIDEO),
+		SetupText(STR_MENU_SOUND),
+		SetupText(STR_MENU_TEST),
+		SetupText(STR_MENU_SAVE),
+		SetupText(STR_MENU_EXIT)
 	};
 	int selected = 0;
 
@@ -482,8 +491,8 @@ int main()
 	{
 		char status[80];
 		FormatStatus(status, config);
-		UI_DrawTitle("ADP DOS SETUP", status);
-		int choice = UI_SelectMenu("Configuration", mainMenu, 5, selected);
+		UI_DrawTitle(SetupText(STR_TITLE), status);
+		int choice = UI_SelectMenu(SetupText(STR_MENU_HEADER), mainMenu, 5, selected);
 		if (choice >= 0)
 			selected = choice;
 
@@ -498,11 +507,11 @@ int main()
 					UI_Shutdown();
 					return 0;
 				}
-				UI_ShowMessageBox("Save error", "ADPSETUP.CFG could not be written.");
+				UI_ShowMessageBox(SetupText(STR_SAVE_ERR_TITLE), SetupText(STR_SAVE_ERR));
 				break;
 			case 4:
 			case -1:
-				if (UI_Confirm("Exit setup", "Discard changes and exit without saving?"))
+				if (UI_Confirm(SetupText(STR_EXIT_TITLE), SetupText(STR_EXIT_CONFIRM)))
 				{
 					UI_Shutdown();
 					return 0;
