@@ -132,6 +132,33 @@ static inline void SCR_WaitForKey()
 	VID_GetKey(&key, &ext, 0);
 }
 
+#if HAS_TESTMODE
+// In the non-buffered (DOS) build the SCR_* input helpers are plain macros to
+// the VID_* layer, which would bypass the scripted-input test hooks. Re-route
+// the key-input entry points through the test layer so fixture input scripts
+// drive the game exactly as they do on the buffered desktop build.
+#include <ddb_test.h>
+#undef  SCR_AnyKey
+#undef  SCR_GetKey
+static inline bool SCR_AnyKey()
+{
+	return DDB_TestIsActive() ? DDB_TestAnyKey() : VID_AnyKey();
+}
+static inline bool SCR_AnyKeyForMore(bool allowCaptures)
+{
+	return DDB_TestIsActive() ? DDB_TestAnyKeyForMore(allowCaptures) : VID_AnyKey();
+}
+static inline void SCR_GetKey(uint8_t* key, uint8_t* ext, uint8_t* mod)
+{
+	if (!DDB_TestGetKey(key, ext, mod))
+		VID_GetKey(key, ext, mod);
+}
+static inline void SCR_UseInputFile(const char* filename)
+{
+	DDB_TestLoadInput(filename);
+}
+#endif
+
 #else
 
 extern bool SCR_AnyKey           ();

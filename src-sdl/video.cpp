@@ -7,6 +7,7 @@
 #include <ddb_xmsg.h>
 #include <dmg.h>
 #include <dmg_font.h>
+#include <vid_font.h>
 #include <os_char.h>
 #include <os_file.h>
 #include <os_mem.h>
@@ -447,58 +448,31 @@ static void ApplyIBMPCTextMetrics(bool enable2X)
 		charWidth[n] = defaultCharWidth;
 }
 
-static bool LoadCharset (uint8_t* ptr, const char* filename)
+// Charset/font loading lives in the shared src-common/vid_font.cpp. The desktop
+// renderer marks the charset live after a load, and — being a 2x-capable target
+// (HAS_HIRES_FONT) — stores the high-res glyphs when a 2x mode is active.
+void VID_ActivateCharset()
 {
-	File* file = File_Open(filename, ReadOnly);
-	if (file == NULL)
-	{
-		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
-		return false;
-	}
-	if (File_GetSize(file) != 2176)
-	{
-		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		File_Close(file);
-		return false;
-	}
-	File_Seek(file, 128);
-	if (File_Read(file, ptr, 2048) != 2048)
-	{
-		DDB_SetError(DDB_ERROR_READING_FILE);
-		File_Close(file);
-		return false;
-	}
-	File_Close(file);
-	return true;
+	charsetInitialized = true;
 }
 
-static bool LoadSINTACFont(const char* filename)
+bool VID_StoreFont2X(const DMG_Font* font, const char* filename)
 {
-	DMG_Font font;
-	bool hasNative16 = DMG_IsSINTACFontV4(filename);
-	if (!DMG_ReadSINTACFont(filename, &font))
+	if (!screen2XMode)
 		return false;
 
-	if (screen2XMode && hasNative16)
+	if (DMG_IsSINTACFontV4(filename))
 	{
-		MemCopy(charset16, font.bitmap16, sizeof(font.bitmap16));
-		MemCopy(charWidth, font.width16, sizeof(font.width16));
+		MemCopy(charset16, font->bitmap16, sizeof(font->bitmap16));
+		MemCopy(charWidth, font->width16, sizeof(font->width16));
 		charset16Available = true;
 	}
 	else
 	{
-		MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
-		if (screen2XMode)
-		{
-			for (int n = 0; n < 256; n++)
-				charWidth[n] = (uint8_t)(font.width8[n] * 2);
-		}
-		else
-		{
-			MemCopy(charWidth, font.width8, sizeof(font.width8));
-		}
+		MemCopy(charset, font->bitmap8, sizeof(font->bitmap8));
+		for (int n = 0; n < 256; n++)
+			charWidth[n] = (uint8_t)(font->width8[n] * 2);
 	}
-	charsetInitialized = true;
 	return true;
 }
 
@@ -2423,14 +2397,14 @@ bool VID_LoadDataFile(const char* fileName)
 	charsetInitialized = true;
 
 	bool fontLoaded = false;
-	fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
-		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
+	fontLoaded = SCR_LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
+		SCR_LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
 
 	if (!fontLoaded &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		// Keep the default fixed-width charset restored above.
 	}

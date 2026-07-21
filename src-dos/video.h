@@ -2,6 +2,15 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <vid_font.h>
+
+#if HAS_HIRES_FONT
+// Native 16-bit (16x16) glyphs for double-resolution (SVGA/2x) text, loaded from
+// a V4 SINTAC font by VID_StoreFont2X and rendered by the VESA text path. 32
+// bytes/char = 16 rows of 2 bytes. See src-common/vid_font.cpp.
+extern uint8_t charset16[256 * 32];
+extern bool    charset16Available;
+#endif
 
 #if !defined(__386__)
 #include <dos.h>

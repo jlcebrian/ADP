@@ -37,6 +37,39 @@ void (interrupt far *oldhandler)(void);
 
 uint16_t sbLast = 0;
 uint16_t sbCurr = 0;
+static bool sbConfigured = false;
+static bool sbAutodetect = false;
+static int sbConfiguredMode = 0;
+static int sbConfiguredFrequency = 30000;
+
+void SB_Configure(uint16_t port, uint8_t irq, uint8_t dma8, uint8_t dma16)
+{
+	sbPort = port; sbIrq = irq; sbLoDMA = dma8; sbHiDMA = dma16;
+	sbConfigured = true;
+}
+
+// Take the card resources from the BLASTER environment variable instead
+// of an explicit SB_Configure call (games running without ADPSETUP.CFG)
+void SB_UseBlasterAutodetect(void)
+{
+	sbAutodetect = true;
+	sbConfigured = false;
+}
+
+void SB_ConfigureOutput(int mode, int frequency) { sbConfiguredMode = mode; sbConfiguredFrequency = frequency; }
+bool SB_IsConfigured(void) { return sbConfigured; }
+bool SB_InitializeConfigured(void) { return (sbConfigured || sbAutodetect) && SB_Init(sbConfiguredMode, sbConfiguredFrequency); }
+void SB_GetConfiguration(uint16_t* port, uint8_t* irq, uint8_t* dma8, uint8_t* dma16)
+{
+	if (port) *port = sbPort;
+	if (irq) *irq = sbIrq;
+	if (dma8) *dma8 = sbLoDMA;
+	if (dma16) *dma16 = sbHiDMA;
+}
+
+uint16_t SB_GetDetectedVersion(void) { return sbVersion; }
+
+void SB_Disable(void) { sbConfigured = false; sbAutodetect = false; sbAvailable = false; }
 
 #define SB_MIXER_ADDRESS 		(sbPort + 0x04)
 #define SB_MIXER_DATA			(sbPort + 0x05)
@@ -137,6 +170,13 @@ bool SB_Detect(void)
 {
 	char *envptr, c;
 	static char *endptr;
+
+	if (sbConfigured)
+	{
+		sbInterrupt = (sbIrq > 7) ? sbIrq + 104 : sbIrq + 8;
+		if (!SB_Ping()) return false;
+		return (sbVersion = SB_GetDSPVersion()) != 0xffff;
+	}
 
 	sbPort  = 0xffff;
 	sbIrq   = 0xff;
@@ -272,7 +312,10 @@ bool SB_Init(int mode, int freq)
 
 void SB_Exit(void)
 {
-	DMA_FreeMem(sbDMABuffer);
+	if (sbDMABuffer != NULL)
+		DMA_FreeMem(sbDMABuffer);
+	sbDMABuffer = NULL;
+	sbAvailable = false;
 }
 
 void interrupt newhandler(void)
@@ -289,9 +332,9 @@ void interrupt newhandler(void)
 	else
 		inp(SB_DSP_DATA_AVAIL);
 
-	outp(0x20, 0x20);
 	if (sbIrq > 7)
 		outp(0xa0, 0x20);
+	outp(0x20, 0x20);
 }
 
 void SB_Update(void)
@@ -319,10 +362,12 @@ void SB_Update(void)
 	}
 }
 
-void SB_Start(void)
+bool SB_Start(void)
 {
 	if (!sbAvailable || sbStarted)
-		return;
+		return sbStarted;
+	sbLast = 0;
+	sbCurr = 0;
 
 	_disable();
 
@@ -367,7 +412,12 @@ void SB_Start(void)
 
 	if (!DMA_Start(sbDMA, sbDMABuffer, sbDMABufferSize, INDEF_WRITE))
 	{
-		return;
+		_disable();
+		_dos_setvect(sbInterrupt, oldhandler);
+		outp(0x21, sbPic1MSK);
+		outp(0xa1, sbPic2MSK);
+		_enable();
+		return false;
 	}
 
 	if (sbVersion < 0x400)
@@ -421,23 +471,27 @@ void SB_Start(void)
 	}
 
 	sbStarted = true;
+	return true;
 }
 
 void SB_Stop(void)
 {
 	if (sbAvailable && sbStarted)
 	{
-		SB_SpeakerOff();
-		SB_ResetDSP();
-		SB_ResetDSP();
-		DMA_Stop(sbDMA);
-
 		_disable();
+		if (sbIrq > 7)
+			outp(0xa1, inp(0xa1) | (1 << (sbIrq - 8)));
+		else
+			outp(0x21, inp(0x21) | (1 << sbIrq));
+		DMA_Stop(sbDMA);
 		_dos_setvect(sbInterrupt, oldhandler);
 		outp(0x21, sbPic1MSK);
 		outp(0xa1, sbPic2MSK);
 		_enable();
 
+		SB_SpeakerOff();
+		SB_ResetDSP();
+		MIX_Stop();
 		sbStarted = false;
 	}
 }

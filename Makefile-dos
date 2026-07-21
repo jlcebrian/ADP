@@ -11,6 +11,12 @@ EXE = adp$(MODE)test.exe
 !else
 EXE = adp$(MODE).exe
 !endif
+SETUP_EXE = setup.exe
+!ifeq MODE 16
+SETUP_TARGET = $(ROOT)/out/$(SETUP_EXE)
+!else
+SETUP_TARGET =
+!endif
 
 !ifndef OBJBUILD
 
@@ -48,27 +54,40 @@ VERSION_DEF = -DVERSION=\"$(VERSION)\"
 
 CC    = wpp386
 CL    = wcl386
-OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
+OPTS  = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -I=$(ROOT)/src-dos -I=$(ROOT)/src-dos-setup -bt=DOS -mf -zq -zm -xd $(VERSION_DEF)
 OPTS += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DHAS_PCX
+# 32-bit protected mode has the SVGA/2x text mode, so it gets native 16-bit fonts.
+OPTS += -DHAS_HIRES_FONT=1
 OPTIM = -osexanuc -zc -3 -r
 LOPTS = -l=PMODEW
+# Stack budget: keep this tight. Any call chain that needs more than ~16K is an
+# implementation bug (a big local buffer that should be static/heap, or runaway
+# recursion) — see the frame-size report (scripts/dos-stack-report.py) and the
+# DEBUG_ALLOCS stack watermark that flags overshoots.
+STACK_SIZE = 16K
 #OPTIM=-onatx -oh -ei -zp8 -3
 
 !else
 
 CC     = wpp
 CL     = wcl
-OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -bt=DOS -ml -zq -zm $(VERSION_DEF)
+OPTS   = -I=$(ROOT)/include -I=$(ROOT)/include/src-dos -I=$(ROOT)/src-dos -I=$(ROOT)/src-dos-setup -bt=DOS -ml -zq -zm $(VERSION_DEF)
 OPTS  += -D_STDCLIB -DNO_PRINTF -DHAS_XMSG -DHAS_PCX
 OPTIM  = -osexanuc
+# 16-bit large model keeps the stack inside DGROUP (64K cap), so it cannot grow
+# as large; keep the historical size here.
+STACK_SIZE = 12K
 
 !endif
 
+# The DOS renderer never compiles the buffered draw path (ddb_draw.cpp / the
+# HAS_DRAWSTRING attribute helpers are desktop-only), so NO_BUFFERING must be
+# defined for every DOS build, test or not. The test build additionally enables
+# the scripted input / transcript hooks used by the automated fixtures.
 !ifdef DOS_TEST_BUILD
-OPTS += -DDOS_TEST_BUILD
-!else
-OPTS += -DNO_BUFFERING
+OPTS += -DDOS_TEST_BUILD -DHAS_TESTMODE=1
 !endif
+OPTS += -DNO_BUFFERING
 
 !ifdef DOS_DEBUG_BUILD
 OPTS  += -D_DEBUGPRINT -DDEBUG_ALLOCS
@@ -98,6 +117,7 @@ OBJS = 		      &
 	dmg_rleo.obj  &
 	dmg_rleop.obj &
 	dmg_univ.obj  &
+	dmg_audio.obj &
 	dmg_zx0.obj   &
 	os_file.obj   &
 	os_char.obj   &
@@ -113,14 +133,24 @@ OBJS = 		      &
 	vid_ega.obj   &
 	vid_modex.obj &
 	video.obj     &
+	vid_font.obj  &
 	sb.obj        &
+	setup_config.obj &
+	game_modes.obj &
 	timer.obj     &
 	vid_vesa.obj  &
 	player.obj
 
+# Scripted-input / transcript test harness (fixtures), only in the test build
+!ifdef DOS_TEST_BUILD
+OBJS += ddb_test.obj
+!endif
+
+SETUP_OBJS = setup.obj text_ui.obj game_modes.obj setup_config.obj sb.obj dma.obj mixer.obj ddb_data.obj
+
 Debug : all .SYMBOLIC
 Release : all .SYMBOLIC
-all : $(ROOT)/out/$(EXE) .SYMBOLIC
+all : $(ROOT)/out/$(EXE) $(SETUP_TARGET) .SYMBOLIC
 
 clean : .SYMBOLIC
 	@if exist *.obj     @rm *.obj
@@ -131,7 +161,7 @@ $(ROOT)/out/$(EXE): $(OBJS)
 	@if not exist $(ROOT)/out @mkdir $(ROOT)/out
 	@echo OPTION ELIMINATE > objs.lnk
 	@echo OPTION MAP >> objs.lnk
-	@echo OPTION STACK=12K >> objs.lnk
+	@echo OPTION STACK=$(STACK_SIZE) >> objs.lnk
 	@for %i in ($(OBJS)) do @echo FILE %i >> objs.lnk
 	$(CL) $(OPTS) $(OPTIM) $(LOPTS) -fe=$@ @objs.lnk
 !ifndef DOS_DEBUG_BUILD
@@ -140,7 +170,17 @@ $(ROOT)/out/$(EXE): $(OBJS)
 	@find $(ROOT)/tests/dos/ -type d -exec echo cp $@ {} \;
 	@find $(ROOT)/tests/dos/ -type d -exec cp $@ {} \;
 
-.cpp: $(ROOT)/src-common;$(ROOT)/src-dos
+$(ROOT)/out/$(SETUP_EXE): $(SETUP_OBJS)
+	@if not exist $(ROOT)/out @mkdir $(ROOT)/out
+	@echo OPTION ELIMINATE > setup.lnk
+	@echo OPTION STACK=$(STACK_SIZE) >> setup.lnk
+	@for %i in ($(SETUP_OBJS)) do @echo FILE %i >> setup.lnk
+	$(CL) $(OPTS) $(OPTIM) -fe=$@ @setup.lnk
+!ifndef DOS_DEBUG_BUILD
+	upx $@ >/dev/null
+!endif
+
+.cpp: $(ROOT)/src-common;$(ROOT)/src-dos;$(ROOT)/src-dos-setup
 .cpp.obj: .AUTODEPEND
 	$(CC) $(OPTIM) $(OPTS) -fo=$@ $<
 

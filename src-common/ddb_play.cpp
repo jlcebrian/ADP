@@ -202,6 +202,10 @@ static bool GetModeSpecificIntroScreen(DDB_ScreenMode mode, const char** introSc
 		case ScreenMode_EGA:    extension = ".egs"; break;
 		case ScreenMode_CGA:    extension = ".cgs"; break;
 		case ScreenMode_VGA16:  extension = ".vgs"; break;
+		// 256-colour VGA (320x200 Mode-X, DOS only) gets its own screen: the
+		// SVGA .scx / .scr are 640x400 and would overflow the 320x200 buffer.
+		// Never resolved on other platforms, so this costs them no probe.
+		case ScreenMode_VGA:    extension = ".xgs"; break;
 		case ScreenMode_SHiRes: extension = ".scx"; break;
 		default: break;
 	}

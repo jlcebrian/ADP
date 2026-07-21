@@ -88,6 +88,8 @@ CPPFILES := 		\
 	dmg_rleo.cpp	\
 	dmg_rleop.cpp	\
 	dmg_univ.cpp	\
+	dmg_audio.cpp	\
+	vid_font.cpp	\
 	dmg_zx0.cpp	    \
 	dmg.cpp			\
 	os_char.cpp 	\

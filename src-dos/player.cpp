@@ -4,15 +4,21 @@
 #include <ddb_vid.h>
 #if defined(DOS_TEST_BUILD)
 #include <ddb_scr.h>
+#include <ddb_test.h>
+#include <stdlib.h>
 #endif
 #include <os_lib.h>
 #include <os_mem.h>
 #include <os_file.h>
+#include "setup_config.h"
+#include "game_modes.h"
+#include "sb.h"
 
 #include <conio.h>
 #include <string.h>
 
 extern void DOS_InitStackWatermark();
+extern void DOS_GetStackWatermark(uint32_t* usedBytes, uint32_t* totalBytes);
 
 static void error(const char* message)
 {
@@ -58,7 +64,7 @@ static DDB_ScreenMode ParseScreenModeArgument(const char* arg)
 	if (StrIComp(arg, "vga16") == 0)
 		return ScreenMode_VGA16;
 	if (StrIComp(arg, "svga") == 0 || StrIComp(arg, "sga") == 0)
-		return ScreenMode_VGA;
+		return ScreenMode_SHiRes;
 	if (StrIComp(arg, "hires") == 0)
 		return ScreenMode_HiRes;
 	if (StrIComp(arg, "shires") == 0 || StrIComp(arg, "superhires") == 0)
@@ -95,11 +101,13 @@ extern "C" int main (int argc, char**argv)
 	#if defined(DOS_TEST_BUILD)
 	const char* inputFileName = 0;
 	const char* transcriptFileName = 0;
+	int partSelection = 0;
 	#endif
 	DebugPrintf("PLAYER: startup build=%s %s argc=%d\n", __DATE__, __TIME__, argc);
 	DOS_InitStackWatermark();
-	DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy_Configurable);
+	DDB_SetStartupVideoModePolicy(DDB_StartupVideoModePolicy_OverrideOrHighest);
 	DDB_ClearStartupScreenModeOverride();
+	bool modeInCommandLine = false;
 	for (int i = 1; i < argc; i++)
 	{
 		#if defined(DOS_TEST_BUILD)
@@ -113,6 +121,11 @@ extern "C" int main (int argc, char**argv)
 			transcriptFileName = argv[++i];
 			continue;
 		}
+		if ((StrIComp(argv[i], "--part") == 0 || StrIComp(argv[i], "-p") == 0) && i + 1 < argc)
+		{
+			partSelection = atoi(argv[++i]);
+			continue;
+		}
 		#endif
 		DebugPrintf("PLAYER: argv[%d]=%s\n", i, argv[i] != 0 ? argv[i] : "(null)");
 		DDB_ScreenMode mode = ParseScreenModeArgument(argv[i]);
@@ -120,6 +133,7 @@ extern "C" int main (int argc, char**argv)
 		{
 			DebugPrintf("PLAYER: startup video override=%u\n", (unsigned)mode);
 			DDB_SetStartupScreenModeOverride(mode);
+			modeInCommandLine = true;
 			continue;
 		}
 		if (gamePath == 0)
@@ -133,9 +147,42 @@ extern "C" int main (int argc, char**argv)
 		cputs("Warning: unable to change directory\r\n");
 	}
 
+	ADPSetupConfig setup;
+	if (ADPSetup_Load(ADP_SETUP_CONFIG_FILE, &setup))
+	{
+		if (!modeInCommandLine)
+			DDB_SetStartupScreenModeOverride(setup.videoMode);
+		if (setup.soundEnabled)
+		{
+			SB_Configure(setup.sbPort, setup.sbIrq, setup.sbDMA8, setup.sbDMA16);
+			SB_ConfigureOutput(setup.soundMode, setup.sampleRate);
+		}
+		else SB_Disable();
+	}
+	else
+	{
+		// Without ADPSETUP.CFG, the game can still run if the video mode
+		// choice is already settled: either a mode was given in the
+		// command line, or the game data supports a single kind of
+		// graphics. Only ask for SETUP when there is an actual choice.
+		if (!modeInCommandLine)
+		{
+			uint32_t gameModes = Setup_DetectGameVideoModes() & SETUP_SELECTABLE_VIDEO_MODES;
+			if ((gameModes & (gameModes - 1)) != 0)
+			{
+				cputs("This game supports several graphic modes.\r\n"
+				      "Please run SETUP.EXE before starting ADP.\r\n");
+				return 1;
+			}
+		}
+		SB_UseBlasterAutodetect();
+	}
+
 	#if defined(DOS_TEST_BUILD)
 	if (transcriptFileName != 0)
 		DDB_UseTranscriptFile(transcriptFileName);
+	if (partSelection > 0)
+		DDB_TestSetPartSelection(partSelection, 0);
 	if (inputFileName != 0)
 		SCR_UseInputFile(inputFileName);
 	#endif
@@ -144,6 +191,19 @@ extern "C" int main (int argc, char**argv)
 	if (!DDB_RunPlayer())
 		error(DDB_GetErrorString());
 	DebugPrintf("PLAYER: DDB_RunPlayer returned success\n");
+
+	// Stack-overflow detection (debug builds): report peak usage and flag any
+	// overshoot of the budget. A hog here is a bug — see scripts/dos-stack-report.py.
+	uint32_t stackUsed = 0, stackTotal = 0;
+	DOS_GetStackWatermark(&stackUsed, &stackTotal);
+	if (stackTotal != 0)
+	{
+		DebugPrintf("PLAYER: peak stack usage %lu / %lu bytes\n",
+			(unsigned long)stackUsed, (unsigned long)stackTotal);
+		if (stackUsed > 12288)
+			DebugPrintf("PLAYER: *** WARNING: stack usage %lu exceeds the 12K budget "
+				"(hog: scripts/dos-stack-report.py) ***\n", (unsigned long)stackUsed);
+	}
 	return 1;
 }
 

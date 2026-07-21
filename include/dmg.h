@@ -49,6 +49,7 @@ enum DMG_ImageMode
 	ImageMode_Planar8           = 0x25,     // 8-pixel interleaved bitplanes (P0P1P2P3)
 	ImageMode_PlanarFalcon      = 0x26,     // Atari Falcon interleaved words
 	ImageMode_Indexed           = 0x40,		// 1 byte per pixel, regardless of color depth
+	ImageMode_AudioConverted    = 0xFE,		// Cache tag: slot holds playback-ready audio (see dmg_audio.cpp)
 	ImageMode_Raw               = 0xFF,
 	ImageMode_Audio             = 0xFF,
 };
@@ -499,6 +500,25 @@ bool        DMG_Save               (DMG* dmg);
 uint8_t*    DMG_GetEntryData	   (DMG* dmg, uint8_t index, DMG_ImageMode mode);
 uint8_t*    DMG_GetEntryDataNative (DMG* dmg, uint8_t index);
 uint8_t*    DMG_GetEntryDataChunky (DMG* dmg, uint8_t index);
+
+// Playback sink description for DMG_GetEntryAudioConverted. Describes the
+// audio format a given platform's mixer can consume directly.
+struct DMG_AudioTarget
+{
+	uint32_t maxRate;       // Highest sample rate the sink can play; 0 = no cap
+	uint8_t  bitDepth;      // Desired output depth: 8 to downconvert, 16 to accept as-is
+	bool     signedOutput;  // true = signed 8-bit (e.g. Amiga Paula), false = unsigned (SB/ST)
+};
+
+// Returns a pointer to sample data converted to the sink's format, doing the
+// conversion in place inside the entry's reusable cache slot (no per-play
+// allocation). Rate is capped to sink->maxRate by decimation and 16-bit
+// samples are folded to 8-bit as needed. *outLength/*outRate receive the
+// converted byte count and sample rate. Returns 0 on error.
+uint32_t    DMG_AudioRateHz        (int16_t rateCode);
+uint8_t*    DMG_GetEntryAudioConverted (DMG* dmg, uint8_t index,
+                                        const DMG_AudioTarget* sink,
+                                        uint32_t* outLength, uint32_t* outRate);
 
 #if defined(_AMIGA) || defined(_ATARIST) || defined(_DOS)
 uint8_t*    DMG_GetEntryDataPlanar (DMG* dmg, uint8_t index);

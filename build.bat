@@ -97,7 +97,7 @@ SET TRACE=/DTRACE_ON=1
 SET WARNINGS=/W4 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
 SET TOOLOPTS=/Iinclude-tools /Ilib/libpng
 SET OPTS=/Fo:obj\ /Fd:out\ /nologo /MT /Ilib\libpng /Ilib\sdl2\include /Iinclude /D_STDCLIB /DNO_CACHE ^
-	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING /D_DEBUGPRINT /DHAS_PAWS /DHAS_PCX
+	/DHAS_CLIPBOARD /DHAS_FULLSCREEN /DHAS_VIRTUALFILESYSTEM /DHAS_SNAPSHOTS /DHAS_DRAWSTRING /D_DEBUGPRINT /DHAS_PAWS /DHAS_PCX /DHAS_HIRES_FONT=1
 set OPTIM=/Zi /GR- /EHsc /MP8 /FC /GL
 SET LINK=
 
@@ -146,6 +146,7 @@ cl %VERSION% %OPTS% %OPTIM% %TRACE% /Fe:out\ddb.exe ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\scrfile.cpp ^
+	src-common\vid_font.cpp ^
 	src-tools\ddb_writ.cpp ^
 	src-tools\tool_ddb.cpp ^
 	src-sdl\video.cpp ^
@@ -187,6 +188,7 @@ cl %VERSION% %OPTS% %OPTIM% /Fe:out\player.exe /DDEBUG_ALLOCS ^
 	src-common\os_lib.cpp ^
 	src-common\os_mem.cpp ^
 	src-common\scrfile.cpp ^
+	src-common\vid_font.cpp ^
 	src-sdl\player.cpp ^
 	src-sdl\video.cpp ^
 	src-windows\error.cpp ^

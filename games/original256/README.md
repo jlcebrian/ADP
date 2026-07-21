@@ -16,15 +16,24 @@ tools via the top-level makefile if they are missing, then:
 
 1. compiles both game parts with ADPC;
 2. creates the SDL SVGA and Amiga HAM graphics databases with DMG;
-3. packages the Windows, Linux and macOS player directories, a bootable
-   Amiga hard-disk ADF, and (when `emcc` is on the PATH) the emscripten
+3. packages the Windows, Linux and macOS player directories, the bootable
+   two-disk Amiga floppy set (`original256-amiga.zip`, disks 1 and 2), a DOS
+   directory (`release/dos`), and (when `emcc` is on the PATH) the emscripten
    web build.
 
-The Windows and macOS distributables use the prebuilt players committed
+The Windows, macOS and DOS distributables use the prebuilt players committed
 under `daad-ready/dist/ASSETS/`; the Linux player is the canonical binary
 produced by `Makefile-linux`. `make web` builds the web distributable on
 its own and requires an activated emsdk. See the Makefile header for the
 maintenance targets (`inspect`, `ham`, `ham-check`).
+
+The DOS release (`make dos`) is a 386+ build (`ADP.EXE`, 32-bit PMODE/W)
+with the 16-bit `SETUP.EXE` configurator. It ships two graphics databases —
+`part1/2.dat` for 640x400 SVGA (VESA, with the scaled `part1.fnt` font) and
+`part1/2.vga` for 320x200 VGA (Mode-X) — both in the DOS-native INDEXED DAT5
+format (the SDL `data-svga` set's planar8 `.dat` is not DOS-decodable). Because
+the game exposes two graphics modes, the player requires the user to run
+`SETUP.EXE` once before `ADP.EXE` will start.
 
 On Windows, run `build.bat` after building the Win64 ADP tools. It performs
 the same steps for the Windows and Amiga distributables only.

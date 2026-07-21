@@ -10,7 +10,7 @@
 #define MAX_DDB_SIZE	 65536
 // Upper bound for a raw container (disk/tape image) we are willing to read into
 // memory to scan for an embedded DDB (see DDB_Load's carve fallback).
-#define MAX_CONTAINER_SIZE (8*1024*1024)
+#define MAX_CONTAINER_SIZE (8UL*1024UL*1024UL)
 #define MAX_PROC_STACK 	 16
 #define HISTORY_SIZE     1024
 #define UNDO_BUFFER_SIZE 512

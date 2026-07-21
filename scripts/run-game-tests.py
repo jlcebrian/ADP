@@ -559,19 +559,122 @@ def run_host(ddb: Path, games: set[str], inventory: bool, scenario: Path | None,
     return 1 if failures else 0
 
 
-def run_dos(games: set[str]) -> int:
+DOS_SCENARIOS = ROOT / "tests" / "dos"
+
+# Game data extensions copied into a scenario's throwaway run directory. Toolchain
+# binaries, logs and the scenario files themselves are deliberately excluded.
+DOS_DATA_SUFFIXES = (".dat", ".ddb", ".chr", ".scr", ".cfg", ".sna", ".pcx", ".agp", ".fnt")
+
+
+def run_dos_scenario(dosbox: str, test_exe: Path, scenario_path: Path, record: bool) -> bool:
+    """Drive one scripted DOS scenario under dosbox-x headless.
+
+    The player writes its transcript to a file on the mounted drive; dosbox only
+    commits mounted-drive writes to the host when the file is closed, which the
+    player does only on a clean @exit. So a produced, non-empty transcript is
+    itself the clean-exit signal: a crash (extender abort back to the DOS prompt)
+    leaves the handle open and the host file empty, and a hang trips the timeout.
+    """
+    game = scenario_path.parent.name
+    label = f"dos/{game}"
+    scenario = json.loads(scenario_path.read_text(encoding="utf-8"))
+    scenario_dir = scenario_path.parent
+    input_path = scenario_dir / scenario.get("input", "input.txt")
+    expected_path = scenario_dir / scenario.get("transcript", "expected.txt")
+    timeout = int(scenario.get("timeout_seconds", 60))
+    part = scenario.get("part")
+
+    if not input_path.is_file():
+        print(f"FAIL {label}: input script not found: {input_path.relative_to(ROOT)}")
+        return False
+
+    result_dir = RESULTS / "dos" / game
+    if result_dir.exists():
+        shutil.rmtree(result_dir)
+    result_dir.mkdir(parents=True)
+
+    # Assemble an 8.3-friendly run directory: game data + the test player + input.
+    for entry in sorted(scenario_dir.iterdir()):
+        if entry.is_file() and entry.suffix.lower() in DOS_DATA_SUFFIXES:
+            shutil.copy(entry, result_dir / entry.name)
+    shutil.copy(test_exe, result_dir / "ADP.EXE")
+    shutil.copy(input_path, result_dir / "IN.TXT")
+    transcript_out = result_dir / "OUT.TXT"
+
+    player = "ADP.EXE -i IN.TXT -o OUT.TXT"
+    if part is not None:
+        player += f" -p {int(part)}"
+    command = [
+        dosbox, "-conf", os.devnull,
+        "-c", f"mount c {result_dir}", "-c", "c:",
+        "-c", player, "-c", "exit",
+    ]
+    environment = os.environ.copy()
+    environment.setdefault("SDL_VIDEODRIVER", "dummy")
+    environment.setdefault("SDL_AUDIODRIVER", "dummy")
+
+    try:
+        subprocess.run(command, timeout=timeout, env=environment,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        print(f"FAIL {label}: timed out after {timeout}s without a clean @exit (hang)")
+        return False
+
+    if not transcript_out.is_file() or transcript_out.stat().st_size == 0:
+        print(f"FAIL {label}: no transcript produced — the player crashed before a clean exit "
+              f"(run dir: {result_dir.relative_to(ROOT)})")
+        return False
+
+    # Transcript is codepage-850 bytes; latin-1 is a lossless byte<->str mapping,
+    # so comparison is exact against a baseline recorded from the same build.
+    actual = normalize_transcript(transcript_out.read_text(encoding="latin-1"))
+
+    if record:
+        expected_path.write_text(actual, encoding="latin-1")
+        print(f"RECORD {label}: wrote {expected_path.relative_to(ROOT)} ({len(actual)} chars)")
+        return True
+
+    if not expected_path.is_file():
+        print(f"FAIL {label}: transcript baseline not found: {expected_path.relative_to(ROOT)} "
+              f"(create it with RECORD=1)")
+        return False
+
+    expected = normalize_transcript(expected_path.read_text(encoding="latin-1"))
+    if actual != expected:
+        print(f"FAIL {label}: transcript mismatch (actual: {transcript_out.relative_to(ROOT)})")
+        return False
+
+    print(f"PASS {label}")
+    return True
+
+
+def run_dos(games: set[str], record: bool = False) -> int:
     dosbox = shutil.which("dosbox-x")
     if dosbox is None:
         print("SKIP DOS suite: dosbox-x is not installed")
         return 0
-    print("SKIP DOS suite: no DOS scenario fixtures have been added yet")
-    print("Use the dedicated DOS test mode once a DOS-compatible scenario is present.")
-    return 0
+    test_exe = ROOT / "out" / "adp32test.exe"
+    if not test_exe.is_file():
+        print(f"SKIP DOS suite: {test_exe.relative_to(ROOT)} not built "
+              f"(dos-toolchain wmake -h -f Makefile-dos MODE=32 DOS_TEST_BUILD=1)")
+        return 0
+
+    scenarios = sorted(DOS_SCENARIOS.glob("*/scenario.json"))
+    if games:
+        scenarios = [s for s in scenarios if s.parent.name in games]
+    if not scenarios:
+        print("SKIP DOS suite: no scenario.json fixtures under tests/dos/")
+        return 0
+
+    record = record or os.environ.get("RECORD") == "1"
+    failures = sum(not run_dos_scenario(dosbox, test_exe, s, record) for s in scenarios)
+    print(f"DOS scenarios: {len(scenarios) - failures}/{len(scenarios)} passed")
+    return 1 if failures else 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ddb", type=Path, required=True, help="host ddb tool")
+    parser.add_argument("--ddb", type=Path, help="host ddb tool (required for --suite host)")
     parser.add_argument("--suite", choices=("host", "dos"), default="host")
     parser.add_argument("--game", action="append", default=[], help="limit to a fixture game id")
     parser.add_argument("--inventory", action="store_true", help="probe every image instead of manifest baselines")
@@ -585,8 +688,8 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.suite == "dos":
-        return run_dos(set(args.game))
-    if not args.ddb.is_file():
+        return run_dos(set(args.game), record=args.record)
+    if args.ddb is None or not args.ddb.is_file():
         print(f"ddb tool not found: {args.ddb}", file=sys.stderr)
         return 2
     args.ddb = args.ddb.resolve()  # absolute so the tool can run from any cwd

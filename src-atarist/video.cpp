@@ -6,6 +6,7 @@
 #include <ddb_xmsg.h>
 #include <dmg.h>
 #include <dmg_font.h>
+#include <vid_font.h>
 #include <os_char.h>
 #include <os_mem.h>
 
@@ -296,36 +297,9 @@ uint8_t DDB_Char2AtariST[16] =
 };
 #endif
 
-static bool LoadCharset (uint8_t* ptr, const char* filename)
-{
-	File* file = File_Open(filename);
-	if (file == 0)
-	{
-		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
-		return false;
-	}
-	if (File_GetSize(file) != 2176)
-	{
-		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		File_Close(file);
-		return false;
-	}
-	File_Seek(file, 128);
-	File_Read(file, ptr, 2048);
-	File_Close(file);
-	return true;
-}
-
-static bool LoadSINTACFont(const char* filename)
-{
-	DMG_Font font;
-	if (!DMG_ReadSINTACFont(filename, &font))
-		return false;
-
-	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
-	MemCopy(charWidth, font.width8, sizeof(font.width8));
-	return true;
-}
+// Charset/font loading lives in the shared src-common/vid_font.cpp; the ST
+// renderer needs no post-load work, so its VID_ActivateCharset hook is empty.
+void VID_ActivateCharset() {}
 
 #define CONSOLE 0x02
 
@@ -890,10 +864,10 @@ bool VID_LoadDataFile (const char* fileName)
 			return false;
 		}
 	}
-	if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
-		!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+	if (!SCR_LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+		!SCR_LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		// Keep the default fixed-width charset restored above.
 	}
@@ -1433,28 +1407,36 @@ void VID_PlaySample (uint8_t no, int* duration)
 	DMG_Entry* entry = DMG_GetEntry(dmg, no);
 	if (entry == NULL || entry->type != DMGEntry_Audio)
 		return;
-	uint8_t* audioData = DMG_GetEntryDataNative(dmg, no);
+	// The ST plays 8-bit samples at one of six timer rates up to 30 kHz.
+	// Anything higher (44.1/48 kHz DAT5 samples) or 16-bit is folded down to
+	// that ceiling in place by the shared converter, which also fixes the old
+	// behaviour of silently dropping those entries.
+	DMG_AudioTarget sink;
+	sink.maxRate = 30000;
+	sink.bitDepth = 8;
+	sink.signedOutput = false;
+
+	uint32_t sampleBytes;
+	uint32_t sampleHz;
+	uint8_t* audioData = DMG_GetEntryAudioConverted(dmg, no, &sink, &sampleBytes, &sampleHz);
 	if (audioData == 0)
 		return;
 
-	if (entry->x > 5 || entry->x < 0)
-		return;
-	PlaySample(audioData, entry->length, entry->x);
+	int rateCode;
+	switch (sampleHz)
+	{
+		case 5000:  rateCode = DMG_5KHZ;   break;
+		case 7000:  rateCode = DMG_7KHZ;   break;
+		case 9500:  rateCode = DMG_9_5KHZ; break;
+		case 15000: rateCode = DMG_15KHZ;  break;
+		case 20000: rateCode = DMG_20KHZ;  break;
+		case 30000: rateCode = DMG_30KHZ;  break;
+		default:    rateCode = DMG_30KHZ;  break;
+	}
+	PlaySample(audioData, sampleBytes, rateCode);
 
 	if (duration != NULL)
-	{
-		int sampleHz = 30000;
-		switch (entry->x)
-		{
-			case DMG_5KHZ:   sampleHz = 5000; break;
-			case DMG_7KHZ:   sampleHz = 7000; break;
-			case DMG_9_5KHZ: sampleHz = 9500; break;
-			case DMG_15KHZ:  sampleHz = 15000; break;
-			case DMG_20KHZ:  sampleHz = 20000; break;
-			case DMG_30KHZ:  sampleHz = 30000; break;
-		}
-		*duration = entry->length * 1000 / sampleHz;
-	}
+		*duration = sampleBytes * 1000 / sampleHz;
 }
 
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)

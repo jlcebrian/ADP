@@ -14,6 +14,7 @@
 #include <os_file.h>
 #include <dmg.h>
 #include <dmg_font.h>
+#include <vid_font.h>
 
 #include "keyboard.h"
 #include "timer.h"
@@ -721,45 +722,8 @@ void VID_SetCharsetWidth(uint8_t width)
 		charWidth[n] = width;
 }
 
-static bool LoadCharset (uint8_t* ptr, const char* filename)
-{
-	File* file = File_Open(filename);
-	if (file == 0)
-	{
-		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
-		return false;
-	}
-	if (File_GetSize(file) != 2176)
-	{
-		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		File_Close(file);
-		return false;
-	}
-	File_Seek(file, 128);
-	File_Read(file, ptr, 2048);
-	File_Close(file);
-	VID_ActivateCharset();
-	return true;
-}
-
-static bool LoadSINTACFont(const char* filename)
-{
-	DMG_Font* font = Allocate<DMG_Font>("SINTAC Font");
-	if (font == 0)
-		return false;
-
-	if (!DMG_ReadSINTACFont(filename, font))
-	{
-		Free(font);
-		return false;
-	}
-
-	MemCopy(charset, font->bitmap8, sizeof(font->bitmap8));
-	MemCopy(charWidth, font->width8, sizeof(font->width8));
-	Free(font);
-	VID_ActivateCharset();
-	return true;
-}
+// Charset/font loading lives in the shared src-common/vid_font.cpp; it calls
+// VID_ActivateCharset (above) after each load to rebuild the rotation tables.
 
 static uint32_t GetMaxPlanarImageSize(DMG* file)
 {
@@ -1529,12 +1493,12 @@ bool VID_LoadDataFile (const char* fileName)
 
 	DebugPrintf("Loading fonts");
 
-	bool fontLoaded = LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
-		LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
-	if (!fontLoaded && !LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+	bool fontLoaded = SCR_LoadSINTACFont(ChangeExtension(fileName, ".FNT")) ||
+		SCR_LoadSINTACFont(ChangeExtension(fileName, ".fnt"));
+	if (!fontLoaded && !SCR_LoadCharset(charset, ChangeExtension(fileName, ".CH0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".CHR")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		memcpy(charset, DefaultCharset, 1024);
 		memcpy(charset + 1024, DefaultCharset, 1024);
@@ -2108,48 +2072,25 @@ void VID_PlaySample (uint8_t no, int* duration)
 	if (entry == NULL || entry->type != DMGEntry_Audio)
 		return;
 
-	uint8_t* audioDataFromFile = DMG_GetEntryData(dmg, no, ImageMode_Audio);
-	if (audioDataFromFile == 0)
+	// Paula plays signed 8-bit; its highest usable rate is set by the minimum
+	// hardware period (124). The shared converter folds the sample to signed
+	// 8-bit in place inside the reusable cache slot and caps the rate to that
+	// ceiling so high-rate DAT5 samples keep their pitch instead of dragging.
+	DMG_AudioTarget sink;
+	sink.maxRate = (isPAL ? 3546895L : 3579545L) / 124;
+	sink.bitDepth = 8;
+	sink.signedOutput = true;
+
+	uint32_t sampleBytes;
+	uint32_t sampleHz;
+	uint8_t* buffer = DMG_GetEntryAudioConverted(dmg, no, &sink, &sampleBytes, &sampleHz);
+	if (buffer == 0)
 		return;
 
-	uint8_t* buffer = audioDataFromFile;
-	DMG_Cache* cache = DMG_GetImageCache(dmg, no, entry, entry->length);
-	if (cache != 0)
-	{
-		buffer = (uint8_t*)(cache + 1);
-		if (cache->populated == false)
-		{
-			MemCopy(buffer, audioDataFromFile, entry->length);
-			ConvertSample(buffer, entry->length);
-		}
-	}
-	else
-	{
-		// We could play the data from the file cache instead, but
-		// - We may end up converting the sample twice
-		// - It may not be in chip RAM in the future
-		//
-		// So, we're aborting for now. This case should never happen anyway,
-	}
-
-	uint16_t inputHz;
-	switch (entry->x)
-	{
-		case DMG_5KHZ:    inputHz =  5000; break;
-		case DMG_7KHZ:    inputHz =  7000; break;
-		case DMG_9_5KHZ:  inputHz =  9500; break;
-		case DMG_15KHZ:   inputHz = 15000; break;
-		case DMG_20KHZ:   inputHz = 20000; break;
-		case DMG_30KHZ:   inputHz = 30000; break;
-        case DMG_44_1KHZ: inputHz = 44100; break;
-        case DMG_48KHZ:   inputHz = 48000; break;
-		default:          inputHz = 11025; break;
-	}
-
 	if (duration != NULL)
-		*duration = entry->length * 1000 / inputHz;
+		*duration = sampleBytes * 1000 / sampleHz;
 
-	PlaySample(buffer, entry->length, inputHz, 64);
+	PlaySample(buffer, sampleBytes, sampleHz, 64);
 }
 
 void VID_SetWindowTitle(const char* title)

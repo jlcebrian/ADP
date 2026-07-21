@@ -15,12 +15,29 @@ int      mixCounter = 0;
 
 void MIX_PlaySample (uint8_t* buffer, int samples, int hz, int volume)
 {
+	_disable();
 	mixAudioHz = hz;
 	mixVolume = volume;
+	mixCounter = 0;
 	mixAudioEnd = (uint8_t*)buffer + samples;
 	mixAudioPtr = (uint8_t*)buffer;
+	_enable();
 
 	// fprintf(stderr, "Playing sample: %d samples, %d Hz, %d volume\n", samples, hz, v);
+}
+
+bool MIX_IsPlaying(void)
+{
+	return mixAudioPtr != NULL;
+}
+
+void MIX_Stop(void)
+{
+	_disable();
+	mixAudioPtr = NULL;
+	mixAudioEnd = NULL;
+	mixCounter = 0;
+	_enable();
 }
 
 void MIX_StopSampleIfOverlaps(const void* buffer, uint32_t size)
@@ -60,7 +77,12 @@ void MIX_WriteAudio (uint8_t *stream, int len)
 		while (mixCounter > 0)
 		{
 			mixAudioPtr++;
-			if (mixAudioPtr >= mixAudioEnd) return;
+			if (mixAudioPtr >= mixAudioEnd)
+			{
+				mixAudioPtr = NULL;
+				mixAudioEnd = NULL;
+				return;
+			}
 			mixCounter -= sbMixFrequency;
 		}
 	}

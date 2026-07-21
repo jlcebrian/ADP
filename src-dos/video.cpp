@@ -6,6 +6,7 @@
 #include <ddb_scr.h>
 #include <ddb_xmsg.h>
 #include <dmg_font.h>
+#include <vid_font.h>
 #include <os_file.h>
 #include <os_lib.h>
 #include <os_mem.h>
@@ -210,6 +211,11 @@ static void ApplyIBMPCTextMetrics(bool enable2X)
 	screen2XMode = enable2X;
 	for (int n = 0; n < 256; n++)
 		charWidth[n] = defaultCharWidth;
+#if HAS_HIRES_FONT
+	// A metrics change reloads the charset; drop any stale native 16-bit font
+	// until the loader stores a fresh one.
+	charset16Available = false;
+#endif
 }
 
 static bool TryDisplayDOSNativeSCRExact(const char* fileName, DDB_Machine target, bool* handled)
@@ -364,40 +370,38 @@ extern void DOS_GetStackWatermark(uint32_t* usedBytes, uint32_t* totalBytes);
 #define MAX_PATH 256
 #endif
 
-static bool LoadCharset (uint8_t* ptr, const char* filename)
-{
-	File* file = File_Open(filename, ReadOnly);
-	if (file == NULL)
-	{
-		DDB_SetError(DDB_ERROR_FILE_NOT_FOUND);
-		return false;
-	}
-	if (File_GetSize(file) != 2176)
-	{
-		DDB_SetError(DDB_ERROR_INVALID_FILE);
-		File_Close(file);
-		return false;
-	}
-	if (!File_Seek(file, 128) || File_Read(file, ptr, 2048) != 2048)
-	{
-		DDB_SetError(DDB_ERROR_READING_FILE);
-		File_Close(file);
-		return false;
-	}
-	File_Close(file);
-	return true;
-}
+// Charset/font loading lives in the shared src-common/vid_font.cpp; the DOS
+// renderer needs no post-load work, so its VID_ActivateCharset hook is empty.
+void VID_ActivateCharset() {}
 
-static bool LoadSINTACFont(const char* filename)
+#if HAS_HIRES_FONT
+uint8_t charset16[256 * 32];
+bool    charset16Available = false;
+
+// Called by the shared font loader when a 2x mode is active: store native 16-bit
+// V4 glyphs (crisp), or the 8-bit glyphs with 2x-widened advances; return false
+// to let the loader fall back to the plain 8-bit path.
+bool VID_StoreFont2X(const DMG_Font* font, const char* filename)
 {
-	DMG_Font font;
-	if (!DMG_ReadSINTACFont(filename, &font))
+	if (!screen2XMode)
 		return false;
 
-	MemCopy(charset, font.bitmap8, sizeof(font.bitmap8));
-	MemCopy(charWidth, font.width8, sizeof(font.width8));
+	if (DMG_IsSINTACFontV4(filename))
+	{
+		MemCopy(charset16, font->bitmap16, sizeof(font->bitmap16));
+		MemCopy(charWidth, font->width16, sizeof(font->width16));
+		charset16Available = true;
+	}
+	else
+	{
+		MemCopy(charset, font->bitmap8, sizeof(font->bitmap8));
+		for (int n = 0; n < 256; n++)
+			charWidth[n] = (uint8_t)(font->width8[n] * 2);
+		charset16Available = false;
+	}
 	return true;
 }
+#endif
 
 #if HAS_PCX
 static bool FileExists(const char* fileName)
@@ -941,10 +945,10 @@ bool VID_LoadDataFile (const char* fileName)
 		if (HasExternalPCXGraphics(fileName))
 		{
 			columnWidth = 8;
-			if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
-				!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
-				!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
-				!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+			if (!SCR_LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+				!SCR_LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+				!SCR_LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+				!SCR_LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 			{
 				// Keep the default fixed-width charset restored above.
 			}
@@ -958,10 +962,10 @@ bool VID_LoadDataFile (const char* fileName)
 		return false;
 	}
 
-	if (!LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
-		!LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
-		!LoadCharset(charset, ChangeExtension(fileName, ".chr")))
+	if (!SCR_LoadSINTACFont(ChangeExtension(fileName, ".FNT")) &&
+		!SCR_LoadSINTACFont(ChangeExtension(fileName, ".fnt")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".ch0")) &&
+		!SCR_LoadCharset(charset, ChangeExtension(fileName, ".chr")))
 	{
 		// Keep the default fixed-width charset restored above.
 	}
@@ -1711,27 +1715,24 @@ void VID_PlaySample (uint8_t no, int* duration)
 	if (entry == NULL || entry->type != DMGEntry_Audio)
 		return;
 
-	audioData = DMG_GetEntryDataChunky(dmg, no);
-	if (audioData == false)
+	// The SB mixer plays unsigned 8-bit mono and resamples to the output
+	// rate itself, so we only need the sample folded to 8-bit and capped to
+	// the mixer frequency; the shared converter does this in place.
+	DMG_AudioTarget sink;
+	sink.maxRate = sbMixFrequency;
+	sink.bitDepth = 8;
+	sink.signedOutput = false;
+
+	uint32_t sampleBytes;
+	uint32_t sampleHz;
+	audioData = DMG_GetEntryAudioConverted(dmg, no, &sink, &sampleBytes, &sampleHz);
+	if (audioData == 0)
 		return;
 
-	int sampleHz;
-	switch (entry->x)
-	{
-		case DMG_5KHZ:     sampleHz =  5000; break;
-		case DMG_7KHZ:     sampleHz =  7000; break;
-		case DMG_9_5KHZ:   sampleHz =  9500; break;
-		case DMG_15KHZ:    sampleHz = 15000; break;
-		case DMG_20KHZ:    sampleHz = 20000; break;
-		case DMG_30KHZ:    sampleHz = 30000; break;
-        case DMG_44_1KHZ:  sampleHz = 44100; break;
-        case DMG_48KHZ:    sampleHz = 48000; break;
-		default:           sampleHz = 11025; break;
-	}
-	MIX_PlaySample(audioData, entry->length, sampleHz, 256);
+	MIX_PlaySample(audioData, sampleBytes, sampleHz, 256);
 
 	if (duration != NULL)
-		*duration = entry->length * 1000 / sampleHz;
+		*duration = sampleBytes * 1000 / sampleHz;
 }
 
 void VID_PlaySampleBuffer (void* buffer, int samples, int hz, int volume)
@@ -1845,8 +1846,14 @@ bool VID_Initialize(DDB_Machine machine, DDB_Version version, DDB_ScreenMode mod
 		}
 	}
 
-	if (SB_Init(0, 30000))
-		SB_Start();
+	// A sound card failure should never prevent the game from
+	// starting: fall back to running without sound instead.
+	if (SB_InitializeConfigured())
+		if (!SB_Start())
+		{
+			DebugPrintf("DOSVID: SB_Start failed, continuing without sound\n");
+			SB_Exit();
+		}
 
 	Timer_Start();
 

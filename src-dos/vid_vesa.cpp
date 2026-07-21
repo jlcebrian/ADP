@@ -1235,6 +1235,45 @@ static void VESA_DrawCharacter(int x, int y, uint8_t ch, uint8_t ink, uint8_t pa
 	if (width <= 0)
 		return;
 	bool doubleText = lineHeight >= 16;
+
+#if HAS_HIRES_FONT
+	if (doubleText && charset16Available)
+	{
+		// Native 16x16 glyph: no pixel doubling.
+		int hx1 = x, hx2 = x + width;
+		if (hx1 < state->minx) hx1 = state->minx;
+		if (hx2 > state->maxx + 1) hx2 = state->maxx + 1;
+		if (hx2 <= hx1)
+			return;
+		const uint8_t* glyph = charset16 + 32 * ch;
+		bool htransparent = paper == 255;
+		uint8_t hrow[64];
+		for (int cy = 0; cy < 16; cy++)
+		{
+			int py = y + cy;
+			if (py < state->miny || py > state->maxy)
+				continue;
+			int len = hx2 - hx1;
+			if (len > (int)sizeof(hrow))
+				return;
+			uint32_t dst = VESA_Offset(page, hx1, py);
+			if (htransparent)
+				VESA_ReadSpan(hrow, dst, len);
+			else
+				MemSet(hrow, paper, len);
+			uint16_t bits = (uint16_t)(glyph[cy * 2] << 8) | glyph[cy * 2 + 1];
+			for (int px = hx1; px < hx2; px++)
+			{
+				int sx = px - x;
+				if (sx >= 0 && sx < width && (bits & (0x8000 >> sx)) != 0)
+					hrow[px - hx1] = ink;
+			}
+			VESA_WriteSpan(dst, hrow, len);
+		}
+		return;
+	}
+#endif
+
 	int drawHeight = doubleText ? 16 : 8;
 	int sourceWidth = doubleText ? ((width + 1) >> 1) : width;
 	if (sourceWidth <= 0)
@@ -1386,6 +1425,13 @@ static void VESA_DrawTextSpan(int x, int y, const uint8_t* text, uint16_t length
 			fast = false;
 		spanWidth += width;
 	}
+
+#if HAS_HIRES_FONT
+	// The fast span path only knows the 8-bit charset; native 16-bit glyphs go
+	// through the per-character path below.
+	if (charset16Available)
+		fast = false;
+#endif
 
 	if (fast && spanWidth > 0 && spanWidth <= VESA_WIDTH)
 	{
